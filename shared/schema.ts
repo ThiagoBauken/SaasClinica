@@ -14,7 +14,10 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   speciality: text("speciality"),
   active: boolean("active").notNull().default(true),
+  googleId: text("google_id").unique(),
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -26,6 +29,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   phone: true,
   profileImageUrl: true,
   speciality: true,
+  googleId: true,
+  trialEndsAt: true,
+  active: true,
 });
 
 // Patients
