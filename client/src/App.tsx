@@ -10,13 +10,15 @@ import AuthPage from "@/pages/auth-page";
 import PatientsPage from "@/pages/patients-page";
 import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
+import LandingPage from "@/pages/landing-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";
 
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={DashboardPage} />
+      <Route path="/" component={LandingPage} />
+      <ProtectedRoute path="/dashboard" component={DashboardPage} />
       <ProtectedRoute path="/schedule" component={SchedulePage} />
       <ProtectedRoute path="/patients" component={PatientsPage} />
       <ProtectedRoute path="/financial" component={FinancialPage} />

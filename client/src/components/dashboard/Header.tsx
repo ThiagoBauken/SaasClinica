@@ -64,6 +64,19 @@ export default function Header({ user }: HeaderProps) {
         </div>
 
         <div className="flex items-center space-x-4">
+          {user.trialEndsAt && new Date(user.trialEndsAt) > new Date() && (
+            <div className="hidden md:flex items-center mr-2">
+              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">
+                Teste Gratuito
+              </span>
+              <span className="text-sm text-gray-500">
+                Expira em{" "}
+                {Math.ceil((new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}{" "}
+                dias
+              </span>
+            </div>
+          )}
+          
           <Button variant="ghost" size="icon" className="text-neutral-dark hover:bg-neutral-lightest rounded-full">
             <Bell className="h-6 w-6" />
           </Button>
