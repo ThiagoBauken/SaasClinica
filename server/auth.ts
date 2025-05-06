@@ -65,6 +65,48 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        // Hard-coded admin and user accounts for testing
+        if (username === "admin" && password === "admin123") {
+          // Admin account
+          const adminUser: SelectUser = {
+            id: 99999,
+            username: "admin",
+            password: "admin123", // In a real scenario, this would be hashed
+            fullName: "Administrador",
+            email: "admin@dentalsys.com",
+            role: "admin",
+            phone: null,
+            profileImageUrl: null,
+            speciality: null,
+            active: true,
+            googleId: null,
+            trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          return done(null, adminUser);
+        } else if (username === "dentista" && password === "dentista123") {
+          // Dentist account
+          const dentistaUser: SelectUser = {
+            id: 99998,
+            username: "dentista",
+            password: "dentista123", // In a real scenario, this would be hashed
+            fullName: "Dr. Dentista",
+            email: "dentista@dentalsys.com",
+            role: "dentist",
+            phone: null,
+            profileImageUrl: null,
+            speciality: "Clínico Geral",
+            active: true,
+            googleId: null,
+            trialEndsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          return done(null, dentistaUser);
+        }
+        
+        // Fall back to database authentication if not a hard-coded account
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
@@ -139,10 +181,27 @@ export function setupAuth(app: Express) {
     );
   }
 
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
+  passport.serializeUser((user, done) => {
+    // Special handling for our fixed test users
+    if (user.id === 99999 || user.id === 99998) {
+      // For fixed users, store the entire user object in the session
+      done(null, JSON.stringify(user));
+    } else {
+      // For regular users, just store the ID
+      done(null, user.id);
+    }
+  });
+  
+  passport.deserializeUser(async (data: string | number, done) => {
     try {
-      const user = await storage.getUser(id);
+      if (typeof data === 'string' && (data.includes('"id":99999') || data.includes('"id":99998'))) {
+        // This is one of our fixed users, parse it back from JSON
+        const user = JSON.parse(data);
+        return done(null, user);
+      }
+      
+      // Regular user, fetch from database
+      const user = await storage.getUser(data as number);
       done(null, user);
     } catch (error) {
       done(error);
