@@ -1,10 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, DatabaseStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { parse, formatISO, addDays } from "date-fns";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize database with seed data if needed
+  if (storage instanceof DatabaseStorage) {
+    await storage.seedInitialData();
+  }
+  
   // Set up authentication routes
   setupAuth(app);
 

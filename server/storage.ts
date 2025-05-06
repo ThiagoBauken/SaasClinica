@@ -3,7 +3,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
 import { db, pool } from "./db";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, count } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
@@ -564,4 +564,506 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.SessionStore;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      pool,
+      createTableIfMissing: true 
+    });
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        active: true,
+        createdAt: new Date(),
+      })
+      .returning();
+    return user;
+  }
+
+  // Patient methods
+  async getPatients(): Promise<Patient[]> {
+    return db.select().from(patients);
+  }
+
+  async getPatient(id: number): Promise<Patient | undefined> {
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    return patient || undefined;
+  }
+
+  async createPatient(patientData: any): Promise<Patient> {
+    const [patient] = await db
+      .insert(patients)
+      .values({
+        ...patientData,
+        createdAt: new Date(),
+      })
+      .returning();
+    return patient;
+  }
+
+  async updatePatient(id: number, data: any): Promise<Patient> {
+    const [updatedPatient] = await db
+      .update(patients)
+      .set(data)
+      .where(eq(patients.id, id))
+      .returning();
+    
+    if (!updatedPatient) {
+      throw new Error("Patient not found");
+    }
+    
+    return updatedPatient;
+  }
+
+  // Appointment methods
+  async getAppointments(filters?: AppointmentFilters): Promise<any[]> {
+    let query = db.select().from(appointments);
+    
+    // Apply filters
+    if (filters) {
+      let conditions = [];
+      
+      if (filters.startDate) {
+        conditions.push(gte(appointments.startTime, filters.startDate));
+      }
+      
+      if (filters.endDate) {
+        conditions.push(lt(appointments.startTime, filters.endDate));
+      }
+      
+      if (filters.professionalId !== undefined) {
+        conditions.push(eq(appointments.professionalId, filters.professionalId));
+      }
+      
+      if (filters.patientId !== undefined) {
+        conditions.push(eq(appointments.patientId, filters.patientId));
+      }
+      
+      if (filters.status) {
+        conditions.push(eq(appointments.status, filters.status));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+    
+    const appointmentsList = await query;
+    
+    // Enrich with related data
+    const enrichedAppointments = await Promise.all(
+      appointmentsList.map(async (appointment) => {
+        // Get patient info
+        let patient;
+        if (appointment.patientId) {
+          const [patientData] = await db
+            .select({
+              id: patients.id,
+              fullName: patients.fullName,
+              phone: patients.phone,
+            })
+            .from(patients)
+            .where(eq(patients.id, appointment.patientId));
+          patient = patientData;
+        }
+        
+        // Get professional info
+        let professional;
+        if (appointment.professionalId) {
+          const [professionalData] = await db
+            .select({
+              id: users.id,
+              fullName: users.fullName,
+              speciality: users.speciality,
+            })
+            .from(users)
+            .where(eq(users.id, appointment.professionalId));
+          professional = professionalData;
+        }
+        
+        // Get room info
+        let room;
+        if (appointment.roomId) {
+          const [roomData] = await db
+            .select({
+              id: rooms.id,
+              name: rooms.name,
+            })
+            .from(rooms)
+            .where(eq(rooms.id, appointment.roomId));
+          room = roomData;
+        }
+        
+        // Get procedures for this appointment
+        const appointmentProceduresList = await db
+          .select()
+          .from(appointmentProcedures)
+          .where(eq(appointmentProcedures.appointmentId, appointment.id));
+        
+        const proceduresList = await Promise.all(
+          appointmentProceduresList.map(async (ap) => {
+            const [procedure] = await db
+              .select()
+              .from(procedures)
+              .where(eq(procedures.id, ap.procedureId));
+            return procedure;
+          })
+        );
+        
+        return {
+          ...appointment,
+          patient,
+          professional,
+          room,
+          procedures: proceduresList.filter(Boolean),
+        };
+      })
+    );
+    
+    return enrichedAppointments;
+  }
+
+  async getAppointment(id: number): Promise<any | undefined> {
+    const [appointment] = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, id));
+    
+    if (!appointment) return undefined;
+    
+    // Enrich with related data (patient, professional, room, procedures)
+    // Get patient info
+    let patient;
+    if (appointment.patientId) {
+      const [patientData] = await db
+        .select({
+          id: patients.id,
+          fullName: patients.fullName,
+          phone: patients.phone,
+        })
+        .from(patients)
+        .where(eq(patients.id, appointment.patientId));
+      patient = patientData;
+    }
+    
+    // Get professional info
+    let professional;
+    if (appointment.professionalId) {
+      const [professionalData] = await db
+        .select({
+          id: users.id,
+          fullName: users.fullName,
+          speciality: users.speciality,
+        })
+        .from(users)
+        .where(eq(users.id, appointment.professionalId));
+      professional = professionalData;
+    }
+    
+    // Get room info
+    let room;
+    if (appointment.roomId) {
+      const [roomData] = await db
+        .select({
+          id: rooms.id,
+          name: rooms.name,
+        })
+        .from(rooms)
+        .where(eq(rooms.id, appointment.roomId));
+      room = roomData;
+    }
+    
+    // Get procedures for this appointment
+    const appointmentProceduresList = await db
+      .select()
+      .from(appointmentProcedures)
+      .where(eq(appointmentProcedures.appointmentId, appointment.id));
+    
+    const proceduresList = await Promise.all(
+      appointmentProceduresList.map(async (ap) => {
+        const [procedure] = await db
+          .select()
+          .from(procedures)
+          .where(eq(procedures.id, ap.procedureId));
+        return procedure;
+      })
+    );
+    
+    return {
+      ...appointment,
+      patient,
+      professional,
+      room,
+      procedures: proceduresList.filter(Boolean),
+    };
+  }
+
+  async createAppointment(appointmentData: any): Promise<any> {
+    // Extract procedures to create appointment procedures
+    const procedures = appointmentData.procedures || [];
+    delete appointmentData.procedures;
+    
+    // Insert appointment
+    const [appointment] = await db
+      .insert(appointments)
+      .values({
+        ...appointmentData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    
+    // Create appointment procedures
+    for (const proc of procedures) {
+      await db
+        .insert(appointmentProcedures)
+        .values({
+          appointmentId: appointment.id,
+          procedureId: proc.id,
+          quantity: 1,
+          price: proc.price,
+          notes: "",
+        });
+    }
+    
+    return this.getAppointment(appointment.id);
+  }
+
+  async updateAppointment(id: number, data: any): Promise<any> {
+    // Extract procedures to update appointment procedures
+    const procedures = data.procedures;
+    delete data.procedures;
+    
+    // Update appointment
+    const [updatedAppointment] = await db
+      .update(appointments)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(appointments.id, id))
+      .returning();
+    
+    if (!updatedAppointment) {
+      throw new Error("Appointment not found");
+    }
+    
+    // Update appointment procedures if provided
+    if (procedures) {
+      // Remove existing procedures
+      await db
+        .delete(appointmentProcedures)
+        .where(eq(appointmentProcedures.appointmentId, id));
+      
+      // Add new procedures
+      for (const proc of procedures) {
+        await db
+          .insert(appointmentProcedures)
+          .values({
+            appointmentId: id,
+            procedureId: proc.id,
+            quantity: 1,
+            price: proc.price,
+            notes: "",
+          });
+      }
+    }
+    
+    return this.getAppointment(id);
+  }
+
+  // Professional methods
+  async getProfessionals(): Promise<User[]> {
+    return db
+      .select()
+      .from(users)
+      .where(eq(users.role, "dentist"));
+  }
+
+  // Room methods
+  async getRooms(): Promise<Room[]> {
+    return db.select().from(rooms);
+  }
+
+  // Procedures
+  async getProcedures(): Promise<Procedure[]> {
+    return db.select().from(procedures);
+  }
+
+  // Patient records
+  async getPatientRecords(patientId: number): Promise<PatientRecord[]> {
+    return db
+      .select()
+      .from(patientRecords)
+      .where(eq(patientRecords.patientId, patientId));
+  }
+
+  async createPatientRecord(data: any): Promise<PatientRecord> {
+    const [record] = await db
+      .insert(patientRecords)
+      .values({
+        ...data,
+        createdAt: new Date(),
+      })
+      .returning();
+    return record;
+  }
+
+  // Odontogram
+  async getOdontogramEntries(patientId: number): Promise<OdontogramEntry[]> {
+    return db
+      .select()
+      .from(odontogramEntries)
+      .where(eq(odontogramEntries.patientId, patientId));
+  }
+
+  async createOdontogramEntry(data: any): Promise<OdontogramEntry> {
+    const [entry] = await db
+      .insert(odontogramEntries)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return entry;
+  }
+
+  // Automations
+  async getAutomations(): Promise<Automation[]> {
+    return db.select().from(automations);
+  }
+
+  async createAutomation(data: any): Promise<Automation> {
+    const [automation] = await db
+      .insert(automations)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return automation;
+  }
+
+  async updateAutomation(id: number, data: any): Promise<Automation> {
+    const [updatedAutomation] = await db
+      .update(automations)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(automations.id, id))
+      .returning();
+    
+    if (!updatedAutomation) {
+      throw new Error("Automation not found");
+    }
+    
+    return updatedAutomation;
+  }
+
+  async deleteAutomation(id: number): Promise<void> {
+    await db
+      .delete(automations)
+      .where(eq(automations.id, id));
+  }
+
+  // Financial transactions
+  async getTransactions(): Promise<Transaction[]> {
+    // Note: Transactions are currently handled in-memory
+    // This will need to be implemented when we add a transactions table to the schema
+    return [];
+  }
+
+  async createTransaction(transaction: any): Promise<Transaction> {
+    // Note: Transactions are currently handled in-memory
+    // This will need to be implemented when we add a transactions table to the schema
+    throw new Error("Method not implemented with database storage");
+  }
+
+  // Helper methods to seed initial data
+  async seedInitialData() {
+    // Check if we have any users
+    const userCount = await db.select({ count: count() }).from(users);
+    
+    if (userCount[0].count === 0) {
+      // Create admin user
+      await this.createUser({
+        username: "admin",
+        password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: admin123
+        fullName: "Administrador",
+        email: "admin@dentalclinic.com",
+        role: "admin",
+        speciality: "Administração",
+      });
+      
+      // Create dentist user
+      await this.createUser({
+        username: "dentista",
+        password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: dentista123
+        fullName: "Dr. Ana Silva",
+        email: "ana.silva@dentalclinic.com",
+        role: "dentist",
+        speciality: "Clínico Geral",
+      });
+      
+      // Create rooms
+      const room1 = await db
+        .insert(rooms)
+        .values({ name: "Sala 01", description: "Consultório principal", active: true })
+        .returning();
+      
+      const room2 = await db
+        .insert(rooms)
+        .values({ name: "Sala 02", description: "Consultório secundário", active: true })
+        .returning();
+      
+      const room3 = await db
+        .insert(rooms)
+        .values({ name: "Sala 03", description: "Sala de procedimentos", active: true })
+        .returning();
+      
+      // Create procedures
+      await db
+        .insert(procedures)
+        .values({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2" });
+      
+      await db
+        .insert(procedures)
+        .values({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047" });
+      
+      await db
+        .insert(procedures)
+        .values({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722" });
+      
+      await db
+        .insert(procedures)
+        .values({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0" });
+      
+      await db
+        .insert(procedures)
+        .values({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336" });
+    }
+  }
+}
+
+// Use DatabaseStorage with PostgreSQL
+export const storage = new DatabaseStorage();
