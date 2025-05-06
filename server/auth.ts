@@ -65,45 +65,14 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        // Hard-coded admin and user accounts for testing
-        if (username === "admin" && password === "admin123") {
-          // Admin account
-          const adminUser: SelectUser = {
-            id: 99999,
-            username: "admin",
-            password: "admin123", // In a real scenario, this would be hashed
-            fullName: "Administrador",
-            email: "admin@dentalsys.com",
-            role: "admin",
-            phone: null,
-            profileImageUrl: null,
-            speciality: null,
-            active: true,
-            googleId: null,
-            trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-            createdAt: new Date(),
-            updatedAt: new Date()
-          };
-          return done(null, adminUser);
-        } else if (username === "dentista" && password === "dentista123") {
-          // Dentist account
-          const dentistaUser: SelectUser = {
-            id: 99998,
-            username: "dentista",
-            password: "dentista123", // In a real scenario, this would be hashed
-            fullName: "Dr. Dentista",
-            email: "dentista@dentalsys.com",
-            role: "dentist",
-            phone: null,
-            profileImageUrl: null,
-            speciality: "Clínico Geral",
-            active: true,
-            googleId: null,
-            trialEndsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-            createdAt: new Date(),
-            updatedAt: new Date()
-          };
-          return done(null, dentistaUser);
+        // Import hardcoded users
+        const { fixedUsers } = await import('./hardcodedUsers');
+        
+        // Check for hardcoded users first (easier debugging)
+        const fixedUser = fixedUsers.find(u => u.username === username && u.password === password);
+        if (fixedUser) {
+          console.log("Login com usuário fixo:", fixedUser.username);
+          return done(null, fixedUser);
         }
         
         // Fall back to database authentication if not a hard-coded account
@@ -114,6 +83,7 @@ export function setupAuth(app: Express) {
           return done(null, user);
         }
       } catch (error) {
+        console.error("Erro na estratégia de login:", error);
         return done(error);
       }
     }),

@@ -10,6 +10,13 @@ export function ProtectedRoute({
   component: () => React.JSX.Element;
 }) {
   const { user, isLoading } = useAuth();
+  
+  // Modo de desenvolvimento - para bypass de autenticação
+  const BYPASS_AUTH = true; // Remova ou defina como false em produção
+  
+  if (BYPASS_AUTH) {
+    return <Route path={path} component={Component} />;
+  }
 
   return (
     <Route path={path}>
