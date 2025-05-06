@@ -137,6 +137,28 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
+    // Create admin user
+    this.createUser({
+      username: "admin",
+      password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: admin123
+      fullName: "Administrador",
+      email: "admin@dentalclinic.com",
+      role: "admin",
+      speciality: "Administração",
+      active: true
+    });
+    
+    // Create dentist user
+    this.createUser({
+      username: "dentista",
+      password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: dentista123
+      fullName: "Dr. Ana Silva",
+      email: "ana.silva@dentalclinic.com",
+      role: "dentist",
+      speciality: "Clínico Geral",
+      active: true
+    });
+    
     // Create rooms
     const room1 = this.createRoom({ name: "Sala 01", description: "Consultório principal", active: true });
     const room2 = this.createRoom({ name: "Sala 02", description: "Consultório secundário", active: true });
