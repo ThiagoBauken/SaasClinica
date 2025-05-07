@@ -30,27 +30,9 @@ export default function Header({ user }: HeaderProps) {
     <header className="bg-white border-b border-neutral-light shadow-sm">
       <div className="container mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/" className="text-primary font-bold text-2xl">
+          <Link href="/dashboard" className="text-primary font-bold text-2xl">
             DentCare
           </Link>
-
-          <div className="ml-8 hidden md:flex space-x-4">
-            <Link href="/" className={`text-neutral-dark font-medium px-3 py-2 rounded-md hover:bg-neutral-lightest ${location.pathname === "/" ? "text-primary border-b-2 border-primary" : ""}`}>
-              Dashboard
-            </Link>
-            <Link href="/schedule" className={`text-neutral-dark font-medium px-3 py-2 rounded-md hover:bg-neutral-lightest ${location.pathname === "/schedule" ? "text-primary border-b-2 border-primary" : ""}`}>
-              Agenda
-            </Link>
-            <Link href="/patients" className={`text-neutral-dark font-medium px-3 py-2 rounded-md hover:bg-neutral-lightest ${location.pathname === "/patients" ? "text-primary border-b-2 border-primary" : ""}`}>
-              Pacientes
-            </Link>
-            <Link href="/financial" className={`text-neutral-dark font-medium px-3 py-2 rounded-md hover:bg-neutral-lightest ${location.pathname === "/financial" ? "text-primary border-b-2 border-primary" : ""}`}>
-              Financeiro
-            </Link>
-            <Link href="/automation" className={`text-neutral-dark font-medium px-3 py-2 rounded-md hover:bg-neutral-lightest ${location.pathname === "/automation" ? "text-primary border-b-2 border-primary" : ""}`}>
-              Automações
-            </Link>
-          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -94,26 +76,7 @@ export default function Header({ user }: HeaderProps) {
         </div>
       </div>
       
-      {/* Mobile menu */}
-      <div className={`md:hidden ${mobileMenuOpen ? "block" : "hidden"}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1">
-          <Link href="/" className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === "/" ? "text-primary bg-neutral-lightest" : "text-neutral-dark"}`}>
-            Dashboard
-          </Link>
-          <Link href="/schedule" className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === "/schedule" ? "text-primary bg-neutral-lightest" : "text-neutral-dark"}`}>
-            Agenda
-          </Link>
-          <Link href="/patients" className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === "/patients" ? "text-primary bg-neutral-lightest" : "text-neutral-dark"}`}>
-            Pacientes
-          </Link>
-          <Link href="/financial" className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === "/financial" ? "text-primary bg-neutral-lightest" : "text-neutral-dark"}`}>
-            Financeiro
-          </Link>
-          <Link href="/automation" className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === "/automation" ? "text-primary bg-neutral-lightest" : "text-neutral-dark"}`}>
-            Automações
-          </Link>
-        </div>
-      </div>
+      {/* Em dispositivos móveis, não exibimos menu no header pois já existe no sidebar */}
     </header>
   );
 }
