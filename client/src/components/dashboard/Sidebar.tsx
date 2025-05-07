@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, LayoutDashboard, Calendar, Users, DollarSign, Bot } from "lucide-react";
+import { Search, LayoutDashboard, Calendar, Users, DollarSign, Bot, Scissors } from "lucide-react";
 
 interface SidebarProps {
   currentPath: string;
@@ -61,6 +61,10 @@ export default function Sidebar({ currentPath }: SidebarProps) {
         <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
           <Bot className="mr-3 h-5 w-5" />
           Automações
+        </Link>
+        <Link href="/prosthetics" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthetics" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+          <Scissors className="mr-3 h-5 w-5" />
+          Controle de Próteses
         </Link>
       </nav>
     </div>

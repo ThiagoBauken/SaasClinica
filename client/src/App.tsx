@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import PatientsPage from "@/pages/patients-page";
 import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
+import ProstheticsPage from "@/pages/prosthetics-page";
 import LandingPage from "@/pages/landing-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/patients" component={PatientsPage} />
       <Route path="/financial" component={FinancialPage} />
       <Route path="/automation" component={AutomationPage} />
+      <Route path="/prosthetics" component={ProstheticsPage} />
       
       {/* Rota de autenticação */}
       <Route path="/auth" component={AuthPage} />
