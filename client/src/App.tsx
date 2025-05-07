@@ -17,13 +17,20 @@ import { AuthProvider } from "./hooks/use-auth";
 function Router() {
   return (
     <Switch>
+      {/* Rota principal leva para landing page */}
       <Route path="/" component={LandingPage} />
-      <ProtectedRoute path="/dashboard" component={DashboardPage} />
-      <ProtectedRoute path="/schedule" component={SchedulePage} />
-      <ProtectedRoute path="/patients" component={PatientsPage} />
-      <ProtectedRoute path="/financial" component={FinancialPage} />
-      <ProtectedRoute path="/automation" component={AutomationPage} />
+      
+      {/* Rotas do painel - todas acessíveis diretamente sem proteção */}
+      <Route path="/dashboard" component={DashboardPage} />
+      <Route path="/schedule" component={SchedulePage} />
+      <Route path="/patients" component={PatientsPage} />
+      <Route path="/financial" component={FinancialPage} />
+      <Route path="/automation" component={AutomationPage} />
+      
+      {/* Rota de autenticação */}
       <Route path="/auth" component={AuthPage} />
+      
+      {/* Rota para casos não encontrados */}
       <Route component={NotFound} />
     </Switch>
   );

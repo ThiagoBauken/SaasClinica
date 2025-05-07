@@ -18,7 +18,7 @@ export default function LandingPage() {
             </div>
             <div className="space-x-4">
               {user ? (
-                <Link href="/">
+                <Link href="/dashboard">
                   <Button variant="outline" className="bg-white text-blue-700 hover:bg-gray-100">
                     Acessar Sistema
                   </Button>

@@ -44,8 +44,8 @@ export default function AuthPage() {
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
-      password: "",
+      username: "admin", // Preenchido com admin para facilitar o acesso
+      password: "admin123", // Preenchido com admin123 para facilitar o acesso
     },
   });
 
@@ -75,7 +75,7 @@ export default function AuthPage() {
 
   // Redirect if already logged in
   if (user) {
-    return <Redirect to="/" />;
+    return <Redirect to="/dashboard" />;
   }
 
   return (
