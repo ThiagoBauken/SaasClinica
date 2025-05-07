@@ -1027,20 +1027,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAutomation(id: number, data: any): Promise<Automation> {
-    const [updatedAutomation] = await db
-      .update(automations)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(automations.id, id))
-      .returning();
-    
-    if (!updatedAutomation) {
-      throw new Error("Automation not found");
+    try {
+      // Verificar se a automação existe antes de tentar atualizar
+      const [existingAutomation] = await db
+        .select()
+        .from(automations)
+        .where(eq(automations.id, id));
+        
+      if (!existingAutomation) {
+        throw new Error("Automation not found");
+      }
+      
+      // Preparar dados de atualização garantindo formato correto da data
+      const updateData = { ...data };
+      if (data.updatedAt === undefined) {
+        updateData.updatedAt = new Date();
+      }
+      
+      const [updatedAutomation] = await db
+        .update(automations)
+        .set(updateData)
+        .where(eq(automations.id, id))
+        .returning();
+      
+      return updatedAutomation;
+    } catch (error) {
+      console.error("Error updating automation:", error);
+      throw error;
     }
-    
-    return updatedAutomation;
   }
 
   async deleteAutomation(id: number): Promise<void> {
