@@ -47,7 +47,7 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
   };
 
   return (
-    <div className="border-l border-border bg-card w-64 h-full overflow-y-auto p-4">
+    <div className="border border-border bg-card w-64 min-h-[calc(100vh-180px)] overflow-y-auto p-4 rounded-md shadow-sm">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-foreground mb-2">Calendário</h2>
         

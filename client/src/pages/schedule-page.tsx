@@ -3,6 +3,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import TimelineView from "@/components/calendar/TimelineView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
+import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
@@ -350,6 +351,13 @@ export default function SchedulePage() {
     setSelectedSlotInfo(null);
   };
 
+  // Controla o filtro de agendamentos
+  const handleFilterChange = (filters: any) => {
+    // Aplicação de filtros no agendamento
+    console.log("Filtros aplicados:", filters);
+    // Aqui aplicaríamos os filtros nos dados de agendamento
+  };
+
   return (
     <DashboardLayout title="" currentPath="/schedule">
       <CalendarHeader 
@@ -361,24 +369,31 @@ export default function SchedulePage() {
         professionalsSummary={professionalsSummary}
       />
 
-      {isLoadingProfessionals || isLoadingAppointments ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <>
-          {currentView === 'timeline' && professionals && (
-            <TimelineView
-              date={selectedDate}
-              professionals={professionals}
-              timeSlots={timeSlots}
-              onSlotClick={handleSlotClick}
-              onAppointmentClick={handleOpenAppointment}
-            />
+      <div className="flex mt-4 gap-4">
+        <div className="flex-1 bg-card rounded-md p-2 shadow-sm">
+          {isLoadingProfessionals || isLoadingAppointments ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              {currentView === 'timeline' && professionals && (
+                <TimelineView
+                  date={selectedDate}
+                  professionals={professionals}
+                  timeSlots={timeSlots}
+                  onSlotClick={handleSlotClick}
+                  onAppointmentClick={handleOpenAppointment}
+                />
+              )}
+              {/* Other view types would be implemented here */}
+            </>
           )}
-          {/* Other view types would be implemented here */}
-        </>
-      )}
+        </div>
+        
+        {/* Calendário e filtros à direita */}
+        <ScheduleSidebar onFilterChange={handleFilterChange} />
+      </div>
 
       <AppointmentModal 
         isOpen={isAppointmentModalOpen}
