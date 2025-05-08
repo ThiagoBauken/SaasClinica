@@ -7,7 +7,7 @@ interface LoadIndicatorProps {
 
 export default function LoadIndicator({ status, percentage }: LoadIndicatorProps) {
   return (
-    <div className="w-full h-2 bg-neutral-light rounded-full overflow-hidden">
+    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
       <div 
         className={cn(
           "load-indicator h-full", 

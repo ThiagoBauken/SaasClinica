@@ -60,14 +60,14 @@ export default function CalendarHeader({
     <div className="mb-6">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-dark">Agenda</h1>
-          <p className="text-neutral-medium">{format(selectedDate, "d 'de' MMMM, yyyy", { locale: ptBR })}</p>
+          <h1 className="text-2xl font-bold">Agenda</h1>
+          <p className="text-muted-foreground">{format(selectedDate, "d 'de' MMMM, yyyy", { locale: ptBR })}</p>
         </div>
         
         <div className="flex space-x-2">
           <Button 
             variant="default" 
-            className="bg-primary text-white shadow-sm hover:bg-primary-dark"
+            className="shadow-sm"
             onClick={onNewAppointment}
           >
             <Plus className="h-5 w-5 mr-1" />
@@ -76,7 +76,7 @@ export default function CalendarHeader({
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="bg-white border border-neutral-light shadow-sm hover:bg-neutral-lightest">
+              <Button variant="outline" className="shadow-sm">
                 {getViewDisplayName(currentView)}
                 <ChevronsDown className="h-5 w-5 ml-2" />
               </Button>
@@ -97,26 +97,26 @@ export default function CalendarHeader({
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <div className="flex border border-neutral-light rounded-md overflow-hidden shadow-sm">
+          <div className="flex border rounded-md overflow-hidden shadow-sm">
             <Button
               variant="ghost"
-              className="bg-white px-3 py-2 hover:bg-neutral-lightest"
+              className="px-3 py-2"
               onClick={handlePreviousDay}
             >
-              <ChevronLeft className="h-5 w-5 text-neutral-dark" />
+              <ChevronLeft className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
-              className="bg-white px-3 py-2 hover:bg-neutral-lightest"
+              className="px-3 py-2"
               onClick={handleNextDay}
             >
-              <ChevronRight className="h-5 w-5 text-neutral-dark" />
+              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
           
           <Button
             variant="outline"
-            className="bg-white border border-neutral-light shadow-sm hover:bg-neutral-lightest"
+            className="shadow-sm"
             onClick={handleToday}
           >
             Hoje
@@ -127,7 +127,7 @@ export default function CalendarHeader({
       {/* Load indicators summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         {professionalsSummary.map((prof) => (
-          <div key={prof.id} className="bg-white p-4 rounded-lg shadow-sm border border-neutral-light">
+          <div key={prof.id} className="bg-card p-4 rounded-lg shadow-sm border">
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center">
                 <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
@@ -138,14 +138,14 @@ export default function CalendarHeader({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="h-full w-full bg-primary text-white flex items-center justify-center">
+                    <div className="h-full w-full bg-primary text-primary-foreground flex items-center justify-center">
                       {prof.fullName.substring(0, 2).toUpperCase()}
                     </div>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-semibold">{prof.fullName}</h3>
-                  <p className="text-xs text-neutral-medium">
+                  <h3 className="font-semibold text-foreground">{prof.fullName}</h3>
+                  <p className="text-xs text-muted-foreground">
                     {prof.speciality || "Dentista"} 
                     {prof.roomName && ` - ${prof.roomName}`}
                   </p>

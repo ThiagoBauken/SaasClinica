@@ -81,7 +81,7 @@ export default function TimelineView({
   return (
     <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
       {/* Time header */}
-      <div className="flex border-b">
+      <div className="flex border-b dark:bg-muted/50">
         <div className="w-20 py-2 px-3 text-center text-sm font-medium text-muted-foreground border-r">
           Horário
         </div>
@@ -99,8 +99,8 @@ export default function TimelineView({
       {/* Timeline slots */}
       <div className="relative" style={{ height: '650px', overflowY: 'auto' }}>
         {timeSlots.map((slot, index) => (
-          <div key={index} className="flex border-b h-20">
-            <div className="w-20 py-2 px-3 text-center text-sm text-muted-foreground border-r flex items-center justify-center">
+          <div key={index} className="flex border-b h-20 dark:border-b-muted">
+            <div className="w-20 py-2 px-3 text-center text-sm text-muted-foreground border-r dark:border-r-muted dark:bg-muted/20 flex items-center justify-center">
               {slot.time}
             </div>
             
@@ -109,7 +109,7 @@ export default function TimelineView({
               return (
                 <div 
                   key={prof.id} 
-                  className="flex-1 border-r last:border-r-0 p-1 relative"
+                  className="flex-1 border-r dark:border-r-muted last:border-r-0 p-1 relative"
                 >
                   <div 
                     className="absolute inset-0 hover:bg-muted opacity-0 hover:opacity-25 cursor-pointer"
