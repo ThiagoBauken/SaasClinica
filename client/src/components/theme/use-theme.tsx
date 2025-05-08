@@ -1,19 +1,12 @@
-import { useTheme as useNextTheme } from "next-themes";
+import { useContext } from "react";
+import { ThemeProviderContext } from "./theme-provider";
 
 export const useTheme = () => {
-  const { theme, setTheme, resolvedTheme } = useNextTheme();
+  const context = useContext(ThemeProviderContext);
   
-  // O tema pode ser "light", "dark" ou "system"
-  const toggleTheme = () => {
-    setTheme(theme === "dark" || resolvedTheme === "dark" ? "light" : "dark");
-  };
+  if (context === undefined) {
+    throw new Error("useTheme must be used within a ThemeProvider");
+  }
   
-  return {
-    theme,
-    setTheme,
-    resolvedTheme,
-    toggleTheme,
-    isDark: theme === "dark" || resolvedTheme === "dark",
-    isLight: theme === "light" || resolvedTheme === "light"
-  };
+  return context;
 };

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 interface HeaderProps {
   user: User;
@@ -27,7 +28,7 @@ export default function Header({ user }: HeaderProps) {
   };
 
   return (
-    <header className="bg-white border-b border-neutral-light shadow-sm">
+    <header className="bg-background border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center">
           <Link href="/dashboard" className="text-primary font-bold text-2xl">
@@ -52,6 +53,8 @@ export default function Header({ user }: HeaderProps) {
           <Button variant="ghost" size="icon" className="text-neutral-dark hover:bg-neutral-lightest rounded-full">
             <Bell className="h-6 w-6" />
           </Button>
+          
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
