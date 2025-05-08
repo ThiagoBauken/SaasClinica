@@ -15,6 +15,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 
 // Tipo de dados para próteses
+interface Label {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface Prosthetic {
   id: number;
   patientName: string;
@@ -28,6 +34,9 @@ interface Prosthetic {
   sentDate?: string;
   deliveryDate?: string;
   notes?: string[];
+  color?: string;
+  labelId?: number;
+  additionalInfo?: string;
 }
 
 // Estados para o controle de próteses
@@ -113,7 +122,18 @@ export default function ProstheticsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+  const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
   const [selectedProsthetic, setSelectedProsthetic] = useState<Prosthetic | null>(null);
+  const [labels, setLabels] = useState<Label[]>([
+    { id: 1, name: "Urgente", color: "#dc2626" },
+    { id: 2, name: "Prioridade", color: "#ea580c" },
+    { id: 3, name: "Normal", color: "#16a34a" },
+    { id: 4, name: "Espera", color: "#2563eb" }
+  ]);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#3b82f6");
+  const [selectedLabelId, setSelectedLabelId] = useState<number | null>(null);
   const [newProsthetic, setNewProsthetic] = useState({
     patientName: "",
     description: "",
@@ -121,6 +141,7 @@ export default function ProstheticsPage() {
   });
   const [draggedItem, setDraggedItem] = useState<Prosthetic | null>(null);
   const [newNote, setNewNote] = useState("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
 
   // Filtrar próteses pelo termo de busca
   const filteredProsthetics = prosthetics.filter(
@@ -316,6 +337,108 @@ export default function ProstheticsPage() {
       });
     }
   };
+  
+  // Manipular rótulos
+  const openLabelModal = () => {
+    setIsLabelModalOpen(true);
+  };
+  
+  const closeLabelModal = () => {
+    setIsLabelModalOpen(false);
+    setSelectedLabelId(null);
+  };
+  
+  const handleAddLabel = () => {
+    if (!newLabelName.trim()) return;
+    
+    const newLabel: Label = {
+      id: labels.length > 0 ? Math.max(...labels.map(l => l.id)) + 1 : 1,
+      name: newLabelName,
+      color: newLabelColor
+    };
+    
+    setLabels([...labels, newLabel]);
+    setNewLabelName("");
+    
+    toast({
+      title: "Rótulo adicionado",
+      description: "O novo rótulo foi adicionado com sucesso",
+    });
+  };
+  
+  const handleSelectLabel = (labelId: number) => {
+    if (!selectedProsthetic) return;
+    
+    // Se o mesmo rótulo for selecionado novamente, remove o rótulo
+    const shouldRemoveLabel = selectedProsthetic.labelId === labelId;
+    
+    const updatedProsthetics = prosthetics.map(p => {
+      if (p.id === selectedProsthetic.id) {
+        return { 
+          ...p, 
+          labelId: shouldRemoveLabel ? undefined : labelId,
+          color: shouldRemoveLabel ? undefined : labels.find(l => l.id === labelId)?.color
+        };
+      }
+      return p;
+    });
+    
+    setProsthetics(updatedProsthetics);
+    
+    // Atualiza o prosthetic selecionado para refletir a mudança no modal
+    const updatedSelected = updatedProsthetics.find(p => p.id === selectedProsthetic.id);
+    if (updatedSelected) {
+      setSelectedProsthetic(updatedSelected);
+    }
+    
+    setIsLabelModalOpen(false);
+    
+    toast({
+      title: shouldRemoveLabel ? "Rótulo removido" : "Rótulo aplicado",
+      description: shouldRemoveLabel 
+        ? "O rótulo foi removido do serviço" 
+        : `O rótulo "${labels.find(l => l.id === labelId)?.name}" foi aplicado ao serviço`,
+    });
+  };
+  
+  // Editar informações adicionais do serviço
+  const openEditServiceModal = () => {
+    if (selectedProsthetic) {
+      setAdditionalInfo(selectedProsthetic.additionalInfo || "");
+      setIsEditServiceModalOpen(true);
+    }
+  };
+  
+  const closeEditServiceModal = () => {
+    setIsEditServiceModalOpen(false);
+    setAdditionalInfo("");
+  };
+  
+  const handleSaveAdditionalInfo = () => {
+    if (!selectedProsthetic) return;
+    
+    const updatedProsthetics = prosthetics.map(p => {
+      if (p.id === selectedProsthetic.id) {
+        return { ...p, additionalInfo };
+      }
+      return p;
+    });
+    
+    setProsthetics(updatedProsthetics);
+    
+    // Atualiza o prosthetic selecionado para refletir a mudança no modal
+    const updatedSelected = updatedProsthetics.find(p => p.id === selectedProsthetic.id);
+    if (updatedSelected) {
+      setSelectedProsthetic(updatedSelected);
+    }
+    
+    closeEditServiceModal();
+    
+    toast({
+      title: "Informações atualizadas",
+      description: "As informações adicionais foram atualizadas com sucesso",
+    });
+  };
 
   return (
     <DashboardLayout title="Controle de Próteses" currentPath={location}>
@@ -336,16 +459,17 @@ export default function ProstheticsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
-        {Object.entries(groupedProsthetics).map(([status, items]) => (
+      <div className="grid grid-cols-5 gap-0">
+        {Object.entries(groupedProsthetics).map(([status, items], index, array) => (
           <div 
             key={status}
-            className="bg-neutral-lightest rounded-lg p-4 min-h-[500px]"
+            className="min-h-[500px] flex flex-col"
             onDragOver={handleDragOver}
             onDrop={() => handleDrop(status as any)}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg text-neutral-dark">
+            {/* Cabeçalho da coluna */}
+            <div className="bg-neutral-light p-2 px-4 flex items-center justify-between">
+              <h3 className="font-medium text-base text-neutral-dark">
                 {statusLabels[status as keyof typeof statusLabels]}
               </h3>
               <div className="flex items-center">
@@ -355,16 +479,38 @@ export default function ProstheticsPage() {
               </div>
             </div>
             
-            <div className="space-y-3">
+            {/* Área de conteúdo com borda apenas na direita e embaixo */}
+            <div 
+              className={`flex-1 p-4 space-y-3 bg-white ${
+                index < array.length - 1 ? 'border-r border-neutral-light' : ''
+              }`}
+            >
               {items.map((prosthetic) => (
                 <Card 
                   key={prosthetic.id}
                   draggable
                   onClick={() => openDetailModal(prosthetic)}
                   onDragStart={() => handleDragStart(prosthetic)}
-                  className="cursor-grab active:cursor-grabbing hover:border-primary transition-colors duration-200"
+                  className={`cursor-grab active:cursor-grabbing hover:border-primary transition-colors duration-200 ${
+                    prosthetic.labelId ? 'border-l-4' : ''
+                  }`}
+                  style={{ 
+                    borderLeftColor: prosthetic.color || 'transparent',
+                  }}
                 >
                   <CardContent className="p-3">
+                    {/* Rótulo se existir */}
+                    {prosthetic.labelId && (
+                      <div 
+                        className="text-xs font-medium rounded-sm px-1 py-0.5 mb-1 inline-block"
+                        style={{ 
+                          backgroundColor: `${prosthetic.color}25`, // cor com 25% de opacidade
+                          color: prosthetic.color
+                        }}
+                      >
+                        {labels.find(l => l.id === prosthetic.labelId)?.name}
+                      </div>
+                    )}
                     <div className="font-medium mb-1">{prosthetic.patientName}</div>
                     <div className="text-sm text-neutral-medium mb-2">
                       {prosthetic.description}
@@ -530,6 +676,37 @@ export default function ProstheticsPage() {
                 </div>
               </div>
               
+              {/* Rótulo */}
+              <div className="p-3 border rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Serviço personalizado</span>
+                    {selectedProsthetic.labelId ? (
+                      <div 
+                        className="text-xs font-medium rounded-sm px-1 py-0.5 ml-2 inline-block"
+                        style={{ 
+                          backgroundColor: `${selectedProsthetic.color}25`,
+                          color: selectedProsthetic.color
+                        }}
+                      >
+                        {labels.find(l => l.id === selectedProsthetic.labelId)?.name}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-neutral-medium ml-2">não informado</span>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0"
+                    onClick={openLabelModal}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
               {/* Status atual e ações */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -654,6 +831,137 @@ export default function ProstheticsPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para seleção de rótulos */}
+      <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecionar rótulo</DialogTitle>
+            <DialogDescription>
+              Escolha um rótulo para identificar este serviço ou crie um novo.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {/* Rótulos existentes */}
+            <div className="space-y-2">
+              {labels.map((label) => (
+                <div 
+                  key={label.id}
+                  className={`p-2 flex items-center gap-2 border rounded cursor-pointer hover:bg-neutral-lightest transition-colors ${
+                    selectedProsthetic?.labelId === label.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => handleSelectLabel(label.id)}
+                >
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: label.color }}
+                  />
+                  <span>{label.name}</span>
+                  
+                  {selectedProsthetic?.labelId === label.id && (
+                    <div className="ml-auto text-xs bg-primary-light text-primary px-1 py-0.5 rounded">
+                      Selecionado
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* Criar novo rótulo */}
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-medium mb-2">Novo rótulo</h4>
+              <div className="flex gap-2 items-center">
+                <div className="flex-shrink-0">
+                  <div 
+                    className="w-6 h-6 rounded-full cursor-pointer"
+                    style={{ backgroundColor: newLabelColor }}
+                    onClick={() => {
+                      // Aqui seria ideal ter um seletor de cores
+                      // Mas para simplificar, vamos alternar entre algumas cores
+                      const colors = ['#dc2626', '#ea580c', '#16a34a', '#2563eb', '#9333ea'];
+                      const currentIndex = colors.indexOf(newLabelColor);
+                      const nextIndex = (currentIndex + 1) % colors.length;
+                      setNewLabelColor(colors[nextIndex]);
+                    }}
+                  />
+                </div>
+                <Input
+                  placeholder="Nome do rótulo"
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  size="sm"
+                  disabled={!newLabelName.trim()}
+                  onClick={handleAddLabel}
+                >
+                  Criar
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={closeLabelModal}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para editar informações do serviço */}
+      <Dialog open={isEditServiceModalOpen} onOpenChange={setIsEditServiceModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar serviço</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="additionalInfo">Descrição</Label>
+              <Textarea
+                id="additionalInfo"
+                placeholder="Informações para enviar ao laboratório"
+                value={additionalInfo}
+                onChange={(e) => setAdditionalInfo(e.target.value)}
+                className="min-h-[100px]"
+              />
+              <div className="text-xs text-right text-neutral-medium">
+                0 / 2000
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="teeth">Dentes/Região</Label>
+                <Input
+                  id="teeth"
+                  placeholder="Ex: 11, 21"
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="color">Cor</Label>
+                <Input
+                  id="color"
+                  placeholder="Ex: A2"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="sm:justify-between">
+            <Button variant="outline" onClick={closeEditServiceModal}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveAdditionalInfo}>
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
