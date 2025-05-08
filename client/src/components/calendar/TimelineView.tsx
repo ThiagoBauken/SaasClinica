@@ -79,17 +79,17 @@ export default function TimelineView({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-neutral-light overflow-hidden">
+    <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
       {/* Time header */}
-      <div className="flex border-b border-neutral-light">
-        <div className="w-20 py-2 px-3 text-center text-sm font-medium text-neutral-medium border-r border-neutral-light">
+      <div className="flex border-b">
+        <div className="w-20 py-2 px-3 text-center text-sm font-medium text-muted-foreground border-r">
           Horário
         </div>
         
         {professionals.map((prof) => (
           <div 
             key={prof.id} 
-            className="flex-1 py-2 px-3 text-center text-sm font-medium text-neutral-dark border-r last:border-r-0 border-neutral-light"
+            className="flex-1 py-2 px-3 text-center text-sm font-medium border-r last:border-r-0"
           >
             {prof.fullName}
           </div>
@@ -99,8 +99,8 @@ export default function TimelineView({
       {/* Timeline slots */}
       <div className="relative" style={{ height: '650px', overflowY: 'auto' }}>
         {timeSlots.map((slot, index) => (
-          <div key={index} className="flex border-b border-neutral-light h-20">
-            <div className="w-20 py-2 px-3 text-center text-sm text-neutral-medium border-r border-neutral-light flex items-center justify-center">
+          <div key={index} className="flex border-b h-20">
+            <div className="w-20 py-2 px-3 text-center text-sm text-muted-foreground border-r flex items-center justify-center">
               {slot.time}
             </div>
             
@@ -109,10 +109,10 @@ export default function TimelineView({
               return (
                 <div 
                   key={prof.id} 
-                  className="flex-1 border-r last:border-r-0 border-neutral-light p-1 relative"
+                  className="flex-1 border-r last:border-r-0 p-1 relative"
                 >
                   <div 
-                    className="absolute inset-0 hover:bg-neutral-lightest opacity-0 hover:opacity-25 cursor-pointer"
+                    className="absolute inset-0 hover:bg-muted opacity-0 hover:opacity-25 cursor-pointer"
                     onClick={() => onSlotClick(prof.id, slot.time)}
                   ></div>
                   
@@ -133,7 +133,7 @@ export default function TimelineView({
                           {getStatusText(appointment.status)}
                         </span>
                       </div>
-                      <div className="text-xs text-neutral-medium mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
                         {format(parseISO(appointment.startTime), 'HH:mm')} - {format(parseISO(appointment.endTime), 'HH:mm')}
                       </div>
                       <div className="text-xs mt-1">

@@ -18,7 +18,7 @@ interface PatientsListProps {
 
 export default function PatientsList({ patients, onPatientClick }: PatientsListProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-neutral-light overflow-hidden">
+    <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
@@ -32,7 +32,7 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
         <TableBody>
           {patients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-neutral-medium">
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                 Nenhum paciente encontrado
               </TableCell>
             </TableRow>
@@ -42,7 +42,7 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                 <TableCell>
                   <div className="font-medium">{patient.fullName}</div>
                   {patient.insuranceInfo && (
-                    <div className="text-xs text-neutral-medium">
+                    <div className="text-xs text-muted-foreground">
                       {patient.insuranceInfo}
                     </div>
                   )}
@@ -50,11 +50,11 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                 <TableCell>
                   <div className="space-y-1">
                     <div className="flex items-center text-sm">
-                      <Phone className="h-3.5 w-3.5 text-neutral-medium mr-1.5" />
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground mr-1.5" />
                       <span>{patient.phone || "—"}</span>
                     </div>
                     <div className="flex items-center text-sm">
-                      <Mail className="h-3.5 w-3.5 text-neutral-medium mr-1.5" />
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground mr-1.5" />
                       <span className="truncate max-w-[150px]">
                         {patient.email || "—"}
                       </span>
