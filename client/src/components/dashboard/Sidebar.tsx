@@ -40,29 +40,29 @@ export default function Sidebar({ currentPath }: SidebarProps) {
   // Menu de navegação com links
   const navigationMenu = (
     <div className="mb-8">
-      <h2 className="text-lg font-semibold text-neutral-dark mb-4 px-4">Menu</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-4 px-4">Menu</h2>
       <nav className="space-y-1">
-        <Link href="/dashboard" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/dashboard" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/dashboard" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/dashboard" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
-        <Link href="/schedule" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/schedule" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/schedule" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/schedule" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Calendar className="mr-3 h-5 w-5" />
           Agenda
         </Link>
-        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Users className="mr-3 h-5 w-5" />
           Pacientes
         </Link>
-        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <DollarSign className="mr-3 h-5 w-5" />
           Financeiro
         </Link>
-        <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Bot className="mr-3 h-5 w-5" />
           Automações
         </Link>
-        <Link href="/prosthetics" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthetics" ? "bg-primary-light text-primary" : "text-neutral-dark hover:bg-neutral-lightest"}`}>
+        <Link href="/prosthetics" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthetics" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Scissors className="mr-3 h-5 w-5" />
           Controle de Próteses
         </Link>
@@ -74,15 +74,15 @@ export default function Sidebar({ currentPath }: SidebarProps) {
   const calendarContent = currentPath === "/schedule" && (
     <>
       <div className="mb-6 px-4">
-        <h2 className="text-lg font-semibold text-neutral-dark mb-2">Calendário</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-2">Calendário</h2>
         
         {/* Mini Calendar Component */}
         <MiniCalendar />
         
         {/* Status indicators */}
         <div className="mb-6">
-          <h3 className="text-sm font-medium text-neutral-dark mb-2">Indicadores de Ocupação</h3>
-          <div className="space-y-2 text-sm">
+          <h3 className="text-sm font-medium text-foreground mb-2">Indicadores de Ocupação</h3>
+          <div className="space-y-2 text-sm text-foreground">
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-status-available mr-2"></div>
               <span>Disponível</span>
@@ -105,12 +105,12 @@ export default function Sidebar({ currentPath }: SidebarProps) {
       
       {/* Filters - apenas na página de agenda */}
       <div className="px-4">
-        <h2 className="text-lg font-semibold text-neutral-dark mb-2">Filtros</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-2">Filtros</h2>
         
         <div className="space-y-4">
           {/* Status filter */}
           <div>
-            <Label htmlFor="status" className="block text-sm font-medium text-neutral-dark mb-1">Status</Label>
+            <Label htmlFor="status" className="block text-sm font-medium text-foreground mb-1">Status</Label>
             <Select
               value={filters.status}
               onValueChange={(value) => handleFilterChange("status", value)}
@@ -132,7 +132,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           
           {/* Professional filter */}
           <div>
-            <Label htmlFor="professional" className="block text-sm font-medium text-neutral-dark mb-1">Profissional</Label>
+            <Label htmlFor="professional" className="block text-sm font-medium text-foreground mb-1">Profissional</Label>
             <Select
               value={filters.professional}
               onValueChange={(value) => handleFilterChange("professional", value)}
@@ -151,9 +151,9 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           
           {/* Patient filter */}
           <div>
-            <Label htmlFor="patient" className="block text-sm font-medium text-neutral-dark mb-1">Paciente</Label>
+            <Label htmlFor="patient" className="block text-sm font-medium text-foreground mb-1">Paciente</Label>
             <div className="relative">
-              <Search className="h-4 w-4 absolute left-3 top-2.5 text-neutral-medium" />
+              <Search className="h-4 w-4 absolute left-3 top-2.5 text-muted-foreground" />
               <Input
                 id="patient"
                 placeholder="Buscar paciente"
@@ -166,7 +166,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           
           {/* Procedure filter */}
           <div>
-            <Label htmlFor="procedure" className="block text-sm font-medium text-neutral-dark mb-1">Procedimento</Label>
+            <Label htmlFor="procedure" className="block text-sm font-medium text-foreground mb-1">Procedimento</Label>
             <Select
               value={filters.procedure}
               onValueChange={(value) => handleFilterChange("procedure", value)}
@@ -187,7 +187,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           
           {/* Room filter */}
           <div>
-            <Label htmlFor="room" className="block text-sm font-medium text-neutral-dark mb-1">Sala</Label>
+            <Label htmlFor="room" className="block text-sm font-medium text-foreground mb-1">Sala</Label>
             <Select
               value={filters.room}
               onValueChange={(value) => handleFilterChange("room", value)}
@@ -218,7 +218,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
   );
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-light h-full overflow-y-auto hidden md:block">
+    <aside className="w-64 bg-background border-r border-border h-full overflow-y-auto hidden md:block">
       <div className="py-6">
         {navigationMenu}
         {calendarContent}
