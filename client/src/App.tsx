@@ -11,6 +11,7 @@ import PatientsPage from "@/pages/patients-page";
 import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
 import ProstheticsPage from "@/pages/prosthetics-page";
+import OdontogramDemoPage from "@/pages/odontogram-demo";
 import LandingPage from "@/pages/landing-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";

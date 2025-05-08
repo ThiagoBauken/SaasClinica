@@ -2,6 +2,35 @@
 
 export type CalendarViewType = 'day' | 'week' | 'month' | 'timeline';
 
+// Odontograma types
+export type ToothType = 'permanente' | 'deciduo';
+export type ToothGroup = 'incisivo' | 'canino' | 'premolar' | 'molar';
+export type ToothPosition = 'superior' | 'inferior';
+export type ToothSide = 'vestibular' | 'lingual' | 'mesial' | 'distal' | 'oclusal' | 'incisal' | 'cervical' | 'raiz';
+export type ToothStatus = 'saudavel' | 'cariado' | 'restaurado' | 'ausente' | 'implante' | 'tratamento-canal' | 'coroa' | 'extrair' | 'protese';
+
+export interface Tooth {
+  id: number;
+  number: string;
+  type: ToothType;
+  group: ToothGroup;
+  position: ToothPosition;
+  status?: ToothStatus;
+  procedures?: Array<OdontogramProcedure>;
+}
+
+export interface OdontogramProcedure {
+  id: number;
+  toothId: number;
+  procedureId: number;
+  side?: ToothSide;
+  status: 'aberto' | 'finalizado';
+  date: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type AppointmentStatusType = 
   | 'scheduled' 
   | 'confirmed' 
