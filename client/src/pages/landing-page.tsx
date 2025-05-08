@@ -1,10 +1,23 @@
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Briefcase, Calendar, ChartBar, Database, FileText, Gauge, Lock, MessageCircle, ShieldCheck, Tag, Users } from "lucide-react";
+import { useEffect } from "react";
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const { user, loginMutation } = useAuth();
+
+  // Desenvolvimento: fazer login automático para testar
+  useEffect(() => {
+    // Descomentar a linha abaixo para ativar login automático
+    // loginMutation.mutate({ username: "admin", password: "admin123" });
+    
+    // Redirecionar para o painel se já estiver logado
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, loginMutation, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col">
