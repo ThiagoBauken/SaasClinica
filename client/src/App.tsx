@@ -14,6 +14,7 @@ import ProstheticsPage from "@/pages/prosthetics-page";
 import LandingPage from "@/pages/landing-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 
 function Router() {
   return (
@@ -41,12 +42,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
+      <ThemeProvider defaultTheme="light">
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

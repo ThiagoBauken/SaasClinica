@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, X, AlertCircle, Paperclip, Printer, Calendar, RotateCcw, ExternalLink, MessageSquare, History, Share2 } from "lucide-react";
+import { Search, Plus, X, AlertCircle, Paperclip, Printer, Calendar, RotateCcw, ExternalLink, MessageSquare, History, Share2, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
