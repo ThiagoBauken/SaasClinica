@@ -10,8 +10,8 @@ export default function LandingPage() {
 
   // Desenvolvimento: fazer login automático para testar
   useEffect(() => {
-    // Descomentar a linha abaixo para ativar login automático
-    // loginMutation.mutate({ username: "admin", password: "admin123" });
+    // Login automático para desenvolvimento
+    loginMutation.mutate({ username: "admin", password: "admin123" });
     
     // Redirecionar para o painel se já estiver logado
     if (user) {
