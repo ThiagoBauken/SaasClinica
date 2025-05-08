@@ -342,7 +342,7 @@ export default function AutomationPage() {
 
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-medium" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar automação"
             className="pl-9"
@@ -368,7 +368,7 @@ export default function AutomationPage() {
           Erro ao carregar automações. Tente novamente.
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-neutral-light overflow-hidden">
+        <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -385,7 +385,7 @@ export default function AutomationPage() {
                 <TableRow key={automation.id}>
                   <TableCell>
                     <div className="font-medium">{automation.name}</div>
-                    <div className="text-xs text-neutral-medium">
+                    <div className="text-xs text-muted-foreground">
                       Criado em{" "}
                       {new Date(automation.createdAt).toLocaleDateString(
                         "pt-BR"
@@ -409,7 +409,7 @@ export default function AutomationPage() {
                     </div>
                     {automation.triggerType === "time_before" &&
                       automation.timeBeforeValue && (
-                        <div className="text-xs text-neutral-medium mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {automation.timeBeforeValue}{" "}
                           {automation.timeBeforeUnit === "minutes"
                             ? "minutos"

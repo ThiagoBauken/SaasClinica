@@ -63,18 +63,18 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center">
-                    <Calendar className="h-4 w-4 text-neutral-medium mr-2" />
+                    <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
                     {patient.birthDate ? (
                       <span>
                         {new Date().getFullYear() - new Date(patient.birthDate).getFullYear()} anos
                       </span>
                     ) : (
-                      <span className="text-neutral-medium">Não informada</span>
+                      <span className="text-muted-foreground">Não informada</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm text-neutral-medium">
+                  <div className="text-sm text-muted-foreground">
                     {formatDistanceToNow(new Date(patient.createdAt), {
                       addSuffix: true,
                       locale: ptBR,
