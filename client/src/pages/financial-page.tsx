@@ -554,7 +554,7 @@ export default function FinancialPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                     <div>
                       <h3 className="font-medium">Fluxo de Caixa</h3>
                       <p className="text-sm text-muted-foreground">Resumo de receitas e despesas no período</p>
@@ -565,7 +565,7 @@ export default function FinancialPage() {
                     </Button>
                   </div>
                   
-                  <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                     <div>
                       <h3 className="font-medium">Faturamento Detalhado</h3>
                       <p className="text-sm text-muted-foreground">Faturamento por tipo de serviço e profissional</p>
@@ -576,10 +576,10 @@ export default function FinancialPage() {
                     </Button>
                   </div>
                   
-                  <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                     <div>
                       <h3 className="font-medium">Contas a Receber</h3>
-                      <p className="text-sm text-neutral-medium">Pagamentos pendentes e próximos vencimentos</p>
+                      <p className="text-sm text-muted-foreground">Pagamentos pendentes e próximos vencimentos</p>
                     </div>
                     <Button variant="outline">
                       <Download className="h-4 w-4 mr-1" />
@@ -587,10 +587,10 @@ export default function FinancialPage() {
                     </Button>
                   </div>
                   
-                  <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                     <div>
                       <h3 className="font-medium">Contas a Pagar</h3>
-                      <p className="text-sm text-neutral-medium">Despesas pendentes e próximos vencimentos</p>
+                      <p className="text-sm text-muted-foreground">Despesas pendentes e próximos vencimentos</p>
                     </div>
                     <Button variant="outline">
                       <Download className="h-4 w-4 mr-1" />
@@ -598,10 +598,10 @@ export default function FinancialPage() {
                     </Button>
                   </div>
                   
-                  <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                     <div>
                       <h3 className="font-medium">Relatório Anual</h3>
-                      <p className="text-sm text-neutral-medium">Resumo financeiro consolidado do ano</p>
+                      <p className="text-sm text-muted-foreground">Resumo financeiro consolidado do ano</p>
                     </div>
                     <Button variant="outline">
                       <Download className="h-4 w-4 mr-1" />
