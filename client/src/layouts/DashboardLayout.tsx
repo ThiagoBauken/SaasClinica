@@ -23,9 +23,9 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
       <div className="flex-1 flex overflow-hidden">
         <Sidebar currentPath={currentPath} />
         
-        <main className="flex-1 overflow-y-auto bg-neutral-lightest">
+        <main className="flex-1 overflow-y-auto bg-background">
           <div className="container mx-auto px-4 py-6">
-            <h1 className="text-2xl font-bold text-neutral-dark mb-6">{title}</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-6">{title}</h1>
             {children}
           </div>
         </main>

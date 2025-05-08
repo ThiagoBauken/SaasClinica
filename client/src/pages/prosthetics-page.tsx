@@ -469,7 +469,7 @@ export default function ProstheticsPage() {
     <DashboardLayout title="Controle de Próteses" currentPath={location}>
       <div className="mb-6 flex justify-between items-center">
         <div className="relative w-64">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-medium" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar por paciente, tratamento, laboratório..."
             className="pl-8"
@@ -493,12 +493,12 @@ export default function ProstheticsPage() {
             onDrop={() => handleDrop(status as any)}
           >
             {/* Cabeçalho da coluna */}
-            <div className="bg-neutral-light p-2 px-4 flex items-center justify-between">
-              <h3 className="font-medium text-base text-neutral-dark">
+            <div className="bg-muted p-2 px-4 flex items-center justify-between">
+              <h3 className="font-medium text-base text-foreground">
                 {statusLabels[status as keyof typeof statusLabels]}
               </h3>
               <div className="flex items-center">
-                <span className="bg-primary-light text-primary rounded-full px-2 py-0.5 text-xs font-medium">
+                <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium">
                   {items.length}
                 </span>
               </div>
@@ -506,8 +506,8 @@ export default function ProstheticsPage() {
             
             {/* Área de conteúdo com borda apenas na direita e embaixo */}
             <div 
-              className={`flex-1 p-4 space-y-3 bg-white ${
-                index < array.length - 1 ? 'border-r border-neutral-light' : ''
+              className={`flex-1 p-4 space-y-3 bg-background ${
+                index < array.length - 1 ? 'border-r border-border' : ''
               }`}
             >
               {items.map((prosthetic) => (
@@ -537,10 +537,10 @@ export default function ProstheticsPage() {
                       </div>
                     )}
                     <div className="font-medium mb-1">{prosthetic.patientName}</div>
-                    <div className="text-sm text-neutral-medium mb-2">
+                    <div className="text-sm text-muted-foreground mb-2">
                       {prosthetic.description}
                     </div>
-                    <div className="flex justify-between items-center text-xs text-neutral-medium">
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
                       <span>{prosthetic.professional}</span>
                       <span>
                         {format(new Date(prosthetic.createdAt), "dd/MM/yyyy", { locale: ptBR })}
@@ -571,7 +571,7 @@ export default function ProstheticsPage() {
                 value={newProsthetic.patientName}
                 onChange={handleInputChange}
               />
-              <p className="text-xs text-neutral-medium">Este campo é obrigatório</p>
+              <p className="text-xs text-muted-foreground">Este campo é obrigatório</p>
             </div>
             
             <div className="grid gap-2">
