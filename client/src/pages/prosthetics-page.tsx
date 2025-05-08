@@ -493,7 +493,7 @@ export default function ProstheticsPage() {
             onDrop={() => handleDrop(status as any)}
           >
             {/* Cabeçalho da coluna */}
-            <div className="bg-muted p-2 px-4 flex items-center justify-between">
+            <div className="bg-card/80 p-2 px-4 flex items-center justify-between shadow-sm border-b">
               <h3 className="font-medium text-base text-foreground">
                 {statusLabels[status as keyof typeof statusLabels]}
               </h3>
@@ -506,7 +506,7 @@ export default function ProstheticsPage() {
             
             {/* Área de conteúdo com borda apenas na direita e embaixo */}
             <div 
-              className={`flex-1 p-4 space-y-3 bg-background ${
+              className={`flex-1 p-4 space-y-3 bg-background/40 ${
                 index < array.length - 1 ? 'border-r border-border' : ''
               }`}
             >
