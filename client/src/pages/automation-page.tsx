@@ -423,7 +423,7 @@ export default function AutomationPage() {
                   <TableCell>{getChannelIcon(automation)}</TableCell>
                   <TableCell>
                     <div className="flex items-center text-xs">
-                      <ExternalLink className="h-3 w-3 text-neutral-medium mr-1" />
+                      <ExternalLink className="h-3 w-3 text-muted-foreground mr-1" />
                       <span className="truncate max-w-[120px]">
                         {automation.webhookUrl}
                       </span>

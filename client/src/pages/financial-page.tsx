@@ -344,7 +344,7 @@ export default function FinancialPage() {
           <div className="mb-6">
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="relative w-full sm:w-96">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-medium" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar transação" 
                   className="pl-9"
@@ -359,7 +359,7 @@ export default function FinancialPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-neutral-light overflow-hidden">
+              <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -376,7 +376,7 @@ export default function FinancialPage() {
                       <TableRow key={transaction.id}>
                         <TableCell>
                           <div className="flex items-center">
-                            <Calendar className="h-4 w-4 text-neutral-medium mr-2" />
+                            <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
                             {new Date(transaction.date).toLocaleDateString('pt-BR')}
                           </div>
                         </TableCell>
@@ -557,7 +557,7 @@ export default function FinancialPage() {
                   <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
                     <div>
                       <h3 className="font-medium">Fluxo de Caixa</h3>
-                      <p className="text-sm text-neutral-medium">Resumo de receitas e despesas no período</p>
+                      <p className="text-sm text-muted-foreground">Resumo de receitas e despesas no período</p>
                     </div>
                     <Button variant="outline">
                       <Download className="h-4 w-4 mr-1" />
@@ -568,7 +568,7 @@ export default function FinancialPage() {
                   <div className="flex justify-between items-center p-3 bg-neutral-lightest rounded-md">
                     <div>
                       <h3 className="font-medium">Faturamento Detalhado</h3>
-                      <p className="text-sm text-neutral-medium">Faturamento por tipo de serviço e profissional</p>
+                      <p className="text-sm text-muted-foreground">Faturamento por tipo de serviço e profissional</p>
                     </div>
                     <Button variant="outline">
                       <Download className="h-4 w-4 mr-1" />
