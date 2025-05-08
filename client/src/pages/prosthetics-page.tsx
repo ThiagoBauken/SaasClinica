@@ -638,7 +638,7 @@ export default function ProstheticsPage() {
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </h3>
-                  <p className="text-sm text-neutral-medium">
+                  <p className="text-sm text-muted-foreground">
                     {selectedProsthetic.phone}
                   </p>
                   <div className="flex gap-2 mt-2">
@@ -692,7 +692,7 @@ export default function ProstheticsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Laboratório</span>
-                    <span className="text-sm text-neutral-medium">{selectedProsthetic.laboratory || "não informado"}</span>
+                    <span className="text-sm text-muted-foreground">{selectedProsthetic.laboratory || "não informado"}</span>
                   </div>
                   
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -717,7 +717,7 @@ export default function ProstheticsPage() {
                         {labels.find(l => l.id === selectedProsthetic.labelId)?.name}
                       </div>
                     ) : (
-                      <span className="text-sm text-neutral-medium ml-2">não informado</span>
+                      <span className="text-sm text-muted-foreground ml-2">não informado</span>
                     )}
                   </div>
                   
@@ -762,7 +762,7 @@ export default function ProstheticsPage() {
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   <span className="font-medium">Próximas consultas</span>
-                  <span className="text-neutral-medium ml-auto">0 consultas</span>
+                  <span className="text-muted-foreground ml-auto">0 consultas</span>
                 </div>
               </div>
               
@@ -790,7 +790,7 @@ export default function ProstheticsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-neutral-medium">
+                      <div className="text-center py-4 text-muted-foreground">
                         <p>Nenhuma anotação adicionada</p>
                       </div>
                     )}
@@ -805,7 +805,7 @@ export default function ProstheticsPage() {
                     </div>
                     
                     <div className="flex justify-end">
-                      <span className="text-xs text-neutral-medium mr-2">
+                      <span className="text-xs text-muted-foreground mr-2">
                         {newNote.length} / 255
                       </span>
                       <Button onClick={handleAddNote} disabled={!newNote.trim()}>
@@ -855,12 +855,12 @@ export default function ProstheticsPage() {
                             <div className="flex-1">
                               <div className="text-sm">
                                 <span className="font-medium">{movement.user}</span>
-                                <span className="text-neutral-medium"> movimentou:</span>
+                                <span className="text-muted-foreground"> movimentou:</span>
                                 <span> serviço {format(new Date(movement.date), "dd 'de' MMMM 'de' yyyy HH:mm", { locale: ptBR })}</span>
                               </div>
                               <div className="text-sm mt-1 flex items-center">
-                                <span className="text-neutral-medium">{movement.from}</span>
-                                <ArrowRight className="h-3 w-3 mx-1 text-neutral-medium" />
+                                <span className="text-muted-foreground">{movement.from}</span>
+                                <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground" />
                                 <span className="font-medium">{movement.to}</span>
                               </div>
                             </div>
@@ -868,7 +868,7 @@ export default function ProstheticsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-neutral-medium">
+                      <div className="text-center py-4 text-muted-foreground">
                         <p>Nenhuma movimentação registrada</p>
                       </div>
                     )}
@@ -985,7 +985,7 @@ export default function ProstheticsPage() {
                 onChange={(e) => setAdditionalInfo(e.target.value)}
                 className="min-h-[100px]"
               />
-              <div className="text-xs text-right text-neutral-medium">
+              <div className="text-xs text-right text-muted-foreground">
                 0 / 2000
               </div>
             </div>
