@@ -21,6 +21,14 @@ interface Label {
   color: string;
 }
 
+interface Movement {
+  id: number;
+  date: string;
+  from: string;
+  to: string;
+  user: string;
+}
+
 interface Prosthetic {
   id: number;
   patientName: string;
@@ -37,6 +45,7 @@ interface Prosthetic {
   color?: string;
   labelId?: number;
   additionalInfo?: string;
+  movements?: Movement[];
 }
 
 // Estados para o controle de próteses
@@ -87,7 +96,23 @@ export default function ProstheticsPage() {
       phone: "+55 21 97654 3210",
       laboratory: "Laboratório Odontolab",
       sentDate: new Date(2023, 6, 7).toISOString(),
-      notes: ["Prótese com ganchos em acrílico conforme solicitado pela paciente", "Utilizar material hipoalergênico"]
+      notes: ["Prótese com ganchos em acrílico conforme solicitado pela paciente", "Utilizar material hipoalergênico"],
+      movements: [
+        {
+          id: 1,
+          date: new Date(2023, 6, 5, 14, 30).toISOString(),
+          from: "Pré-laboratório",
+          to: "Envio",
+          user: "Dr. Ana Silva"
+        },
+        {
+          id: 2,
+          date: new Date(2023, 6, 7, 9, 15).toISOString(),
+          from: "Envio",
+          to: "Laboratório",
+          user: "Dr. Ana Silva"
+        }
+      ]
     },
     {
       id: 4,
@@ -792,7 +817,8 @@ export default function ProstheticsPage() {
                 
                 <TabsContent value="history" className="mt-4">
                   <div className="space-y-4">
-                    <div className="text-sm space-y-2">
+                    {/* Informações básicas de datas */}
+                    <div className="text-sm space-y-2 mb-4">
                       {selectedProsthetic.sentDate && (
                         <div className="flex justify-between p-2 border-b">
                           <span>Data de envio</span>
@@ -817,6 +843,35 @@ export default function ProstheticsPage() {
                         <span>{format(new Date(selectedProsthetic.createdAt), "dd/MM/yyyy", { locale: ptBR })}</span>
                       </div>
                     </div>
+                    
+                    {/* Histórico de movimentações */}
+                    {selectedProsthetic.movements && selectedProsthetic.movements.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedProsthetic.movements.map((movement) => (
+                          <div key={movement.id} className="flex items-start gap-3">
+                            <div className="rounded-full bg-neutral-light w-8 h-8 flex-shrink-0 flex items-center justify-center text-neutral-dark">
+                              <span className="text-xs font-medium">BO</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm">
+                                <span className="font-medium">{movement.user}</span>
+                                <span className="text-neutral-medium"> movimentou:</span>
+                                <span> serviço {format(new Date(movement.date), "dd 'de' MMMM 'de' yyyy HH:mm", { locale: ptBR })}</span>
+                              </div>
+                              <div className="text-sm mt-1 flex items-center">
+                                <span className="text-neutral-medium">{movement.from}</span>
+                                <ArrowRight className="h-3 w-3 mx-1 text-neutral-medium" />
+                                <span className="font-medium">{movement.to}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-neutral-medium">
+                        <p>Nenhuma movimentação registrada</p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>
