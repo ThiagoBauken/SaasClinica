@@ -784,7 +784,7 @@ export default function ProstheticsPage() {
                     {selectedProsthetic.notes && selectedProsthetic.notes.length > 0 ? (
                       <div className="space-y-2">
                         {selectedProsthetic.notes.map((note, index) => (
-                          <div key={index} className="p-3 bg-neutral-lightest rounded text-sm">
+                          <div key={index} className="p-3 bg-muted rounded text-sm">
                             {note}
                           </div>
                         ))}
@@ -849,7 +849,7 @@ export default function ProstheticsPage() {
                       <div className="space-y-3">
                         {selectedProsthetic.movements.map((movement) => (
                           <div key={movement.id} className="flex items-start gap-3">
-                            <div className="rounded-full bg-neutral-light w-8 h-8 flex-shrink-0 flex items-center justify-center text-neutral-dark">
+                            <div className="rounded-full bg-muted w-8 h-8 flex-shrink-0 flex items-center justify-center">
                               <span className="text-xs font-medium">BO</span>
                             </div>
                             <div className="flex-1">
@@ -905,7 +905,7 @@ export default function ProstheticsPage() {
               {labels.map((label) => (
                 <div 
                   key={label.id}
-                  className={`p-2 flex items-center gap-2 border rounded cursor-pointer hover:bg-neutral-lightest transition-colors ${
+                  className={`p-2 flex items-center gap-2 border rounded cursor-pointer hover:bg-muted transition-colors ${
                     selectedProsthetic?.labelId === label.id ? 'ring-2 ring-primary' : ''
                   }`}
                   onClick={() => handleSelectLabel(label.id)}
@@ -917,7 +917,7 @@ export default function ProstheticsPage() {
                   <span>{label.name}</span>
                   
                   {selectedProsthetic?.labelId === label.id && (
-                    <div className="ml-auto text-xs bg-primary-light text-primary px-1 py-0.5 rounded">
+                    <div className="ml-auto text-xs bg-primary/10 text-primary px-1 py-0.5 rounded">
                       Selecionado
                     </div>
                   )}
