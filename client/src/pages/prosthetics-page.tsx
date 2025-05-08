@@ -3,13 +3,16 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, X, AlertCircle } from "lucide-react";
+import { Search, Plus, X, AlertCircle, Paperclip, Printer, Calendar, RotateCcw, ExternalLink, MessageSquare, History, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 
 // Tipo de dados para próteses
 interface Prosthetic {
@@ -20,6 +23,11 @@ interface Prosthetic {
   description: string;
   professional: string;
   status: "pre-lab" | "sent" | "lab" | "approved" | "completed";
+  phone?: string;
+  laboratory?: string;
+  sentDate?: string;
+  deliveryDate?: string;
+  notes?: string[];
 }
 
 // Estados para o controle de próteses
@@ -41,7 +49,10 @@ export default function ProstheticsPage() {
       createdAt: new Date(2023, 5, 15).toISOString(),
       description: "Prótese total superior",
       professional: "Dr. Ana Silva",
-      status: "pre-lab"
+      status: "pre-lab",
+      phone: "+55 47 98475 6013",
+      laboratory: "Laboratório não informado",
+      notes: ["Paciente alérgico a metal, utilizar material cerâmico"]
     },
     {
       id: 2,
@@ -50,7 +61,11 @@ export default function ProstheticsPage() {
       createdAt: new Date(2023, 5, 20).toISOString(),
       description: "Coroa unitária - dente 26",
       professional: "Dr. Carlos Mendes",
-      status: "sent"
+      status: "sent",
+      phone: "+55 11 98765 4321",
+      laboratory: "Laboratório Dental Tech",
+      sentDate: new Date(2023, 5, 22).toISOString(),
+      notes: ["Paciente solicitou que a cor seja o mais natural possível"]
     },
     {
       id: 3,
@@ -59,7 +74,11 @@ export default function ProstheticsPage() {
       createdAt: new Date(2023, 6, 5).toISOString(),
       description: "Prótese parcial removível inferior",
       professional: "Dr. Ana Silva",
-      status: "lab"
+      status: "lab",
+      phone: "+55 21 97654 3210",
+      laboratory: "Laboratório Odontolab",
+      sentDate: new Date(2023, 6, 7).toISOString(),
+      notes: ["Prótese com ganchos em acrílico conforme solicitado pela paciente", "Utilizar material hipoalergênico"]
     },
     {
       id: 4,
@@ -68,7 +87,12 @@ export default function ProstheticsPage() {
       createdAt: new Date(2023, 6, 10).toISOString(),
       description: "Facetas de porcelana - dentes 11 e 21",
       professional: "Dr. Juliana Costa",
-      status: "approved"
+      status: "approved",
+      phone: "+55 31 96543 2109",
+      laboratory: "Premier Laboratório Dental",
+      sentDate: new Date(2023, 6, 12).toISOString(),
+      deliveryDate: new Date(2023, 6, 28).toISOString(),
+      notes: ["Paciente deseja cor A1", "Aprovado após primeira prova"]
     },
     {
       id: 5,
@@ -77,18 +101,26 @@ export default function ProstheticsPage() {
       createdAt: new Date(2023, 6, 15).toISOString(),
       description: "Implante com coroa - dente 36",
       professional: "Dr. Carlos Mendes",
-      status: "completed"
+      status: "completed",
+      phone: "+55 81 95432 1098",
+      laboratory: "Dental Lab Express",
+      sentDate: new Date(2023, 6, 17).toISOString(),
+      deliveryDate: new Date(2023, 7, 5).toISOString(),
+      notes: ["Implante de titânio com coroa metal-free", "Paciente satisfeito com o resultado final"]
     }
   ]);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedProsthetic, setSelectedProsthetic] = useState<Prosthetic | null>(null);
   const [newProsthetic, setNewProsthetic] = useState({
     patientName: "",
     description: "",
     professional: ""
   });
   const [draggedItem, setDraggedItem] = useState<Prosthetic | null>(null);
+  const [newNote, setNewNote] = useState("");
 
   // Filtrar próteses pelo termo de busca
   const filteredProsthetics = prosthetics.filter(
@@ -107,13 +139,118 @@ export default function ProstheticsPage() {
     "completed": filteredProsthetics.filter((p) => p.status === "completed")
   };
 
-  // Manipuladores para o modal
+  // Manipuladores para os modais
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+  
+  const openDetailModal = (prosthetic: Prosthetic) => {
+    setSelectedProsthetic(prosthetic);
+    setIsDetailModalOpen(true);
+  };
+  
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setSelectedProsthetic(null);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewProsthetic((prev) => ({ ...prev, [name]: value }));
+  };
+  
+  // Adicionar nova anotação
+  const handleAddNote = () => {
+    if (!newNote.trim() || !selectedProsthetic) return;
+    
+    const updatedProsthetics = prosthetics.map(p => {
+      if (p.id === selectedProsthetic.id) {
+        const updatedNotes = p.notes ? [...p.notes, newNote] : [newNote];
+        return { ...p, notes: updatedNotes };
+      }
+      return p;
+    });
+    
+    setProsthetics(updatedProsthetics);
+    
+    // Atualiza o prosthetic selecionado para refletir a mudança no modal
+    const updatedSelected = updatedProsthetics.find(p => p.id === selectedProsthetic.id);
+    if (updatedSelected) {
+      setSelectedProsthetic(updatedSelected);
+    }
+    
+    setNewNote("");
+    
+    toast({
+      title: "Anotação adicionada",
+      description: "A anotação foi adicionada com sucesso",
+    });
+  };
+  
+  // Atualizar datas
+  const handleUpdateDates = (type: 'sentDate' | 'deliveryDate') => {
+    if (!selectedProsthetic) return;
+    
+    const date = new Date().toISOString();
+    
+    const updatedProsthetics = prosthetics.map(p => {
+      if (p.id === selectedProsthetic.id) {
+        return { ...p, [type]: date };
+      }
+      return p;
+    });
+    
+    setProsthetics(updatedProsthetics);
+    
+    // Atualiza o prosthetic selecionado para refletir a mudança no modal
+    const updatedSelected = updatedProsthetics.find(p => p.id === selectedProsthetic.id);
+    if (updatedSelected) {
+      setSelectedProsthetic(updatedSelected);
+    }
+    
+    toast({
+      title: type === 'sentDate' ? "Data de envio registrada" : "Data de entrega registrada",
+      description: `A data de ${type === 'sentDate' ? 'envio' : 'entrega'} foi registrada com sucesso`,
+    });
+  };
+  
+  // Retornar serviço
+  const handleReturnService = () => {
+    if (!selectedProsthetic) return;
+    
+    // Move o serviço para o status anterior
+    let newStatus: "pre-lab" | "sent" | "lab" | "approved" | "completed" = "pre-lab";
+    
+    switch (selectedProsthetic.status) {
+      case "sent":
+        newStatus = "pre-lab";
+        break;
+      case "lab":
+        newStatus = "sent";
+        break;
+      case "approved":
+        newStatus = "lab";
+        break;
+      case "completed":
+        newStatus = "approved";
+        break;
+      default:
+        newStatus = "pre-lab";
+    }
+    
+    const updatedProsthetics = prosthetics.map(p => {
+      if (p.id === selectedProsthetic.id) {
+        return { ...p, status: newStatus };
+      }
+      return p;
+    });
+    
+    setProsthetics(updatedProsthetics);
+    closeDetailModal();
+    
+    toast({
+      title: "Serviço retornado",
+      description: `O serviço foi movido para "${statusLabels[newStatus]}"`,
+    });
   };
 
   // Adicionar nova prótese
@@ -223,6 +360,7 @@ export default function ProstheticsPage() {
                 <Card 
                   key={prosthetic.id}
                   draggable
+                  onClick={() => openDetailModal(prosthetic)}
                   onDragStart={() => handleDragStart(prosthetic)}
                   className="cursor-grab active:cursor-grabbing hover:border-primary transition-colors duration-200"
                 >
@@ -296,6 +434,226 @@ export default function ProstheticsPage() {
               Salvar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para detalhes da prótese */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {selectedProsthetic && selectedProsthetic.patientName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProsthetic && selectedProsthetic.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProsthetic && (
+            <div className="space-y-6">
+              {/* Informações do paciente */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <Avatar className="h-16 w-16">
+                    <AvatarFallback className="bg-primary-light text-primary text-xl">
+                      {selectedProsthetic.patientName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    {selectedProsthetic.patientName}
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Abrir perfil do paciente">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </h3>
+                  <p className="text-sm text-neutral-medium">
+                    {selectedProsthetic.phone}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs h-8"
+                      onClick={() => window.open(`https://wa.me/${selectedProsthetic.phone?.replace(/\D/g, '')}`, '_blank')}
+                    >
+                      Conversar por WhatsApp Web
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Ações principais */}
+              <div className="mt-4">
+                <h3 className="font-medium mb-2">Agenda</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  <Button variant="outline" size="sm" className="flex items-center gap-1 justify-start">
+                    <Paperclip className="h-4 w-4" />
+                    <span>Anexar</span>
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex items-center gap-1 justify-start">
+                    <Printer className="h-4 w-4" />
+                    <span>Imprimir</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 justify-start"
+                    onClick={() => handleUpdateDates('sentDate')}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span>Data envio</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 justify-start"
+                    onClick={() => handleUpdateDates('deliveryDate')}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    <span>Data entrega</span>
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Laboratório */}
+              <div className="p-3 border rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Laboratório</span>
+                    <span className="text-sm text-neutral-medium">{selectedProsthetic.laboratory || "não informado"}</span>
+                  </div>
+                  
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Status atual e ações */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="font-medium">Retornar serviço</span>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="ml-auto text-blue-600 hover:text-blue-800 px-2 py-1 h-auto text-sm"
+                    onClick={handleReturnService}
+                  >
+                    RETORNAR
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="font-medium">Agendar consulta</span>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="ml-auto text-blue-600 hover:text-blue-800 px-2 py-1 h-auto text-sm"
+                  >
+                    AGENDAR
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="font-medium">Próximas consultas</span>
+                  <span className="text-neutral-medium ml-auto">0 consultas</span>
+                </div>
+              </div>
+              
+              {/* Histórico e anotações */}
+              <Tabs defaultValue="notes" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="notes" className="flex items-center gap-1">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Anotações</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="flex items-center gap-1">
+                    <History className="h-4 w-4" />
+                    <span>Histórico</span>
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="notes" className="mt-4">
+                  <div className="space-y-4">
+                    {selectedProsthetic.notes && selectedProsthetic.notes.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedProsthetic.notes.map((note, index) => (
+                          <div key={index} className="p-3 bg-neutral-lightest rounded text-sm">
+                            {note}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-neutral-medium">
+                        <p>Nenhuma anotação adicionada</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <Textarea 
+                        placeholder="Adicionar anotações internas" 
+                        className="min-h-24"
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <span className="text-xs text-neutral-medium mr-2">
+                        {newNote.length} / 255
+                      </span>
+                      <Button onClick={handleAddNote} disabled={!newNote.trim()}>
+                        Salvar anotação
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="history" className="mt-4">
+                  <div className="space-y-4">
+                    <div className="text-sm space-y-2">
+                      {selectedProsthetic.sentDate && (
+                        <div className="flex justify-between p-2 border-b">
+                          <span>Data de envio</span>
+                          <span>{format(new Date(selectedProsthetic.sentDate), "dd/MM/yyyy", { locale: ptBR })}</span>
+                        </div>
+                      )}
+                      
+                      {selectedProsthetic.deliveryDate && (
+                        <div className="flex justify-between p-2 border-b">
+                          <span>Data de entrega</span>
+                          <span>{format(new Date(selectedProsthetic.deliveryDate), "dd/MM/yyyy", { locale: ptBR })}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between p-2 border-b">
+                        <span>Status atual</span>
+                        <span>{statusLabels[selectedProsthetic.status]}</span>
+                      </div>
+                      
+                      <div className="flex justify-between p-2 border-b">
+                        <span>Criado em</span>
+                        <span>{format(new Date(selectedProsthetic.createdAt), "dd/MM/yyyy", { locale: ptBR })}</span>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              
+              <DialogFooter className="sm:justify-between">
+                <Button variant="outline" onClick={closeDetailModal}>
+                  Fechar
+                </Button>
+                <Button variant="destructive" onClick={closeDetailModal}>
+                  Excluir serviço
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>
