@@ -261,17 +261,25 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
             </div>
           </div>
           
-          {/* Active filters */}
-          {activeFilters.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <h2 className="text-sm font-semibold text-foreground">Filtros ativos</h2>
-                <Button variant="ghost" size="sm" className="h-6 px-2" onClick={clearFilters}>
-                  <X className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Limpar</span>
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1">
+          {/* Filters */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-foreground">Filtros</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 px-2" 
+                onClick={clearFilters}
+                disabled={activeFilters.length === 0}
+              >
+                <X className="h-3 w-3 mr-1" />
+                <span className="text-xs">Limpar</span>
+              </Button>
+            </div>
+            
+            {/* Active filters */}
+            {activeFilters.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
                 {activeFilters.map(([key, value]) => (
                   <Badge key={key} variant="secondary" className="flex items-center gap-1">
                     {key === 'status' && 'Status:'}
@@ -289,126 +297,107 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
                   </Badge>
                 ))}
               </div>
+            )}
+            
+            {/* Status filter */}
+            <div>
+              <Label htmlFor="status" className="block text-xs font-medium text-foreground mb-1">Status</Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value) => handleFilterChange("status", value)}
+              >
+                <SelectTrigger id="status" className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Todos os status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="scheduled">Agendado</SelectItem>
+                  <SelectItem value="confirmed">Confirmado</SelectItem>
+                  <SelectItem value="in_progress">Em andamento</SelectItem>
+                  <SelectItem value="completed">Concluído</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                  <SelectItem value="no_show">Não compareceu</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
-          
-          {/* Filters accordion */}
-          <div className="flex-1 overflow-hidden">
-            <Accordion type="single" collapsible defaultValue="filters" className="overflow-hidden">
-              <AccordionItem value="filters" className="border-b-0">
-                <AccordionTrigger className="py-2">
-                  <div className="flex items-center">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <span className="text-sm font-semibold">Filtros</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="overflow-hidden">
-                  <ScrollArea className="flex-1 h-[220px] pr-3">
-                    <div className="space-y-3">
-                      {/* Status filter */}
-                      <div>
-                        <Label htmlFor="status" className="block text-xs font-medium text-foreground mb-1">Status</Label>
-                        <Select
-                          value={filters.status}
-                          onValueChange={(value) => handleFilterChange("status", value)}
-                        >
-                          <SelectTrigger id="status" className="w-full h-8 text-xs">
-                            <SelectValue placeholder="Todos os status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todos os status</SelectItem>
-                            <SelectItem value="scheduled">Agendado</SelectItem>
-                            <SelectItem value="confirmed">Confirmado</SelectItem>
-                            <SelectItem value="in_progress">Em andamento</SelectItem>
-                            <SelectItem value="completed">Concluído</SelectItem>
-                            <SelectItem value="cancelled">Cancelado</SelectItem>
-                            <SelectItem value="no_show">Não compareceu</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Professional filter */}
-                      <div>
-                        <Label htmlFor="professional" className="block text-xs font-medium text-foreground mb-1">Profissional</Label>
-                        <Select
-                          value={filters.professional}
-                          onValueChange={(value) => handleFilterChange("professional", value)}
-                        >
-                          <SelectTrigger id="professional" className="w-full h-8 text-xs">
-                            <SelectValue placeholder="Todos os profissionais" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todos os profissionais</SelectItem>
-                            <SelectItem value="1">Dr. Ana Silva</SelectItem>
-                            <SelectItem value="2">Dr. Carlos Mendes</SelectItem>
-                            <SelectItem value="3">Dr. Juliana Costa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Patient filter */}
-                      <div>
-                        <Label htmlFor="patient" className="block text-xs font-medium text-foreground mb-1">Paciente</Label>
-                        <div className="relative">
-                          <Search className="h-3 w-3 absolute left-2.5 top-2.5 text-muted-foreground" />
-                          <Input
-                            id="patient"
-                            placeholder="Buscar paciente"
-                            className="pl-7 h-8 text-xs"
-                            value={filters.patient}
-                            onChange={(e) => handleFilterChange("patient", e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Procedure filter */}
-                      <div>
-                        <Label htmlFor="procedure" className="block text-xs font-medium text-foreground mb-1">Procedimento</Label>
-                        <Select
-                          value={filters.procedure}
-                          onValueChange={(value) => handleFilterChange("procedure", value)}
-                        >
-                          <SelectTrigger id="procedure" className="w-full h-8 text-xs">
-                            <SelectValue placeholder="Todos os procedimentos" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todos os procedimentos</SelectItem>
-                            <SelectItem value="initial">Consulta inicial</SelectItem>
-                            <SelectItem value="cleaning">Limpeza</SelectItem>
-                            <SelectItem value="restoration">Restauração</SelectItem>
-                            <SelectItem value="rootcanal">Tratamento de canal</SelectItem>
-                            <SelectItem value="extraction">Extração</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Room filter */}
-                      <div>
-                        <Label htmlFor="room" className="block text-xs font-medium text-foreground mb-1">Sala</Label>
-                        <Select
-                          value={filters.room}
-                          onValueChange={(value) => handleFilterChange("room", value)}
-                        >
-                          <SelectTrigger id="room" className="w-full h-8 text-xs">
-                            <SelectValue placeholder="Todas as salas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todas as salas</SelectItem>
-                            <SelectItem value="1">Sala 01</SelectItem>
-                            <SelectItem value="2">Sala 02</SelectItem>
-                            <SelectItem value="3">Sala 03</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </ScrollArea>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            
+            {/* Professional filter */}
+            <div>
+              <Label htmlFor="professional" className="block text-xs font-medium text-foreground mb-1">Profissional</Label>
+              <Select
+                value={filters.professional}
+                onValueChange={(value) => handleFilterChange("professional", value)}
+              >
+                <SelectTrigger id="professional" className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Todos os profissionais" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os profissionais</SelectItem>
+                  <SelectItem value="1">Dr. Ana Silva</SelectItem>
+                  <SelectItem value="2">Dr. Carlos Mendes</SelectItem>
+                  <SelectItem value="3">Dr. Juliana Costa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Patient filter */}
+            <div>
+              <Label htmlFor="patient" className="block text-xs font-medium text-foreground mb-1">Paciente</Label>
+              <div className="relative">
+                <Search className="h-3 w-3 absolute left-2.5 top-2.5 text-muted-foreground" />
+                <Input
+                  id="patient"
+                  placeholder="Buscar paciente"
+                  className="pl-7 h-8 text-xs"
+                  value={filters.patient}
+                  onChange={(e) => handleFilterChange("patient", e.target.value)}
+                />
+              </div>
+            </div>
+            
+            {/* Procedure filter */}
+            <div>
+              <Label htmlFor="procedure" className="block text-xs font-medium text-foreground mb-1">Procedimento</Label>
+              <Select
+                value={filters.procedure}
+                onValueChange={(value) => handleFilterChange("procedure", value)}
+              >
+                <SelectTrigger id="procedure" className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Todos os procedimentos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os procedimentos</SelectItem>
+                  <SelectItem value="initial">Consulta inicial</SelectItem>
+                  <SelectItem value="cleaning">Limpeza</SelectItem>
+                  <SelectItem value="restoration">Restauração</SelectItem>
+                  <SelectItem value="rootcanal">Tratamento de canal</SelectItem>
+                  <SelectItem value="extraction">Extração</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Room filter */}
+            <div>
+              <Label htmlFor="room" className="block text-xs font-medium text-foreground mb-1">Sala</Label>
+              <Select
+                value={filters.room}
+                onValueChange={(value) => handleFilterChange("room", value)}
+              >
+                <SelectTrigger id="room" className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Todas as salas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as salas</SelectItem>
+                  <SelectItem value="1">Sala 01</SelectItem>
+                  <SelectItem value="2">Sala 02</SelectItem>
+                  <SelectItem value="3">Sala 03</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           {/* Quick action buttons */}
-          <div className="pb-2">
+          <div className="pb-2 mt-4">
             <Button className="w-full text-xs flex items-center h-8" size="sm">
               <Plus className="h-3 w-3 mr-1" />
               Novo agendamento
