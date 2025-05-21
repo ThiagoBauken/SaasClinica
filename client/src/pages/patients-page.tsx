@@ -23,7 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload } from "lucide-react";
+import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,7 @@ import PatientForm from "@/components/patients/PatientForm";
 import PatientsList from "@/components/patients/PatientsList";
 import PatientRecordTab from "@/components/patients/PatientRecordTab";
 import OdontogramChart from "@/components/odontogram/OdontogramChart";
+import Papa from "papaparse";
 
 export default function PatientsPage() {
   const { toast } = useToast();
