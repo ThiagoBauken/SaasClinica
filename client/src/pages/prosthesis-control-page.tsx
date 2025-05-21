@@ -124,14 +124,21 @@ const prosthesisTypes = [
   "Outro"
 ];
 
+// Interface para os rótulos
+interface ProsthesisLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 // Rótulos padrão
-const defaultLabels = [
-  { id: "urgente", name: "Urgente", color: "red" },
-  { id: "prioridade", name: "Prioridade", color: "orange" },
-  { id: "premium", name: "Premium", color: "purple" },
-  { id: "retrabalho", name: "Retrabalho", color: "yellow" },
-  { id: "provisorio", name: "Provisório", color: "blue" },
-  { id: "definitivo", name: "Definitivo", color: "green" }
+const defaultLabels: ProsthesisLabel[] = [
+  { id: "urgente", name: "Urgente", color: "#dc2626" },
+  { id: "prioridade", name: "Prioridade", color: "#ea580c" },
+  { id: "premium", name: "Premium", color: "#9333ea" },
+  { id: "retrabalho", name: "Retrabalho", color: "#eab308" },
+  { id: "provisorio", name: "Provisório", color: "#2563eb" },
+  { id: "definitivo", name: "Definitivo", color: "#16a34a" }
 ];
 
 // Mock data for prosthesis
@@ -267,10 +274,15 @@ export default function ProsthesisControlPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [showLaboratoryManager, setShowLaboratoryManager] = useState(false);
+  const [showLabelManager, setShowLabelManager] = useState(false);
   const [editingLaboratory, setEditingLaboratory] = useState<{ id: number, name: string, contact: string } | null>(null);
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [prosthesisToDelete, setProsthesisToDelete] = useState<Prosthesis | null>(null);
+  const [labels, setLabels] = useState<ProsthesisLabel[]>(defaultLabels);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#16a34a");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     delayedServices: false,
     returnedServices: false,
