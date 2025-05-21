@@ -688,6 +688,23 @@ export default function ProsthesisControlPage() {
     return false;
   };
   
+  // Função para verificar se uma cor é clara (para texto preto) ou escura (para texto branco)
+  const isLightColor = (color: string): boolean => {
+    // Remove o # se existir
+    const hex = color.replace('#', '');
+    
+    // Converte para RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calcula a luminosidade
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Retorna true se for clara (> 0.5)
+    return luminance > 0.5;
+  };
+  
   // Função para calcular dias atrasados
   const calculateDaysLate = (item: Prosthesis) => {
     if (item.expectedReturnDate && !item.returnDate) {
@@ -967,6 +984,28 @@ export default function ProsthesisControlPage() {
                                     }}>
                                       <h3 className="font-medium">{item.patientName}</h3>
                                       <p className="text-xs text-muted-foreground">{item.type}</p>
+                                      
+                                      {/* Mostrar etiquetas */}
+                                      {item.labels && item.labels.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {item.labels.map(labelId => {
+                                            const labelObj = labels.find(l => l.id === labelId);
+                                            if (!labelObj) return null;
+                                            return (
+                                              <Badge 
+                                                key={labelId} 
+                                                className="text-xs px-1.5 py-0"
+                                                style={{ 
+                                                  backgroundColor: labelObj.color,
+                                                  color: isLightColor(labelObj.color) ? '#000' : '#fff'
+                                                }}
+                                              >
+                                                {labelObj.name}
+                                              </Badge>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </div>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
