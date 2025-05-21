@@ -1,6 +1,6 @@
 import { ProfessionalSummary } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronLeft, ChevronRight, ChevronsDown, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ChevronsDown, Calendar as CalendarIcon, Settings } from "lucide-react";
 import { format, addDays, subDays, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import LoadIndicator from "./LoadIndicator";
@@ -171,7 +171,7 @@ export default function CalendarHeader({
             {/* Seletor de intervalo de tempo */}
             <Select 
               value={timeInterval.toString()} 
-              onValueChange={(value) => onTimeIntervalChange && onTimeIntervalChange(parseInt(value) as 15 | 30 | 60)}
+              onValueChange={(value) => onTimeIntervalChange && onTimeIntervalChange(parseInt(value) as 15 | 20 | 30 | 60)}
             >
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Intervalo" />
@@ -183,6 +183,16 @@ export default function CalendarHeader({
                 <SelectItem value="60">60 minutos</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Botão de Configurações Gerais */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => window.location.href = '/settings/schedule'}
+              title="Configurações da Agenda"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Ações */}
