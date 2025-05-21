@@ -80,6 +80,7 @@ interface Prosthesis {
   returnDate: string | null;
   status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled';
   observations: string | null;
+  labels: string[];
   createdAt: string;
   updatedAt: string | null;
 }
@@ -123,6 +124,16 @@ const prosthesisTypes = [
   "Outro"
 ];
 
+// Rótulos padrão
+const defaultLabels = [
+  { id: "urgente", name: "Urgente", color: "red" },
+  { id: "prioridade", name: "Prioridade", color: "orange" },
+  { id: "premium", name: "Premium", color: "purple" },
+  { id: "retrabalho", name: "Retrabalho", color: "yellow" },
+  { id: "provisorio", name: "Provisório", color: "blue" },
+  { id: "definitivo", name: "Definitivo", color: "green" }
+];
+
 // Mock data for prosthesis
 const generateMockProsthesis = (): Prosthesis[] => {
   const now = new Date();
@@ -142,6 +153,7 @@ const generateMockProsthesis = (): Prosthesis[] => {
       returnDate: null,
       status: 'sent',
       observations: "Paciente com sensibilidade",
+      labels: ["urgente", "premium"],
       createdAt: format(addDays(now, -12), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -10), "yyyy-MM-dd")
     },
@@ -159,6 +171,7 @@ const generateMockProsthesis = (): Prosthesis[] => {
       returnDate: null,
       status: 'sent',
       observations: "Usar material resistente",
+      labels: ["prioridade"],
       createdAt: format(addDays(now, -7), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -5), "yyyy-MM-dd")
     },
@@ -176,6 +189,7 @@ const generateMockProsthesis = (): Prosthesis[] => {
       returnDate: null,
       status: 'pending',
       observations: "Paciente alérgico a metal",
+      labels: ["provisorio"],
       createdAt: format(addDays(now, -2), "yyyy-MM-dd"),
       updatedAt: null
     },
@@ -193,6 +207,7 @@ const generateMockProsthesis = (): Prosthesis[] => {
       returnDate: format(addDays(now, -8), "yyyy-MM-dd"),
       status: 'returned',
       observations: "Cor A2",
+      labels: ["premium", "definitivo"],
       createdAt: format(addDays(now, -22), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -8), "yyyy-MM-dd")
     },
