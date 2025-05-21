@@ -378,6 +378,16 @@ export default function ProsthesisControlPage() {
           });
         }
         
+        if (filters.label !== "all") {
+          // Filtrar por etiqueta
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.labels && p.labels.includes(filters.label)
+              );
+          });
+        }
+        
         setColumns(updatedColumns);
       } catch (error) {
         console.error("Erro ao organizar próteses em colunas:", error);
@@ -1472,6 +1482,111 @@ export default function ProsthesisControlPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      
+        {/* Modal de gerenciamento de etiquetas */}
+        <Dialog open={showLabelManager} onOpenChange={setShowLabelManager}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Gerenciamento de Etiquetas</DialogTitle>
+              <DialogDescription>
+                Crie e gerencie etiquetas para organizar suas próteses
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <div className="grid flex-1 gap-2">
+                  <Input
+                    placeholder="Nome da etiqueta"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <Input
+                    type="color"
+                    className="w-[80px] h-10 cursor-pointer"
+                    value={newLabelColor}
+                    onChange={(e) => setNewLabelColor(e.target.value)}
+                  />
+                </div>
+                <Button size="sm" onClick={() => {
+                  if (newLabelName.trim()) {
+                    const labelId = newLabelName.trim().toLowerCase().replace(/\s+/g, "-");
+                    
+                    // Verificar se já existe
+                    if (labels.some(l => l.id === labelId)) {
+                      toast({
+                        title: "Erro",
+                        description: "Já existe uma etiqueta com este nome",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    setLabels([...labels, {
+                      id: labelId,
+                      name: newLabelName.trim(),
+                      color: newLabelColor
+                    }]);
+                    setNewLabelName("");
+                    
+                    toast({
+                      title: "Sucesso",
+                      description: "Etiqueta criada com sucesso"
+                    });
+                  }
+                }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="border rounded-md">
+                <div className="py-2 px-3 border-b bg-muted/50">
+                  <h3 className="text-sm font-medium">Etiquetas disponíveis</h3>
+                </div>
+                <div className="p-2 max-h-[220px] overflow-auto">
+                  {labels.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      Nenhuma etiqueta criada
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {labels.map((label) => (
+                        <div key={label.id} className="flex items-center justify-between p-2 rounded hover:bg-muted">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: label.color }}></div>
+                            <span>{label.name}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setLabels(labels.filter(l => l.id !== label.id));
+                              toast({
+                                title: "Etiqueta removida",
+                                description: "A etiqueta foi removida com sucesso"
+                              });
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter className="sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
