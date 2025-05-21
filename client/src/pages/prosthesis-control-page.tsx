@@ -59,7 +59,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1418,6 +1418,44 @@ export default function ProsthesisControlPage() {
             </form>
           </DialogContent>
         </Dialog>
+        
+        {/* Modal de confirmação para excluir prótese */}
+        <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta prótese? Esta ação não pode ser desfeita.
+                {prosthesisToDelete && (
+                  <div className="mt-2 p-3 border rounded-md">
+                    <p><strong>Paciente:</strong> {prosthesisToDelete.patientName}</p>
+                    <p><strong>Tipo:</strong> {prosthesisToDelete.type}</p>
+                    <p><strong>Laboratório:</strong> {prosthesisToDelete.laboratory}</p>
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setProsthesisToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (prosthesisToDelete) {
+                    deleteProsthesisMutation.mutate(prosthesisToDelete.id);
+                    setProsthesisToDelete(null);
+                  }
+                }}
+              >
+                {deleteProsthesisMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
