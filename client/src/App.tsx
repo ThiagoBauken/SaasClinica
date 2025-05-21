@@ -1,64 +1,44 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { Route, Switch } from "wouter";
+import { Suspense } from "react";
+import { AuthProvider } from "@/hooks/use-auth";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import SchedulePage from "@/pages/schedule-page";
+import { ProtectedRoute } from "@/lib/protected-route";
+
+// Import pages diretamente em vez de lazy loading para evitar erros no desenvolvimento
 import DashboardPage from "@/pages/dashboard-page";
-import AuthPage from "@/pages/auth-page";
 import PatientsPage from "@/pages/patients-page";
+import SchedulePage from "@/pages/schedule-page";
 import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
-import ProstheticsPage from "@/pages/prosthetics-page";
 import ProsthesisControlPage from "@/pages/prosthesis-control-page";
 import InventoryPage from "@/pages/inventory-page";
+import OdontogramDemo from "@/pages/odontogram-demo";
+import CadastrosPage from "@/pages/cadastros-page";
+import ConfiguracoesPage from "@/pages/configuracoes-page";
 
-import OdontogramDemoPage from "@/pages/odontogram-demo";
-import LandingPage from "@/pages/landing-page";
-import { ProtectedRoute } from "./lib/protected-route";
-import { AuthProvider } from "./hooks/use-auth";
-import { ThemeProvider } from "@/components/theme/theme-provider";
-
-function Router() {
-  return (
-    <Switch>
-      {/* Rota principal leva para landing page */}
-      <Route path="/" component={LandingPage} />
-      
-      {/* Rotas do painel - todas acessíveis diretamente sem proteção */}
-      <Route path="/dashboard" component={DashboardPage} />
-      <Route path="/schedule" component={SchedulePage} />
-      <Route path="/patients" component={PatientsPage} />
-      <Route path="/financial" component={FinancialPage} />
-      <Route path="/automation" component={AutomationPage} />
-      <Route path="/prosthetics" component={ProstheticsPage} />
-      <Route path="/prosthesis" component={ProsthesisControlPage} />
-      <Route path="/inventory" component={InventoryPage} />
-      <Route path="/odontogram-demo" component={OdontogramDemoPage} />
-      
-      {/* Rota de autenticação */}
-      <Route path="/auth" component={AuthPage} />
-      
-      {/* Rota para casos não encontrados */}
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light">
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Carregando...</div>}>
+          <Switch>
+            <ProtectedRoute path="/" component={DashboardPage} />
+            <ProtectedRoute path="/dashboard" component={DashboardPage} />
+            <ProtectedRoute path="/patients" component={PatientsPage} />
+            <ProtectedRoute path="/schedule" component={SchedulePage} />
+            <ProtectedRoute path="/financial" component={FinancialPage} />
+            <ProtectedRoute path="/automation" component={AutomationPage} />
+            <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
+            <ProtectedRoute path="/inventory" component={InventoryPage} />
+            <ProtectedRoute path="/odontogram-demo" component={OdontogramDemo} />
+            <ProtectedRoute path="/cadastros" component={CadastrosPage} />
+            <ProtectedRoute path="/configuracoes" component={ConfiguracoesPage} />
+          </Switch>
+        </Suspense>
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
-
-export default App;

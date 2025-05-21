@@ -87,6 +87,14 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           <Activity className="mr-3 h-5 w-5" />
           Odontograma
         </Link>
+        <Link href="/cadastros" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/cadastros" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
+          <BoxSelect className="mr-3 h-5 w-5" />
+          Cadastros
+        </Link>
+        <Link href="/configuracoes" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/configuracoes" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
+          <Settings className="mr-3 h-5 w-5" />
+          Configurações
+        </Link>
       </nav>
     </div>
   );
