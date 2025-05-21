@@ -59,7 +59,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -266,6 +266,7 @@ export default function ProsthesisControlPage() {
   // Estados para modal e filtros
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showLaboratoryManager, setShowLaboratoryManager] = useState(false);
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
   const [filters, setFilters] = useState({
     delayedServices: false,
@@ -1074,25 +1075,110 @@ export default function ProsthesisControlPage() {
                   <div className="grid gap-2">
                     <Label htmlFor="laboratory">Laboratório</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <Input
-                        id="laboratory"
-                        name="laboratory"
-                        defaultValue={editingProsthesis?.laboratory || ""}
-                        placeholder="Digite para selecionar ou cadastrar laboratório"
-                        list="laboratorios-list"
-                        required
-                      />
-                      <datalist id="laboratorios-list">
-                        {mockLaboratories.map(lab => (
-                          <option key={lab.id} value={lab.name} />
-                        ))}
-                      </datalist>
+                      <div className="relative">
+                        <div className="flex items-center">
+                          <Input
+                            id="laboratory"
+                            name="laboratory"
+                            defaultValue={editingProsthesis?.laboratory || ""}
+                            placeholder="Digite para selecionar ou cadastrar laboratório"
+                            list="laboratorios-list"
+                            required
+                            className="w-full"
+                          />
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            className="ml-2 px-2"
+                            onClick={() => {
+                              // Abrir dropdown para gerenciar laboratórios
+                              setShowLaboratoryManager(true);
+                            }}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Gerenciar
+                          </Button>
+                        </div>
+                        <datalist id="laboratorios-list">
+                          {mockLaboratories.map(lab => (
+                            <option key={lab.id} value={lab.name} />
+                          ))}
+                        </datalist>
+                      </div>
                       <Input 
                         placeholder="WhatsApp laboratório"
                         name="laboratoryContact"
                         defaultValue=""
                       />
                     </div>
+                    
+                    {/* Modal para gerenciar laboratórios */}
+                    <Dialog open={showLaboratoryManager} onOpenChange={setShowLaboratoryManager}>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>Gerenciar Laboratórios</DialogTitle>
+                          <DialogDescription>
+                            Adicione, edite ou remova laboratórios do sistema.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="my-4 max-h-[300px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Nome</TableHead>
+                                <TableHead className="w-[100px]">Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {mockLaboratories.map(lab => (
+                                <TableRow key={lab.id}>
+                                  <TableCell className="font-medium">{lab.name}</TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        // Simular remoção do laboratório
+                                        toast({
+                                          title: "Laboratório removido",
+                                          description: `${lab.name} foi removido com sucesso.`
+                                        });
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <div className="grid gap-4 py-2">
+                          <div className="flex items-center space-x-2">
+                            <Input placeholder="Nome do novo laboratório" id="newLaboratory" />
+                            <Button
+                              onClick={() => {
+                                const input = document.getElementById("newLaboratory") as HTMLInputElement;
+                                if (input?.value) {
+                                  // Simular adição de novo laboratório
+                                  toast({
+                                    title: "Laboratório adicionado",
+                                    description: `${input.value} foi adicionado com sucesso.`
+                                  });
+                                  input.value = "";
+                                }
+                              }}
+                            >
+                              Adicionar
+                            </Button>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={() => setShowLaboratoryManager(false)}>Fechar</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
                 
