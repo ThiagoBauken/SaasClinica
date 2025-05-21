@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import TimelineView from "@/components/calendar/TimelineView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
 import FitInModal from "@/components/calendar/FitInModal";
+import ScheduleSettings from "@/components/calendar/ScheduleSettings";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
 import { 
   Select, 
@@ -12,6 +13,8 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -28,6 +31,7 @@ export default function SchedulePage() {
   const [currentView, setCurrentView] = useState<CalendarViewType>("timeline");
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isFitInModalOpen, setIsFitInModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | undefined>(undefined);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedSlotInfo, setSelectedSlotInfo] = useState<{
@@ -35,11 +39,32 @@ export default function SchedulePage() {
     time: string;
   } | null>(null);
   
-  // Estado para controlar o intervalo de tempo (15, 30 ou 60 minutos)
-  const [timeInterval, setTimeInterval] = useState<15 | 30 | 60>(30);
+  // Estado para controlar o intervalo de tempo (15, 20, 30 ou 60 minutos)
+  const [timeInterval, setTimeInterval] = useState<15 | 20 | 30 | 60>(30);
   
   // Estado para armazenar o profissional selecionado na visualização diária
   const [selectedProfessionalForDay, setSelectedProfessionalForDay] = useState<number>();
+  
+  // Estado para horários de início e fim da agenda
+  const [workHours, setWorkHours] = useState({
+    startHour: 7, // Padrão: 7:00
+    endHour: 19,  // Padrão: 19:00
+    // Configurações por dia da semana (0 = domingo, 1 = segunda, etc.)
+    weekDays: {
+      0: { enabled: false, startHour: 7, endHour: 19 }, // Domingo
+      1: { enabled: true, startHour: 7, endHour: 19 },  // Segunda
+      2: { enabled: true, startHour: 7, endHour: 19 },  // Terça
+      3: { enabled: true, startHour: 7, endHour: 19 },  // Quarta
+      4: { enabled: true, startHour: 7, endHour: 19 },  // Quinta
+      5: { enabled: true, startHour: 7, endHour: 19 },  // Sexta
+      6: { enabled: false, startHour: 7, endHour: 19 }, // Sábado
+    },
+    lunchBreak: {
+      enabled: true,
+      startHour: 12, 
+      endHour: 13
+    }
+  });
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery<any[]>({
@@ -258,15 +283,60 @@ export default function SchedulePage() {
   // Generate time slots for the timeline view
   const generateTimeSlots = (): TimeSlot[] => {
     const slots: TimeSlot[] = [];
-    const startHour = 8; // 8:00 AM
-    const endHour = 18; // 6:00 PM
-    const intervalMinutes = 30;
-
+    
+    // Obter dia da semana (0 = domingo, 1 = segunda, etc.)
+    const dayOfWeek = selectedDate.getDay();
+    
+    // Usar configurações específicas para o dia da semana
+    const dayConfig = workHours.weekDays[dayOfWeek];
+    
+    // Se o dia estiver desabilitado, retornar slots vazios
+    if (!dayConfig.enabled) {
+      return slots;
+    }
+    
+    const startHour = dayConfig.startHour; 
+    const endHour = dayConfig.endHour;
+    const intervalMinutes = timeInterval;
+    
+    // Gerar slots para cada hora dentro do intervalo de trabalho
     for (let hour = startHour; hour < endHour; hour++) {
+      // Verificar se está no horário de almoço
+      const isLunchHour = workHours.lunchBreak.enabled && 
+                          hour >= workHours.lunchBreak.startHour && 
+                          hour < workHours.lunchBreak.endHour;
+      
+      if (isLunchHour) {
+        // Adicionar slot de almoço
+        const lunchTime = `${hour.toString().padStart(2, '0')}:00`;
+        
+        // Criar mapa vazio de agendamentos
+        const lunchAppointmentsMap: Record<number, AppointmentWithRelations | null> = {};
+        if (professionals) {
+          professionals.forEach(prof => {
+            lunchAppointmentsMap[prof.id] = null;
+          });
+        }
+        
+        slots.push({
+          time: lunchTime,
+          isLunchBreak: true,
+          appointments: lunchAppointmentsMap
+        });
+        
+        continue; // Pular geração de slots normais durante o almoço
+      }
+      
+      // Gerar slots baseados no intervalo selecionado
       for (let minute = 0; minute < 60; minute += intervalMinutes) {
+        // Verificar se ultrapassou o horário de trabalho
+        if (hour === endHour - 1 && minute + intervalMinutes > 60) {
+          continue; // Evitar slots que ultrapassem o horário de fim
+        }
+        
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         
-        // Create a map of professionalId to appointments that start at this time
+        // Criar mapa de agendamentos para este horário
         const appointmentsMap: Record<number, AppointmentWithRelations | null> = {};
         if (professionals) {
           professionals.forEach(prof => {
@@ -274,7 +344,7 @@ export default function SchedulePage() {
           });
         }
 
-        // Fill in the appointments
+        // Preencher os agendamentos para este horário
         if (appointments) {
           appointments.forEach(appointment => {
             const appointmentStartTime = format(parseISO(appointment.startTime), 'HH:mm');
@@ -286,6 +356,7 @@ export default function SchedulePage() {
 
         slots.push({
           time,
+          isLunchBreak: false,
           appointments: appointmentsMap
         });
       }

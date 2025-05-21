@@ -83,6 +83,9 @@ export interface AppointmentWithRelations {
 
 export interface TimeSlot {
   time: string; // "HH:MM" format
+  label?: string;
+  isLunchBreak?: boolean;
+  isSelected?: boolean;
   appointments: Record<number, AppointmentWithRelations | null>; // Map of professionalId to appointment
 }
 

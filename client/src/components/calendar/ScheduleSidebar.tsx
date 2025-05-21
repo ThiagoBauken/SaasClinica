@@ -216,7 +216,8 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
                   onFilterChange({ 
                     ...filters, 
                     selectedDate: date,
-                    selectedDay: formattedDate
+                    selectedDay: formattedDate,
+                    updateMainCalendar: true // Indica que deve atualizar o calendário principal
                   });
                 }
               }}
