@@ -1,8 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, DatabaseStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { parse, formatISO, addDays } from "date-fns";
+import { cacheMiddleware, invalidateCacheByPrefix } from "./cache";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -16,16 +17,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API routes
   // --------------------------
 
-  // Patients
-  app.get("/api/patients", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const patients = await storage.getPatients();
-      res.json(patients);
-    } catch (error) {
-      next(error);
+  // Middleware para verificar autenticação em todas as rotas API
+  const authCheck = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-  });
+    next();
+  };
+
+  // Função auxiliar para tratamento de erros assíncrono
+  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
+  };
+
+  // Patients - Com cache
+  app.get("/api/patients", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
+    const patients = await storage.getPatients();
+    res.json(patients);
+  }));
 
   app.get("/api/patients/:id", async (req, res, next) => {
     try {
