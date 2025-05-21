@@ -269,6 +269,8 @@ export default function ProsthesisControlPage() {
   const [showLaboratoryManager, setShowLaboratoryManager] = useState(false);
   const [editingLaboratory, setEditingLaboratory] = useState<{ id: number, name: string, contact: string } | null>(null);
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [prosthesisToDelete, setProsthesisToDelete] = useState<Prosthesis | null>(null);
   const [filters, setFilters] = useState({
     delayedServices: false,
     returnedServices: false,
@@ -414,6 +416,37 @@ export default function ProsthesisControlPage() {
       toast({
         title: "Erro",
         description: `Falha ao salvar prótese: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutation para excluir prótese
+  const deleteProsthesisMutation = useMutation({
+    mutationFn: async (id: number) => {
+      try {
+        const res = await apiRequest("DELETE", `/api/prosthesis/${id}`);
+        if (!res.ok) {
+          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        console.error("Erro ao excluir prótese:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      toast({
+        title: "Sucesso",
+        description: "Prótese excluída com sucesso!",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Erro detalhado ao excluir prótese:", error);
+      toast({
+        title: "Erro",
+        description: `Falha ao excluir prótese: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -928,11 +961,8 @@ export default function ProsthesisControlPage() {
                                           className="text-destructive"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            toast({
-                                              title: "Ação não implementada",
-                                              description: "A exclusão de próteses não está disponível no momento.",
-                                              variant: "destructive",
-                                            });
+                                            setProsthesisToDelete(item);
+                                            setIsDeleteModalOpen(true);
                                           }}
                                         >
                                           <Trash2 className="h-4 w-4 mr-2" /> Excluir
@@ -1096,7 +1126,7 @@ export default function ProsthesisControlPage() {
                           id="laboratory"
                           name="laboratory"
                           defaultValue={editingProsthesis?.laboratory || ""}
-                          placeholder="Digite para selecionar ou cadastrar laboratório"
+                          placeholder="Selecionar laboratório"
                           list="laboratorios-list"
                           required
                           className="w-full"
