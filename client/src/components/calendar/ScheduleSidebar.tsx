@@ -208,9 +208,16 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
             <MiniCalendar 
               selectedDate={filters.selectedDate}
               onSelectDate={(date) => {
+                // Formatar data para evitar problemas de renderização
+                const formattedDate = format(date, 'yyyy-MM-dd');
+                
                 handleFilterChange("selectedDate", date);
                 if (onFilterChange) {
-                  onFilterChange({ ...filters, selectedDate: date });
+                  onFilterChange({ 
+                    ...filters, 
+                    selectedDate: date,
+                    selectedDay: formattedDate
+                  });
                 }
               }}
             />

@@ -27,6 +27,8 @@ interface CalendarHeaderProps {
   currentView: CalendarViewType;
   onViewChange: (view: CalendarViewType) => void;
   professionalsSummary: ProfessionalSummary[];
+  timeInterval?: 15 | 30 | 60;
+  onTimeIntervalChange?: (interval: 15 | 30 | 60) => void;
 }
 
 export default function CalendarHeader({
@@ -35,7 +37,9 @@ export default function CalendarHeader({
   onNewAppointment,
   currentView,
   onViewChange,
-  professionalsSummary
+  professionalsSummary,
+  timeInterval = 30,
+  onTimeIntervalChange
 }: CalendarHeaderProps) {
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
   const [selectedRoom, setSelectedRoom] = useState<string>("all");
@@ -148,19 +152,36 @@ export default function CalendarHeader({
           </div>
 
           {/* Visualização */}
-          <Select 
-            value={currentView} 
-            onValueChange={(value) => onViewChange(value as CalendarViewType)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Visualização" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">Dia</SelectItem>
-              <SelectItem value="week">Semana</SelectItem>
-              <SelectItem value="room">Cadeira/Sala</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select 
+              value={currentView} 
+              onValueChange={(value) => onViewChange(value as CalendarViewType)}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Visualização" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Dia</SelectItem>
+                <SelectItem value="week">Semana</SelectItem>
+                <SelectItem value="room">Cadeira/Sala</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Seletor de intervalo de tempo */}
+            <Select 
+              value={timeInterval.toString()} 
+              onValueChange={(value) => onTimeIntervalChange && onTimeIntervalChange(parseInt(value) as 15 | 30 | 60)}
+            >
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Intervalo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15 minutos</SelectItem>
+                <SelectItem value="30">30 minutos</SelectItem>
+                <SelectItem value="60">60 minutos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Ações */}
           <Button 

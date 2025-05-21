@@ -5,6 +5,13 @@ import TimelineView from "@/components/calendar/TimelineView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
 import FitInModal from "@/components/calendar/FitInModal";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -30,6 +37,9 @@ export default function SchedulePage() {
   
   // Estado para controlar o intervalo de tempo (15, 30 ou 60 minutos)
   const [timeInterval, setTimeInterval] = useState<15 | 30 | 60>(30);
+  
+  // Estado para armazenar o profissional selecionado na visualização diária
+  const [selectedProfessionalForDay, setSelectedProfessionalForDay] = useState<number>();
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery<any[]>({
@@ -401,6 +411,15 @@ export default function SchedulePage() {
         currentView={currentView}
         onViewChange={setCurrentView}
         professionalsSummary={professionalsSummary}
+        timeInterval={timeInterval}
+        onTimeIntervalChange={(interval) => {
+          setTimeInterval(interval);
+          // A mudança de intervalo vai acionar regeneração dos slots de tempo
+          toast({
+            title: `Intervalo alterado para ${interval} minutos`,
+            description: `Os horários agora estão divididos em intervalos de ${interval} minutos.`,
+          });
+        }}
       />
 
       <div className="flex mt-4 gap-4">
@@ -422,16 +441,67 @@ export default function SchedulePage() {
                 />
               )}
               
-              {/* Day view (dia específico) */}
+              {/* Day view (dia específico - mostra apenas um profissional) */}
               {currentView === 'day' && professionals && (
-                <TimelineView
-                  date={selectedDate}
-                  professionals={professionals}
-                  timeSlots={timeSlots}
-                  onSlotClick={handleSlotClick}
-                  onAppointmentClick={handleOpenAppointment}
-                  viewType="day"
-                />
+                <div className="p-4">
+                  <h3 className="text-lg font-medium mb-4">Agenda do dia: {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}</h3>
+                  
+                  {/* Seletor de profissional para visualização diária */}
+                  <div className="mb-4">
+                    <Select 
+                      value={selectedProfessionalForDay?.toString() || (professionals[0]?.id.toString() || "1")}
+                      onValueChange={(value) => setSelectedProfessionalForDay(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue placeholder="Selecione um profissional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {professionals.map(prof => (
+                          <SelectItem key={prof.id} value={prof.id.toString()}>
+                            {prof.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Lista de horários do dia para o profissional selecionado */}
+                  <div className="space-y-1 border rounded-md">
+                    {timeSlots.map((slot, index) => {
+                      const profId = selectedProfessionalForDay || (professionals[0]?.id || 1);
+                      const appointment = slot.appointments?.[profId];
+                      
+                      return (
+                        <div 
+                          key={index} 
+                          className={`flex items-center p-2 border-b ${index % 2 === 0 ? 'bg-muted/40' : ''}`}
+                        >
+                          <div className="w-16 text-sm font-medium">{slot.time}</div>
+                          
+                          {appointment ? (
+                            <div 
+                              className={`flex-1 p-2 rounded-md ${getAppointmentColor(appointment.status)}`}
+                              onClick={() => handleOpenAppointment(appointment)}
+                            >
+                              <div className="font-medium">{appointment.patient?.fullName || 'Paciente não especificado'}</div>
+                              <div className="text-xs">
+                                {appointment.title || 'Consulta'}
+                                {appointment.room && ` - ${appointment.room.name}`}
+                              </div>
+                            </div>
+                          ) : (
+                            <div 
+                              className="flex-1 p-2 text-sm text-muted-foreground hover:bg-muted rounded-md cursor-pointer flex items-center"
+                              onClick={() => handleSlotClick(profId, slot.time)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Agendar horário
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
               
               {/* Week view (semana) - estilo Bauken */}
