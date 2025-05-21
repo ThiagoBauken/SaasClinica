@@ -90,7 +90,21 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
     setSelectedDate(date);
     // Notificar o componente pai sobre a seleção de data
     if (onSelectDate) {
+      // Adicionar flag para indicar que deve atualizar o calendário principal
       onSelectDate(date);
+      
+      // Notificar que a seleção veio do mini calendário
+      const filters = {
+        selectedDate: date,
+        selectedDay: format(date, 'yyyy-MM-dd'),
+        updateMainCalendar: true
+      };
+      
+      // Disparar evento para atualizar o filtro no componente pai
+      const event = new CustomEvent('filterChange', { 
+        detail: { filters } 
+      });
+      window.dispatchEvent(event);
     }
   };
 

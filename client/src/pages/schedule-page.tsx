@@ -34,9 +34,20 @@ export default function SchedulePage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | undefined>(undefined);
   const [isEditMode, setIsEditMode] = useState(false);
+  // Estado para seleção de slots de horário
   const [selectedSlotInfo, setSelectedSlotInfo] = useState<{
     professionalId: number;
     time: string;
+    endTime?: string;  // Para seleção múltipla (arrastar)
+    duration?: number; // Duração em minutos
+  } | null>(null);
+  
+  // Estado para controlar a seleção múltipla (arrastar)
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartSlot, setDragStartSlot] = useState<{
+    professionalId: number;
+    time: string;
+    index: number;
   } | null>(null);
   
   // Estado para controlar o intervalo de tempo (15, 20, 30 ou 60 minutos)
@@ -434,11 +445,72 @@ export default function SchedulePage() {
   };
 
   // Handle clicking on an empty slot
-  const handleSlotClick = (professionalId: number, time: string) => {
-    setSelectedSlotInfo({ professionalId, time });
-    setSelectedAppointment(undefined);
-    setIsEditMode(false);
-    setIsAppointmentModalOpen(true);
+  const handleSlotClick = (professionalId: number, time: string, slotIndex?: number) => {
+    // Se não estiver arrastando, inicia a seleção simples
+    if (!isDragging) {
+      setSelectedSlotInfo({ professionalId, time });
+      setSelectedAppointment(undefined);
+      setIsEditMode(false);
+      setIsAppointmentModalOpen(true);
+    }
+  };
+  
+  // Funções para seleção múltipla (arrastar)
+  const handleMouseDown = (professionalId: number, time: string, slotIndex: number) => {
+    // Inicia o processo de arrastar
+    setIsDragging(true);
+    setDragStartSlot({ professionalId, time, index: slotIndex });
+  };
+  
+  const handleMouseMove = (professionalId: number, time: string, slotIndex: number) => {
+    // Se estiver arrastando e tiver um slot inicial
+    if (isDragging && dragStartSlot && dragStartSlot.professionalId === professionalId) {
+      // Destacar visualmente a seleção (poderia ser implementado com classes CSS)
+      // Por enquanto apenas mostramos um feedback temporário
+      if (Math.abs(slotIndex - dragStartSlot.index) > 0) {
+        // Feedback visual temporário
+        toast({
+          title: "Selecionando múltiplos horários",
+          description: `De ${dragStartSlot.time} até ${time}`,
+          duration: 1000
+        });
+      }
+    }
+  };
+  
+  const handleMouseUp = (professionalId: number, time: string, slotIndex: number) => {
+    // Finaliza o processo de arrastar
+    if (isDragging && dragStartSlot && dragStartSlot.professionalId === professionalId) {
+      // Calcula a duração baseada nos slots selecionados
+      const startIndex = Math.min(dragStartSlot.index, slotIndex);
+      const endIndex = Math.max(dragStartSlot.index, slotIndex);
+      const duration = (endIndex - startIndex + 1) * timeInterval;
+      
+      // Hora de início (sempre usar o menor horário)
+      const startTime = slotIndex < dragStartSlot.index ? time : dragStartSlot.time;
+      
+      // Calcular a hora de término baseada na duração
+      const startDate = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${startTime}:00`);
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+      const endTime = format(endDate, 'HH:mm');
+      
+      // Configura os dados da seleção para o modal
+      setSelectedSlotInfo({
+        professionalId,
+        time: startTime,
+        endTime: endTime,
+        duration: duration
+      });
+      
+      // Abre o modal com os dados calculados
+      setSelectedAppointment(undefined);
+      setIsEditMode(false);
+      setIsAppointmentModalOpen(true);
+      
+      // Reseta o estado de arrastar
+      setIsDragging(false);
+      setDragStartSlot(null);
+    }
   };
 
   // Handle saving appointment
@@ -582,11 +654,14 @@ export default function SchedulePage() {
                                   </div>
                                 ) : (
                                   <div 
-                                    className="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                                    className={`h-full w-full flex items-center justify-center ${isDragging ? 'bg-primary/10' : 'opacity-0 hover:opacity-100'} transition-opacity cursor-pointer`}
                                     onClick={() => handleSlotClick(professional.id, slot.time)}
+                                    onMouseDown={() => handleMouseDown(professional.id, slot.time, slotIndex)}
+                                    onMouseMove={() => handleMouseMove(professional.id, slot.time, slotIndex)}
+                                    onMouseUp={() => handleMouseUp(professional.id, slot.time, slotIndex)}
                                   >
                                     <div className="text-xs text-primary flex items-center">
-                                      <Plus className="h-3 w-3 mr-1" /> Agendar
+                                      <Plus className="h-3 w-3 mr-1" /> {isDragging ? 'Arraste para selecionar' : 'Agendar'}
                                     </div>
                                   </div>
                                 )}
@@ -707,47 +782,94 @@ export default function SchedulePage() {
               
               {/* Room view (visão por sala/cadeira) */}
               {currentView === 'room' && (
-                <div className="p-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[1, 2].map(roomId => (
-                    <div key={roomId} className="border rounded-md overflow-hidden">
-                      <div className="bg-primary/10 p-2 font-semibold">
-                        Cadeira {String(roomId).padStart(2, '0')}
-                      </div>
-                      <div className="divide-y">
-                        {timeSlots.map((slot, index) => {
-                          const appointment = appointments?.find(
-                            a => a.roomId === roomId && 
-                                isSameDay(new Date(a.startTime), selectedDate) && 
-                                format(new Date(a.startTime), 'HH:mm') <= slot.time && 
-                                format(new Date(a.endTime), 'HH:mm') > slot.time
-                          );
-                          return (
-                            <div key={index} className="flex py-1 px-2 hover:bg-muted/50">
-                              <div className="w-12 text-xs font-medium">{slot.time}</div>
-                              {appointment ? (
-                                <div 
-                                  className={`flex-1 text-xs rounded p-1 ${getAppointmentColor(appointment.status)}`}
-                                  onClick={() => handleOpenAppointment(appointment)}
-                                >
-                                  <div className="font-medium">{appointment.patient?.fullName || 'Sem paciente'}</div>
-                                  <div className="text-muted-foreground">
-                                    {format(new Date(appointment.startTime), "HH:mm")} - {format(new Date(appointment.endTime), "HH:mm")}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="flex-1 flex items-center justify-center text-xs text-muted-foreground cursor-pointer hover:bg-primary/5"
-                                  onClick={() => handleSlotClick(roomId, slot.time)}
-                                >
-                                  <Plus className="h-3 w-3 mr-1" /> Agendar
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                <div className="overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <div className="grid grid-cols-[80px_1fr] border-b">
+                      <div className="p-3 font-medium">Horário</div>
+                      <div className="grid grid-cols-3">
+                        <div className="p-3 text-center font-medium border-l">
+                          <div>Cadeira 01</div>
+                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                        </div>
+                        <div className="p-3 text-center font-medium border-l">
+                          <div>Cadeira 02</div>
+                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                        </div>
+                        <div className="p-3 text-center font-medium border-l">
+                          <div>Cadeira 03</div>
+                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                    
+                    {/* Slots de tempo */}
+                    {timeSlots.map((slot, slotIndex) => (
+                      <div 
+                        key={slotIndex} 
+                        className={`grid grid-cols-[80px_1fr] border-b ${slotIndex % 2 === 0 ? 'bg-muted/5' : ''} ${slot.isLunchBreak ? 'bg-muted/20' : ''}`}
+                      >
+                        <div className="p-2 flex items-center justify-center">
+                          <span className="text-sm font-medium">{slot.time}</span>
+                          {slot.isLunchBreak && <span className="ml-1 text-xs text-muted-foreground">(Almoço)</span>}
+                        </div>
+                        
+                        <div className="grid grid-cols-3">
+                          {[1, 2, 3].map(roomId => {
+                            // Encontrar agendamento para esta sala no horário atual
+                            const appointment = appointments?.find(
+                              a => a.roomId === roomId && 
+                                  isSameDay(parseISO(a.startTime), selectedDate) && 
+                                  format(parseISO(a.startTime), 'HH:mm') <= slot.time && 
+                                  format(parseISO(a.endTime), 'HH:mm') > slot.time
+                            );
+                            
+                            return (
+                              <div 
+                                key={roomId} 
+                                className="p-1 border-l min-h-[50px] relative"
+                              >
+                                {appointment ? (
+                                  <div 
+                                    className={`p-2 rounded h-full ${getAppointmentColor(appointment.status)}`}
+                                    onClick={() => handleOpenAppointment(appointment)}
+                                  >
+                                    <div className="text-sm font-medium truncate">
+                                      {appointment.patient?.fullName || 'Sem paciente'}
+                                    </div>
+                                    <div className="text-xs truncate">
+                                      {appointment.professional?.fullName || 'Sem profissional'}
+                                    </div>
+                                    {appointment.title && (
+                                      <div className="text-xs truncate">{appointment.title}</div>
+                                    )}
+                                  </div>
+                                ) : slot.isLunchBreak ? (
+                                  <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
+                                    Horário de almoço
+                                  </div>
+                                ) : (
+                                  <div 
+                                    className="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                                    onClick={() => {
+                                      setSelectedSlotInfo({
+                                        professionalId: professionals?.[0]?.id || 1,
+                                        time: slot.time
+                                      });
+                                      setIsAppointmentModalOpen(true);
+                                    }}
+                                  >
+                                    <div className="text-xs text-primary flex items-center">
+                                      <Plus className="h-3 w-3 mr-1" /> Agendar
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
