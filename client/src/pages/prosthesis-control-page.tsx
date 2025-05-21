@@ -745,81 +745,43 @@ export default function ProsthesisControlPage() {
           </div>
         </div>
         
-        {/* Visão geral */}
+        {/* Painel Kanban */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-primary">Pré-laboratório</CardTitle>
-              <CardDescription>
-                Pendentes de envio ao laboratório
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center">
-                <span className="text-3xl font-bold">{totals.pending}</span>
-                <span className="text-muted-foreground ml-2">próteses</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4">
+            <div className="flex items-center justify-between border-b pb-2 mb-3">
+              <h3 className="text-lg font-semibold text-primary">Pré-laboratório</h3>
+              <Badge variant="outline">{totals.pending}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Pendentes de envio ao laboratório</p>
+          </div>
           
-          <Card className={cn("bg-card", hasDelayedItems && "border-red-400")}>
-            <CardHeader className="pb-2">
-              <CardTitle className={cn("text-primary", hasDelayedItems && "text-red-500")}>
-                Envio
-                {hasDelayedItems && <AlertCircle className="h-4 w-4 inline ml-2" />}
-              </CardTitle>
-              <CardDescription>
-                Com atraso de envio
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center">
-                <span className="text-3xl font-bold">{totals.sent}</span>
-                <span className="text-muted-foreground ml-2">próteses</span>
-                {hasDelayedItems && (
-                  <Badge variant="destructive" className="ml-auto">
-                    Atrasados
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className={cn("bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4", hasDelayedItems && "border-red-400")}>
+            <div className="flex items-center justify-between border-b pb-2 mb-3">
+              <h3 className={cn("text-lg font-semibold", hasDelayedItems ? "text-red-500" : "text-primary")}>
+                Envio {hasDelayedItems && <AlertCircle className="h-4 w-4 inline ml-1" />}
+              </h3>
+              <Badge variant={hasDelayedItems ? "destructive" : "outline"}>{totals.sent}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Com atraso de envio</p>
+          </div>
           
-          <Card className="bg-card border-red-400">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-primary text-red-500">
-                Laboratório
-                <AlertCircle className="h-4 w-4 inline ml-2" />
-              </CardTitle>
-              <CardDescription>
-                Com atraso de entrega
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center">
-                <span className="text-3xl font-bold">{totals.returned}</span>
-                <span className="text-muted-foreground ml-2">próteses</span>
-                <Badge variant="destructive" className="ml-auto">
-                  Atrasados
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border border-red-400 p-4">
+            <div className="flex items-center justify-between border-b pb-2 mb-3">
+              <h3 className="text-lg font-semibold text-red-500">
+                Laboratório <AlertCircle className="h-4 w-4 inline ml-1" />
+              </h3>
+              <Badge variant="destructive">{totals.returned}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Com atraso de entrega</p>
+          </div>
           
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-primary">Realizado</CardTitle>
-              <CardDescription>
-                Tratamentos finalizados
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center">
-                <span className="text-3xl font-bold">{totals.completed}</span>
-                <span className="text-muted-foreground ml-2">próteses</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4">
+            <div className="flex items-center justify-between border-b pb-2 mb-3">
+              <h3 className="text-lg font-semibold text-primary">Realizado</h3>
+              <Badge variant="outline">{totals.completed}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Tratamentos finalizados</p>
+          </div>
         </div>
         
         {/* Quadro Kanban */}
