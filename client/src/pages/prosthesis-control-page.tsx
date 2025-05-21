@@ -265,7 +265,7 @@ export default function ProsthesisControlPage() {
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | undefined>(undefined);
   
   // Mock query para dados de próteses
-  const { data: prosthesis, isLoading } = useQuery<Prosthesis[]>({
+  const { data: prosthesis, isLoading, isError, error } = useQuery<Prosthesis[]>({
     queryKey: ["/api/prosthesis"],
     queryFn: async () => {
       try {
@@ -280,82 +280,106 @@ export default function ProsthesisControlPage() {
         console.error("Erro ao carregar próteses:", error);
         return generateMockProsthesis();
       }
-    }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    staleTime: 30000
   });
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
     if (prosthesis) {
-      const updatedColumns = {
-        pending: {
-          ...columns.pending,
-          items: prosthesis.filter(p => p.status === 'pending')
-        },
-        sent: {
-          ...columns.sent,
-          items: prosthesis.filter(p => p.status === 'sent')
-        },
-        returned: {
-          ...columns.returned,
-          items: prosthesis.filter(p => p.status === 'returned')
-        },
-        completed: {
-          ...columns.completed,
-          items: prosthesis.filter(p => p.status === 'completed')
+      try {
+        const updatedColumns = {
+          pending: {
+            ...columns.pending,
+            items: prosthesis.filter(p => p.status === 'pending')
+          },
+          sent: {
+            ...columns.sent,
+            items: prosthesis.filter(p => p.status === 'sent')
+          },
+          returned: {
+            ...columns.returned,
+            items: prosthesis.filter(p => p.status === 'returned')
+          },
+          completed: {
+            ...columns.completed,
+            items: prosthesis.filter(p => p.status === 'completed')
+          }
+        };
+        
+        // Aplicar filtros
+        if (filters.delayedServices) {
+          // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
+          const now = new Date();
+          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
+            p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
+          );
         }
-      };
-      
-      // Aplicar filtros
-      if (filters.delayedServices) {
-        // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
-        const now = new Date();
-        updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
-          p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
-        );
-      }
-      
-      if (filters.returnedServices) {
-        // Manter apenas serviços que já retornaram
-        updatedColumns.sent.items = [];
-        updatedColumns.pending.items = [];
-      }
-      
-      if (filters.professional !== "all") {
-        // Filtrar por profissional
-        const professionalId = parseInt(filters.professional);
-        Object.keys(updatedColumns).forEach(key => {
-          updatedColumns[key as keyof typeof updatedColumns].items = 
-            updatedColumns[key as keyof typeof updatedColumns].items.filter(
-              p => p.professionalId === professionalId
-            );
+        
+        if (filters.returnedServices) {
+          // Manter apenas serviços que já retornaram
+          updatedColumns.sent.items = [];
+          updatedColumns.pending.items = [];
+        }
+        
+        if (filters.professional !== "all") {
+          // Filtrar por profissional
+          const professionalId = parseInt(filters.professional);
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.professionalId === professionalId
+              );
+          });
+        }
+        
+        if (filters.laboratory !== "all") {
+          // Filtrar por laboratório
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.laboratory === filters.laboratory
+              );
+          });
+        }
+        
+        setColumns(updatedColumns);
+      } catch (error) {
+        console.error("Erro ao organizar próteses em colunas:", error);
+        toast({
+          title: "Erro",
+          description: "Ocorreu um erro ao processar as próteses.",
+          variant: "destructive",
         });
       }
-      
-      if (filters.laboratory !== "all") {
-        // Filtrar por laboratório
-        Object.keys(updatedColumns).forEach(key => {
-          updatedColumns[key as keyof typeof updatedColumns].items = 
-            updatedColumns[key as keyof typeof updatedColumns].items.filter(
-              p => p.laboratory === filters.laboratory
-            );
-        });
-      }
-      
-      setColumns(updatedColumns);
     }
   }, [prosthesis, filters]);
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
     mutationFn: async (prosthesisData: Partial<Prosthesis>) => {
-      if (prosthesisData.id) {
-        // Atualização
-        const res = await apiRequest("PATCH", `/api/prosthesis/${prosthesisData.id}`, prosthesisData);
-        return await res.json();
-      } else {
-        // Criação
-        const res = await apiRequest("POST", "/api/prosthesis", prosthesisData);
-        return await res.json();
+      try {
+        if (prosthesisData.id) {
+          // Atualização
+          const res = await apiRequest("PATCH", `/api/prosthesis/${prosthesisData.id}`, prosthesisData);
+          if (!res.ok) {
+            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+          }
+          return await res.json();
+        } else {
+          // Criação
+          const res = await apiRequest("POST", "/api/prosthesis", prosthesisData);
+          if (!res.ok) {
+            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+          }
+          return await res.json();
+        }
+      } catch (error) {
+        console.error("Erro na mutação:", error);
+        throw error;
       }
     },
     onSuccess: () => {
@@ -368,6 +392,7 @@ export default function ProsthesisControlPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Erro ao salvar prótese:", error);
       toast({
         title: "Erro",
         description: `Falha ao salvar prótese: ${error.message}`,
@@ -379,12 +404,20 @@ export default function ProsthesisControlPage() {
   // Mutation para atualizar status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, returnDate }: { id: number; status: string; returnDate?: string }) => {
-      const data: any = { status };
-      if (returnDate) {
-        data.returnDate = returnDate;
+      try {
+        const data: any = { status };
+        if (returnDate) {
+          data.returnDate = returnDate;
+        }
+        const res = await apiRequest("PATCH", `/api/prosthesis/${id}`, data);
+        if (!res.ok) {
+          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        console.error("Erro ao atualizar status:", error);
+        throw error;
       }
-      const res = await apiRequest("PATCH", `/api/prosthesis/${id}`, data);
-      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
@@ -394,6 +427,7 @@ export default function ProsthesisControlPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Erro detalhado ao atualizar status:", error);
       toast({
         title: "Erro",
         description: `Falha ao atualizar status: ${error.message}`,

@@ -12,6 +12,7 @@ import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
 import ProstheticsPage from "@/pages/prosthetics-page";
 import ProsthesisControlPage from "@/pages/prosthesis-control-page";
+import LaboratoryManagementPage from "@/pages/laboratory-management.tsx";
 import OdontogramDemoPage from "@/pages/odontogram-demo";
 import LandingPage from "@/pages/landing-page";
 import { ProtectedRoute } from "./lib/protected-route";
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/automation" component={AutomationPage} />
       <Route path="/prosthetics" component={ProstheticsPage} />
       <Route path="/prosthesis" component={ProsthesisControlPage} />
+      <Route path="/laboratories" component={LaboratoryManagementPage} />
       <Route path="/odontogram-demo" component={OdontogramDemoPage} />
       
       {/* Rota de autenticação */}
