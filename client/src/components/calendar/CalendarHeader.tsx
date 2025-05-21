@@ -204,49 +204,7 @@ export default function CalendarHeader({
           </Button>
         </div>
       </div>
-      
-      {/* Load indicators summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {professionalsSummary.map((prof) => (
-          <div key={prof.id} className="bg-card p-4 rounded-lg shadow-sm border">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
-                  {prof.profileImageUrl ? (
-                    <img 
-                      src={prof.profileImageUrl} 
-                      alt={prof.fullName} 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-primary text-primary-foreground flex items-center justify-center">
-                      {prof.fullName.substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{prof.fullName}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {prof.speciality || "Dentista"} 
-                    {prof.roomName && ` - ${prof.roomName}`}
-                  </p>
-                </div>
-              </div>
-              <div 
-                className={`text-sm font-semibold px-2 py-1 rounded
-                  ${prof.status === 'available' ? 'bg-status-available bg-opacity-20 text-status-available' : ''}
-                  ${prof.status === 'moderate' ? 'bg-status-moderate bg-opacity-20 text-status-moderate' : ''}
-                  ${prof.status === 'busy' ? 'bg-status-busy bg-opacity-20 text-status-busy' : ''}
-                  ${prof.status === 'full' ? 'bg-status-full bg-opacity-20 text-status-full' : ''}
-                `}
-              >
-                {prof.load}%
-              </div>
-            </div>
-            <LoadIndicator status={prof.status} percentage={prof.load} />
-          </div>
-        ))}
-      </div>
+      {/* Removido o display de estatísticas dos dentistas conforme solicitado */}
     </div>
   );
 }
