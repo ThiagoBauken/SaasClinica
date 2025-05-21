@@ -62,7 +62,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           <Bot className="mr-3 h-5 w-5" />
           Automações
         </Link>
-        <Link href="/prosthetics" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthetics" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
+        <Link href="/prosthesis" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthesis" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Scissors className="mr-3 h-5 w-5" />
           Controle de Próteses
         </Link>
