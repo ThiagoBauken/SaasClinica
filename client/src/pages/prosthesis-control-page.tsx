@@ -1073,10 +1073,25 @@ export default function ProsthesisControlPage() {
                   </div>
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="laboratory">Laboratório</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div className="relative">
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center">
+                          <Label htmlFor="laboratory" className="mr-2">Laboratório</Label>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => setShowLaboratoryManager(true)}
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          Gerenciar Laboratórios
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="relative">
                           <Input
                             id="laboratory"
                             name="laboratory"
@@ -1086,31 +1101,18 @@ export default function ProsthesisControlPage() {
                             required
                             className="w-full"
                           />
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            className="ml-2 px-2"
-                            onClick={() => {
-                              // Abrir dropdown para gerenciar laboratórios
-                              setShowLaboratoryManager(true);
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Gerenciar
-                          </Button>
+                          <datalist id="laboratorios-list">
+                            {mockLaboratories.map(lab => (
+                              <option key={lab.id} value={lab.name} />
+                            ))}
+                          </datalist>
                         </div>
-                        <datalist id="laboratorios-list">
-                          {mockLaboratories.map(lab => (
-                            <option key={lab.id} value={lab.name} />
-                          ))}
-                        </datalist>
+                        <Input 
+                          placeholder="WhatsApp laboratório"
+                          name="laboratoryContact"
+                          defaultValue=""
+                        />
                       </div>
-                      <Input 
-                        placeholder="WhatsApp laboratório"
-                        name="laboratoryContact"
-                        defaultValue=""
-                      />
                     </div>
                     
                     {/* Modal para gerenciar laboratórios */}
@@ -1122,60 +1124,108 @@ export default function ProsthesisControlPage() {
                             Adicione, edite ou remova laboratórios do sistema.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="my-4 max-h-[300px] overflow-y-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Nome</TableHead>
-                                <TableHead className="w-[100px]">Ações</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {mockLaboratories.map(lab => (
-                                <TableRow key={lab.id}>
-                                  <TableCell className="font-medium">{lab.name}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        // Simular remoção do laboratório
-                                        toast({
-                                          title: "Laboratório removido",
-                                          description: `${lab.name} foi removido com sucesso.`
-                                        });
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                        <div className="grid gap-4 py-2">
-                          <div className="flex items-center space-x-2">
-                            <Input placeholder="Nome do novo laboratório" id="newLaboratory" />
+                        
+                        {/* Adicionar novo laboratório */}
+                        <div className="grid gap-4 py-2 my-4">
+                          <h3 className="text-sm font-medium">Adicionar Laboratório</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="md:col-span-2">
+                              <Input 
+                                placeholder="Nome do laboratório" 
+                                id="newLaboratoryName" 
+                                className="w-full"
+                              />
+                            </div>
+                            <div>
+                              <Input 
+                                placeholder="WhatsApp" 
+                                id="newLaboratoryPhone" 
+                                className="w-full"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end">
                             <Button
                               onClick={() => {
-                                const input = document.getElementById("newLaboratory") as HTMLInputElement;
-                                if (input?.value) {
+                                const nameInput = document.getElementById("newLaboratoryName") as HTMLInputElement;
+                                const phoneInput = document.getElementById("newLaboratoryPhone") as HTMLInputElement;
+                                
+                                if (nameInput?.value) {
                                   // Simular adição de novo laboratório
                                   toast({
                                     title: "Laboratório adicionado",
-                                    description: `${input.value} foi adicionado com sucesso.`
+                                    description: `${nameInput.value} foi adicionado com sucesso.`
                                   });
-                                  input.value = "";
+                                  nameInput.value = "";
+                                  if (phoneInput) phoneInput.value = "";
+                                  
+                                  // Em um cenário real, aqui adicionaríamos o laboratório ao banco de dados
+                                  // e atualizaríamos a lista de laboratórios na tela
                                 }
                               }}
+                              className="px-4"
                             >
+                              <Plus className="h-4 w-4 mr-2" />
                               Adicionar
                             </Button>
                           </div>
                         </div>
+                        
+                        <div className="border-t my-2"></div>
+                        
+                        {/* Lista de laboratórios */}
+                        <div className="my-4">
+                          <h3 className="text-sm font-medium mb-4">Laboratórios Cadastrados</h3>
+                          <div className="max-h-[300px] overflow-y-auto rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>WhatsApp</TableHead>
+                                  <TableHead className="w-[80px] text-right">Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {mockLaboratories.map(lab => (
+                                  <TableRow key={lab.id}>
+                                    <TableCell className="font-medium">{lab.name}</TableCell>
+                                    <TableCell>{lab.contact || "-"}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          // Simular remoção do laboratório
+                                          toast({
+                                            title: "Laboratório removido",
+                                            description: `${lab.name} foi removido com sucesso.`
+                                          });
+                                        }}
+                                      >
+                                        <X className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {mockLaboratories.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
+                                      Nenhum laboratório cadastrado
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                        
                         <DialogFooter>
-                          <Button onClick={() => setShowLaboratoryManager(false)}>Fechar</Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowLaboratoryManager(false)}
+                          >
+                            Fechar
+                          </Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
