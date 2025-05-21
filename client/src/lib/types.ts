@@ -1,6 +1,6 @@
 // Application specific types beyond schema types
 
-export type CalendarViewType = 'day' | 'week' | 'month' | 'timeline';
+export type CalendarViewType = 'day' | 'week' | 'month' | 'timeline' | 'room';
 
 // Odontograma types
 export type ToothType = 'permanente' | 'deciduo';
