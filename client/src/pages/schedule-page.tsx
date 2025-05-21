@@ -422,43 +422,104 @@ export default function SchedulePage() {
                 />
               )}
               
-              {/* Week view (semana) */}
+              {/* Week view (semana) - estilo Bauken */}
               {currentView === 'week' && professionals && (
-                <div className="p-2">
-                  <h3 className="text-lg font-semibold mb-3">
-                    Semana de {format(startOfWeek(selectedDate, {locale: ptBR}), "d")} a {format(endOfWeek(selectedDate, {locale: ptBR}), "d 'de' MMMM", {locale: ptBR})}
-                  </h3>
-                  <div className="grid grid-cols-7 gap-1">
+                <div className="p-0">
+                  <div className="grid grid-cols-7 border-b">
                     {Array.from({length: 7}).map((_, i) => {
                       const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
                       const isToday = isSameDay(day, new Date());
+                      const isSelectedDay = isSameDay(day, selectedDate);
                       return (
                         <div 
                           key={i} 
-                          className={`border rounded p-2 ${isToday ? 'bg-primary/10 border-primary' : ''}`}
+                          className={`border-r last:border-r-0 py-2 ${isToday ? 'bg-primary/5' : ''} ${isSelectedDay ? 'bg-blue-100/50' : ''}`}
+                          onClick={() => setSelectedDate(day)}
+                          style={{cursor: 'pointer'}}
                         >
-                          <div className="text-center mb-2">
-                            <div className="text-sm font-medium">{format(day, "EEEE", {locale: ptBR})}</div>
-                            <div className={`text-lg font-bold ${isToday ? 'text-primary' : ''}`}>
-                              {format(day, "dd/MM")}
+                          <div className="text-center">
+                            <div className="text-xs text-muted-foreground">{format(day, "EEE", {locale: ptBR})}</div>
+                            <div className={`text-xl font-bold ${isToday ? 'text-primary' : ''}`}>
+                              {format(day, "dd")}
                             </div>
+                            <div className="text-xs text-muted-foreground">{format(day, "MMM", {locale: ptBR})}</div>
                           </div>
-                          <div className="space-y-1">
-                            {appointmentsForDay(day).slice(0, 3).map(appt => (
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="grid grid-cols-7 divide-x h-[calc(100vh-300px)] overflow-auto">
+                    {Array.from({length: 7}).map((_, i) => {
+                      const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
+                      const isToday = isSameDay(day, new Date());
+                      const dayAppointments = appointmentsForDay(day);
+                      
+                      return (
+                        <div 
+                          key={i} 
+                          className={`relative ${isToday ? 'bg-primary/5' : ''}`}
+                        >
+                          {/* Linhas de hora */}
+                          {timeSlots.map((slot, index) => (
+                            <div 
+                              key={index} 
+                              className="border-b h-16 relative"
+                            >
+                              {index % 2 === 0 && (
+                                <span className="absolute -left-0 top-0 text-xs text-muted-foreground p-1">
+                                  {slot.time}
+                                </span>
+                              )}
+                              
+                              {/* Área para mostrar agendamentos */}
+                              <div 
+                                className="absolute inset-0 hover:bg-primary/5 cursor-pointer"
+                                onClick={() => {
+                                  const dateWithTime = new Date(day);
+                                  const [hours, minutes] = slot.time.split(':').map(Number);
+                                  dateWithTime.setHours(hours, minutes);
+                                  setSelectedDate(dateWithTime);
+                                  handleSlotClick(1, slot.time); // Assumindo que o profissional padrão é 1
+                                }}
+                              ></div>
+                            </div>
+                          ))}
+                          
+                          {/* Agendamentos do dia */}
+                          {dayAppointments.map(appt => {
+                            const startTime = new Date(appt.startTime);
+                            const endTime = new Date(appt.endTime);
+                            
+                            const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+                            const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                            
+                            // Calcular posição relativa baseada na hora de início
+                            const startPosition = (startHour - 7) * 64; // 7h sendo o início, 64px altura de cada hora
+                            const height = duration * 64;
+                            
+                            return (
                               <div 
                                 key={appt.id}
-                                className="text-xs bg-card p-1 rounded border-l-4 border-l-primary cursor-pointer"
+                                className={`absolute left-0 right-0 mx-1 rounded shadow-sm border-l-4 p-1 overflow-hidden ${getAppointmentColor(appt.status)} z-10`}
+                                style={{
+                                  top: `${startPosition}px`,
+                                  height: `${height}px`,
+                                  minHeight: '24px'
+                                }}
                                 onClick={() => handleOpenAppointment(appt)}
                               >
-                                {format(new Date(appt.startTime), "HH:mm")} - {appt.patient?.fullName || 'Sem paciente'}
+                                <div className="text-xs font-medium truncate">
+                                  {format(startTime, "HH:mm")} - {appt.patient?.fullName || 'Sem paciente'}
+                                </div>
+                                {height > 30 && (
+                                  <div className="text-xs truncate">
+                                    {appt.procedures?.[0]?.name || appt.title}
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                            {appointmentsForDay(day).length > 3 && (
-                              <div className="text-xs text-center text-muted-foreground">
-                                +{appointmentsForDay(day).length - 3} mais
-                              </div>
-                            )}
-                          </div>
+                            );
+                          })}
                         </div>
                       );
                     })}

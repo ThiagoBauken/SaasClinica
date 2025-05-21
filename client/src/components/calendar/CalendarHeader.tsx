@@ -23,7 +23,7 @@ import { CalendarViewType } from "@/lib/types";
 interface CalendarHeaderProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  onNewAppointment: () => void;
+  onNewAppointment: (isFitIn?: boolean) => void;
   currentView: CalendarViewType;
   onViewChange: (view: CalendarViewType) => void;
   professionalsSummary: ProfessionalSummary[];
@@ -61,8 +61,7 @@ export default function CalendarHeader({
   };
 
   const handleFitIn = () => {
-    // Implementar lógica de encaixe
-    alert("Funcionalidade de encaixe será implementada em breve");
+    onNewAppointment(true); // Passamos true para indicar que é um encaixe
   };
 
   const getViewDisplayName = (view: CalendarViewType): string => {
