@@ -227,22 +227,22 @@ export default function ProsthesisControlPage() {
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
       id: "pending",
-      title: "Pendente",
+      title: "Pré-laboratório",
       items: []
     },
     sent: {
       id: "sent",
-      title: "Enviado",
+      title: "Envio",
       items: []
     },
     returned: {
       id: "returned",
-      title: "Retornado",
+      title: "Laboratório",
       items: []
     },
     completed: {
       id: "completed",
-      title: "Concluído",
+      title: "Realizado",
       items: []
     }
   });
@@ -749,7 +749,7 @@ export default function ProsthesisControlPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-primary">Envio</CardTitle>
+              <CardTitle className="text-primary">Pré-laboratório</CardTitle>
               <CardDescription>
                 Pendentes de envio ao laboratório
               </CardDescription>
@@ -762,14 +762,14 @@ export default function ProsthesisControlPage() {
             </CardContent>
           </Card>
           
-          <Card className={cn("bg-card", hasDelayedItems && "border-red-300")}>
+          <Card className={cn("bg-card", hasDelayedItems && "border-red-400")}>
             <CardHeader className="pb-2">
               <CardTitle className={cn("text-primary", hasDelayedItems && "text-red-500")}>
-                Laboratório
+                Envio
                 {hasDelayedItems && <AlertCircle className="h-4 w-4 inline ml-2" />}
               </CardTitle>
               <CardDescription>
-                Aguardando retorno do laboratório
+                Com atraso de envio
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -785,24 +785,30 @@ export default function ProsthesisControlPage() {
             </CardContent>
           </Card>
           
-          <Card className="bg-card">
+          <Card className="bg-card border-red-400">
             <CardHeader className="pb-2">
-              <CardTitle className="text-primary">Retornado</CardTitle>
+              <CardTitle className="text-primary text-red-500">
+                Laboratório
+                <AlertCircle className="h-4 w-4 inline ml-2" />
+              </CardTitle>
               <CardDescription>
-                Retornados do laboratório
+                Com atraso de entrega
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center">
                 <span className="text-3xl font-bold">{totals.returned}</span>
                 <span className="text-muted-foreground ml-2">próteses</span>
+                <Badge variant="destructive" className="ml-auto">
+                  Atrasados
+                </Badge>
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-primary">Concluídos</CardTitle>
+              <CardTitle className="text-primary">Realizado</CardTitle>
               <CardDescription>
                 Tratamentos finalizados
               </CardDescription>
@@ -858,16 +864,12 @@ export default function ProsthesisControlPage() {
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                   style={{
-                                    ...provided.draggableProps.style,
-                                    // Aumentar feedback visual quando arrastando
-                                    transform: snapshot.isDragging 
-                                      ? `${provided.draggableProps.style?.transform || ""} scale(1.02)` 
-                                      : provided.draggableProps.style?.transform
+                                    ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab",
-                                    snapshot.isDragging && "shadow-lg border-primary/50 opacity-90",
-                                    isDelayed(item) && "border-red-300"
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200",
+                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
+                                    isDelayed(item) && "border-red-400"
                                   )}
                                 >
                                   <div className="flex justify-between items-start mb-2">
