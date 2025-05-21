@@ -754,12 +754,16 @@ export default function ProsthesisControlPage() {
           <h1 className="text-2xl font-bold">Controle de Próteses</h1>
           
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowLabelManager(true)} className="gap-2">
+              <Settings className="h-4 w-4" />
+              Etiquetas
+            </Button>
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="gap-2">
                   <Filter className="h-4 w-4" />
                   Filtros
-                  {(filters.delayedServices || filters.returnedServices || filters.professional !== "all" || filters.laboratory !== "all") && (
+                  {(filters.delayedServices || filters.returnedServices || filters.professional !== "all" || filters.laboratory !== "all" || filters.label !== "all") && (
                     <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center rounded-full">
                       <Check className="h-3 w-3" />
                     </Badge>
