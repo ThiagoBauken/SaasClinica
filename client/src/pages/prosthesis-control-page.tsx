@@ -617,6 +617,12 @@ export default function ProsthesisControlPage() {
     completed: columns.completed.items.length
   };
   
+  // Calcula o total de itens atrasados
+  const delayedSent = columns.sent.items.filter(item => isDelayed(item)).length;
+  const delayedReturned = columns.returned.items.filter(item => 
+    item.expectedReturnDate && isAfter(new Date(), parseISO(item.expectedReturnDate))
+  ).length;
+  
   // Verifica se há itens atrasados
   const hasDelayedItems = columns.sent.items.some(isDelayed);
   
@@ -745,58 +751,7 @@ export default function ProsthesisControlPage() {
           </div>
         </div>
         
-        {/* Painel Kanban */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4">
-            <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <h3 className="text-lg font-semibold text-primary">Pré-laboratório</h3>
-              <Badge variant="outline">{totals.pending}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">Pendentes de envio ao laboratório</p>
-          </div>
-          
-          <div className={cn("bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4", hasDelayedItems && "border-red-400")}>
-            <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <h3 className={cn("text-lg font-semibold", hasDelayedItems ? "text-red-500" : "text-primary")}>
-                Envio {hasDelayedItems && <AlertCircle className="h-4 w-4 inline ml-1" />}
-              </h3>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline">{totals.sent}</Badge>
-                {hasDelayedItems && (
-                  <Badge variant="destructive">
-                    {columns.sent.items.filter(item => isDelayed(item)).length}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">Com atraso de envio</p>
-          </div>
-          
-          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border border-red-400 p-4">
-            <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <h3 className="text-lg font-semibold text-red-500">
-                Laboratório <AlertCircle className="h-4 w-4 inline ml-1" />
-              </h3>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline">{totals.returned}</Badge>
-                <Badge variant="destructive">
-                  {columns.returned.items.filter(item => 
-                    item.expectedReturnDate && isAfter(new Date(), parseISO(item.expectedReturnDate))
-                  ).length}
-                </Badge>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">Com atraso de entrega</p>
-          </div>
-          
-          <div className="bg-card dark:bg-gray-900 rounded-md shadow-sm border p-4">
-            <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <h3 className="text-lg font-semibold text-primary">Realizado</h3>
-              <Badge variant="outline">{totals.completed}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">Tratamentos finalizados</p>
-          </div>
-        </div>
+
         
         {/* Quadro Kanban */}
         {isLoading ? (
@@ -807,10 +762,31 @@ export default function ProsthesisControlPage() {
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {Object.values(columns).map(column => (
-                <div key={column.id} className="bg-card rounded-lg border shadow-sm">
+                <div key={column.id} className={cn(
+                  "bg-card rounded-lg border shadow-sm",
+                  (column.id === 'sent' && delayedSent > 0) && "border-red-400",
+                  (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
+                )}>
                   <div className="p-4 font-semibold border-b flex justify-between items-center">
-                    <span>{column.title}</span>
-                    <Badge variant="outline">{column.items.length}</Badge>
+                    <span className={cn(
+                      "",
+                      (column.id === 'sent' && delayedSent > 0) && "text-red-500",
+                      (column.id === 'returned' && delayedReturned > 0) && "text-red-500"
+                    )}>
+                      {column.title}
+                      {((column.id === 'sent' && delayedSent > 0) || 
+                       (column.id === 'returned' && delayedReturned > 0)) && 
+                       <AlertCircle className="h-4 w-4 inline ml-1" />}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline">{column.items.length}</Badge>
+                      {column.id === 'sent' && delayedSent > 0 && (
+                        <Badge variant="destructive">{delayedSent}</Badge>
+                      )}
+                      {column.id === 'returned' && delayedReturned > 0 && (
+                        <Badge variant="destructive">{delayedReturned}</Badge>
+                      )}
+                    </div>
                   </div>
                   <Droppable droppableId={column.id}>
                     {(provided) => (
