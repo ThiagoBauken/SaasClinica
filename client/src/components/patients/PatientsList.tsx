@@ -80,7 +80,7 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
         <TableBody>
           {patients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                 Nenhum paciente encontrado
               </TableCell>
             </TableRow>
@@ -125,6 +125,23 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                       <span className="text-muted-foreground">Não informada</span>
                     )}
                   </div>
+                </TableCell>
+                <TableCell>
+                  {patient.lastVisit ? (
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                      <div className={`text-sm ${formatLastVisitTime(patient.lastVisit).color}`}>
+                        {formatLastVisitTime(patient.lastVisit).text}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                      <div className="text-sm text-amber-500">
+                        Nunca consultou
+                      </div>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="text-sm text-muted-foreground">
