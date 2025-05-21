@@ -495,6 +495,22 @@ export default function InventoryPage() {
     transactionMutation.mutate(transactionData);
   };
 
+  // Função para retornar a unidade de medida no plural
+  const getPluralUnit = (unit: string): string => {
+    const pluralMap: Record<string, string> = {
+      'unidade': 'unidades',
+      'caixa': 'caixas',
+      'pacote': 'pacotes',
+      'kit': 'kits',
+      'rolo': 'rolos',
+      'litro': 'litros',
+      'pote': 'potes',
+      'seringa': 'seringas'
+    };
+    
+    return pluralMap[unit] || `${unit}s`;
+  };
+
   // Filtrar itens com base nos critérios selecionados
   const filteredItems = inventoryItems ? inventoryItems.filter(item => {
     // Filtro por termo de busca
@@ -705,10 +721,10 @@ export default function InventoryPage() {
                     <TableCell>{item.sku}</TableCell>
                     <TableCell>
                       <div className={isLowStock ? "text-red-500 font-medium" : ""}>
-                        {item.currentStock} {item.unitOfMeasure}
+                        {item.currentStock} {item.currentStock !== 1 ? getPluralUnit(item.unitOfMeasure) : item.unitOfMeasure}
                       </div>
                     </TableCell>
-                    <TableCell>{item.minimumStock} {item.unitOfMeasure}</TableCell>
+                    <TableCell>{item.minimumStock} {item.minimumStock !== 1 ? getPluralUnit(item.unitOfMeasure) : item.unitOfMeasure}</TableCell>
                     <TableCell>
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
                         .format(item.price / 100)}
