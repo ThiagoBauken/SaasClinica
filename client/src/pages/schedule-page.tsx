@@ -468,9 +468,24 @@ export default function SchedulePage() {
 
   // Controla o filtro de agendamentos
   const handleFilterChange = (filters: any) => {
-    // Aplicação de filtros no agendamento
     console.log("Filtros aplicados:", filters);
-    // Aqui aplicaríamos os filtros nos dados de agendamento
+    
+    // Atualiza a data se vier do mini calendário
+    if (filters.updateMainCalendar && filters.selectedDate) {
+      setSelectedDate(new Date(filters.selectedDate));
+      toast({
+        title: "Data atualizada",
+        description: `Visualizando agenda para ${format(new Date(filters.selectedDate), "dd/MM/yyyy")}`,
+      });
+    }
+    
+    // Implementa lógica de filtragem por profissional
+    if (filters.professional && filters.professional !== 'all') {
+      // Filtrar por profissional específico
+      setSelectedProfessionalForDay(parseInt(filters.professional));
+    }
+    
+    // Aplicar outros filtros conforme necessário
   };
 
   return (
