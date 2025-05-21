@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage, DatabaseStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { parse, formatISO, addDays } from "date-fns";
-import { cacheMiddleware, invalidateCacheByPrefix } from "./cache";
+import { cacheMiddleware, invalidateCache } from "./simpleCache";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -32,44 +32,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // Patients - Com cache
+  // Patients - Com cache otimizado
   app.get("/api/patients", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const patients = await storage.getPatients();
     res.json(patients);
   }));
 
-  app.get("/api/patients/:id", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const patient = await storage.getPatient(parseInt(req.params.id));
-      if (!patient) {
-        return res.status(404).json({ message: "Patient not found" });
-      }
-      res.json(patient);
-    } catch (error) {
-      next(error);
+  app.get("/api/patients/:id", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
+    const patient = await storage.getPatient(parseInt(req.params.id));
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
     }
-  });
+    res.json(patient);
+  }));
 
-  app.post("/api/patients", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const patient = await storage.createPatient(req.body);
-      res.status(201).json(patient);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.post("/api/patients", authCheck, asyncHandler(async (req, res) => {
+    const patient = await storage.createPatient(req.body);
+    // Invalida o cache relacionado a pacientes
+    invalidateCache('api:/api/patients');
+    res.status(201).json(patient);
+  }));
 
-  app.patch("/api/patients/:id", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body);
-      res.json(updatedPatient);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.patch("/api/patients/:id", authCheck, asyncHandler(async (req, res) => {
+    const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body);
+    // Invalida caches específicos
+    invalidateCache(`api:/api/patients/${req.params.id}`);
+    invalidateCache('api:/api/patients');
+    res.json(updatedPatient);
+  }));
 
   // Appointments
   app.get("/api/appointments", async (req, res, next) => {
