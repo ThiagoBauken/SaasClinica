@@ -27,8 +27,8 @@ interface CalendarHeaderProps {
   currentView: CalendarViewType;
   onViewChange: (view: CalendarViewType) => void;
   professionalsSummary: ProfessionalSummary[];
-  timeInterval?: 15 | 30 | 60;
-  onTimeIntervalChange?: (interval: 15 | 30 | 60) => void;
+  timeInterval?: 15 | 20 | 30 | 60;
+  onTimeIntervalChange?: (interval: 15 | 20 | 30 | 60) => void;
 }
 
 export default function CalendarHeader({
