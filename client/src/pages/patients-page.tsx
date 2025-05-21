@@ -41,6 +41,7 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [isImporting, setIsImporting] = useState(false);
+  const [lastVisitFilter, setLastVisitFilter] = useState<string>("all");
 
   // Fetch patients
   const {
@@ -62,6 +63,7 @@ export default function PatientsPage() {
           address: "Rua das Flores, 123 - São Paulo/SP",
           insuranceInfo: "Amil Dental - Plano Premium",
           createdAt: "2023-01-10T10:00:00Z",
+          lastVisit: "2023-05-15T14:30:00Z",
         },
         {
           id: 2,
@@ -373,6 +375,53 @@ export default function PatientsPage() {
             onChange={handleSearchChange}
           />
         </div>
+        
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex items-center bg-muted/40 rounded-md">
+            <div className="px-3 py-1.5 text-sm font-medium">Última consulta:</div>
+            <Button 
+              variant={lastVisitFilter === "all" ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setLastVisitFilter("all")} 
+              className="rounded-none h-8"
+            >
+              Todos
+            </Button>
+            <Button 
+              variant={lastVisitFilter === "month-1" ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setLastVisitFilter("month-1")} 
+              className="rounded-none h-8"
+            >
+              +1 mês
+            </Button>
+            <Button 
+              variant={lastVisitFilter === "month-3" ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setLastVisitFilter("month-3")} 
+              className="rounded-none h-8"
+            >
+              +3 meses
+            </Button>
+            <Button 
+              variant={lastVisitFilter === "month-6" ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setLastVisitFilter("month-6")} 
+              className="rounded-none h-8"
+            >
+              +6 meses
+            </Button>
+            <Button 
+              variant={lastVisitFilter === "year-1" ? "default" : "ghost"} 
+              size="sm" 
+              onClick={() => setLastVisitFilter("year-1")} 
+              className="rounded-none h-8"
+            >
+              +1 ano
+            </Button>
+          </div>
+        </div>
+        
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExportPatients}>
             Exportar Pacientes
