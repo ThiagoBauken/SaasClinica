@@ -67,6 +67,27 @@ export default function SchedulePage() {
       status: "available"
     }
   ];
+  
+  // Função para filtrar agendamentos por dia
+  const appointmentsForDay = (day: Date) => {
+    if (!appointments) return [];
+    return appointments.filter(appointment => 
+      isSameDay(parseISO(appointment.startTime), day)
+    );
+  };
+  
+  // Função para obter o código de cor com base no status do agendamento
+  const getAppointmentColor = (status: string): string => {
+    switch(status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'in_progress': return 'bg-purple-100 text-purple-800';
+      case 'completed': return 'bg-slate-100 text-slate-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'no_show': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   // Fetch appointments for the selected date
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
@@ -454,16 +475,16 @@ export default function SchedulePage() {
                         Cadeira {String(roomId).padStart(2, '0')}
                       </div>
                       <div className="divide-y">
-                        {timeSlotsList.map((slot, index) => {
-                          const appointment = appointments.find(
+                        {timeSlots.map((slot, index) => {
+                          const appointment = appointments?.find(
                             a => a.roomId === roomId && 
                                 isSameDay(new Date(a.startTime), selectedDate) && 
-                                format(new Date(a.startTime), 'HH:mm') <= slot && 
-                                format(new Date(a.endTime), 'HH:mm') > slot
+                                format(new Date(a.startTime), 'HH:mm') <= slot.time && 
+                                format(new Date(a.endTime), 'HH:mm') > slot.time
                           );
                           return (
                             <div key={index} className="flex py-1 px-2 hover:bg-muted/50">
-                              <div className="w-12 text-xs font-medium">{slot}</div>
+                              <div className="w-12 text-xs font-medium">{slot.time}</div>
                               {appointment ? (
                                 <div 
                                   className={`flex-1 text-xs rounded p-1 ${getAppointmentColor(appointment.status)}`}
@@ -477,7 +498,7 @@ export default function SchedulePage() {
                               ) : (
                                 <div 
                                   className="flex-1 flex items-center justify-center text-xs text-muted-foreground cursor-pointer hover:bg-primary/5"
-                                  onClick={() => handleSlotClick(slot, roomId)}
+                                  onClick={() => handleSlotClick(roomId, slot.time)}
                                 >
                                   <Plus className="h-3 w-3 mr-1" /> Agendar
                                 </div>

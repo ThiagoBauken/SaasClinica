@@ -36,6 +36,7 @@ interface TimelineViewProps {
   timeSlots: TimeSlot[];
   onSlotClick: (professionalId: number, time: string) => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  viewType?: 'day' | 'timeline'; // Adicionar tipo de visualização
 }
 
 export default function TimelineView({
@@ -43,7 +44,8 @@ export default function TimelineView({
   professionals,
   timeSlots,
   onSlotClick,
-  onAppointmentClick
+  onAppointmentClick,
+  viewType = 'timeline' // Valor padrão é timeline
 }: TimelineViewProps) {
   const [hoveredSlot, setHoveredSlot] = useState<{profId: number, time: string} | null>(null);
   
