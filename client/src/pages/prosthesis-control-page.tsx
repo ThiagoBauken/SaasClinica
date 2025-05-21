@@ -267,6 +267,7 @@ export default function ProsthesisControlPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [showLaboratoryManager, setShowLaboratoryManager] = useState(false);
+  const [editingLaboratory, setEditingLaboratory] = useState<{ id: number, name: string, contact: string } | null>(null);
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
   const [filters, setFilters] = useState({
     delayedServices: false,
@@ -1090,28 +1091,21 @@ export default function ProsthesisControlPage() {
                         </Button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <div className="relative">
-                          <Input
-                            id="laboratory"
-                            name="laboratory"
-                            defaultValue={editingProsthesis?.laboratory || ""}
-                            placeholder="Digite para selecionar ou cadastrar laboratório"
-                            list="laboratorios-list"
-                            required
-                            className="w-full"
-                          />
-                          <datalist id="laboratorios-list">
-                            {mockLaboratories.map(lab => (
-                              <option key={lab.id} value={lab.name} />
-                            ))}
-                          </datalist>
-                        </div>
-                        <Input 
-                          placeholder="WhatsApp laboratório"
-                          name="laboratoryContact"
-                          defaultValue=""
+                      <div className="relative">
+                        <Input
+                          id="laboratory"
+                          name="laboratory"
+                          defaultValue={editingProsthesis?.laboratory || ""}
+                          placeholder="Digite para selecionar ou cadastrar laboratório"
+                          list="laboratorios-list"
+                          required
+                          className="w-full"
                         />
+                        <datalist id="laboratorios-list">
+                          {mockLaboratories.map(lab => (
+                            <option key={lab.id} value={lab.name} />
+                          ))}
+                        </datalist>
                       </div>
                     </div>
                     
@@ -1125,51 +1119,107 @@ export default function ProsthesisControlPage() {
                           </DialogDescription>
                         </DialogHeader>
                         
-                        {/* Adicionar novo laboratório */}
-                        <div className="grid gap-4 py-2 my-4">
-                          <h3 className="text-sm font-medium">Adicionar Laboratório</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="md:col-span-2">
-                              <Input 
-                                placeholder="Nome do laboratório" 
-                                id="newLaboratoryName" 
-                                className="w-full"
-                              />
+                        {editingLaboratory ? (
+                          // Modo de edição de laboratório
+                          <div className="grid gap-4 py-2 my-4">
+                            <h3 className="text-sm font-medium">Editar Laboratório</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="md:col-span-2">
+                                <Input 
+                                  placeholder="Nome do laboratório" 
+                                  id="editLaboratoryName" 
+                                  className="w-full"
+                                  defaultValue={editingLaboratory.name}
+                                />
+                              </div>
+                              <div>
+                                <Input 
+                                  placeholder="WhatsApp" 
+                                  id="editLaboratoryPhone" 
+                                  className="w-full"
+                                  defaultValue={editingLaboratory.contact}
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <Input 
-                                placeholder="WhatsApp" 
-                                id="newLaboratoryPhone" 
-                                className="w-full"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex justify-end">
-                            <Button
-                              onClick={() => {
-                                const nameInput = document.getElementById("newLaboratoryName") as HTMLInputElement;
-                                const phoneInput = document.getElementById("newLaboratoryPhone") as HTMLInputElement;
-                                
-                                if (nameInput?.value) {
-                                  // Simular adição de novo laboratório
-                                  toast({
-                                    title: "Laboratório adicionado",
-                                    description: `${nameInput.value} foi adicionado com sucesso.`
-                                  });
-                                  nameInput.value = "";
-                                  if (phoneInput) phoneInput.value = "";
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingLaboratory(null);
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  const nameInput = document.getElementById("editLaboratoryName") as HTMLInputElement;
+                                  const phoneInput = document.getElementById("editLaboratoryPhone") as HTMLInputElement;
                                   
-                                  // Em um cenário real, aqui adicionaríamos o laboratório ao banco de dados
-                                  // e atualizaríamos a lista de laboratórios na tela
-                                }
-                              }}
-                              className="px-4"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Adicionar
-                            </Button>
+                                  if (nameInput?.value) {
+                                    // Simular edição de laboratório
+                                    toast({
+                                      title: "Laboratório atualizado",
+                                      description: `${nameInput.value} foi atualizado com sucesso.`
+                                    });
+                                    
+                                    // Em um cenário real, aqui atualizaríamos o laboratório no banco de dados
+                                    // e atualizaríamos a lista de laboratórios na tela
+                                    setEditingLaboratory(null);
+                                  }
+                                }}
+                                className="px-4"
+                              >
+                                Salvar
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          // Modo de adição de laboratório
+                          <div className="grid gap-4 py-2 my-4">
+                            <h3 className="text-sm font-medium">Adicionar Laboratório</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="md:col-span-2">
+                                <Input 
+                                  placeholder="Nome do laboratório" 
+                                  id="newLaboratoryName" 
+                                  className="w-full"
+                                />
+                              </div>
+                              <div>
+                                <Input 
+                                  placeholder="WhatsApp" 
+                                  id="newLaboratoryPhone" 
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end">
+                              <Button
+                                onClick={() => {
+                                  const nameInput = document.getElementById("newLaboratoryName") as HTMLInputElement;
+                                  const phoneInput = document.getElementById("newLaboratoryPhone") as HTMLInputElement;
+                                  
+                                  if (nameInput?.value) {
+                                    // Simular adição de novo laboratório
+                                    toast({
+                                      title: "Laboratório adicionado",
+                                      description: `${nameInput.value} foi adicionado com sucesso.`
+                                    });
+                                    nameInput.value = "";
+                                    if (phoneInput) phoneInput.value = "";
+                                    
+                                    // Em um cenário real, aqui adicionaríamos o laboratório ao banco de dados
+                                    // e atualizaríamos a lista de laboratórios na tela
+                                  }
+                                }}
+                                className="px-4"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         
                         <div className="border-t my-2"></div>
                         
@@ -1182,7 +1232,7 @@ export default function ProsthesisControlPage() {
                                 <TableRow>
                                   <TableHead>Nome</TableHead>
                                   <TableHead>WhatsApp</TableHead>
-                                  <TableHead className="w-[80px] text-right">Ações</TableHead>
+                                  <TableHead className="w-[120px] text-right">Ações</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1191,19 +1241,35 @@ export default function ProsthesisControlPage() {
                                     <TableCell className="font-medium">{lab.name}</TableCell>
                                     <TableCell>{lab.contact || "-"}</TableCell>
                                     <TableCell className="text-right">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          // Simular remoção do laboratório
-                                          toast({
-                                            title: "Laboratório removido",
-                                            description: `${lab.name} foi removido com sucesso.`
-                                          });
-                                        }}
-                                      >
-                                        <X className="h-4 w-4 text-destructive" />
-                                      </Button>
+                                      <div className="flex justify-end space-x-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            // Iniciar edição do laboratório
+                                            setEditingLaboratory({
+                                              id: lab.id,
+                                              name: lab.name,
+                                              contact: lab.contact
+                                            });
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            // Simular remoção do laboratório
+                                            toast({
+                                              title: "Laboratório removido",
+                                              description: `${lab.name} foi removido com sucesso.`
+                                            });
+                                          }}
+                                        >
+                                          <X className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 ))}
