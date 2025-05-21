@@ -101,6 +101,8 @@ export default function FinancialPage() {
     amount: "",
     paymentMethod: "cash",
     status: "paid",
+    isFixedCost: false,
+    frequency: "monthly",
   });
 
   // Fetch transactions
@@ -216,6 +218,8 @@ export default function FinancialPage() {
       amount: "",
       paymentMethod: "cash",
       status: "paid",
+      isFixedCost: false,
+      frequency: "monthly",
     });
   };
 
@@ -269,9 +273,10 @@ export default function FinancialPage() {
     <DashboardLayout title="Financeiro" currentPath="/financial">
       <Tabs defaultValue="cashflow" value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-          <TabsList className="grid grid-cols-3 w-full sm:w-auto">
+          <TabsList className="grid grid-cols-4 w-full sm:w-auto">
             <TabsTrigger value="cashflow">Fluxo de Caixa</TabsTrigger>
             <TabsTrigger value="invoices">Faturamento</TabsTrigger>
+            <TabsTrigger value="fixed-costs">Custos Fixos</TabsTrigger>
             <TabsTrigger value="reports">Relatórios</TabsTrigger>
           </TabsList>
           
@@ -415,6 +420,153 @@ export default function FinancialPage() {
                 </Table>
               </div>
             )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="fixed-costs">
+          <div className="mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div>
+                  <CardTitle>Custos Fixos do Consultório</CardTitle>
+                  <CardDescription>Despesas recorrentes mensais e anuais</CardDescription>
+                </div>
+                <Button className="bg-primary text-white" onClick={() => setIsAddTransactionOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Custo Fixo
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-hidden rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Frequência</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>Aluguel do Consultório</TableCell>
+                        <TableCell>Aluguel</TableCell>
+                        <TableCell className="text-red-500">R$ 2.500,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Energia Elétrica (média)</TableCell>
+                        <TableCell>Utilidades</TableCell>
+                        <TableCell className="text-red-500">R$ 450,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Internet + Telefonia</TableCell>
+                        <TableCell>Utilidades</TableCell>
+                        <TableCell className="text-red-500">R$ 250,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Água</TableCell>
+                        <TableCell>Utilidades</TableCell>
+                        <TableCell className="text-red-500">R$ 180,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Manutenção de Equipamentos</TableCell>
+                        <TableCell>Manutenção</TableCell>
+                        <TableCell className="text-red-500">R$ 350,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Salários da Equipe</TableCell>
+                        <TableCell>Pessoal</TableCell>
+                        <TableCell className="text-red-500">R$ 5.200,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Sistema de Gestão</TableCell>
+                        <TableCell>Software</TableCell>
+                        <TableCell className="text-red-500">R$ 200,00</TableCell>
+                        <TableCell>Mensal</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>IPTU</TableCell>
+                        <TableCell>Impostos</TableCell>
+                        <TableCell className="text-red-500">R$ 1.200,00</TableCell>
+                        <TableCell>Anual</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Taxas do Conselho Regional</TableCell>
+                        <TableCell>Licenças e Taxas</TableCell>
+                        <TableCell className="text-red-500">R$ 800,00</TableCell>
+                        <TableCell>Anual</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-600">Ativo</span>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+                
+                <div className="mt-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-medium">Resumo de Custos Fixos</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Total Mensal</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-red-500">R$ 9.130,00</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Total Anual (taxas anuais)</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-red-500">R$ 2.000,00</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Custo Anual Total</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-red-500">R$ 111.560,00</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
         
