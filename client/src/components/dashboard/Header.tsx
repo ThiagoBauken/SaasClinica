@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Bell, ChevronDown, Menu } from "lucide-react";
+import { Bell, ChevronDown, Menu, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@shared/schema";
 import { useState } from "react";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+// import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 interface HeaderProps {
   user: User;
@@ -54,7 +54,10 @@ export default function Header({ user }: HeaderProps) {
             <Bell className="h-6 w-6" />
           </Button>
           
-          <ThemeToggle />
+          {/* Temporariamente removido tema */}
+          <Button variant="ghost" size="icon" className="text-neutral-dark hover:bg-neutral-lightest rounded-full">
+            <Sun className="h-6 w-6" />
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
