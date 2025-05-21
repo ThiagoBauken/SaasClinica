@@ -225,6 +225,7 @@ const generateMockProsthesis = (): Prosthesis[] => {
       returnDate: format(addDays(now, -2), "yyyy-MM-dd"),
       status: 'completed',
       observations: "Prioridade alta",
+      labels: ["retrabalho", "urgente"],
       createdAt: format(addDays(now, -17), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -1), "yyyy-MM-dd")
     }

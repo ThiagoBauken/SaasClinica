@@ -66,10 +66,6 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           <Scissors className="mr-3 h-5 w-5" />
           Controle de Próteses
         </Link>
-        <Link href="/laboratories" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/laboratories" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
-          <Package className="mr-3 h-5 w-5" />
-          Laboratórios
-        </Link>
         <Link href="/odontogram-demo" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram-demo" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Activity className="mr-3 h-5 w-5" />
           Odontograma
