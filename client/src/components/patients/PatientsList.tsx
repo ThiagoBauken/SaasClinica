@@ -7,9 +7,56 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, differenceInDays, differenceInMonths, differenceInYears, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Phone, Mail, Calendar, ChevronRight } from "lucide-react";
+import { Phone, Mail, Calendar, ChevronRight, Clock } from "lucide-react";
+
+// Função para formatar o tempo desde a última consulta
+function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: string; color: string } {
+  if (!lastVisitDate) {
+    return { text: "Nunca consultou", color: "text-amber-500" };
+  }
+  
+  const today = new Date();
+  const lastVisit = parseISO(lastVisitDate);
+  
+  const yearDiff = differenceInYears(today, lastVisit);
+  const monthDiff = differenceInMonths(today, lastVisit);
+  const dayDiff = differenceInDays(today, lastVisit);
+  
+  // Definir texto e cor com base no tempo desde a última consulta
+  if (yearDiff >= 1) {
+    return { 
+      text: `${yearDiff} ${yearDiff === 1 ? 'ano' : 'anos'} atrás`,
+      color: "text-red-500" 
+    };
+  } else if (monthDiff >= 6) {
+    return { 
+      text: `${monthDiff} meses atrás`, 
+      color: "text-red-500"
+    };
+  } else if (monthDiff >= 3) {
+    return { 
+      text: `${monthDiff} meses atrás`, 
+      color: "text-amber-500"
+    };
+  } else if (monthDiff >= 1) {
+    return { 
+      text: `${monthDiff} ${monthDiff === 1 ? 'mês' : 'meses'} atrás`, 
+      color: "text-neutral-600"
+    };
+  } else if (dayDiff > 0) {
+    return { 
+      text: `${dayDiff} ${dayDiff === 1 ? 'dia' : 'dias'} atrás`, 
+      color: "text-green-600"
+    };
+  } else {
+    return { 
+      text: "Hoje", 
+      color: "text-green-600"
+    };
+  }
+}
 
 interface PatientsListProps {
   patients: any[];
@@ -22,10 +69,11 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-1/3">Nome</TableHead>
+            <TableHead className="w-1/4">Nome</TableHead>
             <TableHead className="w-1/5">Contato</TableHead>
-            <TableHead className="w-1/5">Idade</TableHead>
-            <TableHead className="w-1/5">Cadastrado</TableHead>
+            <TableHead className="w-1/6">Idade</TableHead>
+            <TableHead className="w-1/6">Última consulta</TableHead>
+            <TableHead className="w-1/6">Cadastrado</TableHead>
             <TableHead className="w-16"></TableHead>
           </TableRow>
         </TableHeader>
