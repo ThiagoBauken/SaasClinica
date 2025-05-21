@@ -272,6 +272,88 @@ export const insertOdontogramEntrySchema = createInsertSchema(odontogramEntries)
   createdBy: true,
 });
 
+// Controle de Estoque
+export const inventoryCategories = pgTable("inventory_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).pick({
+  name: true,
+  description: true,
+  color: true,
+});
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  categoryId: integer("category_id").references(() => inventoryCategories.id),
+  sku: text("sku"),
+  barcode: text("barcode"),
+  brand: text("brand"),
+  supplier: text("supplier"),
+  minimumStock: integer("minimum_stock").default(0),
+  currentStock: integer("current_stock").default(0),
+  price: integer("price"), // em centavos
+  unitOfMeasure: text("unit_of_measure"), // unidade, caixa, pacote, etc
+  expirationDate: timestamp("expiration_date"),
+  location: text("location"), // local de armazenamento
+  lastPurchaseDate: timestamp("last_purchase_date"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick({
+  name: true,
+  description: true,
+  categoryId: true,
+  sku: true,
+  barcode: true,
+  brand: true,
+  supplier: true,
+  minimumStock: true,
+  currentStock: true,
+  price: true,
+  unitOfMeasure: true,
+  expirationDate: true,
+  location: true,
+  lastPurchaseDate: true,
+  active: true,
+});
+
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").references(() => inventoryItems.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(), // entrada, saída, ajuste, baixa
+  quantity: integer("quantity").notNull(),
+  reason: text("reason"),
+  notes: text("notes"),
+  previousStock: integer("previous_stock").notNull(),
+  newStock: integer("new_stock").notNull(),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).pick({
+  itemId: true,
+  userId: true,
+  type: true,
+  quantity: true,
+  reason: true,
+  notes: true,
+  previousStock: true,
+  newStock: true,
+  appointmentId: true,
+  patientId: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -305,3 +387,12 @@ export type InsertPatientRecord = z.infer<typeof insertPatientRecordSchema>;
 
 export type OdontogramEntry = typeof odontogramEntries.$inferSelect;
 export type InsertOdontogramEntry = z.infer<typeof insertOdontogramEntrySchema>;
+
+export type InventoryCategory = typeof inventoryCategories.$inferSelect;
+export type InsertInventoryCategory = z.infer<typeof insertInventoryCategorySchema>;
+
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;

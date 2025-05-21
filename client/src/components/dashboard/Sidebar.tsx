@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, LayoutDashboard, Calendar, Users, DollarSign, Bot, Scissors, Activity, Package } from "lucide-react";
+import { Search, LayoutDashboard, Calendar, Users, DollarSign, Bot, Scissors, Activity, Package, PackageOpen } from "lucide-react";
 
 interface SidebarProps {
   currentPath: string;
@@ -65,6 +65,10 @@ export default function Sidebar({ currentPath }: SidebarProps) {
         <Link href="/prosthesis" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthesis" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Scissors className="mr-3 h-5 w-5" />
           Controle de Próteses
+        </Link>
+        <Link href="/inventory" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/inventory" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
+          <PackageOpen className="mr-3 h-5 w-5" />
+          Controle de Estoque
         </Link>
         <Link href="/odontogram-demo" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram-demo" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}>
           <Activity className="mr-3 h-5 w-5" />
