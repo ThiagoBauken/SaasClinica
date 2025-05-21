@@ -82,37 +82,10 @@ export default function CalendarHeader({
   return (
     <div className="mb-6">
       <div className="flex flex-wrap md:flex-nowrap items-center gap-3 mb-4">
-        {/* Primeira linha - Seletores */}
+        {/* Primeira linha - Ações e navegação */}
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Todos os profissionais" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os profissionais</SelectItem>
-              {professionalsSummary.map(prof => (
-                <SelectItem key={prof.id} value={prof.id.toString()}>
-                  {prof.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Todas as cadeiras" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as cadeiras</SelectItem>
-              <SelectItem value="1">Cadeira 01</SelectItem>
-              <SelectItem value="2">Cadeira 02</SelectItem>
-              <SelectItem value="3">Cadeira 03</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Button
             variant="outline"
-            className="ml-auto md:ml-0"
             onClick={handleToday}
           >
             HOJE
