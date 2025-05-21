@@ -512,65 +512,75 @@ export default function SchedulePage() {
                 />
               )}
               
-              {/* Day view (dia específico - mostra apenas um profissional) */}
+              {/* Day view (dia específico) - Similar à visualização timeline mas só para o dia selecionado */}
               {currentView === 'day' && professionals && (
-                <div className="p-4">
-                  <h3 className="text-lg font-medium mb-4">Agenda do dia: {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}</h3>
-                  
-                  {/* Seletor de profissional para visualização diária */}
-                  <div className="mb-4">
-                    <Select 
-                      value={selectedProfessionalForDay?.toString() || (professionals[0]?.id.toString() || "1")}
-                      onValueChange={(value) => setSelectedProfessionalForDay(parseInt(value))}
-                    >
-                      <SelectTrigger className="w-full max-w-xs">
-                        <SelectValue placeholder="Selecione um profissional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {professionals.map(prof => (
-                          <SelectItem key={prof.id} value={prof.id.toString()}>
-                            {prof.fullName}
-                          </SelectItem>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <div className="grid grid-cols-[80px_1fr] border-b">
+                      <div className="p-3 font-medium">Horário</div>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}>
+                        {professionals.map(professional => (
+                          <div key={professional.id} className="p-3 text-center font-medium border-l">
+                            <div>{professional.fullName}</div>
+                            <div className="text-xs text-muted-foreground">{professional.speciality}</div>
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {/* Lista de horários do dia para o profissional selecionado */}
-                  <div className="space-y-1 border rounded-md">
-                    {timeSlots.map((slot, index) => {
-                      const profId = selectedProfessionalForDay || (professionals[0]?.id || 1);
-                      const appointment = slot.appointments?.[profId];
-                      
-                      return (
-                        <div 
-                          key={index} 
-                          className={`flex items-center p-2 border-b ${index % 2 === 0 ? 'bg-muted/40' : ''}`}
-                        >
-                          <div className="w-16 text-sm font-medium">{slot.time}</div>
-                          
-                          {appointment ? (
-                            <div 
-                              className={`flex-1 p-2 rounded-md ${getAppointmentColor(appointment.status)}`}
-                              onClick={() => handleOpenAppointment(appointment)}
-                            >
-                              <div className="font-medium">{appointment.patient?.fullName || 'Paciente não especificado'}</div>
-                              <div className="text-xs">
-                                {appointment.title || 'Consulta'}
-                                {appointment.room && ` - ${appointment.room.name}`}
-                              </div>
-                            </div>
-                          ) : (
-                            <div 
-                              className="flex-1 p-2 text-sm text-muted-foreground hover:bg-muted rounded-md cursor-pointer flex items-center"
-                              onClick={() => handleSlotClick(profId, slot.time)}
-                            >
-                              <Plus className="h-4 w-4 mr-1" /> Agendar horário
-                            </div>
-                          )}
+                      </div>
+                    </div>
+                    
+                    {/* Slots de tempo */}
+                    {timeSlots.map((slot, slotIndex) => (
+                      <div 
+                        key={slotIndex} 
+                        className={`grid grid-cols-[80px_1fr] border-b ${slotIndex % 2 === 0 ? 'bg-muted/5' : ''} ${slot.isLunchBreak ? 'bg-muted/20' : ''}`}
+                      >
+                        <div className="p-2 flex items-center justify-center">
+                          <span className="text-sm font-medium">{slot.time}</span>
                         </div>
-                      );
-                    })}
+                        
+                        <div 
+                          className="grid" 
+                          style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}
+                        >
+                          {professionals.map(professional => {
+                            const appointment = slot.appointments?.[professional.id];
+                            
+                            return (
+                              <div 
+                                key={professional.id} 
+                                className="p-1 border-l min-h-[50px] relative"
+                              >
+                                {appointment ? (
+                                  <div 
+                                    className={`p-2 rounded h-full ${getAppointmentColor(appointment.status)}`}
+                                    onClick={() => handleOpenAppointment(appointment)}
+                                  >
+                                    <div className="text-sm font-medium truncate">
+                                      {appointment.patient?.fullName || 'Sem paciente'}
+                                    </div>
+                                    <div className="text-xs truncate">
+                                      {format(parseISO(appointment.startTime), "HH:mm")} - {format(parseISO(appointment.endTime), "HH:mm")}
+                                    </div>
+                                    {appointment.title && (
+                                      <div className="text-xs truncate">{appointment.title}</div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div 
+                                    className="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                                    onClick={() => handleSlotClick(professional.id, slot.time)}
+                                  >
+                                    <div className="text-xs text-primary flex items-center">
+                                      <Plus className="h-3 w-3 mr-1" /> Agendar
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

@@ -164,6 +164,7 @@ export default function CalendarHeader({
                 <SelectItem value="day">Dia</SelectItem>
                 <SelectItem value="week">Semana</SelectItem>
                 <SelectItem value="room">Cadeira/Sala</SelectItem>
+                <SelectItem value="timeline">Timeline</SelectItem>
               </SelectContent>
             </Select>
             
@@ -177,6 +178,7 @@ export default function CalendarHeader({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="15">15 minutos</SelectItem>
+                <SelectItem value="20">20 minutos</SelectItem>
                 <SelectItem value="30">30 minutos</SelectItem>
                 <SelectItem value="60">60 minutos</SelectItem>
               </SelectContent>
