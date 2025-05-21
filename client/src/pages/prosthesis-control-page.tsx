@@ -766,6 +766,13 @@ export default function ProsthesisControlPage() {
       setExpectedReturnDate(undefined);
     }
     
+    // Carregar etiquetas da prótese para edição
+    if (prosthesis.labels && prosthesis.labels.length > 0) {
+      setSelectedLabels(prosthesis.labels);
+    } else {
+      setSelectedLabels([]);
+    }
+    
     setIsModalOpen(true);
   };
   
@@ -1485,6 +1492,36 @@ export default function ProsthesisControlPage() {
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
                   />
+                </div>
+
+                <div className="grid gap-2 mt-4">
+                  <Label>Etiquetas</Label>
+                  <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[80px]">
+                    {labels.map(label => (
+                      <div 
+                        key={label.id}
+                        onClick={() => toggleLabelSelection(label.id)}
+                        className={cn(
+                          "flex items-center px-2 py-1 rounded-md cursor-pointer transition-all",
+                          selectedLabels.includes(label.id) ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"
+                        )}
+                        style={{ 
+                          backgroundColor: label.color,
+                          color: isLightColor(label.color) ? '#000' : '#fff'
+                        }}
+                      >
+                        {label.name}
+                        {selectedLabels.includes(label.id) && (
+                          <Check className="h-3 w-3 ml-1" />
+                        )}
+                      </div>
+                    ))}
+                    {labels.length === 0 && (
+                      <div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
+                        Nenhuma etiqueta disponível. Use o botão "Etiquetas" para criar.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
