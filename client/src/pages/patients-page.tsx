@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { addMonths, isBefore, parseISO, differenceInMonths, format } from "date-fns";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,8 @@ export default function PatientsPage() {
   } = useQuery({
     queryKey: ["/api/patients"],
     queryFn: async () => {
-      // For demonstration, we're returning mock data
+      // Dados de pacientes com informações de última consulta
+      const today = new Date();
       return [
         {
           id: 1,
@@ -63,7 +65,7 @@ export default function PatientsPage() {
           address: "Rua das Flores, 123 - São Paulo/SP",
           insuranceInfo: "Amil Dental - Plano Premium",
           createdAt: "2023-01-10T10:00:00Z",
-          lastVisit: "2023-05-15T14:30:00Z",
+          lastVisit: format(addMonths(today, -2), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 2 meses atrás
         },
         {
           id: 2,
@@ -163,16 +165,38 @@ export default function PatientsPage() {
     },
   });
 
-  // Filter patients based on search query
+  // Função para verificar se um paciente não consulta há X meses
+  const hasntVisitedForMonths = (patient: any, months: number) => {
+    if (!patient.lastVisit) return false;
+    
+    const today = new Date();
+    const lastVisitDate = new Date(patient.lastVisit);
+    const limitDate = addMonths(today, -months);
+    
+    // Retorna true se a última visita foi antes da data limite
+    return isBefore(lastVisitDate, limitDate);
+  };
+
+  // Aplica filtros: busca e tempo desde a última consulta
   const filteredPatients = patients
     ? patients.filter((patient) => {
+        // Aplicar filtro de busca de texto
         const query = searchQuery.toLowerCase();
-        return (
+        const matchesSearchQuery = 
           patient.fullName.toLowerCase().includes(query) ||
           (patient.email && patient.email.toLowerCase().includes(query)) ||
-          (patient.phone && patient.phone.includes(searchQuery)) ||
-          (patient.cpf && typeof patient.cpf === 'string' && patient.cpf.includes(searchQuery))
-        );
+          (patient.phone && patient.phone.includes(searchQuery));
+        
+        // Aplicar filtro de última consulta
+        let matchesLastVisitFilter = true;
+        if (lastVisitFilter !== "all") {
+          if (lastVisitFilter === "month-1") matchesLastVisitFilter = hasntVisitedForMonths(patient, 1);
+          else if (lastVisitFilter === "month-3") matchesLastVisitFilter = hasntVisitedForMonths(patient, 3);
+          else if (lastVisitFilter === "month-6") matchesLastVisitFilter = hasntVisitedForMonths(patient, 6);
+          else if (lastVisitFilter === "year-1") matchesLastVisitFilter = hasntVisitedForMonths(patient, 12);
+        }
+        
+        return matchesSearchQuery && matchesLastVisitFilter;
       })
     : [];
 
