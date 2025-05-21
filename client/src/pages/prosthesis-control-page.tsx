@@ -411,29 +411,53 @@ export default function ProsthesisControlPage() {
     let sentDateFormatted = sentDate ? format(sentDate, "yyyy-MM-dd") : null;
     let expectedReturnDateFormatted = expectedReturnDate ? format(expectedReturnDate, "yyyy-MM-dd") : null;
     
-    const prosthesisData: Partial<Prosthesis> = {
-      patientId: parseInt(formData.get("patient") as string),
-      patientName: mockPatients.find(p => p.id === parseInt(formData.get("patient") as string))?.fullName || "",
-      professionalId: parseInt(formData.get("professional") as string),
-      professionalName: mockProfessionals.find(p => p.id === parseInt(formData.get("professional") as string))?.fullName || "",
-      type: formData.get("type") as string,
-      description: formData.get("description") as string,
-      laboratory: formData.get("laboratory") as string,
-      sentDate: sentDateFormatted,
-      expectedReturnDate: expectedReturnDateFormatted,
-      observations: formData.get("observations") as string,
-      status: (sentDateFormatted ? 'sent' : 'pending') as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled',
-    };
-    
-    if (editingProsthesis) {
-      prosthesisData.id = editingProsthesis.id;
-      // Preservar returnDate se existir
-      if (editingProsthesis.returnDate) {
-        prosthesisData.returnDate = editingProsthesis.returnDate;
+    try {
+      // Validar dados básicos
+      if (!formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios.");
       }
+      
+      // Preparar dados da prótese
+      const prosthesisData: Partial<Prosthesis> = {
+        patientId: parseInt(formData.get("patient") as string),
+        patientName: mockPatients.find(p => p.id === parseInt(formData.get("patient") as string))?.fullName || "",
+        professionalId: parseInt(formData.get("professional") as string),
+        professionalName: mockProfessionals.find(p => p.id === parseInt(formData.get("professional") as string))?.fullName || "",
+        type: formData.get("type") as string,
+        description: formData.get("description") as string,
+        laboratory: formData.get("laboratory") as string,
+        sentDate: sentDateFormatted,
+        expectedReturnDate: expectedReturnDateFormatted,
+        observations: formData.get("observations") as string || null,
+        status: (sentDateFormatted ? 'sent' : 'pending') as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled',
+      };
+      
+      // Se estiver editando, manter dados existentes que não foram alterados
+      if (editingProsthesis) {
+        prosthesisData.id = editingProsthesis.id;
+        // Preservar returnDate e status se existirem
+        if (editingProsthesis.returnDate) {
+          prosthesisData.returnDate = editingProsthesis.returnDate;
+        }
+        
+        // Manter status atual se não houver mudança nas datas
+        if (editingProsthesis.status) {
+          if (editingProsthesis.status === 'completed' || editingProsthesis.status === 'returned') {
+            prosthesisData.status = editingProsthesis.status;
+          }
+        }
+      }
+      
+      // Enviar dados para o servidor
+      prosthesisMutation.mutate(prosthesisData);
+    } catch (error) {
+      // Tratar erros de validação
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a prótese.",
+        variant: "destructive",
+      });
     }
-    
-    prosthesisMutation.mutate(prosthesisData);
   };
   
   // Handler para drag and drop com melhor desempenho
@@ -815,35 +839,43 @@ export default function ProsthesisControlPage() {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
+                                  onClick={() => handleEditProsthesis(item)}
                                   style={{
                                     ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted",
                                     snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
                                   <div className="flex justify-between items-start mb-2">
-                                    <div>
+                                    <div className="cursor-pointer" onClick={(e) => {
+                                      e.stopPropagation(); // Evitar propagação do clique
+                                      handleEditProsthesis(item);
+                                    }}>
                                       <h3 className="font-medium">{item.patientName}</h3>
                                       <p className="text-xs text-muted-foreground">{item.type}</p>
                                     </div>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
                                           <MoreHorizontal className="h-4 w-4" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => handleEditProsthesis(item)}>
+                                        <DropdownMenuItem onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditProsthesis(item);
+                                        }}>
                                           <Edit className="h-4 w-4 mr-2" /> Editar
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                           className="text-destructive"
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             toast({
                                               title: "Ação não implementada",
                                               description: "A exclusão de próteses não está disponível no momento.",
