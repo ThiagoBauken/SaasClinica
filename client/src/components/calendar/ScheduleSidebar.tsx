@@ -141,11 +141,12 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
     procedure: "all",
     room: "all",
     date: "today",
+    selectedDate: new Date(),
   });
 
   const [activeTab, setActiveTab] = useState("calendar");
 
-  const handleFilterChange = (field: keyof typeof filters, value: string) => {
+  const handleFilterChange = (field: keyof typeof filters, value: any) => {
     const newFilters = {
       ...filters,
       [field]: value,
@@ -165,6 +166,7 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
       procedure: "all",
       room: "all",
       date: "today",
+      selectedDate: new Date(),
     };
     setFilters(newFilters);
     
@@ -176,7 +178,7 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
   // Elementos ativos de filtro
   const activeFilters = Object.entries(filters).filter(([key, value]) => {
     if (key === 'patient' && value !== '') return true;
-    if (value !== 'all' && value !== '' && key !== 'patient' && key !== 'date') return true;
+    if (value !== 'all' && value !== '' && key !== 'patient' && key !== 'date' && key !== 'selectedDate') return true;
     return false;
   });
 
@@ -203,7 +205,15 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
             <h2 className="text-sm font-semibold text-foreground">Data</h2>
             
             {/* Mini Calendar Component */}
-            <MiniCalendar />
+            <MiniCalendar 
+              selectedDate={filters.selectedDate}
+              onSelectDate={(date) => {
+                handleFilterChange("selectedDate", date);
+                if (onFilterChange) {
+                  onFilterChange({ ...filters, selectedDate: date });
+                }
+              }}
+            />
             
             {/* Date range shortcuts */}
             <div className="flex flex-wrap gap-1 pt-2">

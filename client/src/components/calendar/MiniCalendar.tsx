@@ -22,9 +22,15 @@ const mockOccupationData: Record<string, { status: 'available' | 'moderate' | 'b
   '2023-08-24': { status: 'full' },
 };
 
-export default function MiniCalendar() {
+interface MiniCalendarProps {
+  onSelectDate?: (date: Date) => void;
+  selectedDate?: Date;
+}
+
+export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedDate }: MiniCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Usar a data selecionada fornecida ou a atual como padrão
+  const [selectedDate, setSelectedDate] = useState(propSelectedDate || new Date());
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -82,7 +88,10 @@ export default function MiniCalendar() {
 
   const selectDate = (date: Date) => {
     setSelectedDate(date);
-    // Here you would typically trigger data loading for the selected date
+    // Notificar o componente pai sobre a seleção de data
+    if (onSelectDate) {
+      onSelectDate(date);
+    }
   };
 
   return (
