@@ -12,9 +12,9 @@ import { ptBR } from "date-fns/locale";
 import { Phone, Mail, Calendar, ChevronRight, Clock } from "lucide-react";
 
 // Função para formatar o tempo desde a última consulta
-function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: string; color: string } {
+function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: string; color: string; needsAttention: boolean } {
   if (!lastVisitDate) {
-    return { text: "Nunca consultou", color: "text-amber-500" };
+    return { text: "Nunca consultou", color: "text-amber-500", needsAttention: true };
   }
   
   const today = new Date();
@@ -28,32 +28,38 @@ function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: 
   if (yearDiff >= 1) {
     return { 
       text: `${yearDiff} ${yearDiff === 1 ? 'ano' : 'anos'} atrás`,
-      color: "text-red-500" 
+      color: "text-red-500",
+      needsAttention: true 
     };
   } else if (monthDiff >= 6) {
     return { 
       text: `${monthDiff} meses atrás`, 
-      color: "text-red-500"
+      color: "text-red-500",
+      needsAttention: true
     };
   } else if (monthDiff >= 3) {
     return { 
       text: `${monthDiff} meses atrás`, 
-      color: "text-amber-500"
+      color: "text-amber-500",
+      needsAttention: true
     };
   } else if (monthDiff >= 1) {
     return { 
       text: `${monthDiff} ${monthDiff === 1 ? 'mês' : 'meses'} atrás`, 
-      color: "text-neutral-600"
+      color: "text-neutral-600",
+      needsAttention: false
     };
   } else if (dayDiff > 0) {
     return { 
       text: `${dayDiff} ${dayDiff === 1 ? 'dia' : 'dias'} atrás`, 
-      color: "text-green-600"
+      color: "text-green-600",
+      needsAttention: false
     };
   } else {
     return { 
       text: "Hoje", 
-      color: "text-green-600"
+      color: "text-green-600",
+      needsAttention: false
     };
   }
 }
@@ -129,14 +135,14 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                 <TableCell>
                   {patient.lastVisit ? (
                     <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                      <Clock className={`h-4 w-4 mr-2 ${formatLastVisitTime(patient.lastVisit).needsAttention ? formatLastVisitTime(patient.lastVisit).color : "text-muted-foreground"}`} />
                       <div className={`text-sm ${formatLastVisitTime(patient.lastVisit).color}`}>
                         {formatLastVisitTime(patient.lastVisit).text}
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                      <Clock className="h-4 w-4 text-amber-500 mr-2" />
                       <div className="text-sm text-amber-500">
                         Nunca consultou
                       </div>
