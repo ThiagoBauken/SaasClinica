@@ -27,6 +27,9 @@ export default function SchedulePage() {
     professionalId: number;
     time: string;
   } | null>(null);
+  
+  // Estado para controlar o intervalo de tempo (15, 30 ou 60 minutos)
+  const [timeInterval, setTimeInterval] = useState<15 | 30 | 60>(30);
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery<any[]>({
