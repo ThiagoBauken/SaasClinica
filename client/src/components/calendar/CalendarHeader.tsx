@@ -166,7 +166,7 @@ export default function CalendarHeader({
           <Button 
             variant="default" 
             className="shadow-sm"
-            onClick={onNewAppointment}
+            onClick={() => onNewAppointment(false)}
           >
             <Plus className="h-5 w-5 mr-1" />
             Novo

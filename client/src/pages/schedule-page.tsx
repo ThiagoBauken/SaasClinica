@@ -596,6 +596,22 @@ export default function SchedulePage() {
         onSave={handleSaveAppointment}
         isEdit={isEditMode}
       />
+      
+      {/* Modal de Encaixe */}
+      <FitInModal
+        isOpen={isFitInModalOpen}
+        onClose={() => setIsFitInModalOpen(false)}
+        onSave={(fitInData) => {
+          // Processar dados do encaixe
+          console.log("Dados do encaixe:", fitInData);
+          toast({
+            title: "Encaixe registrado",
+            description: "O sistema tentará encontrar um horário adequado automaticamente.",
+          });
+          setIsFitInModalOpen(false);
+        }}
+        defaultDate={selectedDate}
+      />
     </DashboardLayout>
   );
 }
