@@ -537,6 +537,7 @@ export default function ProsthesisControlPage() {
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
         status: (sentDateFormatted ? 'sent' : 'pending') as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled',
+        labels: selectedLabels, // Incluir etiquetas selecionadas
       };
       
       // Se estiver editando, manter dados existentes que não foram alterados
