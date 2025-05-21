@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage, DatabaseStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { parse, formatISO, addDays } from "date-fns";
-import { cacheMiddleware, invalidateCache } from "./simpleCache";
+import { cacheMiddleware } from "./simpleCache";
+import { invalidateClusterCache } from "./clusterCache";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -48,16 +49,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients", authCheck, asyncHandler(async (req, res) => {
     const patient = await storage.createPatient(req.body);
-    // Invalida o cache relacionado a pacientes
-    invalidateCache('api:/api/patients');
+    // Invalida o cache relacionado a pacientes em todos os workers
+    invalidateClusterCache('api:/api/patients');
     res.status(201).json(patient);
   }));
 
   app.patch("/api/patients/:id", authCheck, asyncHandler(async (req, res) => {
     const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body);
-    // Invalida caches específicos
-    invalidateCache(`api:/api/patients/${req.params.id}`);
-    invalidateCache('api:/api/patients');
+    // Invalida caches específicos em todos os workers
+    invalidateClusterCache(`api:/api/patients/${req.params.id}`);
+    invalidateClusterCache('api:/api/patients');
     res.json(updatedPatient);
   }));
 

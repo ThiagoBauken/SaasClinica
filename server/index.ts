@@ -12,9 +12,15 @@ const WORKERS = process.env.NODE_ENV === "production"
   ? Math.min(os.cpus().length, 16) // Limita a 16 workers no máximo para evitar overhead de context switching
   : 1; // Em desenvolvimento, usamos apenas 1 worker
 
+// Importação do sistema de cache distribuído
+import { initializeClusterCache } from './clusterCache';
+
 // Implementação com clusters para aproveitar múltiplos cores
 if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   log(`Master process ${process.pid} está rodando`);
+  
+  // Inicializa o sistema de cache compartilhado no processo principal
+  initializeClusterCache();
   
   // Cria workers
   for (let i = 0; i < WORKERS; i++) {
@@ -28,6 +34,8 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     cluster.fork();
   });
 } else {
+  // Inicializa o sistema de cache nos workers
+  initializeClusterCache();
   // Código do worker
   const app = express();
   
