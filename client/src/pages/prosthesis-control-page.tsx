@@ -760,7 +760,14 @@ export default function ProsthesisControlPage() {
               <h3 className={cn("text-lg font-semibold", hasDelayedItems ? "text-red-500" : "text-primary")}>
                 Envio {hasDelayedItems && <AlertCircle className="h-4 w-4 inline ml-1" />}
               </h3>
-              <Badge variant={hasDelayedItems ? "destructive" : "outline"}>{totals.sent}</Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline">{totals.sent}</Badge>
+                {hasDelayedItems && (
+                  <Badge variant="destructive">
+                    {columns.sent.items.filter(item => isDelayed(item)).length}
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="text-sm text-muted-foreground mb-3">Com atraso de envio</p>
           </div>
@@ -770,7 +777,14 @@ export default function ProsthesisControlPage() {
               <h3 className="text-lg font-semibold text-red-500">
                 Laboratório <AlertCircle className="h-4 w-4 inline ml-1" />
               </h3>
-              <Badge variant="destructive">{totals.returned}</Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline">{totals.returned}</Badge>
+                <Badge variant="destructive">
+                  {columns.returned.items.filter(item => 
+                    item.expectedReturnDate && isAfter(new Date(), parseISO(item.expectedReturnDate))
+                  ).length}
+                </Badge>
+              </div>
             </div>
             <p className="text-sm text-muted-foreground mb-3">Com atraso de entrega</p>
           </div>
