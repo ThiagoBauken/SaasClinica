@@ -6,6 +6,7 @@ import AppointmentModal from "@/components/calendar/AppointmentModal";
 import FitInModal from "@/components/calendar/FitInModal";
 import ScheduleSettings from "@/components/calendar/ScheduleSettings";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
+import ConfirmationModal from "@/components/calendar/ConfirmationModal";
 import { 
   Select, 
   SelectContent, 
@@ -444,14 +445,44 @@ export default function SchedulePage() {
     setIsAppointmentModalOpen(true);
   };
 
+  // Estado para o modal de confirmação
+  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<{
+    professionalId: number;
+    time: string;
+    slotIndex?: number;
+    message?: string;
+  } | null>(null);
+
   // Handle clicking on an empty slot
   const handleSlotClick = (professionalId: number, time: string, slotIndex?: number) => {
-    // Se não estiver arrastando, inicia a seleção simples
+    // Se não estiver arrastando, mostra confirmação antes de abrir o modal de agendamento
     if (!isDragging) {
-      setSelectedSlotInfo({ professionalId, time });
+      // Buscar nome do profissional para mostrar na confirmação
+      const professionalName = professionals?.find(p => p.id === professionalId)?.fullName || 'Profissional';
+      
+      // Mostrar modal de confirmação antes de abrir o agendamento
+      setConfirmationData({
+        professionalId,
+        time,
+        slotIndex,
+        message: `Este vaga é um horário de atendimento da clínica, deseja confirmar?`
+      });
+      setIsConfirmationModalOpen(true);
+    }
+  };
+  
+  // Confirma a seleção do horário e abre o modal de agendamento
+  const handleConfirmSlotSelection = () => {
+    if (confirmationData) {
+      setSelectedSlotInfo({ 
+        professionalId: confirmationData.professionalId, 
+        time: confirmationData.time 
+      });
       setSelectedAppointment(undefined);
       setIsEditMode(false);
       setIsAppointmentModalOpen(true);
+      setIsConfirmationModalOpen(false);
     }
   };
   
@@ -902,6 +933,17 @@ export default function SchedulePage() {
           setIsFitInModalOpen(false);
         }}
         defaultDate={selectedDate}
+      />
+      
+      {/* Modal de confirmação para agendar horário */}
+      <ConfirmationModal
+        isOpen={isConfirmationModalOpen}
+        onClose={() => setIsConfirmationModalOpen(false)}
+        onConfirm={handleConfirmSlotSelection}
+        title="Confirmar horário"
+        description={confirmationData?.message || "Este vaga é um horário de atendimento da clínica, deseja confirmar?"}
+        confirmText="Sim"
+        cancelText="Não"
       />
     </DashboardLayout>
   );
