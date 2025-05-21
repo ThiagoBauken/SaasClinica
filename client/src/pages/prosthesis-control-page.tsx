@@ -859,9 +859,7 @@ export default function ProsthesisControlPage() {
                                   {...provided.dragHandleProps}
                                   style={{
                                     ...provided.draggableProps.style,
-                                    // Garantir que o efeito de arrastar seja visível imediatamente
-                                    transitionDuration: "0.2s",
-                                    // Aumentar feedback visual
+                                    // Aumentar feedback visual quando arrastando
                                     transform: snapshot.isDragging 
                                       ? `${provided.draggableProps.style?.transform || ""} scale(1.02)` 
                                       : provided.draggableProps.style?.transform
