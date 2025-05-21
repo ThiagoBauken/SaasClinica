@@ -40,7 +40,12 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
             patients.map((patient) => (
               <TableRow key={patient.id}>
                 <TableCell>
-                  <div className="font-medium">{patient.fullName}</div>
+                  <div 
+                    className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
+                    onClick={() => onPatientClick(patient)}
+                  >
+                    {patient.fullName}
+                  </div>
                   {patient.insuranceInfo && (
                     <div className="text-xs text-muted-foreground">
                       {patient.insuranceInfo}
