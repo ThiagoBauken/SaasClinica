@@ -734,7 +734,19 @@ export default function ProsthesisControlPage() {
     setEditingProsthesis(null);
     setSentDate(undefined);
     setExpectedReturnDate(undefined);
+    setSelectedLabels([]);
     setIsModalOpen(true);
+  };
+  
+  // Função para alternar a seleção de etiquetas
+  const toggleLabelSelection = (labelId: string) => {
+    setSelectedLabels(prevLabels => {
+      if (prevLabels.includes(labelId)) {
+        return prevLabels.filter(id => id !== labelId);
+      } else {
+        return [...prevLabels, labelId];
+      }
+    });
   };
   
   // Configurar dados ao editar item existente
