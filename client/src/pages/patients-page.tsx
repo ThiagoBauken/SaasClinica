@@ -163,11 +163,15 @@ export default function PatientsPage() {
 
   // Filter patients based on search query
   const filteredPatients = patients
-    ? patients.filter((patient) =>
-        patient.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.phone.includes(searchQuery)
-      )
+    ? patients.filter((patient) => {
+        const query = searchQuery.toLowerCase();
+        return (
+          patient.fullName.toLowerCase().includes(query) ||
+          (patient.email && patient.email.toLowerCase().includes(query)) ||
+          (patient.phone && patient.phone.includes(searchQuery)) ||
+          (patient.cpf && typeof patient.cpf === 'string' && patient.cpf.includes(searchQuery))
+        );
+      })
     : [];
 
   const handleAddPatient = (patientData: any) => {
@@ -192,6 +196,169 @@ export default function PatientsPage() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+  };
+  
+  // Exportar pacientes para arquivo CSV
+  const handleExportPatients = () => {
+    if (!patients || patients.length === 0) {
+      toast({
+        title: "Nenhum paciente para exportar",
+        description: "Não há pacientes cadastrados no sistema.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Preparar dados para exportação
+    const dataToExport = patients.map(patient => ({
+      Nome: patient.fullName,
+      Email: patient.email || '',
+      Telefone: patient.phone || '',
+      CPF: patient.cpf || '',
+      DataNascimento: patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('pt-BR') : '',
+      Gênero: patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : 'Outro',
+      Endereço: patient.address || '',
+      Convênio: patient.insuranceInfo || '',
+      Observações: patient.notes || ''
+    }));
+
+    // Converter para CSV
+    const csv = Papa.unparse(dataToExport);
+    
+    // Criar blob e link para download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `pacientes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${patients.length} pacientes exportados com sucesso.`,
+    });
+  };
+
+  // Importar pacientes de arquivo CSV
+  const handleImportPatients = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          if (results.errors.length > 0) {
+            throw new Error(`Erro ao processar arquivo: ${results.errors[0].message}`);
+          }
+
+          // Mapeamento entre nomes de colunas esperados e propriedades do objeto
+          const fieldMap: Record<string, string> = {
+            'Nome': 'fullName',
+            'Email': 'email',
+            'Telefone': 'phone',
+            'CPF': 'cpf',
+            'DataNascimento': 'birthDate',
+            'Gênero': 'gender',
+            'Endereço': 'address',
+            'Convênio': 'insuranceInfo',
+            'Observações': 'notes'
+          };
+
+          // Array para receber os pacientes importados
+          const importedPatients = [];
+          let successCount = 0;
+          
+          // Processar cada linha e criar objeto paciente
+          for (const row of results.data as Record<string, string>[]) {
+            const patient: Record<string, any> = {};
+            
+            // Mapear campos do CSV para as propriedades do paciente
+            for (const [csvField, dbField] of Object.entries(fieldMap)) {
+              if (row[csvField] !== undefined) {
+                patient[dbField] = row[csvField];
+              }
+            }
+            
+            // Validar campos obrigatórios
+            if (!patient.fullName) {
+              continue; // Pula pacientes sem nome
+            }
+            
+            // Converter gênero
+            if (patient.gender) {
+              if (patient.gender.toLowerCase() === 'masculino') {
+                patient.gender = 'male';
+              } else if (patient.gender.toLowerCase() === 'feminino') {
+                patient.gender = 'female';
+              } else {
+                patient.gender = 'other';
+              }
+            }
+            
+            // Converter data de nascimento se necessário
+            if (patient.birthDate) {
+              try {
+                // Verificar se está no formato brasileiro
+                if (patient.birthDate.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                  const [day, month, year] = patient.birthDate.split('/');
+                  patient.birthDate = new Date(`${year}-${month}-${day}`).toISOString();
+                } else {
+                  // Tentar converter diretamente
+                  patient.birthDate = new Date(patient.birthDate).toISOString();
+                }
+              } catch (error) {
+                delete patient.birthDate; // Remove data inválida
+              }
+            }
+            
+            importedPatients.push(patient);
+          }
+          
+          // Importar pacientes sequencialmente
+          for (const patient of importedPatients) {
+            try {
+              await apiRequest('POST', '/api/patients', patient);
+              successCount++;
+            } catch (error) {
+              console.error('Erro ao importar paciente:', patient, error);
+            }
+          }
+          
+          // Atualizar lista de pacientes
+          queryClient.invalidateQueries({queryKey: ['/api/patients']});
+          
+          toast({
+            title: "Importação concluída",
+            description: `${successCount} de ${importedPatients.length} pacientes importados com sucesso.`,
+          });
+        } catch (error) {
+          toast({
+            title: "Erro na importação",
+            description: error instanceof Error ? error.message : "Erro desconhecido ao importar pacientes",
+            variant: "destructive",
+          });
+        } finally {
+          setIsImporting(false);
+          e.target.value = ''; // Limpar input para permitir importar o mesmo arquivo novamente
+        }
+      },
+      error: (error) => {
+        setIsImporting(false);
+        toast({
+          title: "Erro na importação",
+          description: `Não foi possível processar o arquivo: ${error.message}`,
+          variant: "destructive",
+        });
+        e.target.value = '';
+      }
+    });
   };
 
   return (
