@@ -531,12 +531,36 @@ export default function InventoryPage() {
     return matchesSearch && matchesCategory && matchesLowStock;
   }) : [];
 
+  // Verificar se o produto está próximo da validade (30 dias)
+  const isExpiringProduct = (expiryDate: string | Date | null): boolean => {
+    if (!expiryDate) return false;
+    
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    const thirtyDaysLater = new Date();
+    thirtyDaysLater.setDate(today.getDate() + 30);
+    
+    return expiry <= thirtyDaysLater && expiry >= today;
+  };
+  
+  // Verificar se o produto está vencido
+  const isExpiredProduct = (expiryDate: string | Date | null): boolean => {
+    if (!expiryDate) return false;
+    
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    
+    return expiry < today;
+  };
+
   // Dados de resumo para o dashboard
   const inventorySummary = {
     totalItems: inventoryItems?.length || 0,
     totalCategories: inventoryCategories?.length || 0,
-    totalValue: inventoryItems?.reduce((acc, item) => acc + (item.price * item.currentStock), 0) || 0,
-    lowStockItems: inventoryItems?.filter(item => item.currentStock <= item.minimumStock).length || 0
+    totalValue: inventoryItems?.reduce((acc, item) => acc + ((item.price || 0) * (item.currentStock || 0)), 0) || 0,
+    lowStockItems: inventoryItems?.filter(item => item.currentStock <= item.minimumStock).length || 0,
+    expiringItems: inventoryItems?.filter(item => isExpiringProduct(item.expiryDate)).length || 0,
+    expiredItems: inventoryItems?.filter(item => isExpiredProduct(item.expiryDate)).length || 0
   };
 
   return (
