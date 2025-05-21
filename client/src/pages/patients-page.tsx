@@ -23,7 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Search, Plus, Phone, Mail, Calendar, Edit, FileText } from "lucide-react";
+import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ export default function PatientsPage() {
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("info");
+  const [isImporting, setIsImporting] = useState(false);
 
   // Fetch patients
   const {
@@ -204,10 +205,27 @@ export default function PatientsPage() {
             onChange={handleSearchChange}
           />
         </div>
-        <Button className="bg-primary text-white" onClick={() => setIsAddPatientOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Paciente
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPatients}>
+            Exportar Pacientes
+          </Button>
+          <label htmlFor="import-patients" className="cursor-pointer">
+            <Button variant="outline" asChild>
+              <span>Importar Pacientes</span>
+            </Button>
+            <input
+              type="file"
+              id="import-patients"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              onChange={handleImportPatients}
+            />
+          </label>
+          <Button className="bg-primary text-white" onClick={() => setIsAddPatientOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Paciente
+          </Button>
+        </div>
       </div>
 
       {isLoadingPatients ? (

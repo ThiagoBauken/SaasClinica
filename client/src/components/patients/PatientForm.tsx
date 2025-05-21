@@ -19,6 +19,7 @@ const patientFormSchema = insertPatientSchema.extend({
   fullName: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido").or(z.string().length(0)),
   phone: z.string().min(8, "Telefone deve ter pelo menos 8 dígitos").or(z.string().length(0)),
+  cpf: z.string().min(11, "CPF inválido").max(14, "CPF inválido").or(z.string().length(0)),
   birthDate: z.string().refine(val => !val || !isNaN(Date.parse(val)), {
     message: "Data de nascimento inválida",
   }),
@@ -51,6 +52,7 @@ export default function PatientForm({
         fullName: "",
         email: "",
         phone: "",
+        cpf: "",
         birthDate: "",
         gender: "male",
         address: "",
@@ -89,7 +91,7 @@ export default function PatientForm({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
@@ -114,6 +116,19 @@ export default function PatientForm({
             />
             {errors.phone && (
               <p className="text-red-500 text-sm mt-1">{errors.phone.message as string}</p>
+            )}
+          </div>
+          
+          <div>
+            <Label htmlFor="cpf">CPF</Label>
+            <Input
+              id="cpf"
+              placeholder="000.000.000-00"
+              {...register("cpf")}
+              className={errors.cpf ? "border-red-500" : ""}
+            />
+            {errors.cpf && (
+              <p className="text-red-500 text-sm mt-1">{errors.cpf.message as string}</p>
             )}
           </div>
         </div>
