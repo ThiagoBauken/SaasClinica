@@ -3,6 +3,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import TimelineView from "@/components/calendar/TimelineView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
+import FitInModal from "@/components/calendar/FitInModal";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
@@ -19,6 +20,7 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<CalendarViewType>("timeline");
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isFitInModalOpen, setIsFitInModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | undefined>(undefined);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedSlotInfo, setSelectedSlotInfo] = useState<{
@@ -327,10 +329,17 @@ export default function SchedulePage() {
   });
 
   // Handle opening appointment modal
-  const handleNewAppointment = () => {
+  const handleNewAppointment = (isFitIn = false) => {
     setSelectedAppointment(undefined);
     setIsEditMode(false);
-    setIsAppointmentModalOpen(true);
+    
+    if (isFitIn) {
+      // Abrir modal de encaixe
+      setIsFitInModalOpen(true);
+    } else {
+      // Abrir modal normal de agendamento
+      setIsAppointmentModalOpen(true);
+    }
   };
 
   // Handle opening existing appointment
