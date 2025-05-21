@@ -5,7 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, LayoutDashboard, Calendar, Users, DollarSign, Bot, Scissors, Activity, Package, PackageOpen } from "lucide-react";
+import { 
+  Search, 
+  LayoutDashboard, 
+  Calendar, 
+  Users, 
+  DollarSign, 
+  Bot, 
+  Scissors, 
+  Activity, 
+  Package, 
+  PackageOpen,
+  Settings,
+  BoxSelect
+} from "lucide-react";
 
 interface SidebarProps {
   currentPath: string;
