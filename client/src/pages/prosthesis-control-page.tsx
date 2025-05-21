@@ -1073,22 +1073,26 @@ export default function ProsthesisControlPage() {
                   
                   <div className="grid gap-2">
                     <Label htmlFor="laboratory">Laboratório</Label>
-                    <Select 
-                      defaultValue={editingProsthesis?.laboratory || undefined}
-                      name="laboratory"
-                      required
-                    >
-                      <SelectTrigger id="laboratory">
-                        <SelectValue placeholder="Selecione o laboratório" />
-                      </SelectTrigger>
-                      <SelectContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Input
+                        id="laboratory"
+                        name="laboratory"
+                        defaultValue={editingProsthesis?.laboratory || ""}
+                        placeholder="Digite para selecionar ou cadastrar laboratório"
+                        list="laboratorios-list"
+                        required
+                      />
+                      <datalist id="laboratorios-list">
                         {mockLaboratories.map(lab => (
-                          <SelectItem key={lab.id} value={lab.name}>
-                            {lab.name}
-                          </SelectItem>
+                          <option key={lab.id} value={lab.name} />
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </datalist>
+                      <Input 
+                        placeholder="WhatsApp laboratório"
+                        name="laboratoryContact"
+                        defaultValue=""
+                      />
+                    </div>
                   </div>
                 </div>
                 
