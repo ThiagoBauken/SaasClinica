@@ -17,6 +17,8 @@ import InventoryPage from "@/pages/inventory-page";
 import OdontogramDemo from "@/pages/odontogram-demo";
 import CadastrosPage from "@/pages/cadastros-page";
 import ConfiguracoesPage from "@/pages/configuracoes-page";
+import AuthPage from "@/pages/auth-page";
+import LandingPage from "@/pages/landing-page";
 
 export default function App() {
   return (
@@ -24,6 +26,11 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<div className="flex items-center justify-center h-screen">Carregando...</div>}>
           <Switch>
+            {/* Rotas públicas */}
+            <Route path="/auth" component={AuthPage} />
+            <Route path="/landing" component={LandingPage} />
+            
+            {/* Rotas protegidas */}
             <ProtectedRoute path="/" component={DashboardPage} />
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
