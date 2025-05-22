@@ -26,8 +26,18 @@ ogType.property = "og:type";
 ogType.content = "website";
 document.head.appendChild(ogType);
 
+// Obtenha o tema do local storage ou use o tema claro como padrão
+const savedTheme = localStorage.getItem('theme') || 'light';
+
+// Aplique a classe 'dark' ao elemento raiz se o tema salvo for escuro
+if (savedTheme === 'dark') {
+  document.documentElement.classList.add('dark');
+} else {
+  document.documentElement.classList.remove('dark');
+}
+
 createRoot(document.getElementById("root")!).render(
-  <ThemeProvider attribute="class" defaultTheme="light">
+  <ThemeProvider attribute="class" defaultTheme={savedTheme as 'light' | 'dark' | 'system'} enableSystem>
     <App />
   </ThemeProvider>
 );
