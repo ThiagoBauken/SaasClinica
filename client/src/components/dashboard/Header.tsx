@@ -1,8 +1,9 @@
 import { Link } from "wouter";
-import { Bell, ChevronDown, Menu, Sun } from "lucide-react";
+import { Bell, ChevronDown, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@shared/schema";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,9 +56,7 @@ export default function Header({ user }: HeaderProps) {
           </Button>
           
           {/* Temporariamente removido tema */}
-          <Button variant="ghost" size="icon" className="text-neutral-dark hover:bg-neutral-lightest rounded-full">
-            <Sun className="h-6 w-6" />
-          </Button>
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
