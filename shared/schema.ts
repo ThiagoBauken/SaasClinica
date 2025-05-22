@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, varchar, decimal, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -396,3 +396,678 @@ export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+
+// Configurações da Clínica
+export const clinicSettings = pgTable("clinic_settings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  tradingName: text("trading_name"),
+  cnpj: text("cnpj"),
+  responsible: text("responsible"),
+  email: text("email"),
+  phone: text("phone"),
+  cellphone: text("cellphone"),
+  logo: text("logo"),
+  openingTime: text("opening_time").notNull(),
+  closingTime: text("closing_time").notNull(),
+  address: text("address"),
+  neighborhood: text("neighborhood"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  complement: text("complement"),
+  number: text("number"),
+  timeZone: text("time_zone").default("America/Sao_Paulo"),
+  receiptPrintEnabled: boolean("receipt_print_enabled").default(false),
+  receiptHeader: text("receipt_header"),
+  receiptFooter: text("receipt_footer"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertClinicSettingsSchema = createInsertSchema(clinicSettings).pick({
+  name: true,
+  tradingName: true,
+  cnpj: true,
+  responsible: true,
+  email: true,
+  phone: true,
+  cellphone: true,
+  logo: true,
+  openingTime: true,
+  closingTime: true,
+  address: true,
+  neighborhood: true,
+  city: true,
+  state: true,
+  zipCode: true,
+  complement: true,
+  number: true,
+  timeZone: true,
+  receiptPrintEnabled: true,
+  receiptHeader: true,
+  receiptFooter: true,
+});
+
+// Permissões dos Usuários
+export const permissions = pgTable("permissions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  module: text("module").notNull(), // agenda, pacientes, financeiro, etc.
+  action: text("action").notNull(), // create, read, update, delete, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPermissionSchema = createInsertSchema(permissions).pick({
+  name: true,
+  description: true,
+  module: true,
+  action: true,
+});
+
+// Relação entre Usuários e Permissões
+export const userPermissions = pgTable("user_permissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  permissionId: integer("permission_id").references(() => permissions.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserPermissionSchema = createInsertSchema(userPermissions).pick({
+  userId: true,
+  permissionId: true,
+});
+
+// Papéis (Roles) predefinidos
+export const roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRoleSchema = createInsertSchema(roles).pick({
+  name: true,
+  description: true,
+});
+
+// Relação entre Papéis e Permissões
+export const rolePermissions = pgTable("role_permissions", {
+  id: serial("id").primaryKey(),
+  roleId: integer("role_id").references(() => roles.id).notNull(),
+  permissionId: integer("permission_id").references(() => permissions.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).pick({
+  roleId: true,
+  permissionId: true,
+});
+
+// Configurações de Comissão
+export const commissionSettings = pgTable("commission_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(), // percentual, fixo
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  applyToAll: boolean("apply_to_all").default(false),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCommissionSettingSchema = createInsertSchema(commissionSettings).pick({
+  userId: true,
+  type: true,
+  value: true,
+  applyToAll: true,
+  active: true,
+});
+
+// Comissões por Procedimento (caso específico)
+export const procedureCommissions = pgTable("procedure_commissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  procedureId: integer("procedure_id").references(() => procedures.id).notNull(),
+  type: text("type").notNull(), // percentual, fixo
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProcedureCommissionSchema = createInsertSchema(procedureCommissions).pick({
+  userId: true,
+  procedureId: true,
+  type: true,
+  value: true,
+  active: true,
+});
+
+// Registros de Comissão
+export const commissionRecords = pgTable("commission_records", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  procedureId: integer("procedure_id").references(() => procedures.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull(), // pendente, pago, cancelado
+  paymentDate: timestamp("payment_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommissionRecordSchema = createInsertSchema(commissionRecords).pick({
+  userId: true,
+  appointmentId: true,
+  procedureId: true,
+  amount: true,
+  status: true,
+  paymentDate: true,
+  notes: true,
+});
+
+// Configurações Fiscais
+export const fiscalSettings = pgTable("fiscal_settings", {
+  id: serial("id").primaryKey(),
+  nfseProvider: text("nfse_provider"), // nome do provedor de NFS-e
+  nfseToken: text("nfse_token"),
+  nfseUrl: text("nfse_url"),
+  emitReceiptFor: text("emit_receipt_for").default("all"), // all, procedures, products
+  receiptType: text("receipt_type").default("standard"), // standard, electronic
+  defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 }),
+  defaultServiceCode: text("default_service_code"),
+  termsAndConditions: text("terms_and_conditions"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFiscalSettingSchema = createInsertSchema(fiscalSettings).pick({
+  nfseProvider: true,
+  nfseToken: true,
+  nfseUrl: true,
+  emitReceiptFor: true,
+  receiptType: true,
+  defaultTaxRate: true,
+  defaultServiceCode: true,
+  termsAndConditions: true,
+});
+
+// Cadeiras (Equipamentos)
+export const chairs = pgTable("chairs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  roomId: integer("room_id").references(() => rooms.id),
+  description: text("description"),
+  status: text("status").default("active"), // active, maintenance, inactive
+  serialNumber: text("serial_number"),
+  manufacturer: text("manufacturer"),
+  purchaseDate: date("purchase_date"),
+  warrantyUntil: date("warranty_until"),
+  maintenanceSchedule: jsonb("maintenance_schedule"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertChairSchema = createInsertSchema(chairs).pick({
+  name: true,
+  roomId: true,
+  description: true,
+  status: true,
+  serialNumber: true,
+  manufacturer: true,
+  purchaseDate: true,
+  warrantyUntil: true,
+  maintenanceSchedule: true,
+});
+
+// Boxes (Caixas)
+export const boxes = pgTable("boxes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  openingBalance: decimal("opening_balance", { precision: 10, scale: 2 }).default("0"),
+  currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).default("0"),
+  status: text("status").default("open"), // open, closed
+  responsibleId: integer("responsible_id").references(() => users.id),
+  lastOpenedAt: timestamp("last_opened_at").defaultNow(),
+  lastClosedAt: timestamp("last_closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBoxSchema = createInsertSchema(boxes).pick({
+  name: true,
+  description: true,
+  openingBalance: true,
+  currentBalance: true,
+  status: true,
+  responsibleId: true,
+  lastOpenedAt: true,
+  lastClosedAt: true,
+});
+
+// Transações de Caixa
+export const boxTransactions = pgTable("box_transactions", {
+  id: serial("id").primaryKey(),
+  boxId: integer("box_id").references(() => boxes.id).notNull(),
+  type: text("type").notNull(), // deposit, withdrawal, transfer, adjustment
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description"),
+  paymentMethod: text("payment_method"), // cash, credit_card, debit_card, bank_transfer, pix
+  referenceId: integer("reference_id"), // ID de referência (transação, consulta, etc)
+  referenceType: text("reference_type"), // appointment, expense, etc
+  userId: integer("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBoxTransactionSchema = createInsertSchema(boxTransactions).pick({
+  boxId: true,
+  type: true,
+  amount: true,
+  description: true,
+  paymentMethod: true,
+  referenceId: true,
+  referenceType: true,
+  userId: true,
+});
+
+// Planos de Pagamento
+export const paymentPlans = pgTable("payment_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  installments: integer("installments").default(1),
+  interval: text("interval").default("month"), // day, week, month, year
+  interest: decimal("interest", { precision: 5, scale: 2 }).default("0"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentPlanSchema = createInsertSchema(paymentPlans).pick({
+  name: true,
+  description: true,
+  installments: true,
+  interval: true,
+  interest: true,
+  active: true,
+});
+
+// Categoria para Despesas/Receitas
+export const financialCategories = pgTable("financial_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // revenue, expense
+  color: text("color"),
+  parentId: integer("parent_id").references(() => financialCategories.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFinancialCategorySchema = createInsertSchema(financialCategories).pick({
+  name: true,
+  type: true,
+  color: true,
+  parentId: true,
+});
+
+// Anamnese Templates
+export const anamnesisTemplates = pgTable("anamnesis_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  fields: jsonb("fields").notNull(), // Array de objetos com os campos (tipo, label, opções, etc)
+  active: boolean("active").default(true),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAnamnesisTemplateSchema = createInsertSchema(anamnesisTemplates).pick({
+  name: true,
+  description: true,
+  fields: true,
+  active: true,
+  createdBy: true,
+});
+
+// Controle de Próteses/Laboratório
+export const prosthesisServices = pgTable("prosthesis_services", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  professionalId: integer("professional_id").references(() => users.id).notNull(),
+  type: text("type").notNull(), // coroa, ponte, prótese total, etc
+  description: text("description").notNull(),
+  laboratory: text("laboratory"),
+  status: text("status").notNull().default("ordered"), // ordered, in_progress, ready, delivered, cancelled
+  sentDate: date("sent_date"),
+  expectedReturnDate: date("expected_return_date"),
+  returnedDate: date("returned_date"),
+  cost: decimal("cost", { precision: 10, scale: 2 }),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProsthesisServiceSchema = createInsertSchema(prosthesisServices).pick({
+  patientId: true,
+  professionalId: true,
+  type: true,
+  description: true,
+  laboratory: true,
+  status: true,
+  sentDate: true,
+  expectedReturnDate: true,
+  returnedDate: true,
+  cost: true,
+  price: true,
+  notes: true,
+});
+
+// Etapas do Serviço de Prótese
+export const prosthesisStages = pgTable("prosthesis_stages", {
+  id: serial("id").primaryKey(),
+  serviceId: integer("service_id").references(() => prosthesisServices.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").default("pending"), // pending, in_progress, completed
+  order: integer("order").notNull(),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProsthesisStageSchema = createInsertSchema(prosthesisStages).pick({
+  serviceId: true,
+  name: true,
+  description: true,
+  status: true,
+  order: true,
+  completedAt: true,
+  notes: true,
+});
+
+// Tipos de Serviço de Prótese Predefinidos
+export const prosthesisTypes = pgTable("prosthesis_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  defaultStages: jsonb("default_stages"), // Array de nomes de etapas padrão
+  defaultPrice: decimal("default_price", { precision: 10, scale: 2 }),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProsthesisTypeSchema = createInsertSchema(prosthesisTypes).pick({
+  name: true,
+  description: true,
+  defaultStages: true,
+  defaultPrice: true,
+  active: true,
+});
+
+// Metas de Vendas e KPIs
+export const salesGoals = pgTable("sales_goals", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  userId: integer("user_id").references(() => users.id), // Se nulo, é meta geral da clínica
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  targetValue: decimal("target_value", { precision: 10, scale: 2 }).notNull(),
+  targetType: text("target_type").notNull(), // revenue, appointments, new_patients, etc
+  currentValue: decimal("current_value", { precision: 10, scale: 2 }).default("0"),
+  status: text("status").default("active"), // active, completed, cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSalesGoalSchema = createInsertSchema(salesGoals).pick({
+  name: true,
+  description: true,
+  userId: true,
+  startDate: true,
+  endDate: true,
+  targetValue: true,
+  targetType: true,
+  currentValue: true,
+  status: true,
+});
+
+// Tarefas
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  assignedTo: integer("assigned_to").references(() => users.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  dueDate: timestamp("due_date"),
+  priority: text("priority").default("medium"), // low, medium, high
+  status: text("status").default("pending"), // pending, in_progress, completed, cancelled
+  completedAt: timestamp("completed_at"),
+  completedBy: integer("completed_by").references(() => users.id),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).pick({
+  title: true,
+  description: true,
+  assignedTo: true,
+  patientId: true,
+  dueDate: true,
+  priority: true,
+  status: true,
+  completedAt: true,
+  completedBy: true,
+  createdBy: true,
+});
+
+// Items da Loja Online
+export const shopItems = pgTable("shop_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id),
+  categoryId: integer("category_id").references(() => inventoryCategories.id),
+  images: jsonb("images"), // Array de URLs de imagens
+  featured: boolean("featured").default(false),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertShopItemSchema = createInsertSchema(shopItems).pick({
+  name: true,
+  description: true,
+  price: true,
+  salePrice: true,
+  inventoryItemId: true,
+  categoryId: true,
+  images: true,
+  featured: true,
+  active: true,
+});
+
+// Configurações de Link de Agendamento Externo
+export const bookingLinkSettings = pgTable("booking_link_settings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  professionalId: integer("professional_id").references(() => users.id),
+  services: jsonb("services"), // Array de IDs de procedimentos disponíveis
+  timeSlotDuration: integer("time_slot_duration").default(30), // duração em minutos
+  bufferTime: integer("buffer_time").default(0), // tempo de intervalo em minutos
+  maxDaysInAdvance: integer("max_days_in_advance").default(30),
+  minHoursBeforeBooking: integer("min_hours_before_booking").default(2),
+  disabledDays: jsonb("disabled_days"), // Array de dias da semana desativados
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBookingLinkSettingSchema = createInsertSchema(bookingLinkSettings).pick({
+  name: true,
+  slug: true,
+  professionalId: true,
+  services: true,
+  timeSlotDuration: true,
+  bufferTime: true,
+  maxDaysInAdvance: true,
+  minHoursBeforeBooking: true,
+  disabledDays: true,
+  active: true,
+});
+
+// Configurações de Comunicação
+export const communicationSettings = pgTable("communication_settings", {
+  id: serial("id").primaryKey(),
+  whatsappIntegrationEnabled: boolean("whatsapp_integration_enabled").default(false),
+  whatsappProvider: text("whatsapp_provider"),
+  whatsappApiKey: text("whatsapp_api_key"),
+  whatsappNumber: text("whatsapp_number"),
+  emailIntegrationEnabled: boolean("email_integration_enabled").default(false),
+  emailProvider: text("email_provider"),
+  emailApiKey: text("email_api_key"),
+  emailSender: text("email_sender"),
+  smsIntegrationEnabled: boolean("sms_integration_enabled").default(false),
+  smsProvider: text("sms_provider"),
+  smsApiKey: text("sms_api_key"),
+  smsNumber: text("sms_number"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCommunicationSettingSchema = createInsertSchema(communicationSettings).pick({
+  whatsappIntegrationEnabled: true,
+  whatsappProvider: true,
+  whatsappApiKey: true,
+  whatsappNumber: true,
+  emailIntegrationEnabled: true,
+  emailProvider: true,
+  emailApiKey: true,
+  emailSender: true,
+  smsIntegrationEnabled: true,
+  smsProvider: true,
+  smsApiKey: true,
+  smsNumber: true,
+});
+
+// Documentos do Paciente
+export const patientDocuments = pgTable("patient_documents", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  fileUrl: text("file_url").notNull(),
+  fileType: text("file_type"), // image, pdf, etc
+  uploadedBy: integer("uploaded_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPatientDocumentSchema = createInsertSchema(patientDocuments).pick({
+  patientId: true,
+  title: true,
+  description: true,
+  fileUrl: true,
+  fileType: true,
+  uploadedBy: true,
+});
+
+// Machine Taxes (Taxas de maquininha)
+export const machineTaxes = pgTable("machine_taxes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  provider: text("provider"),
+  creditTax: decimal("credit_tax", { precision: 5, scale: 2 }).default("0"),
+  debitTax: decimal("debit_tax", { precision: 5, scale: 2 }).default("0"),
+  creditInstallmentTaxes: jsonb("credit_installment_taxes"), // Array de objetos com instalments e taxa
+  pixTax: decimal("pix_tax", { precision: 5, scale: 2 }).default("0"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMachineTaxSchema = createInsertSchema(machineTaxes).pick({
+  name: true,
+  provider: true,
+  creditTax: true,
+  debitTax: true,
+  creditInstallmentTaxes: true,
+  pixTax: true,
+  active: true,
+});
+
+// Export types
+export type ClinicSettings = typeof clinicSettings.$inferSelect;
+export type InsertClinicSettings = z.infer<typeof insertClinicSettingsSchema>;
+
+export type Permission = typeof permissions.$inferSelect;
+export type InsertPermission = z.infer<typeof insertPermissionSchema>;
+
+export type UserPermission = typeof userPermissions.$inferSelect;
+export type InsertUserPermission = z.infer<typeof insertUserPermissionSchema>;
+
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = z.infer<typeof insertRoleSchema>;
+
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+
+export type CommissionSetting = typeof commissionSettings.$inferSelect;
+export type InsertCommissionSetting = z.infer<typeof insertCommissionSettingSchema>;
+
+export type ProcedureCommission = typeof procedureCommissions.$inferSelect;
+export type InsertProcedureCommission = z.infer<typeof insertProcedureCommissionSchema>;
+
+export type CommissionRecord = typeof commissionRecords.$inferSelect;
+export type InsertCommissionRecord = z.infer<typeof insertCommissionRecordSchema>;
+
+export type FiscalSettings = typeof fiscalSettings.$inferSelect;
+export type InsertFiscalSettings = z.infer<typeof insertFiscalSettingSchema>;
+
+export type Chair = typeof chairs.$inferSelect;
+export type InsertChair = z.infer<typeof insertChairSchema>;
+
+export type Box = typeof boxes.$inferSelect;
+export type InsertBox = z.infer<typeof insertBoxSchema>;
+
+export type BoxTransaction = typeof boxTransactions.$inferSelect;
+export type InsertBoxTransaction = z.infer<typeof insertBoxTransactionSchema>;
+
+export type PaymentPlan = typeof paymentPlans.$inferSelect;
+export type InsertPaymentPlan = z.infer<typeof insertPaymentPlanSchema>;
+
+export type FinancialCategory = typeof financialCategories.$inferSelect;
+export type InsertFinancialCategory = z.infer<typeof insertFinancialCategorySchema>;
+
+export type AnamnesisTemplate = typeof anamnesisTemplates.$inferSelect;
+export type InsertAnamnesisTemplate = z.infer<typeof insertAnamnesisTemplateSchema>;
+
+export type ProsthesisService = typeof prosthesisServices.$inferSelect;
+export type InsertProsthesisService = z.infer<typeof insertProsthesisServiceSchema>;
+
+export type ProsthesisStage = typeof prosthesisStages.$inferSelect;
+export type InsertProsthesisStage = z.infer<typeof insertProsthesisStageSchema>;
+
+export type ProsthesisType = typeof prosthesisTypes.$inferSelect;
+export type InsertProsthesisType = z.infer<typeof insertProsthesisTypeSchema>;
+
+export type SalesGoal = typeof salesGoals.$inferSelect;
+export type InsertSalesGoal = z.infer<typeof insertSalesGoalSchema>;
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+export type ShopItem = typeof shopItems.$inferSelect;
+export type InsertShopItem = z.infer<typeof insertShopItemSchema>;
+
+export type BookingLinkSetting = typeof bookingLinkSettings.$inferSelect;
+export type InsertBookingLinkSetting = z.infer<typeof insertBookingLinkSettingSchema>;
+
+export type CommunicationSetting = typeof communicationSettings.$inferSelect;
+export type InsertCommunicationSetting = z.infer<typeof insertCommunicationSettingSchema>;
+
+export type PatientDocument = typeof patientDocuments.$inferSelect;
+export type InsertPatientDocument = z.infer<typeof insertPatientDocumentSchema>;
+
+export type MachineTax = typeof machineTaxes.$inferSelect;
+export type InsertMachineTax = z.infer<typeof insertMachineTaxSchema>;
