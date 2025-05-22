@@ -1,4 +1,4 @@
-import { Route, Switch } from "wouter";
+import { Route, Switch, Redirect } from "wouter";
 import { Suspense } from "react";
 import { AuthProvider } from "@/hooks/use-auth";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -26,12 +26,16 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<div className="flex items-center justify-center h-screen">Carregando...</div>}>
           <Switch>
+            {/* Redirecionamento da raiz para a página de autenticação */}
+            <Route path="/">
+              <Redirect to="/auth" />
+            </Route>
+            
             {/* Rotas públicas */}
             <Route path="/auth" component={AuthPage} />
             <Route path="/landing" component={LandingPage} />
             
             {/* Rotas protegidas */}
-            <ProtectedRoute path="/" component={DashboardPage} />
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/schedule" component={SchedulePage} />
