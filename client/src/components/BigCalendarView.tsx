@@ -35,61 +35,7 @@ interface BigCalendarViewProps {
   appointments?: any[];
 }
 
-// Componente para o modal de criação de agendamento
-interface CreateEventModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  slotInfo: SlotInfo | null;
-  onSave: (date: Date, startTime: string, endTime: string) => void;
-}
-
-const CreateEventModal: React.FC<CreateEventModalProps> = ({
-  isOpen,
-  onClose,
-  slotInfo,
-  onSave
-}) => {
-  if (!slotInfo) return null;
-
-  const handleSave = () => {
-    const date = new Date(slotInfo.start);
-    const startTime = format(slotInfo.start, 'HH:mm');
-    const endTime = format(slotInfo.end, 'HH:mm');
-    
-    onSave(date, startTime, endTime);
-    onClose();
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Novo Agendamento</DialogTitle>
-        </DialogHeader>
-        <div className="py-4">
-          <div className="space-y-4">
-            <div>
-              <p className="font-medium">Data:</p>
-              <p>{format(slotInfo.start, 'dd/MM/yyyy')}</p>
-            </div>
-            <div>
-              <p className="font-medium">Horário:</p>
-              <p>{format(slotInfo.start, 'HH:mm')} - {format(slotInfo.end, 'HH:mm')}</p>
-            </div>
-            <div>
-              <p className="font-medium">Duração:</p>
-              <p>{Math.round((slotInfo.end.getTime() - slotInfo.start.getTime()) / (1000 * 60))} minutos</p>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>Criar Agendamento</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+// Removemos o modal de confirmação para acelerar o processo de agendamento
 
 const BigCalendarView: React.FC<BigCalendarViewProps> = ({
   selectedDate = new Date(),
@@ -99,10 +45,7 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
   professionals = [],
   appointments = []
 }) => {
-  // Estado para o modal de criação de evento
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  // Estado para armazenar informações do slot selecionado
-  const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
+  // Removidos os estados para o modal de confirmação, agora a seleção é direta
   // Estado para a data atual
   const [currentDate, setCurrentDate] = useState(selectedDate);
 
@@ -145,11 +88,17 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
     };
   });
 
-  // Função para lidar com a seleção de slot
+  // Função para lidar com a seleção de slot - agora cria diretamente sem confirmação
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
-    setSelectedSlot(slotInfo);
-    setShowCreateModal(true);
-  }, []);
+    // Cria diretamente o agendamento sem mostrar o modal de confirmação
+    const date = new Date(slotInfo.start);
+    const startTime = format(slotInfo.start, 'HH:mm');
+    const endTime = format(slotInfo.end, 'HH:mm');
+    
+    if (onTimeRangeSelect) {
+      onTimeRangeSelect(date, startTime, endTime);
+    }
+  }, [onTimeRangeSelect]);
 
   // Função para lidar com a seleção de evento
   const handleSelectEvent = useCallback((event: Event) => {
@@ -158,12 +107,7 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
     }
   }, [onAppointmentClick]);
 
-  // Função para salvar um novo evento
-  const handleCreateEvent = useCallback((date: Date, startTime: string, endTime: string) => {
-    if (onTimeRangeSelect) {
-      onTimeRangeSelect(date, startTime, endTime);
-    }
-  }, [onTimeRangeSelect]);
+  // Função de criação de evento foi removida pois agora é tratada diretamente no handleSelectSlot
 
   // Função para navegar entre datas
   const handleNavigate = useCallback((newDate: Date) => {
