@@ -8,6 +8,8 @@ import CalendarDayView from "@/components/CalendarDayView";
 import BigCalendarView from "@/components/BigCalendarView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import CalendarHelpDialog from "@/components/CalendarHelpDialog";
+
+// Removido import do CSS que ainda não existe
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

@@ -197,8 +197,28 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
     : undefined;
 
   return (
-    <div className="big-calendar-view">
-      <style>{calendarStyle}</style>
+    <div style={{userSelect: 'none', WebkitUserSelect: 'none'}}>
+      <style>{`
+        /* Bloqueio total de seleção de texto */
+        .rbc-calendar, 
+        .rbc-calendar *, 
+        .rbc-time-view, 
+        .rbc-day-slot, 
+        .rbc-time-slot, 
+        .rbc-header {
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          cursor: default;
+        }
+        
+        /* Visual mais forte para a seleção */
+        .rbc-slot-selection {
+          background-color: rgba(59, 130, 246, 0.5) !important;
+          border: 3px solid #2563eb !important;
+        }
+      `}</style>
       
       <Calendar
         localizer={localizer}
@@ -222,6 +242,7 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
         eventPropGetter={(event: any) => ({
           style: event.style || {}
         })}
+        className="no-select"
       />
     </div>
   );
