@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
-import TimelineView from "@/components/calendar/TimelineView";
 import MonthAgendaView from "@/components/calendar/MonthAgendaView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
 import FitInModal from "@/components/calendar/FitInModal";
@@ -30,7 +29,7 @@ export default function SchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<CalendarViewType>("agenda");
+  const [currentView, setCurrentView] = useState<CalendarViewType>("day");
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isFitInModalOpen, setIsFitInModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -640,17 +639,7 @@ export default function SchedulePage() {
             </div>
           ) : (
             <>
-              {/* Timeline view (profissionais em colunas) */}
-              {currentView === 'agenda' && filteredProfessionals && (
-                <TimelineView
-                  date={selectedDate}
-                  professionals={filteredProfessionals}
-                  timeSlots={timeSlots}
-                  onSlotClick={handleSlotClick}
-                  onAppointmentClick={handleOpenAppointment}
-                />
-              )}
-              
+
               {/* Day view (dia específico) - Similar à visualização timeline mas só para o dia selecionado */}
               {currentView === 'day' && filteredProfessionals && (
                 <div className="overflow-x-auto">

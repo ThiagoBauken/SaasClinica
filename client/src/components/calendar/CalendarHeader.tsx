@@ -92,8 +92,7 @@ export default function CalendarHeader({
       case 'week': return 'Semana';
       case 'month': return 'Mês';
       case 'room': return 'Cadeira/Sala';
-      case 'agenda': return 'Agenda';
-      default: return 'Agenda';
+      default: return 'Dia';
     }
   };
 
@@ -183,7 +182,6 @@ export default function CalendarHeader({
                 <SelectItem value="week">Semana</SelectItem>
                 <SelectItem value="month">Mês</SelectItem>
                 <SelectItem value="room">Cadeira/Sala</SelectItem>
-                <SelectItem value="agenda">Agenda</SelectItem>
               </SelectContent>
             </Select>
             
