@@ -121,9 +121,12 @@ export default function ScheduleSettings({ isOpen, onClose, workHours, timeInter
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Configurações da Agenda</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Configure os horários de funcionamento, intervalos e dias da semana para a agenda da clínica.
+          </p>
         </DialogHeader>
         
         <Tabs defaultValue="general" value={activeTab} onValueChange={setActiveTab}>
@@ -269,6 +272,25 @@ export default function ScheduleSettings({ isOpen, onClose, workHours, timeInter
           
           {/* Configurações de intervalo */}
           <TabsContent value="breaks" className="space-y-4">
+            {/* Legenda visual para os tipos de horários */}
+            <div className="p-3 border rounded-md mb-4 bg-muted/5">
+              <h3 className="font-medium mb-2">Legenda de Horários</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="flex items-center space-x-2 p-2 bg-amber-50 dark:bg-amber-950/20 rounded border">
+                  <div className="w-3 h-3 bg-amber-200 dark:bg-amber-700 rounded-full"></div>
+                  <span className="text-xs">Horário de almoço</span>
+                </div>
+                <div className="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-800/50 rounded border">
+                  <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                  <span className="text-xs">Fora do expediente</span>
+                </div>
+                <div className="flex items-center space-x-2 p-2 bg-muted/5 rounded border">
+                  <div className="w-3 h-3 bg-muted/20 rounded-full"></div>
+                  <span className="text-xs">Horário normal</span>
+                </div>
+              </div>
+            </div>
+            
             <div className="p-4 border rounded-md">
               <div className="flex items-center justify-between mb-4">
                 <Label htmlFor="lunchBreak" className="font-medium">Horário de Almoço</Label>
