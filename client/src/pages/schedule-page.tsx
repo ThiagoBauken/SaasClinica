@@ -55,6 +55,9 @@ export default function SchedulePage() {
   // Estado para controlar o intervalo de tempo (15, 20, 30 ou 60 minutos)
   const [timeInterval, setTimeInterval] = useState<15 | 20 | 30 | 60>(30);
   
+  // Estado para controlar qual profissional está selecionado no filtro
+  const [selectedProfessionalFilter, setSelectedProfessionalFilter] = useState<string>("all");
+  
   // Estado para armazenar o profissional selecionado na visualização diária
   const [selectedProfessionalForDay, setSelectedProfessionalForDay] = useState<number>();
   
@@ -604,12 +607,13 @@ export default function SchedulePage() {
         timeInterval={timeInterval}
         onTimeIntervalChange={(interval) => {
           setTimeInterval(interval);
-          // A mudança de intervalo vai acionar regeneração dos slots de tempo
           toast({
             title: `Intervalo alterado para ${interval} minutos`,
             description: `Os horários agora estão divididos em intervalos de ${interval} minutos.`,
           });
         }}
+        selectedProfessional={selectedProfessionalFilter}
+        onProfessionalChange={setSelectedProfessionalFilter}
       />
 
       <div className="flex mt-4 gap-4">

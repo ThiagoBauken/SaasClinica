@@ -29,6 +29,8 @@ interface CalendarHeaderProps {
   professionalsSummary: ProfessionalSummary[];
   timeInterval?: 15 | 20 | 30 | 60;
   onTimeIntervalChange?: (interval: 15 | 20 | 30 | 60) => void;
+  selectedProfessional?: string;
+  onProfessionalChange?: (professionalId: string) => void;
 }
 
 export default function CalendarHeader({
@@ -39,10 +41,17 @@ export default function CalendarHeader({
   onViewChange,
   professionalsSummary,
   timeInterval = 30,
-  onTimeIntervalChange
+  onTimeIntervalChange,
+  selectedProfessional = "all",
+  onProfessionalChange
 }: CalendarHeaderProps) {
-  const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
   const [selectedRoom, setSelectedRoom] = useState<string>("all");
+
+  const handleProfessionalChange = (value: string) => {
+    if (onProfessionalChange) {
+      onProfessionalChange(value);
+    }
+  };
 
   const handlePreviousDay = () => {
     if (currentView === 'week') {
@@ -84,7 +93,7 @@ export default function CalendarHeader({
       <div className="flex flex-wrap md:flex-nowrap items-center gap-3 mb-4">
         {/* Primeira linha - Seletores */}
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
+          <Select value={selectedProfessional} onValueChange={handleProfessionalChange}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Todos os profissionais" />
             </SelectTrigger>
