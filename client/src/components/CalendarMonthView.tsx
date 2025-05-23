@@ -302,14 +302,7 @@ export default function CalendarMonthView({
               </Button>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                Agenda
-              </Button>
-              <Button variant="outline" size="sm">
-                Retornos
-              </Button>
-            </div>
+
           </div>
           
           {/* Dias da semana */}

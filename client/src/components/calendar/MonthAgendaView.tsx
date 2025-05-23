@@ -119,14 +119,6 @@ export default function MonthAgendaView({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
-          <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700">
-            Agenda
-          </Button>
-          
-          <Button variant="outline">
-            Retornos
-          </Button>
         </div>
       </div>
 
