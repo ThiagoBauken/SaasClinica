@@ -31,6 +31,8 @@ interface CalendarHeaderProps {
   onTimeIntervalChange?: (interval: 15 | 20 | 30 | 60) => void;
   selectedProfessional?: string;
   onProfessionalChange?: (professionalId: string) => void;
+  selectedRoom?: string;
+  onRoomChange?: (roomId: string) => void;
 }
 
 export default function CalendarHeader({

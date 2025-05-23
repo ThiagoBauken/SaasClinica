@@ -60,6 +60,9 @@ export default function SchedulePage() {
   
   // Estado para armazenar o profissional selecionado na visualização diária
   const [selectedProfessionalForDay, setSelectedProfessionalForDay] = useState<number>();
+
+  // Estado para controlar qual sala está selecionada no filtro
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
   
   // Estado para horários de início e fim da agenda
   const [workHours, setWorkHours] = useState({
