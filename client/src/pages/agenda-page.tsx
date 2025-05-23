@@ -7,11 +7,12 @@ import CalendarWeekView from "@/components/CalendarWeekView";
 import CalendarDayView from "@/components/CalendarDayView";
 import BigCalendarView from "@/components/BigCalendarView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
+import CalendarHelpDialog from "@/components/CalendarHelpDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PlusIcon, BarChart } from "lucide-react";
+import { PlusIcon, BarChart, HelpCircle, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,7 @@ export default function AgendaPage() {
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [activeView, setActiveView] = useState("month");
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   
   // Form state for new appointment
   const [newAppointment, setNewAppointment] = useState({
@@ -340,6 +342,17 @@ export default function AgendaPage() {
           </TabsContent>
           
           <TabsContent value="week" className="mt-4">
+            <div className="mb-2 flex justify-end">
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary flex items-center" 
+                onClick={() => setIsHelpDialogOpen(true)}
+              >
+                <Info className="h-4 w-4 mr-1" />
+                Como usar a funcionalidade de clicar e arrastar
+              </Button>
+            </div>
             <BigCalendarView 
               selectedDate={selectedDate}
               appointments={appointments}
