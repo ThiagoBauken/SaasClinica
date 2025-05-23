@@ -383,6 +383,17 @@ export default function SchedulePage() {
 
   const timeSlots = generateTimeSlots();
 
+  // Filtra os profissionais baseado na seleção do dropdown
+  const filteredProfessionals = useMemo(() => {
+    if (!professionals) return [];
+    
+    if (selectedProfessionalFilter === "all") {
+      return professionals;
+    } else {
+      return professionals.filter(prof => prof.id.toString() === selectedProfessionalFilter);
+    }
+  }, [professionals, selectedProfessionalFilter]);
+
   // Appointment mutations
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
@@ -625,10 +636,10 @@ export default function SchedulePage() {
           ) : (
             <>
               {/* Timeline view (profissionais em colunas) */}
-              {currentView === 'timeline' && professionals && (
+              {currentView === 'timeline' && filteredProfessionals && (
                 <TimelineView
                   date={selectedDate}
-                  professionals={professionals}
+                  professionals={filteredProfessionals}
                   timeSlots={timeSlots}
                   onSlotClick={handleSlotClick}
                   onAppointmentClick={handleOpenAppointment}
@@ -636,13 +647,13 @@ export default function SchedulePage() {
               )}
               
               {/* Day view (dia específico) - Similar à visualização timeline mas só para o dia selecionado */}
-              {currentView === 'day' && professionals && (
+              {currentView === 'day' && filteredProfessionals && (
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
                     <div className="grid grid-cols-[80px_1fr] border-b">
                       <div className="p-3 font-medium">Horário</div>
-                      <div className="grid" style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}>
-                        {professionals.map(professional => (
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${filteredProfessionals.length}, minmax(180px, 1fr))` }}>
+                        {filteredProfessionals.map(professional => (
                           <div key={professional.id} className="p-3 text-center font-medium border-l">
                             <div>{professional.fullName}</div>
                             <div className="text-xs text-muted-foreground">{professional.speciality}</div>
@@ -663,9 +674,9 @@ export default function SchedulePage() {
                         
                         <div 
                           className="grid" 
-                          style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}
+                          style={{ gridTemplateColumns: `repeat(${filteredProfessionals.length}, minmax(180px, 1fr))` }}
                         >
-                          {professionals.map(professional => {
+                          {filteredProfessionals.map(professional => {
                             const appointment = slot.appointments?.[professional.id];
                             
                             return (
