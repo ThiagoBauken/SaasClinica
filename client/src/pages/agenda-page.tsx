@@ -5,6 +5,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarMonthView from "@/components/CalendarMonthView";
 import CalendarWeekView from "@/components/CalendarWeekView";
 import CalendarDayView from "@/components/CalendarDayView";
+import CalendarGridView from "@/components/CalendarGridView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -339,11 +340,20 @@ export default function AgendaPage() {
           </TabsContent>
           
           <TabsContent value="week" className="mt-4">
-            <CalendarWeekView 
+            <CalendarGridView 
+              selectedDate={selectedDate}
               appointments={appointments}
-              onAppointmentClick={(appointment) => console.log("Clicked:", appointment)}
-              onDateSelect={handleTimeRangeSelect}
-              professionals={mockProfessionals}
+              onDateSelect={handleDateSelect}
+              onDragSelect={(date, startTime, endTime) => {
+                setSelectedDate(date);
+                setNewAppointment({
+                  ...newAppointment,
+                  date: format(date, "yyyy-MM-dd"),
+                  time: startTime,
+                  endTime: endTime
+                });
+                setIsNewAppointmentOpen(true);
+              }}
             />
           </TabsContent>
           
