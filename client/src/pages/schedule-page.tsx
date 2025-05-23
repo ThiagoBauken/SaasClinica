@@ -347,7 +347,7 @@ export default function SchedulePage() {
       
       // Gerar slots baseados no intervalo selecionado
       for (let minute = 0; minute < 60; minute += intervalMinutes) {
-        // Verificar se ultrapassou o horário de trabalho
+        // Variável para verificação de horário especial será definida abaixo
         if (hour === endHour - 1 && minute + intervalMinutes > 60) {
           continue; // Evitar slots que ultrapassem o horário de fim
         }
@@ -384,12 +384,12 @@ export default function SchedulePage() {
         const dayEndHour = workHours.weekDays[currentDayOfWeek]?.endHour || workHours.endHour;
         
         // Verificar se está dentro do horário de trabalho do dia específico
-        const isOutsideWorkHours = !isDayEnabled || hour < dayStartHour || hour >= dayEndHour;
+        const isOutsideWorkingHours = !isDayEnabled || hour < dayStartHour || hour >= dayEndHour;
         
         slots.push({
           time,
           isLunchBreak: isLunchTime,
-          isOutsideWorkHours: isOutsideWorkHours,
+          isOutsideWorkHours: isOutsideWorkingHours,
           appointments: appointmentsMap
         });
       }
