@@ -97,31 +97,16 @@ export default function MonthAgendaView({
     <div className="calendar-month-view">
       {/* Calendar header with title and controls */}
       <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-medium">
-            {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-          </h2>
-        </div>
+        <h2 className="text-xl font-medium">
+          {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+        </h2>
         
         <div className="flex items-center gap-2">
-          <Select 
-            value={viewMode} 
-            onValueChange={(value) => setViewMode(value as "month" | "agenda")}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Visualização" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Mês</SelectItem>
-              <SelectItem value="agenda">Agenda</SelectItem>
-            </SelectContent>
-          </Select>
-          
           <Button 
             variant="outline" 
             onClick={prevMonth}
             size="icon"
-            className="h-9 w-9"
+            className="h-8 w-8"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -130,7 +115,7 @@ export default function MonthAgendaView({
             variant="outline" 
             onClick={nextMonth}
             size="icon"
-            className="h-9 w-9"
+            className="h-8 w-8"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
