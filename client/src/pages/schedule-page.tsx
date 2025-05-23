@@ -372,9 +372,24 @@ export default function SchedulePage() {
           });
         }
 
+        // Verificar se é horário de almoço
+        const isLunchTime = workHours.lunchBreak.enabled && 
+          hour >= workHours.lunchBreak.startHour && 
+          hour < workHours.lunchBreak.endHour;
+          
+        // Verificar se é um dia válido de trabalho para esse horário
+        const currentDayOfWeek = selectedDate.getDay();
+        const isDayEnabled = workHours.weekDays[currentDayOfWeek]?.enabled;
+        const dayStartHour = workHours.weekDays[currentDayOfWeek]?.startHour || workHours.startHour;
+        const dayEndHour = workHours.weekDays[currentDayOfWeek]?.endHour || workHours.endHour;
+        
+        // Verificar se está dentro do horário de trabalho do dia específico
+        const isOutsideWorkHours = !isDayEnabled || hour < dayStartHour || hour >= dayEndHour;
+        
         slots.push({
           time,
-          isLunchBreak: false,
+          isLunchBreak: isLunchTime,
+          isOutsideWorkHours: isOutsideWorkHours,
           appointments: appointmentsMap
         });
       }
