@@ -137,14 +137,34 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
 
   // Estilos adicionais para o componente (opcional)
   const calendarStyle = `
+    /* Impedir seleção de texto durante o drag */
+    .rbc-calendar {
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+    }
+    
+    /* Melhorar visualização durante a seleção */
     .rbc-slot-selecting {
       background-color: rgba(0, 115, 230, 0.2) !important;
     }
+    
+    /* Destaque mais forte para a área selecionada */
     .rbc-slot-selection {
       background-color: rgba(0, 115, 230, 0.5) !important;
-      border: 2px solid #0073e6;
+      border: 3px solid #0073e6 !important;
       border-radius: 4px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
     }
+    
+    /* Garantir que events na seleção sejam bem visíveis */
+    .rbc-event.rbc-selected {
+      background-color: #3b82f6 !important;
+      border: 2px solid #1e40af !important;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    }
+    
     .rbc-time-slot {
       border-top: 1px solid #f0f0f0;
     }
@@ -153,6 +173,13 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
     }
     .rbc-time-header-content {
       border-left: 1px solid #e0e0e0;
+    }
+    
+    /* Garantir que o cursor seja correto durante o drag */
+    .rbc-day-slot .rbc-background-event,
+    .rbc-day-slot .rbc-event,
+    .rbc-day-slot {
+      cursor: pointer;
     }
   `;
 
@@ -184,7 +211,6 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
         step={30} // Intervalos de 30 minutos
         timeslots={1} // 1 slot por passo
         selectable={true} // Habilita a seleção de slots
-        resizable={true} // Permite redimensionar eventos existentes
         date={currentDate}
         onNavigate={handleNavigate}
         onSelectSlot={handleSelectSlot}
@@ -196,14 +222,6 @@ const BigCalendarView: React.FC<BigCalendarViewProps> = ({
         eventPropGetter={(event: any) => ({
           style: event.style || {}
         })}
-      />
-      
-      {/* Modal para criar novo evento */}
-      <CreateEventModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        slotInfo={selectedSlot}
-        onSave={handleCreateEvent}
       />
     </div>
   );
