@@ -154,12 +154,16 @@ export default function CalendarWeekView({
     
     return (
       <div 
-        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm ${appointment.color || 'bg-blue-100'}`}
+        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm select-none ${appointment.color || 'bg-blue-100'}`}
         style={{ 
           top: `${startTimeIndex * 40}px`, 
           height: `${durationInSlots * 40 - 4}px`,
         }}
-        onClick={() => onAppointmentClick && onAppointmentClick(appointment)}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onAppointmentClick && onAppointmentClick(appointment);
+        }}
       >
         <div className="text-xs font-medium truncate">{appointment.patientName}</div>
         <div className="text-xs truncate">{appointment.procedure}</div>
@@ -188,7 +192,7 @@ export default function CalendarWeekView({
     
     return (
       <div 
-        className="absolute z-5 left-0 right-0 mx-1 rounded bg-blue-50 border-l-4 border-blue-500 overflow-hidden"
+        className="absolute z-5 left-0 right-0 mx-1 rounded bg-blue-50 border-l-4 border-blue-500 overflow-hidden select-none"
         style={{ 
           top: `${topIndex * 40}px`, 
           height: `${durationInSlots * 40 - 2}px`,
@@ -204,8 +208,34 @@ export default function CalendarWeekView({
     );
   };
 
+  // Prevenir seleção de texto durante arrasto
+  const preventTextSelection = (e: React.MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+    }
+  };
+  
+  useEffect(() => {
+    // Adicionar estilos globais para prevenir seleção de texto durante arrasto
+    const handleGlobalSelectStart = (e: any) => {
+      if (isDragging) {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener('selectstart', handleGlobalSelectStart);
+    
+    return () => {
+      document.removeEventListener('selectstart', handleGlobalSelectStart);
+    };
+  }, [isDragging]);
+  
   return (
-    <div className="calendar-week-view w-full">
+    <div 
+      className="calendar-week-view w-full select-none" 
+      onMouseDown={() => document.body.classList.add('select-none')}
+      onMouseUp={() => document.body.classList.remove('select-none')}
+    >
       {/* Controles do calendário */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
@@ -240,7 +270,7 @@ export default function CalendarWeekView({
         {/* Grade de horários */}
         <div 
           ref={gridRef}
-          className="grid grid-cols-8" 
+          className="grid grid-cols-8 select-none" 
           onMouseLeave={handleMouseLeave}
         >
           {/* Coluna de horários */}
@@ -262,9 +292,15 @@ export default function CalendarWeekView({
                 return (
                   <div 
                     key={timeIndex}
-                    className={`h-10 border-b border-r p-1 ${isSelected ? 'bg-blue-100' : ''}`}
-                    onMouseDown={() => handleMouseDown(dayIndex, time)}
-                    onMouseMove={() => handleMouseMove(dayIndex, time)}
+                    className={`h-10 border-b border-r p-1 select-none ${isSelected ? 'bg-blue-100' : ''}`}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevenir seleção de texto
+                      handleMouseDown(dayIndex, time);
+                    }}
+                    onMouseMove={(e) => {
+                      if (isDragging) e.preventDefault(); // Prevenir seleção de texto quando arrasta
+                      handleMouseMove(dayIndex, time);
+                    }}
                     style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
                   >
                     {appointment && renderAppointment(appointment)}
