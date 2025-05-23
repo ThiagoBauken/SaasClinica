@@ -99,38 +99,40 @@ export default function CalendarHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex flex-wrap md:flex-nowrap items-center gap-3 mb-4">
+      <div className="flex flex-col gap-4 mb-4">
         {/* Primeira linha - Seletores */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Select value={selectedProfessional} onValueChange={handleProfessionalChange}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Todos os profissionais" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os profissionais</SelectItem>
-              {professionalsSummary.map(prof => (
-                <SelectItem key={prof.id} value={prof.id.toString()}>
-                  {prof.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2 w-full">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Select value={selectedProfessional} onValueChange={handleProfessionalChange}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Todos os profissionais" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os profissionais</SelectItem>
+                {professionalsSummary.map(prof => (
+                  <SelectItem key={prof.id} value={prof.id.toString()}>
+                    {prof.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={selectedRoom} onValueChange={handleRoomChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Todas as cadeiras" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as cadeiras</SelectItem>
-              <SelectItem value="1">Cadeira 01</SelectItem>
-              <SelectItem value="2">Cadeira 02</SelectItem>
-              <SelectItem value="3">Cadeira 03</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={selectedRoom} onValueChange={handleRoomChange}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Todas as cadeiras" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as cadeiras</SelectItem>
+                <SelectItem value="1">Cadeira 01</SelectItem>
+                <SelectItem value="2">Cadeira 02</SelectItem>
+                <SelectItem value="3">Cadeira 03</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <Button
             variant="outline"
-            className="ml-auto md:ml-0"
+            className="ml-auto"
             onClick={handleToday}
           >
             HOJE
@@ -138,44 +140,41 @@ export default function CalendarHeader({
         </div>
 
         {/* Segunda linha - Navegação e Ações */}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Navegação */}
-          <div className="flex">
-            <Button
-              variant="ghost"
-              className="px-3 py-2"
-              onClick={handlePreviousDay}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              className="px-3 py-2"
-              onClick={handleNextDay}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+        <div className="flex flex-col sm:flex-row items-center gap-y-3 gap-x-2 w-full">
+          {/* Navegação e Data selecionada */}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
+            <div className="flex">
+              <Button
+                variant="ghost"
+                className="px-2 sm:px-3 py-2"
+                onClick={handlePreviousDay}
+              >
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+              
+              <p className="flex items-center text-xs sm:text-sm font-medium px-1">
+                {currentView === 'week' 
+                  ? `Semana de ${format(selectedDate, "d MMM", { locale: ptBR })}`
+                  : format(selectedDate, "EEE dd/MM/yy", { locale: ptBR })}
+              </p>
+              
+              <Button
+                variant="ghost"
+                className="px-2 sm:px-3 py-2"
+                onClick={handleNextDay}
+              >
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </div>
           </div>
           
-          {/* Data selecionada */}
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium">
-              {currentView === 'week' 
-                ? `Semana de ${format(selectedDate, "d MMM", { locale: ptBR })}`
-                : format(selectedDate, "EEE dd/MM/yyyy", { locale: ptBR })}
-            </p>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <CalendarIcon className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Visualização */}
-          <div className="flex gap-2">
+          {/* Visualização e controles */}
+          <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
             <Select 
               value={currentView} 
               onValueChange={(value) => onViewChange(value as CalendarViewType)}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[110px] text-xs sm:text-sm">
                 <SelectValue placeholder="Visualização" />
               </SelectTrigger>
               <SelectContent>
@@ -191,7 +190,7 @@ export default function CalendarHeader({
               value={timeInterval.toString()} 
               onValueChange={(value) => onTimeIntervalChange && onTimeIntervalChange(parseInt(value) as 15 | 20 | 30 | 60)}
             >
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-[110px] text-xs sm:text-sm">
                 <SelectValue placeholder="Intervalo" />
               </SelectTrigger>
               <SelectContent>
@@ -208,6 +207,7 @@ export default function CalendarHeader({
               size="icon"
               onClick={() => window.location.href = '/settings/schedule'}
               title="Configurações da Agenda"
+              className="h-8 w-8 sm:h-10 sm:w-10"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -224,22 +224,26 @@ export default function CalendarHeader({
           </div>
 
           {/* Ações */}
-          <Button 
-            variant="default" 
-            className="shadow-sm"
-            onClick={() => onNewAppointment(false)}
-          >
-            <Plus className="h-5 w-5 mr-1" />
-            Novo
-          </Button>
-          
-          <Button
-            variant="outline"
-            className="shadow-sm"
-            onClick={handleFitIn}
-          >
-            Encaixe
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-start mt-3 sm:mt-0 sm:ml-auto">
+            <Button 
+              variant="default" 
+              className="shadow-sm"
+              onClick={() => onNewAppointment(false)}
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Novo
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="shadow-sm"
+              onClick={handleFitIn}
+              size="sm"
+            >
+              Encaixe
+            </Button>
+          </div>
         </div>
       </div>
       {/* Removido o display de estatísticas dos dentistas conforme solicitado */}

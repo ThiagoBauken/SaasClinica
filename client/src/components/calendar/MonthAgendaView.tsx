@@ -123,14 +123,14 @@ export default function MonthAgendaView({
       </div>
 
       {/* Calendar grid */}
-      <div className="border rounded-lg overflow-hidden shadow-sm dark:border-gray-700 dark:bg-gray-900">
+      <div className="border rounded-lg overflow-hidden shadow-sm dark:border-gray-700 dark:bg-gray-900 overflow-x-auto">
         {/* Days of week header */}
-        <div className="grid grid-cols-7 bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700">
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700">
           {weekDays.map((day, index) => (
             <div 
               key={index} 
               className={cn(
-                "py-2 px-4 text-center text-sm font-medium",
+                "py-2 px-2 md:px-4 text-center text-xs sm:text-sm font-medium whitespace-nowrap",
                 index === 0 || index === 6 ? "text-red-500 dark:text-red-400" : "text-gray-700 dark:text-gray-300"
               )}
             >
@@ -140,7 +140,7 @@ export default function MonthAgendaView({
         </div>
 
         {/* Calendar days */}
-        <div className="grid grid-cols-7 bg-white dark:bg-gray-900">
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-white dark:bg-gray-900">
           {calendarDays.map((day, index) => {
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isCurrentDay = isToday(day);
@@ -148,7 +148,7 @@ export default function MonthAgendaView({
             const dayAppointments = getDayAppointments(day);
             const hasAppointments = dayAppointments.length > 0;
             const dayStyles = cn(
-              "min-h-[100px] border-b border-r p-1 relative",
+              "min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border-b border-r p-1 relative",
               !isCurrentMonth && "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500",
               isCurrentDay && "bg-blue-50 dark:bg-blue-900/20",
               isSelected && "ring-2 ring-inset ring-indigo-600 dark:ring-indigo-400"
@@ -221,12 +221,12 @@ export default function MonthAgendaView({
       {/* Appointment details for selected day */}
       {selectedDate && (
         <div className="mt-6">
-          <h3 className="text-lg font-medium mb-3 dark:text-gray-200">
+          <h3 className="text-lg font-medium mb-3 dark:text-gray-200 text-center sm:text-left">
             Agendamentos para {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
           </h3>
           
           {getDayAppointments(selectedDate).length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400">Não há agendamentos para este dia.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center sm:text-left">Não há agendamentos para este dia.</p>
           ) : (
             <div className="space-y-2">
               {getDayAppointments(selectedDate).map((appointment, idx) => (
@@ -237,20 +237,20 @@ export default function MonthAgendaView({
                     if (onAppointmentClick) onAppointmentClick(appointment);
                   }}
                 >
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-1">
                     <div className="flex items-center gap-2">
                       <div className={cn(
                         "w-2 h-2 rounded-full",
                         appointment.status === 'confirmed' ? "bg-green-500" : 
                         appointment.status === 'cancelled' ? "bg-red-500" : "bg-blue-500"
                       )} />
-                      <h4 className="font-medium">{appointment.patient?.fullName}</h4>
+                      <h4 className="font-medium truncate">{appointment.patient?.fullName}</h4>
                     </div>
-                    <span className="text-sm text-indigo-600">
+                    <span className="text-sm text-indigo-600 dark:text-indigo-400">
                       {format(parseISO(appointment.startTime), "HH:mm")} - {format(parseISO(appointment.endTime), "HH:mm")}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
                     {appointment.procedures && appointment.procedures.length > 0 ? 
                       appointment.procedures[0].name : appointment.title}
                     {appointment.professional && <span> com {appointment.professional.fullName}</span>}
