@@ -45,13 +45,20 @@ export default function CalendarHeader({
   timeInterval = 30,
   onTimeIntervalChange,
   selectedProfessional = "all",
-  onProfessionalChange
+  onProfessionalChange,
+  selectedRoom = "all",
+  onRoomChange
 }: CalendarHeaderProps) {
-  const [selectedRoom, setSelectedRoom] = useState<string>("all");
 
   const handleProfessionalChange = (value: string) => {
     if (onProfessionalChange) {
       onProfessionalChange(value);
+    }
+  };
+
+  const handleRoomChange = (value: string) => {
+    if (onRoomChange) {
+      onRoomChange(value);
     }
   };
 
@@ -109,7 +116,7 @@ export default function CalendarHeader({
             </SelectContent>
           </Select>
 
-          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+          <Select value={selectedRoom} onValueChange={handleRoomChange}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Todas as cadeiras" />
             </SelectTrigger>

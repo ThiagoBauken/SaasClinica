@@ -628,6 +628,8 @@ export default function SchedulePage() {
         }}
         selectedProfessional={selectedProfessionalFilter}
         onProfessionalChange={setSelectedProfessionalFilter}
+        selectedRoom={selectedRoomFilter}
+        onRoomChange={setSelectedRoomFilter}
       />
 
       <div className="flex mt-4 gap-4">
@@ -845,19 +847,25 @@ export default function SchedulePage() {
                   <div className="min-w-[800px]">
                     <div className="grid grid-cols-[80px_1fr] border-b">
                       <div className="p-3 font-medium">Horário</div>
-                      <div className="grid grid-cols-3">
-                        <div className="p-3 text-center font-medium border-l">
-                          <div>Cadeira 01</div>
-                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
-                        </div>
-                        <div className="p-3 text-center font-medium border-l">
-                          <div>Cadeira 02</div>
-                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
-                        </div>
-                        <div className="p-3 text-center font-medium border-l">
-                          <div>Cadeira 03</div>
-                          <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
-                        </div>
+                      <div className={`grid ${selectedRoomFilter === "all" ? "grid-cols-3" : "grid-cols-1"}`}>
+                        {(selectedRoomFilter === "all" || selectedRoomFilter === "1") && (
+                          <div className="p-3 text-center font-medium border-l">
+                            <div>Cadeira 01</div>
+                            <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                          </div>
+                        )}
+                        {(selectedRoomFilter === "all" || selectedRoomFilter === "2") && (
+                          <div className="p-3 text-center font-medium border-l">
+                            <div>Cadeira 02</div>
+                            <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                          </div>
+                        )}
+                        {(selectedRoomFilter === "all" || selectedRoomFilter === "3") && (
+                          <div className="p-3 text-center font-medium border-l">
+                            <div>Cadeira 03</div>
+                            <div className="text-xs text-muted-foreground">Sala de Atendimento</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -872,15 +880,17 @@ export default function SchedulePage() {
                           {slot.isLunchBreak && <span className="ml-1 text-xs text-muted-foreground">(Almoço)</span>}
                         </div>
                         
-                        <div className="grid grid-cols-3">
-                          {[1, 2, 3].map(roomId => {
-                            // Encontrar agendamento para esta sala no horário atual
-                            const appointment = appointments?.find(
-                              a => a.roomId === roomId && 
-                                  isSameDay(parseISO(a.startTime), selectedDate) && 
-                                  format(parseISO(a.startTime), 'HH:mm') <= slot.time && 
-                                  format(parseISO(a.endTime), 'HH:mm') > slot.time
-                            );
+                        <div className={`grid ${selectedRoomFilter === "all" ? "grid-cols-3" : "grid-cols-1"}`}>
+                          {[1, 2, 3]
+                            .filter(roomId => selectedRoomFilter === "all" || selectedRoomFilter === roomId.toString())
+                            .map(roomId => {
+                              // Encontrar agendamento para esta sala no horário atual
+                              const appointment = appointments?.find(
+                                a => a.roomId === roomId && 
+                                    isSameDay(parseISO(a.startTime), selectedDate) && 
+                                    format(parseISO(a.startTime), 'HH:mm') <= slot.time && 
+                                    format(parseISO(a.endTime), 'HH:mm') > slot.time
+                              );
                             
                             return (
                               <div 
