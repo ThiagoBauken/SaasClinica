@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarMonthView from "@/components/CalendarMonthView";
 import CalendarWeekView from "@/components/CalendarWeekView";
+import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -152,6 +153,20 @@ export default function AgendaPage() {
               <BarChart className="h-4 w-4 mr-2" />
               Estatísticas
             </Button>
+            
+            <FindFreeTimeDialog 
+              selectedDate={selectedDate}
+              onSelectTimeSlot={(date, startTime, endTime) => {
+                setSelectedDate(date);
+                setNewAppointment({
+                  ...newAppointment,
+                  date: format(date, "yyyy-MM-dd"),
+                  time: startTime,
+                  endTime: endTime
+                });
+                setIsNewAppointmentOpen(true);
+              }}
+            />
             
             <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
               <DialogTrigger asChild>
