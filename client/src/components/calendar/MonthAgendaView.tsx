@@ -42,6 +42,15 @@ export default function MonthAgendaView({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "agenda">("month");
+  
+  // Força a aplicação das classes dark/light quando o componente é montado
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    // Certifica-se de que a raiz tem a classe correta
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   // Get days for the month calendar
   const monthStart = startOfMonth(currentMonth);
@@ -123,9 +132,9 @@ export default function MonthAgendaView({
       </div>
 
       {/* Calendar grid */}
-      <div className="border rounded-lg overflow-hidden shadow-sm dark:border-gray-700 dark:bg-gray-900 overflow-x-auto">
+      <div className="border rounded-lg overflow-hidden shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-x-auto">
         {/* Days of week header */}
-        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700">
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700 dark:text-white">
           {weekDays.map((day, index) => (
             <div 
               key={index} 
@@ -140,7 +149,7 @@ export default function MonthAgendaView({
         </div>
 
         {/* Calendar days */}
-        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-white dark:bg-gray-900">
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-white dark:bg-gray-800">
           {calendarDays.map((day, index) => {
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isCurrentDay = isToday(day);
@@ -179,7 +188,7 @@ export default function MonthAgendaView({
 
                 {/* Special events like holidays */}
                 {isCurrentMonth && format(day, "dd/MM") === "01/05" && (
-                  <div className="mt-1 px-1 py-0.5 text-xs bg-gray-100 rounded text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                  <div className="mt-1 px-1 py-0.5 text-xs bg-gray-100 rounded text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:text-white">
                     Dia do Trabalho
                   </div>
                 )}
