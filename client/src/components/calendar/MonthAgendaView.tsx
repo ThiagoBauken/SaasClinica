@@ -207,7 +207,7 @@ export default function MonthAgendaView({
                   ))}
                   
                   {dayAppointments.length > 2 && (
-                    <div className="text-xs text-indigo-600 font-medium pl-1">
+                    <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium pl-1">
                       + {dayAppointments.length - 2} mais
                     </div>
                   )}
@@ -221,18 +221,18 @@ export default function MonthAgendaView({
       {/* Appointment details for selected day */}
       {selectedDate && (
         <div className="mt-6">
-          <h3 className="text-lg font-medium mb-3">
+          <h3 className="text-lg font-medium mb-3 dark:text-gray-200">
             Agendamentos para {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
           </h3>
           
           {getDayAppointments(selectedDate).length === 0 ? (
-            <p className="text-gray-500">Não há agendamentos para este dia.</p>
+            <p className="text-gray-500 dark:text-gray-400">Não há agendamentos para este dia.</p>
           ) : (
             <div className="space-y-2">
               {getDayAppointments(selectedDate).map((appointment, idx) => (
                 <div 
                   key={idx} 
-                  className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
+                  className="p-3 border rounded-md hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 cursor-pointer"
                   onClick={() => {
                     if (onAppointmentClick) onAppointmentClick(appointment);
                   }}
@@ -250,7 +250,7 @@ export default function MonthAgendaView({
                       {format(parseISO(appointment.startTime), "HH:mm")} - {format(parseISO(appointment.endTime), "HH:mm")}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {appointment.procedures && appointment.procedures.length > 0 ? 
                       appointment.procedures[0].name : appointment.title}
                     {appointment.professional && <span> com {appointment.professional.fullName}</span>}
