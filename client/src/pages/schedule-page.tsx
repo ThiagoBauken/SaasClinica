@@ -30,7 +30,7 @@ export default function SchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<CalendarViewType>("timeline");
+  const [currentView, setCurrentView] = useState<CalendarViewType>("agenda");
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isFitInModalOpen, setIsFitInModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -641,7 +641,7 @@ export default function SchedulePage() {
           ) : (
             <>
               {/* Timeline view (profissionais em colunas) */}
-              {currentView === 'timeline' && filteredProfessionals && (
+              {currentView === 'agenda' && filteredProfessionals && (
                 <TimelineView
                   date={selectedDate}
                   professionals={filteredProfessionals}
