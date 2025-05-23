@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/lib/protected-route";
 import DashboardPage from "@/pages/dashboard-page";
 import PatientsPage from "@/pages/patients-page";
 import SchedulePage from "@/pages/schedule-page";
+import AgendaPage from "@/pages/agenda-page";
 import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
 import ProsthesisControlPage from "@/pages/prosthesis-control-page";
@@ -40,6 +41,7 @@ export default function App() {
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/schedule" component={SchedulePage} />
+            <ProtectedRoute path="/agenda" component={AgendaPage} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
             <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
