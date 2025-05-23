@@ -163,6 +163,7 @@ export default function CalendarHeader({
               <SelectContent>
                 <SelectItem value="day">Dia</SelectItem>
                 <SelectItem value="week">Semana</SelectItem>
+                <SelectItem value="month">Mês</SelectItem>
                 <SelectItem value="room">Cadeira/Sala</SelectItem>
                 <SelectItem value="timeline">Timeline</SelectItem>
               </SelectContent>
