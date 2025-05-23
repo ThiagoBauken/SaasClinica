@@ -80,19 +80,45 @@ export default function CalendarWeekView({
   // Finalizar a seleção de horário
   const handleMouseUp = () => {
     if (isDragging && selectionStart && selectionEnd) {
-      setIsDragging(false);
-      
       // Garantir que estamos tratando uma seleção no mesmo dia
       if (selectionStart.day === selectionEnd.day) {
-        const day = weekDays[selectionStart.day];
-        const startTime = selectionStart.time;
-        const endTime = selectionEnd.time;
+        const startTimeIndex = timeSlots.indexOf(selectionStart.time);
+        const endTimeIndex = timeSlots.indexOf(selectionEnd.time);
         
-        // Informar ao componente pai sobre a seleção
-        if (onDateSelect) {
-          onDateSelect(day, startTime, endTime);
+        const topIndex = Math.min(startTimeIndex, endTimeIndex);
+        const bottomIndex = Math.max(startTimeIndex, endTimeIndex);
+        
+        const startTime = timeSlots[topIndex];
+        const endTime = timeSlots[bottomIndex];
+        const day = weekDays[selectionStart.day];
+        
+        // Verificar se há sobreposição com outros agendamentos
+        const hasOverlap = checkForOverlap(selectionStart.day, startTime, endTime);
+        
+        if (!hasOverlap) {
+          console.log(`Seleção finalizada: Dia ${selectionStart.day}, ${startTime} - ${endTime}`);
+          
+          // Informar ao componente pai sobre a seleção
+          if (onDateSelect) {
+            onDateSelect(day, startTime, endTime);
+          }
+        } else {
+          // Feedback visual para horário ocupado
+          console.log("Horário selecionado está ocupado!");
+          // Aqui poderíamos adicionar uma animação ou feedback visual
         }
       }
+      
+      // Limpar a seleção após um breve delay para mostrar o feedback visual
+      setTimeout(() => {
+        setIsDragging(false);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+      }, 100);
+    } else {
+      setIsDragging(false);
+      setSelectionStart(null);
+      setSelectionEnd(null);
     }
   };
 
@@ -174,6 +200,43 @@ export default function CalendarWeekView({
     );
   };
   
+  // Verificar se há sobreposição com outros agendamentos
+  const checkForOverlap = (dayIndex: number, startTime: string, endTime: string) => {
+    // Verificar se dayIndex é válido
+    if (dayIndex === undefined || dayIndex < 0 || dayIndex >= weekDays.length) {
+      return false;
+    }
+    
+    const day = weekDays[dayIndex];
+    const dateStr = format(day, "yyyy-MM-dd");
+    
+    // Filtrar os agendamentos para o dia selecionado
+    const dayAppointments = appointments.filter(app => {
+      const appDateStr = typeof app.date === 'string' 
+        ? app.date 
+        : format(app.date, "yyyy-MM-dd");
+      return appDateStr === dateStr;
+    });
+    
+    // Converter horários para minutos para facilitar a comparação
+    const convertToMinutes = (timeStr: string) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const startMinutes = convertToMinutes(startTime);
+    const endMinutes = convertToMinutes(endTime);
+    
+    // Verificar se há sobreposição com algum agendamento existente
+    return dayAppointments.some(app => {
+      const appStartMinutes = convertToMinutes(app.startTime);
+      const appEndMinutes = convertToMinutes(app.endTime);
+      
+      // Verificar sobreposição: não (fim <= início do outro OU início >= fim do outro)
+      return !(endMinutes <= appStartMinutes || startMinutes >= appEndMinutes);
+    });
+  };
+
   // Renderizar a seleção de horário durante o arrasto
   const renderSelection = (dayIndex: number) => {
     if (!selectionStart || !selectionEnd || selectionStart.day !== dayIndex || selectionEnd.day !== dayIndex) {
@@ -190,18 +253,31 @@ export default function CalendarWeekView({
     const startDisplay = timeSlots[topIndex];
     const endDisplay = timeSlots[bottomIndex];
     
+    // Verificar se há sobreposição com outros agendamentos
+    const hasOverlap = checkForOverlap(dayIndex, startDisplay, endDisplay);
+    
+    // Duração em minutos
+    const durationMinutes = (bottomIndex - topIndex) * 30;
+    
     return (
       <div 
-        className="absolute z-5 left-0 right-0 mx-1 rounded bg-blue-50 border-l-4 border-blue-500 overflow-hidden select-none"
+        className={`absolute z-5 left-0 right-0 mx-1 rounded overflow-hidden select-none transition-colors duration-200 ${
+          hasOverlap 
+            ? 'bg-red-50 border-l-4 border-red-500' 
+            : 'bg-blue-50 border-l-4 border-blue-500'
+        }`}
         style={{ 
           top: `${topIndex * 40}px`, 
           height: `${durationInSlots * 40 - 2}px`,
         }}
       >
         <div className="p-2 text-xs">
-          <div className="font-medium">Novo Agendamento</div>
-          <div className="text-gray-600">
+          <div className="font-medium">{hasOverlap ? 'Horário ocupado' : 'Novo Agendamento'}</div>
+          <div className={hasOverlap ? 'text-red-600' : 'text-gray-600'}>
             {startDisplay} - {endDisplay}
+          </div>
+          <div className="text-gray-500 mt-1">
+            Duração: {durationMinutes} min
           </div>
         </div>
       </div>
@@ -292,7 +368,8 @@ export default function CalendarWeekView({
                 return (
                   <div 
                     key={timeIndex}
-                    className={`h-10 border-b border-r p-1 select-none ${isSelected ? 'bg-blue-100' : ''}`}
+                    className={`h-10 border-b border-r p-1 select-none transition-colors duration-150 
+                      ${isSelected ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
                     onMouseDown={(e) => {
                       e.preventDefault(); // Prevenir seleção de texto
                       handleMouseDown(dayIndex, time);
