@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarMonthView from "@/components/CalendarMonthView";
 import CalendarWeekView from "@/components/CalendarWeekView";
+import CalendarDayView from "@/components/CalendarDayView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

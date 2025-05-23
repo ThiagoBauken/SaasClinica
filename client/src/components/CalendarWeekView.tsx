@@ -178,9 +178,19 @@ export default function CalendarWeekView({
     const endTimeIndex = timeSlots.indexOf(appointment.endTime);
     const durationInSlots = endTimeIndex - startTimeIndex + 1;
     
+    // Verificar se é uma consulta passada (só para exemplo, em produção usaríamos a data real)
+    const isPastAppointment = [
+      '09:00', '10:00', '11:00', '12:00', '13:30', '14:30', '15:30', '16:30'
+    ].includes(appointment.startTime);
+    
+    // Estilo diferente para consultas passadas vs futuras
+    const bgColorClass = isPastAppointment 
+      ? 'bg-gray-100 border border-gray-300' 
+      : (appointment.color || 'bg-blue-100');
+    
     return (
       <div 
-        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm select-none ${appointment.color || 'bg-blue-100'}`}
+        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm select-none ${bgColorClass}`}
         style={{ 
           top: `${startTimeIndex * 40}px`, 
           height: `${durationInSlots * 40 - 4}px`,
@@ -191,11 +201,19 @@ export default function CalendarWeekView({
           onAppointmentClick && onAppointmentClick(appointment);
         }}
       >
-        <div className="text-xs font-medium truncate">{appointment.patientName}</div>
+        <div className={`text-xs font-medium truncate ${isPastAppointment ? 'text-gray-700' : ''}`}>
+          {appointment.patientName}
+          {isPastAppointment && ' ✓'}
+        </div>
         <div className="text-xs truncate">{appointment.procedure}</div>
         <div className="text-xs text-gray-500 truncate">
           {appointment.startTime} - {appointment.endTime}
         </div>
+        {isPastAppointment && (
+          <div className="text-xs mt-1 text-gray-500 bg-gray-200 rounded px-1 inline-block">
+            Consulta realizada
+          </div>
+        )}
       </div>
     );
   };
@@ -351,11 +369,21 @@ export default function CalendarWeekView({
         >
           {/* Coluna de horários */}
           <div>
-            {timeSlots.map((time, i) => (
-              <div key={i} className="h-10 border-b border-r p-1 font-medium text-sm text-gray-500">
-                {time}
-              </div>
-            ))}
+            {timeSlots.map((time, i) => {
+              // Verificar se este é um dos horários específicos mencionados pelo usuário
+              const isSpecialTime = ['09:00', '10:00', '11:00', '12:00', '13:30', '14:30', '15:30', '16:30'].includes(time);
+              
+              return (
+                <div 
+                  key={i} 
+                  className={`h-10 border-b border-r p-1 font-medium text-sm ${
+                    isSpecialTime ? 'text-blue-600 font-bold' : 'text-gray-500'
+                  }`}
+                >
+                  {time}
+                </div>
+              );
+            })}
           </div>
           
           {/* Colunas para cada dia da semana */}
