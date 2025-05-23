@@ -945,8 +945,10 @@ export default function SchedulePage() {
           )}
         </div>
         
-        {/* Calendário e filtros à direita */}
-        <ScheduleSidebar onFilterChange={handleFilterChange} />
+        {/* Calendário e filtros à direita - ocultos na visualização de cadeira/sala */}
+        {currentView !== 'room' && (
+          <ScheduleSidebar onFilterChange={handleFilterChange} />
+        )}
       </div>
 
       <AppointmentModal 
