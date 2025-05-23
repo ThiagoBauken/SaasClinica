@@ -418,6 +418,12 @@ export default function AgendaPage() {
           )}
         </div>
       </div>
+      
+      {/* Modal de ajuda do calendário */}
+      <CalendarHelpDialog 
+        isOpen={isHelpDialogOpen}
+        onClose={() => setIsHelpDialogOpen(false)}
+      />
     </DashboardLayout>
   );
 }
