@@ -123,15 +123,15 @@ export default function MonthAgendaView({
       </div>
 
       {/* Calendar grid */}
-      <div className="border rounded-lg overflow-hidden shadow-sm">
+      <div className="border rounded-lg overflow-hidden shadow-sm dark:border-gray-700 dark:bg-gray-900">
         {/* Days of week header */}
-        <div className="grid grid-cols-7 bg-gray-50 border-b">
+        <div className="grid grid-cols-7 bg-gray-50 border-b dark:bg-gray-800 dark:border-gray-700">
           {weekDays.map((day, index) => (
             <div 
               key={index} 
               className={cn(
                 "py-2 px-4 text-center text-sm font-medium",
-                index === 0 || index === 6 ? "text-red-500" : "text-gray-700"
+                index === 0 || index === 6 ? "text-red-500 dark:text-red-400" : "text-gray-700 dark:text-gray-300"
               )}
             >
               {day}
@@ -140,7 +140,7 @@ export default function MonthAgendaView({
         </div>
 
         {/* Calendar days */}
-        <div className="grid grid-cols-7 bg-white">
+        <div className="grid grid-cols-7 bg-white dark:bg-gray-900">
           {calendarDays.map((day, index) => {
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isCurrentDay = isToday(day);
@@ -149,9 +149,9 @@ export default function MonthAgendaView({
             const hasAppointments = dayAppointments.length > 0;
             const dayStyles = cn(
               "min-h-[100px] border-b border-r p-1 relative",
-              !isCurrentMonth && "bg-gray-50 text-gray-400",
-              isCurrentDay && "bg-blue-50",
-              isSelected && "ring-2 ring-inset ring-indigo-600"
+              !isCurrentMonth && "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500",
+              isCurrentDay && "bg-blue-50 dark:bg-blue-900/20",
+              isSelected && "ring-2 ring-inset ring-indigo-600 dark:ring-indigo-400"
             );
 
             return (
@@ -164,13 +164,13 @@ export default function MonthAgendaView({
                 <div className="flex items-center justify-between">
                   <div className={cn(
                     "text-sm font-medium w-7 h-7 flex items-center justify-center",
-                    isCurrentDay && "bg-indigo-600 text-white rounded-full"
+                    isCurrentDay && "bg-indigo-600 text-white rounded-full dark:bg-indigo-500"
                   )}>
                     {format(day, "d")}
                   </div>
                   
                   {/* Day number from week */}
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-400 dark:text-gray-500">
                     {index < 7 && (
                       <span>{index + 1}</span>
                     )}
@@ -179,7 +179,7 @@ export default function MonthAgendaView({
 
                 {/* Special events like holidays */}
                 {isCurrentMonth && format(day, "dd/MM") === "01/05" && (
-                  <div className="mt-1 px-1 py-0.5 text-xs bg-gray-100 rounded text-gray-700">
+                  <div className="mt-1 px-1 py-0.5 text-xs bg-gray-100 rounded text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                     Dia do Trabalho
                   </div>
                 )}
