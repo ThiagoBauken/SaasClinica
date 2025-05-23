@@ -103,10 +103,10 @@ export default function MonthAgendaView({
   );
 
   return (
-    <div className="calendar-month-view">
+    <div className="calendar-month-view dark:text-white">
       {/* Calendar header with title and controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-        <h2 className="text-xl font-medium text-center sm:text-left w-full sm:w-auto">
+        <h2 className="text-xl font-medium text-center sm:text-left w-full sm:w-auto dark:text-white">
           {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
         </h2>
         
@@ -115,7 +115,7 @@ export default function MonthAgendaView({
             variant="outline" 
             onClick={prevMonth}
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 dark:text-white dark:border-gray-700"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -124,7 +124,7 @@ export default function MonthAgendaView({
             variant="outline" 
             onClick={nextMonth}
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 dark:text-white dark:border-gray-700"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -157,8 +157,9 @@ export default function MonthAgendaView({
             const dayAppointments = getDayAppointments(day);
             const hasAppointments = dayAppointments.length > 0;
             const dayStyles = cn(
-              "min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border-b border-r p-1 relative",
+              "min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border-b border-r p-1 relative dark:border-gray-700",
               !isCurrentMonth && "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500",
+              isCurrentMonth && "dark:bg-gray-800 dark:text-gray-200",
               isCurrentDay && "bg-blue-50 dark:bg-blue-900/20",
               isSelected && "ring-2 ring-inset ring-indigo-600 dark:ring-indigo-400"
             );
@@ -241,7 +242,7 @@ export default function MonthAgendaView({
               {getDayAppointments(selectedDate).map((appointment, idx) => (
                 <div 
                   key={idx} 
-                  className="p-3 border rounded-md hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 cursor-pointer"
+                  className="p-3 border rounded-md hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800 cursor-pointer"
                   onClick={() => {
                     if (onAppointmentClick) onAppointmentClick(appointment);
                   }}
