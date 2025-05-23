@@ -5,7 +5,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarMonthView from "@/components/CalendarMonthView";
 import CalendarWeekView from "@/components/CalendarWeekView";
 import CalendarDayView from "@/components/CalendarDayView";
-import CalendarGridView from "@/components/CalendarGridView";
+import BigCalendarView from "@/components/BigCalendarView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -340,11 +340,12 @@ export default function AgendaPage() {
           </TabsContent>
           
           <TabsContent value="week" className="mt-4">
-            <CalendarGridView 
+            <BigCalendarView 
               selectedDate={selectedDate}
               appointments={appointments}
+              professionals={mockProfessionals}
               onDateSelect={handleDateSelect}
-              onDragSelect={(date, startTime, endTime) => {
+              onTimeRangeSelect={(date, startTime, endTime) => {
                 setSelectedDate(date);
                 setNewAppointment({
                   ...newAppointment,
@@ -353,6 +354,10 @@ export default function AgendaPage() {
                   endTime: endTime
                 });
                 setIsNewAppointmentOpen(true);
+              }}
+              onAppointmentClick={(appointment) => {
+                console.log("Agendamento selecionado:", appointment);
+                // Aqui você pode abrir um modal para editar o agendamento existente
               }}
             />
           </TabsContent>
