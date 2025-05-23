@@ -325,7 +325,6 @@ export default function AgendaPage() {
           <TabsContent value="week" className="mt-4">
             <CalendarWeekView 
               appointments={appointments}
-              onDateSelect={handleDateSelect}
               onAppointmentClick={(appointment) => console.log("Appointment clicked:", appointment)}
               onDateSelect={handleTimeRangeSelect}
               professionals={mockProfessionals}
@@ -347,7 +346,7 @@ export default function AgendaPage() {
           </TabsContent>
         </Tabs>
         
-        {/* Informações de data selecionada - poderia mostrar os detalhes do dia */}
+        {/* Informações de data selecionada */}
         <div className="mt-6">
           <h2 className="text-lg font-medium mb-2">
             Agendamentos para {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
