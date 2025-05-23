@@ -5,6 +5,7 @@ import { format, addDays, subDays, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import LoadIndicator from "./LoadIndicator";
 import { useState } from "react";
+import GoogleCalendarSync from "./GoogleCalendarSync";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -210,6 +211,16 @@ export default function CalendarHeader({
             >
               <Settings className="h-4 w-4" />
             </Button>
+            
+            {/* Google Calendar Sync - Mostrado apenas quando um profissional específico está selecionado */}
+            {selectedProfessional !== "all" && (
+              <GoogleCalendarSync 
+                professionalId={parseInt(selectedProfessional)} 
+                professionalName={professionalsSummary.find(p => p.id.toString() === selectedProfessional)?.fullName || "Profissional"} 
+                isConnected={false} 
+                onSyncComplete={() => {}} 
+              />
+            )}
           </div>
 
           {/* Ações */}

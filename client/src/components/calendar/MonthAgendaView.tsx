@@ -96,8 +96,8 @@ export default function MonthAgendaView({
   return (
     <div className="calendar-month-view">
       {/* Calendar header with title and controls */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-medium">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+        <h2 className="text-xl font-medium text-center sm:text-left w-full sm:w-auto">
           {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
         </h2>
         

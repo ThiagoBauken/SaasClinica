@@ -471,25 +471,21 @@ export default function SchedulePage() {
     message?: string;
   } | null>(null);
 
-  // Handle clicking on an empty slot
+  // Handle clicking on an empty slot - abre diretamente o modal de agendamento
   const handleSlotClick = (professionalId: number, time: string, slotIndex?: number) => {
-    // Se não estiver arrastando, mostra confirmação antes de abrir o modal de agendamento
     if (!isDragging) {
-      // Buscar nome do profissional para mostrar na confirmação
-      const professionalName = professionals?.find(p => p.id === professionalId)?.fullName || 'Profissional';
-      
-      // Mostrar modal de confirmação antes de abrir o agendamento
-      setConfirmationData({
-        professionalId,
-        time,
-        slotIndex,
-        message: `Este vaga é um horário de atendimento da clínica, deseja confirmar?`
+      // Abrir diretamente o modal de agendamento sem confirmação
+      setSelectedSlotInfo({ 
+        professionalId, 
+        time 
       });
-      setIsConfirmationModalOpen(true);
+      setSelectedAppointment(undefined);
+      setIsEditMode(false);
+      setIsAppointmentModalOpen(true);
     }
   };
   
-  // Confirma a seleção do horário e abre o modal de agendamento
+  // Função mantida por compatibilidade, mas sem uso de confirmação
   const handleConfirmSlotSelection = () => {
     if (confirmationData) {
       setSelectedSlotInfo({ 
