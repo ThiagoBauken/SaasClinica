@@ -259,7 +259,11 @@ export default function MonthAgendaView({
               {getDayAppointments(selectedDate).map((appointment, idx) => (
                 <div 
                   key={idx} 
-                  className="p-3 border rounded-md hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800 cursor-pointer"
+                  className={`p-3 border rounded-md cursor-pointer ${
+                    isDarkMode 
+                      ? 'border-gray-700 bg-gray-900 hover:bg-gray-800' 
+                      : 'hover:bg-gray-50'
+                  }`}
                   onClick={() => {
                     if (onAppointmentClick) onAppointmentClick(appointment);
                   }}
