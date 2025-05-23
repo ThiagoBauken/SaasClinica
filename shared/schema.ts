@@ -1024,6 +1024,8 @@ export type InsertCommissionRecord = z.infer<typeof insertCommissionRecordSchema
 export type FiscalSettings = typeof fiscalSettings.$inferSelect;
 export type InsertFiscalSettings = z.infer<typeof insertFiscalSettingSchema>;
 
+// Esta tabela já foi definida anteriormente no arquivo
+
 export type Chair = typeof chairs.$inferSelect;
 export type InsertChair = z.infer<typeof insertChairSchema>;
 
