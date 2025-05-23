@@ -325,7 +325,7 @@ export default function AgendaPage() {
           <TabsContent value="week" className="mt-4">
             <CalendarWeekView 
               appointments={appointments}
-              onAppointmentClick={(appointment) => console.log("Appointment clicked:", appointment)}
+              onAppointmentClick={(appointment) => console.log("Clicked:", appointment)}
               onDateSelect={handleTimeRangeSelect}
               professionals={mockProfessionals}
             />

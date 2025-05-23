@@ -154,7 +154,7 @@ export default function CalendarWeekView({
     
     return (
       <div 
-        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm ${appointment.color || 'bg-blue-200'}`}
+        className={`absolute z-10 left-0 right-0 mx-1 rounded p-1 overflow-hidden shadow-sm ${appointment.color || 'bg-blue-100'}`}
         style={{ 
           top: `${startTimeIndex * 40}px`, 
           height: `${durationInSlots * 40 - 4}px`,
@@ -165,6 +165,40 @@ export default function CalendarWeekView({
         <div className="text-xs truncate">{appointment.procedure}</div>
         <div className="text-xs text-gray-500 truncate">
           {appointment.startTime} - {appointment.endTime}
+        </div>
+      </div>
+    );
+  };
+  
+  // Renderizar a seleção de horário durante o arrasto
+  const renderSelection = (dayIndex: number) => {
+    if (!selectionStart || !selectionEnd || selectionStart.day !== dayIndex || selectionEnd.day !== dayIndex) {
+      return null;
+    }
+    
+    const startTimeIndex = timeSlots.indexOf(selectionStart.time);
+    const endTimeIndex = timeSlots.indexOf(selectionEnd.time);
+    
+    const topIndex = Math.min(startTimeIndex, endTimeIndex);
+    const bottomIndex = Math.max(startTimeIndex, endTimeIndex);
+    const durationInSlots = bottomIndex - topIndex + 1;
+    
+    const startDisplay = timeSlots[topIndex];
+    const endDisplay = timeSlots[bottomIndex];
+    
+    return (
+      <div 
+        className="absolute z-5 left-0 right-0 mx-1 rounded bg-blue-50 border-l-4 border-blue-500 overflow-hidden"
+        style={{ 
+          top: `${topIndex * 40}px`, 
+          height: `${durationInSlots * 40 - 2}px`,
+        }}
+      >
+        <div className="p-2 text-xs">
+          <div className="font-medium">Novo Agendamento</div>
+          <div className="text-gray-600">
+            {startDisplay} - {endDisplay}
+          </div>
         </div>
       </div>
     );
@@ -237,6 +271,8 @@ export default function CalendarWeekView({
                   </div>
                 );
               })}
+              {/* Renderizar a seleção de arrasto sobre as células */}
+              {renderSelection(dayIndex)}
             </div>
           ))}
         </div>
