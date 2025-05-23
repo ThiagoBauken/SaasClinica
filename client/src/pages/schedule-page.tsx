@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import TimelineView from "@/components/calendar/TimelineView";
+import MonthAgendaView from "@/components/calendar/MonthAgendaView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
 import FitInModal from "@/components/calendar/FitInModal";
 import ScheduleSettings from "@/components/calendar/ScheduleSettings";
@@ -812,6 +813,15 @@ export default function SchedulePage() {
               )}
               
               {/* Room view (visão por sala/cadeira) */}
+              {/* Month view with agenda (estilo calendário mensal) */}
+              {currentView === 'month' && (
+                <MonthAgendaView
+                  appointments={appointments}
+                  onDateSelect={(date) => setSelectedDate(date)}
+                  onAppointmentClick={handleOpenAppointment}
+                />
+              )}
+              
               {currentView === 'room' && (
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
