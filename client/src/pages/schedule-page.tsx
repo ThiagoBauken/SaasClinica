@@ -715,7 +715,7 @@ export default function SchedulePage() {
               {/* Week view (semana) - estilo Bauken */}
               {currentView === 'week' && professionals && (
                 <div className="p-0">
-                  <div className="grid grid-cols-7 border-b">
+                  <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 border-b overflow-x-auto">
                     {Array.from({length: 7}).map((_, i) => {
                       const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
                       const isToday = isSameDay(day, new Date());
@@ -729,7 +729,7 @@ export default function SchedulePage() {
                         >
                           <div className="text-center">
                             <div className="text-xs text-muted-foreground">{format(day, "EEE", {locale: ptBR})}</div>
-                            <div className={`text-xl font-bold ${isToday ? 'text-primary' : ''}`}>
+                            <div className={`text-base sm:text-xl font-bold ${isToday ? 'text-primary' : ''}`}>
                               {format(day, "dd")}
                             </div>
                             <div className="text-xs text-muted-foreground">{format(day, "MMM", {locale: ptBR})}</div>
@@ -739,7 +739,7 @@ export default function SchedulePage() {
                     })}
                   </div>
                   
-                  <div className="grid grid-cols-7 divide-x h-[calc(100vh-300px)] overflow-auto">
+                  <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 divide-x h-[calc(100vh-300px)] overflow-auto">
                     {Array.from({length: 7}).map((_, i) => {
                       const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
                       const isToday = isSameDay(day, new Date());
@@ -754,10 +754,10 @@ export default function SchedulePage() {
                           {timeSlots.map((slot, index) => (
                             <div 
                               key={index} 
-                              className="border-b h-16 relative"
+                              className="border-b h-12 sm:h-16 relative"
                             >
                               {index % 2 === 0 && (
-                                <span className="absolute -left-0 top-0 text-xs text-muted-foreground p-1">
+                                <span className="absolute -left-0 top-0 text-[10px] sm:text-xs text-muted-foreground p-1">
                                   {slot.time}
                                 </span>
                               )}
@@ -785,8 +785,9 @@ export default function SchedulePage() {
                             const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
                             
                             // Calcular posição relativa baseada na hora de início
-                            const startPosition = (startHour - 7) * 64; // 7h sendo o início, 64px altura de cada hora
-                            const height = duration * 64;
+                            const baseHeight = window.innerWidth < 640 ? 48 : 64; // Altura menor em dispositivos móveis
+                            const startPosition = (startHour - 7) * baseHeight; 
+                            const height = duration * baseHeight;
                             
                             return (
                               <div 
