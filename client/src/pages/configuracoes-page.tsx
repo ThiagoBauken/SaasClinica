@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,8 @@ import {
   Upload,
   Trash2,
   HelpCircle,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -33,16 +34,161 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useClinicSettings } from "@/hooks/use-clinic-settings";
+import { useFiscalSettings } from "@/hooks/use-fiscal-settings";
 
 export default function ConfiguracoesPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("clinica");
-
+  
+  // Hooks para carregar e gerenciar as configurações
+  const { 
+    clinicSettings, 
+    isLoading: isLoadingClinic, 
+    updateClinicSettings,
+    isUpdating: isUpdatingClinic
+  } = useClinicSettings();
+  
+  const {
+    fiscalSettings,
+    isLoading: isLoadingFiscal,
+    updateFiscalSettings,
+    isUpdating: isUpdatingFiscal
+  } = useFiscalSettings();
+  
+  // Formulário da clínica
+  const [clinicForm, setClinicForm] = useState({
+    name: "",
+    tradingName: "",
+    cnpj: "",
+    responsible: "",
+    email: "",
+    phone: "",
+    cellphone: "",
+    openingTime: "08:00",
+    closingTime: "18:00",
+    timeZone: "America/Sao_Paulo",
+    address: "",
+    neighborhood: "",
+    city: "",
+    state: "SP",
+    zipCode: "",
+    complement: "",
+    number: "",
+    logo: "",
+    receiptPrintEnabled: false,
+    receiptHeader: "",
+    receiptFooter: ""
+  });
+  
+  // Formulário fiscal
+  const [fiscalForm, setFiscalForm] = useState({
+    nfseProvider: "",
+    nfseToken: "",
+    nfseUrl: "",
+    emitReceiptFor: "all",
+    receiptType: "standard",
+    defaultTaxRate: "0",
+    defaultServiceCode: "",
+    termsAndConditions: ""
+  });
+  
+  // Atualiza os formulários quando os dados são carregados
+  useEffect(() => {
+    if (clinicSettings) {
+      setClinicForm({
+        name: clinicSettings.name || "",
+        tradingName: clinicSettings.tradingName || "",
+        cnpj: clinicSettings.cnpj || "",
+        responsible: clinicSettings.responsible || "",
+        email: clinicSettings.email || "",
+        phone: clinicSettings.phone || "",
+        cellphone: clinicSettings.cellphone || "",
+        openingTime: clinicSettings.openingTime || "08:00",
+        closingTime: clinicSettings.closingTime || "18:00",
+        timeZone: clinicSettings.timeZone || "America/Sao_Paulo",
+        address: clinicSettings.address || "",
+        neighborhood: clinicSettings.neighborhood || "",
+        city: clinicSettings.city || "",
+        state: clinicSettings.state || "SP",
+        zipCode: clinicSettings.zipCode || "",
+        complement: clinicSettings.complement || "",
+        number: clinicSettings.number || "",
+        logo: clinicSettings.logo || "",
+        receiptPrintEnabled: clinicSettings.receiptPrintEnabled || false,
+        receiptHeader: clinicSettings.receiptHeader || "",
+        receiptFooter: clinicSettings.receiptFooter || ""
+      });
+    }
+  }, [clinicSettings]);
+  
+  useEffect(() => {
+    if (fiscalSettings) {
+      setFiscalForm({
+        nfseProvider: fiscalSettings.nfseProvider || "",
+        nfseToken: fiscalSettings.nfseToken || "",
+        nfseUrl: fiscalSettings.nfseUrl || "",
+        emitReceiptFor: fiscalSettings.emitReceiptFor || "all",
+        receiptType: fiscalSettings.receiptType || "standard",
+        defaultTaxRate: fiscalSettings.defaultTaxRate?.toString() || "0",
+        defaultServiceCode: fiscalSettings.defaultServiceCode || "",
+        termsAndConditions: fiscalSettings.termsAndConditions || ""
+      });
+    }
+  }, [fiscalSettings]);
+  
+  // Função para lidar com mudanças no formulário da clínica
+  const handleClinicChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setClinicForm(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  // Função para lidar com mudanças em switches
+  const handleSwitchChange = (checked: boolean, id: string) => {
+    setClinicForm(prev => ({
+      ...prev,
+      [id]: checked
+    }));
+  };
+  
+  // Função para lidar com mudanças no select
+  const handleSelectChange = (value: string, id: string) => {
+    setClinicForm(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  // Função para lidar com mudanças no formulário fiscal
+  const handleFiscalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setFiscalForm(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  // Função para salvar as configurações
   const salvarConfiguracoes = () => {
-    toast({
-      title: "Configurações salvas",
-      description: "As configurações foram salvas com sucesso.",
-    });
+    if (activeTab === "clinica") {
+      // Converte o defaultTaxRate para número se necessário
+      updateClinicSettings(clinicForm);
+    } else if (activeTab === "fiscal") {
+      // Converte o defaultTaxRate para número
+      const formattedForm = {
+        ...fiscalForm,
+        defaultTaxRate: parseFloat(fiscalForm.defaultTaxRate)
+      };
+      updateFiscalSettings(formattedForm);
+    } else {
+      toast({
+        title: "Configurações salvas",
+        description: "As configurações foram salvas com sucesso.",
+      });
+    }
   };
 
   return (
