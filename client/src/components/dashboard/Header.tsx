@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface HeaderProps {
   user: User;
+  onMenuToggle?: () => void;
 }
 
 export default function Header({ user }: HeaderProps) {
