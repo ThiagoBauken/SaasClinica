@@ -21,7 +21,7 @@ interface HeaderProps {
   onMenuToggle?: () => void;
 }
 
-export default function Header({ user }: HeaderProps) {
+export default function Header({ user, onMenuToggle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { logoutMutation } = useAuth();
 
@@ -33,6 +33,16 @@ export default function Header({ user }: HeaderProps) {
     <header className="bg-background border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center">
+          {/* Menu sanduíche para mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden mr-2"
+            onClick={onMenuToggle}
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+          
           <Link href="/dashboard" className="text-primary font-bold text-2xl">
             DentCare
           </Link>
