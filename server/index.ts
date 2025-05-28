@@ -235,44 +235,202 @@ app.get("*", (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Sistema Modular - Login</title>
-        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          }
+          
+          .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+          }
+          
+          .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+          }
+          
+          h1 {
+            color: #333;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+          }
+          
+          .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+          }
+          
+          .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+          }
+          
+          label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+          }
+          
+          input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+          }
+          
+          input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+          }
+          
+          .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+          }
+          
+          .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+          }
+          
+          .login-btn:active {
+            transform: translateY(0);
+          }
+          
+          .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 500;
+          }
+          
+          .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+          }
+          
+          .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+          }
+          
+          .features {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+          }
+          
+          .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #666;
+          }
+          
+          .feature-icon {
+            margin-right: 10px;
+            font-size: 16px;
+          }
+          
+          @media (max-width: 480px) {
+            .login-container {
+              padding: 30px 20px;
+            }
+            
+            h1 {
+              font-size: 24px;
+            }
+          }
+        </style>
       </head>
-      <body class="bg-gray-50 min-h-screen flex items-center justify-center">
-        <div class="max-w-md w-full space-y-8">
-          <div>
-            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Sistema Modular
-            </h2>
-            <p class="mt-2 text-center text-sm text-gray-600">
-              Faça login para acessar o sistema
-            </p>
-          </div>
-          <form class="mt-8 space-y-6" onsubmit="login(event)">
-            <div class="rounded-md shadow-sm -space-y-px">
-              <div>
-                <input id="username" name="username" type="text" required 
-                       class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
-                       placeholder="Usuário" value="superadmin">
-              </div>
-              <div>
-                <input id="password" name="password" type="password" required 
-                       class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
-                       placeholder="Senha" value="admin123">
-              </div>
+      <body>
+        <div class="login-container">
+          <div class="logo">🏥</div>
+          <h1>Sistema Modular</h1>
+          <p class="subtitle">Acesse o painel administrativo</p>
+          
+          <form onsubmit="login(event)">
+            <div class="form-group">
+              <label for="username">Usuário</label>
+              <input type="text" id="username" name="username" required value="superadmin">
             </div>
-            <div>
-              <button type="submit" 
-                      class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Entrar
-              </button>
+            
+            <div class="form-group">
+              <label for="password">Senha</label>
+              <input type="password" id="password" name="password" required value="admin123">
             </div>
+            
+            <button type="submit" class="login-btn">
+              🔐 Entrar no Sistema
+            </button>
           </form>
-          <div id="message" class="text-center text-sm"></div>
+          
+          <div id="message"></div>
+          
+          <div class="features">
+            <div class="feature-item">
+              <span class="feature-icon">🧩</span>
+              <span>Arquitetura Modular</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🏢</span>
+              <span>Multi-tenant</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🔒</span>
+              <span>Seguro e Escalável</span>
+            </div>
+          </div>
         </div>
         
         <script>
           async function login(event) {
             event.preventDefault();
+            const messageEl = document.getElementById('message');
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Entrando...';
+            
             const formData = new FormData(event.target);
             const username = formData.get('username');
             const password = formData.get('password');
@@ -289,15 +447,19 @@ app.get("*", (req, res) => {
               const data = await response.json();
               
               if (response.ok) {
-                document.getElementById('message').innerHTML = '<span class="text-green-600">✅ Login realizado com sucesso! Redirecionando...</span>';
+                messageEl.innerHTML = '<div class="message success">✅ Login realizado com sucesso! Redirecionando...</div>';
                 setTimeout(() => {
                   window.location.href = '/admin';
-                }, 1000);
+                }, 1500);
               } else {
-                document.getElementById('message').innerHTML = '<span class="text-red-600">❌ ' + data.error + '</span>';
+                messageEl.innerHTML = '<div class="message error">❌ ' + data.error + '</div>';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🔐 Entrar no Sistema';
               }
             } catch (error) {
-              document.getElementById('message').innerHTML = '<span class="text-red-600">❌ Erro de conexão</span>';
+              messageEl.innerHTML = '<div class="message error">❌ Erro de conexão com o servidor</div>';
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = '🔐 Entrar no Sistema';
             }
           }
         </script>
