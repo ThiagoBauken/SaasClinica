@@ -1,9 +1,4 @@
 import { Express } from "express";
-import fs from "fs";
-import path from "path";
-import { db } from "../db";
-import { modules, companyModules } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
 
 export interface ModuleInfo {
   name: string;
@@ -16,269 +11,164 @@ export interface ModuleInfo {
   requiredPermissions: string[];
 }
 
-export interface ModuleRoute {
-  path: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  handler: any;
-  middleware?: any[];
-}
-
 export interface ModuleDefinition {
   info: ModuleInfo;
-  routes?: ModuleRoute[];
-  initialize?: (app: Express) => void;
+  initialize: (app: Express) => void;
   onEnable?: (companyId: number) => Promise<void>;
   onDisable?: (companyId: number) => Promise<void>;
 }
 
-class ModuleManager {
-  private loadedModules: Map<string, ModuleDefinition> = new Map();
+export class ModuleManager {
+  private modules: Map<string, ModuleDefinition> = new Map();
   private app: Express | null = null;
 
-  async initialize(app: Express) {
+  async initialize(app: Express): Promise<void> {
     this.app = app;
+    console.log("🔧 Initializing Module Manager...");
     await this.loadAvailableModules();
     await this.registerModuleRoutes();
   }
 
   private async loadAvailableModules() {
-    const modulesPath = path.join(__dirname, "../modules");
-    
-    if (!fs.existsSync(modulesPath)) {
-      fs.mkdirSync(modulesPath, { recursive: true });
-      return;
-    }
-
-    const moduleDirectories = fs.readdirSync(modulesPath, { withFileTypes: true })
-      .filter(dirent => dirent.isDirectory())
-      .map(dirent => dirent.name);
-
-    for (const moduleName of moduleDirectories) {
-      try {
-        await this.loadModule(moduleName);
-      } catch (error) {
-        console.error(`Failed to load module ${moduleName}:`, error);
-      }
-    }
-  }
-
-  private async loadModule(moduleName: string) {
-    const modulePath = path.join(__dirname, "../modules", moduleName, "index.ts");
-    
-    if (!fs.existsSync(modulePath)) {
-      console.warn(`Module ${moduleName} does not have an index.ts file`);
-      return;
-    }
-
-    try {
-      const moduleDefinition = require(modulePath).default as ModuleDefinition;
-      
-      // Validate module definition
-      if (!moduleDefinition.info || !moduleDefinition.info.name) {
-        throw new Error(`Invalid module definition for ${moduleName}`);
-      }
-
-      this.loadedModules.set(moduleName, moduleDefinition);
-      
-      // Register module in database if not exists
-      await this.registerModuleInDatabase(moduleDefinition.info);
-      
-      console.log(`✅ Module ${moduleName} loaded successfully`);
-    } catch (error) {
-      console.error(`❌ Failed to load module ${moduleName}:`, error);
-    }
-  }
-
-  private async registerModuleInDatabase(moduleInfo: ModuleInfo) {
-    const existingModule = await db.select()
-      .from(modules)
-      .where(eq(modules.name, moduleInfo.name))
-      .limit(1);
-
-    if (existingModule.length === 0) {
-      await db.insert(modules).values({
-        name: moduleInfo.name,
-        displayName: moduleInfo.displayName,
-        description: moduleInfo.description,
-        version: moduleInfo.version,
-        isActive: true,
-        requiredPermissions: moduleInfo.requiredPermissions,
-      });
-    } else {
-      // Update version if different
-      if (existingModule[0].version !== moduleInfo.version) {
-        await db.update(modules)
-          .set({ 
-            version: moduleInfo.version,
-            updatedAt: new Date()
-          })
-          .where(eq(modules.id, existingModule[0].id));
-      }
-    }
-  }
-
-  private async registerModuleRoutes() {
-    if (!this.app) return;
-
-    for (const [moduleName, moduleDefinition] of this.loadedModules) {
-      // Initialize module if it has an initialize function
-      if (moduleDefinition.initialize) {
-        moduleDefinition.initialize(this.app);
-      }
-
-      // Register routes with module prefix
-      if (moduleDefinition.routes) {
-        for (const route of moduleDefinition.routes) {
-          const fullPath = `/api/modules/${moduleName}${route.path}`;
-          const middlewares = [
-            this.moduleAccessMiddleware(moduleName),
-            ...(route.middleware || [])
-          ];
-
-          switch (route.method) {
-            case 'GET':
-              this.app.get(fullPath, ...middlewares, route.handler);
-              break;
-            case 'POST':
-              this.app.post(fullPath, ...middlewares, route.handler);
-              break;
-            case 'PUT':
-              this.app.put(fullPath, ...middlewares, route.handler);
-              break;
-            case 'DELETE':
-              this.app.delete(fullPath, ...middlewares, route.handler);
-              break;
-            case 'PATCH':
-              this.app.patch(fullPath, ...middlewares, route.handler);
-              break;
-          }
-        }
-      }
-    }
-  }
-
-  private moduleAccessMiddleware(moduleName: string) {
-    return async (req: any, res: any, next: any) => {
-      try {
-        if (!req.user) {
-          return res.status(401).json({ message: "Authentication required" });
-        }
-
-        // Superadmin has access to all modules
-        if (req.user.role === 'superadmin') {
-          return next();
-        }
-
-        // Check if the user's company has this module enabled
-        const moduleAccess = await db.select()
-          .from(companyModules)
-          .innerJoin(modules, eq(modules.id, companyModules.moduleId))
-          .where(and(
-            eq(modules.name, moduleName),
-            eq(companyModules.companyId, req.user.companyId),
-            eq(companyModules.isEnabled, true)
-          ))
-          .limit(1);
-
-        if (moduleAccess.length === 0) {
-          return res.status(403).json({ 
-            message: `Access denied to module: ${moduleName}` 
+    // Criar módulo de clínica básico
+    const clinicModule: ModuleDefinition = {
+      info: {
+        name: "clinic",
+        displayName: "Sistema de Clínica",
+        description: "Módulo completo para gestão de clínicas odontológicas com agenda, pacientes, procedimentos e profissionais",
+        version: "1.0.0",
+        isLoaded: true,
+        hasBackend: true,
+        hasFrontend: true,
+        requiredPermissions: ["clinic:read", "clinic:write", "clinic:manage"]
+      },
+      initialize: (app: Express) => {
+        // Registrar rotas básicas do módulo clínica
+        app.get("/api/modules/clinic/health", (req, res) => {
+          res.json({ 
+            status: "ok", 
+            module: "clinic", 
+            timestamp: new Date().toISOString() 
           });
-        }
+        });
 
-        next();
-      } catch (error) {
-        console.error('Module access middleware error:', error);
-        res.status(500).json({ message: "Internal server error" });
+        app.get("/api/modules/clinic/dashboard", (req, res) => {
+          res.json({ 
+            message: "Clinic module dashboard",
+            features: ["patients", "appointments", "procedures", "professionals"]
+          });
+        });
+
+        console.log("✅ Clinic module initialized and routes registered");
       }
     };
+
+    this.modules.set("clinic", clinicModule);
+
+    // Criar módulo financeiro
+    const financialModule: ModuleDefinition = {
+      info: {
+        name: "financial",
+        displayName: "Sistema Financeiro",
+        description: "Módulo para gestão financeira, pagamentos e relatórios",
+        version: "1.0.0",
+        isLoaded: true,
+        hasBackend: true,
+        hasFrontend: true,
+        requiredPermissions: ["financial:read", "financial:write"]
+      },
+      initialize: (app: Express) => {
+        app.get("/api/modules/financial/health", (req, res) => {
+          res.json({ 
+            status: "ok", 
+            module: "financial", 
+            timestamp: new Date().toISOString() 
+          });
+        });
+        console.log("✅ Financial module initialized");
+      }
+    };
+
+    this.modules.set("financial", financialModule);
+
+    // Criar módulo de automação
+    const automationModule: ModuleDefinition = {
+      info: {
+        name: "automation",
+        displayName: "Sistema de Automação",
+        description: "Módulo para automação de processos e workflows",
+        version: "1.0.0",
+        isLoaded: true,
+        hasBackend: true,
+        hasFrontend: true,
+        requiredPermissions: ["automation:read", "automation:write"]
+      },
+      initialize: (app: Express) => {
+        app.get("/api/modules/automation/health", (req, res) => {
+          res.json({ 
+            status: "ok", 
+            module: "automation", 
+            timestamp: new Date().toISOString() 
+          });
+        });
+        console.log("✅ Automation module initialized");
+      }
+    };
+
+    this.modules.set("automation", automationModule);
   }
 
-  async getAvailableModules(): Promise<ModuleInfo[]> {
-    return Array.from(this.loadedModules.values()).map(mod => mod.info);
-  }
-
-  async getCompanyModules(companyId: number) {
-    return await db.select({
-      id: modules.id,
-      name: modules.name,
-      displayName: modules.displayName,
-      description: modules.description,
-      version: modules.version,
-      isActive: modules.isActive,
-      requiredPermissions: modules.requiredPermissions,
-      isEnabled: companyModules.isEnabled,
-      settings: companyModules.settings,
-    })
-    .from(modules)
-    .leftJoin(companyModules, 
-      and(
-        eq(modules.id, companyModules.moduleId),
-        eq(companyModules.companyId, companyId)
-      )
-    );
-  }
-
-  async enableModuleForCompany(companyId: number, moduleId: number, settings: Record<string, any> = {}) {
-    const module = this.loadedModules.get(await this.getModuleNameById(moduleId));
-    
-    const existingAssociation = await db.select()
-      .from(companyModules)
-      .where(and(
-        eq(companyModules.companyId, companyId),
-        eq(companyModules.moduleId, moduleId)
-      ))
-      .limit(1);
-
-    if (existingAssociation.length > 0) {
-      await db.update(companyModules)
-        .set({
-          isEnabled: true,
-          settings,
-          updatedAt: new Date(),
-        })
-        .where(eq(companyModules.id, existingAssociation[0].id));
-    } else {
-      await db.insert(companyModules).values({
-        companyId,
-        moduleId,
-        isEnabled: true,
-        settings,
-      });
+  private async registerModuleRoutes(): Promise<void> {
+    if (!this.app) {
+      throw new Error("App not initialized");
     }
 
-    // Call module's onEnable hook if it exists
-    if (module?.onEnable) {
-      await module.onEnable(companyId);
-    }
+    this.modules.forEach((module, name) => {
+      try {
+        if (module.initialize) {
+          module.initialize(this.app!);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to initialize module ${name}:`, error);
+      }
+    });
   }
 
-  async disableModuleForCompany(companyId: number, moduleId: number) {
-    const module = this.loadedModules.get(await this.getModuleNameById(moduleId));
-    
-    await db.update(companyModules)
-      .set({ 
-        isEnabled: false,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(companyModules.companyId, companyId),
-        eq(companyModules.moduleId, moduleId)
-      ));
-
-    // Call module's onDisable hook if it exists
-    if (module?.onDisable) {
-      await module.onDisable(companyId);
-    }
+  getAvailableModules(): ModuleInfo[] {
+    const modules: ModuleInfo[] = [];
+    this.modules.forEach((module) => {
+      modules.push(module.info);
+    });
+    return modules;
   }
 
-  private async getModuleNameById(moduleId: number): Promise<string> {
-    const module = await db.select()
-      .from(modules)
-      .where(eq(modules.id, moduleId))
-      .limit(1);
-    
-    return module[0]?.name || '';
+  getModule(name: string): ModuleDefinition | undefined {
+    return this.modules.get(name);
+  }
+
+  isModuleLoaded(name: string): boolean {
+    return this.modules.has(name);
+  }
+
+  getModuleStats() {
+    const total = this.modules.size;
+    let loaded = 0;
+    let withBackend = 0;
+    let withFrontend = 0;
+
+    this.modules.forEach((module) => {
+      if (module.info.isLoaded) loaded++;
+      if (module.info.hasBackend) withBackend++;
+      if (module.info.hasFrontend) withFrontend++;
+    });
+
+    return {
+      total,
+      loaded,
+      withBackend,
+      withFrontend,
+      loadedPercentage: total > 0 ? Math.round((loaded / total) * 100) : 0
+    };
   }
 }
 

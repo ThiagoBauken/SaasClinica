@@ -99,7 +99,7 @@ router.put("/companies/:id", requireAdmin, async (req, res) => {
 // Listar módulos disponíveis
 router.get("/modules", requireAdmin, async (req, res) => {
   try {
-    const availableModules = moduleManager.getAvailableModules();
+    const availableModules = await moduleManager.getAvailableModules();
     res.json(availableModules);
   } catch (error) {
     console.error("Erro ao buscar módulos:", error);
