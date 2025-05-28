@@ -6,7 +6,7 @@ import { parse, formatISO, addDays } from "date-fns";
 import { cacheMiddleware } from "./simpleCache";
 import { invalidateClusterCache } from "./clusterCache";
 import { db } from "./db";
-import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes } from "@shared/schema";
+import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -21,6 +21,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Set up authentication routes
   setupAuth(app);
+
+  // Company info for current user
+  app.get("/api/user/company", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user.companyId) {
+      return res.status(404).json({ message: "User not associated with company" });
+    }
+    
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, user.companyId));
+    
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+    
+    res.json(company);
+  }));
 
   // API routes
   // --------------------------
