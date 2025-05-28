@@ -226,37 +226,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(automation);
   }));
 
-  app.patch("/api/automations/:id", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body);
-      res.json(updatedAutomation);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.patch("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
+    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+    res.json(updatedAutomation);
+  }));
 
-  app.delete("/api/automations/:id", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      await storage.deleteAutomation(parseInt(req.params.id));
-      res.status(204).end();
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.delete("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
+    await storage.deleteAutomation(parseInt(req.params.id));
+    res.status(204).end();
+  }));
 
-  app.patch("/api/automations/:id/toggle", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), {
-        active: req.body.active,
-      });
-      res.json(updatedAutomation);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.patch("/api/automations/:id/toggle", authCheck, asyncHandler(async (req, res) => {
+    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), {
+      active: req.body.active,
+    });
+    res.json(updatedAutomation);
+  }));
 
   // Novas rotas para configurações da clínica
   // ----------------------------------------
