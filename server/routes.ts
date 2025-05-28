@@ -8,11 +8,15 @@ import { invalidateClusterCache } from "./clusterCache";
 import { db } from "./db";
 import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
+import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
   if (storage instanceof DatabaseStorage) {
     await storage.seedInitialData();
+    // Criar empresa padrão e migrar usuários existentes
+    await migrateUsersToDefaultCompany();
   }
   
   // Set up authentication routes
@@ -29,6 +33,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Middleware combinado: auth + tenant isolation
+  const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
+
   // Função auxiliar para tratamento de erros assíncrono
   const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
     return (req: Request, res: Response, next: NextFunction) => {
@@ -36,9 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // Patients - Com cache otimizado
-  app.get("/api/patients", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patients = await storage.getPatients();
+  // Patients - Com cache otimizado e tenant-aware
+  app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
+    const patients = await storage.getPatients(req.tenant!.companyId);
     res.json(patients);
   }));
 
