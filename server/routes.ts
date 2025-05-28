@@ -586,6 +586,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
   }));
 
+  // Registrar rotas administrativas
+  const adminRoutes = await import("./routes/admin.js");
+  app.use("/api/admin", adminRoutes.default);
+
   const httpServer = createServer(app);
   return httpServer;
 }
