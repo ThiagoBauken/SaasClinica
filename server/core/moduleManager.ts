@@ -1,4 +1,4 @@
-import { Express, Router } from "express";
+import { Express } from "express";
 import fs from "fs";
 import path from "path";
 import { db } from "../db";
@@ -33,20 +33,16 @@ export interface ModuleDefinition {
 
 class ModuleManager {
   private loadedModules: Map<string, ModuleDefinition> = new Map();
-  private moduleRouter = Router();
   private app: Express | null = null;
 
-  async initialize() {
+  async initialize(app: Express) {
+    this.app = app;
     await this.loadAvailableModules();
     await this.registerModuleRoutes();
   }
 
-  getModuleRoutes() {
-    return this.moduleRouter;
-  }
-
   private async loadAvailableModules() {
-    const modulesPath = path.join(process.cwd(), "server/modules");
+    const modulesPath = path.join(__dirname, "../modules");
     
     if (!fs.existsSync(modulesPath)) {
       fs.mkdirSync(modulesPath, { recursive: true });
@@ -67,7 +63,7 @@ class ModuleManager {
   }
 
   private async loadModule(moduleName: string) {
-    const modulePath = path.join(process.cwd(), "server/modules", moduleName, "index.ts");
+    const modulePath = path.join(__dirname, "../modules", moduleName, "index.ts");
     
     if (!fs.existsSync(modulePath)) {
       console.warn(`Module ${moduleName} does not have an index.ts file`);
@@ -75,7 +71,7 @@ class ModuleManager {
     }
 
     try {
-      const moduleDefinition = (await import(modulePath)).default as ModuleDefinition;
+      const moduleDefinition = require(modulePath).default as ModuleDefinition;
       
       // Validate module definition
       if (!moduleDefinition.info || !moduleDefinition.info.name) {

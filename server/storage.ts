@@ -1,5 +1,4 @@
-// Core system storage - only authentication and company management
-import { users, companies, modules, companyModules, type SelectUser, type InsertUser, type SelectCompany, type InsertCompany, type SelectModule, type InsertModule } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
