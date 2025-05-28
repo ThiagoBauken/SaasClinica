@@ -1,148 +1,142 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import cluster from "cluster";
-import os from "os";
-import compression from "compression";
+import express from "express";
+import session from "express-session";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
+import { coreStorage } from "./core/storage";
+import coreRoutes from "./core/routes";
+import { moduleManager } from "./core/moduleManager";
+import bcrypt from "bcryptjs";
 
-// Determina quantos workers serão usados (no máximo)
-const WORKERS = process.env.NODE_ENV === "production" 
-  ? Math.min(os.cpus().length, 16) // Limita a 16 workers no máximo para evitar overhead de context switching
-  : 1; // Em desenvolvimento, usamos apenas 1 worker
+const app = express();
+const PORT = Number(process.env.PORT) || 3000;
 
-// Importação do sistema de cache distribuído
-import { initializeClusterCache } from './clusterCache';
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+}));
 
-// Implementação com clusters para aproveitar múltiplos cores
-if (cluster.isPrimary && process.env.NODE_ENV === "production") {
-  log(`Master process ${process.pid} está rodando`);
-  
-  // Inicializa o sistema de cache compartilhado no processo principal
-  initializeClusterCache();
-  
-  // Cria workers
-  for (let i = 0; i < WORKERS; i++) {
-    cluster.fork();
-  }
-  
-  // Reinicia workers se eles morrerem
-  cluster.on("exit", (worker, code, signal) => {
-    log(`Worker ${worker.process.pid} morreu com código: ${code} e sinal: ${signal}`);
-    log("Iniciando um novo worker");
-    cluster.fork();
-  });
-} else {
-  // Inicializa o sistema de cache nos workers
-  initializeClusterCache();
-  // Código do worker
-  const app = express();
-  
-  // Compressão de respostas para reduzir tráfego
-  app.use(compression());
-  
-  // Proteção contra ataques comuns
-  app.use(helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
-  }));
-  
-  // Limitador de requisições para evitar abuso
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 500, // limite por IP
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Muitas requisições deste IP, tente novamente após 15 minutos"
-  });
-  
-  // Aplica limitador apenas nas rotas da API
-  app.use("/api", apiLimiter);
-  
-  // Aumenta o limite do bodyParser para lidar com uploads maiores de forma eficiente
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+app.use(compression());
 
-  // Middleware para logging e monitoramento de performance
-  app.use((req, res, next) => {
-    const start = Date.now();
-    const path = req.path;
-    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+app.use("/api", limiter);
 
-    // Evitar capturar dados sensíveis ou muito grandes na produção
-    if (process.env.NODE_ENV !== "production" || path.includes("/metrics")) {
-      const originalResJson = res.json;
-      res.json = function (bodyJson, ...args) {
-        capturedJsonResponse = bodyJson;
-        return originalResJson.apply(res, [bodyJson, ...args]);
-      };
-    }
+// Body parsing
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-    res.on("finish", () => {
-      const duration = Date.now() - start;
-      if (path.startsWith("/api")) {
-        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-        
-        // Em produção, limitamos os logs de resposta para economizar recursos
-        if (process.env.NODE_ENV !== "production" && capturedJsonResponse) {
-          const stringifiedResponse = JSON.stringify(capturedJsonResponse);
-          if (stringifiedResponse.length < 200) {
-            logLine += ` :: ${stringifiedResponse}`;
-          } else {
-            logLine += ` :: [Resposta grande omitida]`;
-          }
-        }
+// Session configuration
+app.use(session({
+  store: coreStorage.getSessionStore(),
+  secret: process.env.SESSION_SECRET || "your-secret-key-change-this",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+}));
 
-        log(logLine);
-      }
-    });
-
-    next();
-  });
-
-  (async () => {
-    // Initialize module manager
-    const { moduleManager } = await import("./core/moduleManager.js");
-    await moduleManager.initialize(app);
-    
-    // Register admin routes
-    const adminRoutes = await import("./routes/admin.js");
-    app.use("/api/admin", adminRoutes.default);
-    
-    const server = await registerRoutes(app);
-
-    // Middleware de tratamento de erros mais robusto
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      
-      // Log detalhado em caso de erro
-      console.error(`[ERROR] ${new Date().toISOString()}: ${err.stack || err}`);
-      
-      // Resposta sanitizada para o cliente
-      res.status(status).json({ 
-        message: process.env.NODE_ENV === "production" && status === 500 
-          ? "Ocorreu um erro no servidor. Nossa equipe foi notificada." 
-          : message 
-      });
-      
-      // Não lançamos o erro novamente para evitar quebrar o processo
-    });
-
-    // Setup para desenvolvimento e produção
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
-    } else {
-      serveStatic(app);
-    }
-
-    const port = 5000;
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`Worker ${process.pid} servindo na porta ${port}`);
-    });
-  })();
+// Trust proxy in production
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
 }
+
+// Core routes (authentication and administration)
+app.use(coreRoutes);
+
+// Initialize module system
+async function initializeModules() {
+  try {
+    // Create default company for superadmin
+    const companies = await coreStorage.getCompanies();
+    if (companies.length === 0) {
+      console.log("Creating default company...");
+      const defaultCompany = await coreStorage.createCompany({
+        name: "Sistema Principal",
+        email: "admin@sistema.com",
+        active: true,
+      });
+      console.log("Default company created:", defaultCompany.id);
+
+      // Create superadmin user
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      const superAdmin = await coreStorage.createUser({
+        companyId: defaultCompany.id,
+        username: "superadmin",
+        password: hashedPassword,
+        fullName: "Super Administrator",
+        email: "admin@sistema.com",
+        role: "superadmin",
+        active: true,
+      });
+      console.log("Superadmin user created:", superAdmin.username);
+    }
+
+    // Register clinic module if it doesn't exist
+    const modules = await coreStorage.getModules();
+    const clinicModule = modules.find(m => m.name === "clinic");
+    
+    if (!clinicModule) {
+      console.log("Creating clinic module...");
+      await coreStorage.createModule({
+        name: "clinic",
+        displayName: "Clínica Odontológica",
+        description: "Sistema completo de gestão para clínicas odontológicas",
+        version: "1.0.0",
+        isActive: true,
+        requiredPermissions: ["clinic:read", "clinic:write"],
+      });
+      console.log("Clinic module created");
+    }
+
+    // Initialize module manager
+    await moduleManager.initialize();
+    console.log("Module system initialized");
+
+    // Load module routes dynamically
+    app.use("/api/modules", moduleManager.getModuleRoutes());
+    console.log("Module routes loaded");
+
+  } catch (error) {
+    console.error("Failed to initialize modules:", error);
+  }
+}
+
+// Start server
+async function startServer() {
+  try {
+    await initializeModules();
+    
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Core system running on port ${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`🔐 Authentication and administration ready`);
+      console.log(`🧩 Modular architecture active`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
+
+export default app;
