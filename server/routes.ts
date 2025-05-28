@@ -10,6 +10,7 @@ import { clinicSettings, fiscalSettings, permissions, userPermissions, commissio
 import { eq } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
+import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
