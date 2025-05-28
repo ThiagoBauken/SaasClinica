@@ -19,6 +19,7 @@ import OdontogramDemo from "@/pages/odontogram-demo";
 import CadastrosPage from "@/pages/cadastros-page";
 import ConfiguracoesPage from "@/pages/configuracoes-page";
 import ConfiguracoesClinicaPage from "@/pages/configuracoes-clinica";
+import AdminPage from "@/pages/admin-page";
 import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 
@@ -50,6 +51,7 @@ export default function App() {
             <ProtectedRoute path="/cadastros" component={CadastrosPage} />
             <ProtectedRoute path="/configuracoes" component={ConfiguracoesPage} />
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
+            <ProtectedRoute path="/admin" component={AdminPage} />
           </Switch>
         </Suspense>
         <Toaster />

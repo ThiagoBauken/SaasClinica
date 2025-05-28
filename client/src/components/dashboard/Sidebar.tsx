@@ -98,6 +98,10 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           <Settings className="mr-3 h-5 w-5" />
           Configurações
         </Link>
+        <Link href="/admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <BoxSelect className="mr-3 h-5 w-5" />
+          Administração
+        </Link>
       </nav>
     </div>
   );
