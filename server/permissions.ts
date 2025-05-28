@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
+import { modules, companyModules } from "@shared/schema";
 
 // Tipos de permissões disponíveis
 export type Permission = "read" | "write" | "delete" | "admin";
@@ -66,12 +67,12 @@ export async function checkUserModulePermission(
     // Verificar se o módulo está ativo para a empresa
     const [companyModule] = await db
       .select()
-      .from(db.schema.companyModules)
+      .from(companyModules)
       .where(
         and(
-          eq(db.schema.companyModules.companyId, companyId),
-          eq(db.schema.companyModules.moduleId, module.id),
-          eq(db.schema.companyModules.isEnabled, true)
+          eq(companyModules.companyId, companyId),
+          eq(companyModules.moduleId, module.id),
+          eq(companyModules.isEnabled, true)
         )
       );
 
@@ -80,7 +81,7 @@ export async function checkUserModulePermission(
     }
 
     // Buscar permissões do usuário para este módulo
-    const result = await db.query(`
+    const result = await db.$client.query(`
       SELECT permissions 
       FROM user_module_permissions 
       WHERE user_id = $1 AND module_id = $2 AND company_id = $3
@@ -103,7 +104,7 @@ export async function checkUserModulePermission(
  */
 export async function getUserModulePermissions(userId: number, companyId: number) {
   try {
-    const result = await db.query(`
+    const result = await db.$client.query(`
       SELECT 
         m.name as module_name,
         m.display_name,
@@ -152,7 +153,7 @@ export async function grantModulePermission(
     }
 
     // Inserir ou atualizar permissões
-    await db.query(`
+    await db.$client.query(`
       INSERT INTO user_module_permissions (user_id, company_id, module_id, permissions, granted_by)
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (user_id, module_id)
