@@ -23,6 +23,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // Middleware para verificar autenticação em todas as rotas API
+  const authCheck = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  };
+
+  // Middleware combinado: auth + tenant isolation
+  const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
+
+  // Função auxiliar para tratamento de erros assíncrono
+  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
+  };
+
   // Company info for current user
   app.get("/api/user/company", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
@@ -41,27 +59,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     res.json(company);
   }));
-
-  // API routes
-  // --------------------------
-
-  // Middleware para verificar autenticação em todas as rotas API
-  const authCheck = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-  };
-
-  // Middleware combinado: auth + tenant isolation
-  const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
-
-  // Função auxiliar para tratamento de erros assíncrono
-  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
-  };
 
   // === ROTAS DE ADMINISTRAÇÃO SaaS (SuperAdmin) ===
   // Para gerenciar empresas e ativar/desativar módulos
