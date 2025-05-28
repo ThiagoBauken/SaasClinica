@@ -91,8 +91,8 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
               </TableCell>
             </TableRow>
           ) : (
-            patients.map((patient) => (
-              <TableRow key={patient.id}>
+            patients.map((patient, index) => (
+              <TableRow key={`patient-${patient.id}-${index}`}>
                 <TableCell>
                   <div 
                     className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"

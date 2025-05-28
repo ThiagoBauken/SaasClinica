@@ -216,25 +216,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Automations
-  app.get("/api/automations", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const automations = await storage.getAutomations();
-      res.json(automations);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.get("/api/automations", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
+    const automations = await storage.getAutomations();
+    res.json(automations);
+  }));
 
-  app.post("/api/automations", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const automation = await storage.createAutomation(req.body);
-      res.status(201).json(automation);
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.post("/api/automations", authCheck, asyncHandler(async (req, res) => {
+    const automation = await storage.createAutomation(req.body);
+    res.status(201).json(automation);
+  }));
 
   app.patch("/api/automations/:id", async (req, res, next) => {
     try {
