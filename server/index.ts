@@ -101,14 +101,6 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   });
 
   (async () => {
-    // Inicializar sistema de módulos
-    const { moduleManager } = await import("./core/moduleManager");
-    await moduleManager.initialize(app);
-    
-    // Registrar rotas de administração
-    const adminRoutes = await import("./routes/admin");
-    app.use("/api/admin", adminRoutes.default);
-    
     const server = await registerRoutes(app);
 
     // Middleware de tratamento de erros mais robusto

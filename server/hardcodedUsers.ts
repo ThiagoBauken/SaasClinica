@@ -4,12 +4,11 @@ import { User } from "@shared/schema";
 export const fixedUsers: User[] = [
   {
     id: 99999,
-    companyId: 1,
     username: "admin",
     password: "admin123",
     fullName: "Administrador",
     email: "admin@dentalsys.com",
-    role: "superadmin",
+    role: "admin",
     phone: null,
     profileImageUrl: null,
     speciality: null,
@@ -21,7 +20,6 @@ export const fixedUsers: User[] = [
   },
   {
     id: 99998,
-    companyId: 1,
     username: "dentista",
     password: "dentista123",
     fullName: "Dr. Dentista",
