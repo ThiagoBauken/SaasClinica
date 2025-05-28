@@ -21,6 +21,8 @@ import ConfiguracoesPage from "@/pages/configuracoes-page";
 import ConfiguracoesClinicaPage from "@/pages/configuracoes-clinica";
 import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
+import SaasAdminPage from "@/pages/SaasAdminPage";
+import CompanyAdminPage from "@/pages/CompanyAdminPage";
 
 export default function App() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
             <ProtectedRoute path="/cadastros" component={CadastrosPage} />
             <ProtectedRoute path="/configuracoes" component={ConfiguracoesPage} />
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
+            <ProtectedRoute path="/saas-admin" component={SaasAdminPage} />
+            <ProtectedRoute path="/company-admin" component={CompanyAdminPage} />
           </Switch>
         </Suspense>
         <Toaster />

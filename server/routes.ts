@@ -63,6 +63,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
+  // === ROTAS DE ADMINISTRAÇÃO SaaS (SuperAdmin) ===
+  // Para gerenciar empresas e ativar/desativar módulos
+  app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "SuperAdmin access required" });
+    }
+    
+    const result = await db.$client.query('SELECT * FROM companies ORDER BY name');
+    res.json(result.rows);
+  }));
+
+  app.get("/api/saas/companies/:companyId/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "SuperAdmin access required" });
+    }
+    
+    const { companyId } = req.params;
+    const result = await db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        cm.is_enabled,
+        cm.enabled_at
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      ORDER BY m.display_name
+    `, [companyId]);
+    
+    res.json(result.rows);
+  }));
+
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "SuperAdmin access required" });
+    }
+    
+    const { companyId, moduleId } = req.params;
+    const { enabled } = req.body;
+    
+    await db.$client.query(`
+      INSERT INTO company_modules (company_id, module_id, is_enabled, enabled_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (company_id, module_id)
+      DO UPDATE SET is_enabled = $3, enabled_at = NOW()
+    `, [companyId, moduleId, enabled]);
+    
+    res.json({ message: `Module ${enabled ? 'enabled' : 'disabled'} for company` });
+  }));
+
+  // === ROTAS DE ADMINISTRAÇÃO DA CLÍNICA (Admin da Empresa) ===
+  // Para gerenciar usuários e permissões dentro da empresa
+  app.get("/api/admin/users", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const result = await db.$client.query(`
+      SELECT id, username, full_name, email, phone, role, speciality, active, created_at
+      FROM users 
+      WHERE company_id = $1
+      ORDER BY full_name
+    `, [user.companyId]);
+    
+    res.json(result.rows);
+  }));
+
+  app.get("/api/admin/users/:userId/permissions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const { userId } = req.params;
+    const permissions = await getUserModulePermissions(parseInt(userId), user.companyId);
+    res.json(permissions);
+  }));
+
+  app.post("/api/admin/users/:userId/permissions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const { userId } = req.params;
+    const { moduleName, permissions } = req.body;
+    
+    const success = await grantModulePermission(
+      parseInt(userId), 
+      user.companyId, 
+      moduleName, 
+      permissions, 
+      user.id
+    );
+    
+    if (success) {
+      res.json({ message: "Permissions updated successfully" });
+    } else {
+      res.status(500).json({ message: "Failed to update permissions" });
+    }
+  }));
+
+  // === ROTAS DE USUÁRIO NORMAL ===
+  // Para usuários consultarem suas próprias permissões
+  app.get("/api/user/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const permissions = await getUserModulePermissions(user.id, user.companyId);
+    res.json(permissions);
+  }));
+
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const patients = await storage.getPatients(req.tenant!.companyId);
