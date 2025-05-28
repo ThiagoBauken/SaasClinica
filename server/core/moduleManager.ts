@@ -67,7 +67,7 @@ class ModuleManager {
   }
 
   private async loadModule(moduleName: string) {
-    const modulePath = path.join(__dirname, "../modules", moduleName, "index.ts");
+    const modulePath = path.join(process.cwd(), "server/modules", moduleName, "index.ts");
     
     if (!fs.existsSync(modulePath)) {
       console.warn(`Module ${moduleName} does not have an index.ts file`);
@@ -75,7 +75,7 @@ class ModuleManager {
     }
 
     try {
-      const moduleDefinition = require(modulePath).default as ModuleDefinition;
+      const moduleDefinition = (await import(modulePath)).default as ModuleDefinition;
       
       // Validate module definition
       if (!moduleDefinition.info || !moduleDefinition.info.name) {
