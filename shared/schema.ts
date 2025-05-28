@@ -96,6 +96,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 // Patients
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   fullName: text("full_name").notNull(),
   email: text("email"),
   phone: text("phone"),
@@ -109,6 +110,7 @@ export const patients = pgTable("patients", {
 });
 
 export const insertPatientSchema = createInsertSchema(patients).pick({
+  companyId: true,
   fullName: true,
   email: true,
   phone: true,
@@ -123,6 +125,7 @@ export const insertPatientSchema = createInsertSchema(patients).pick({
 // Appointments
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   title: text("title").notNull(),
   patientId: integer("patient_id").references(() => patients.id),
   professionalId: integer("professional_id").references(() => users.id),
@@ -142,6 +145,7 @@ export const appointments = pgTable("appointments", {
 });
 
 export const insertAppointmentSchema = createInsertSchema(appointments).pick({
+  companyId: true,
   title: true,
   patientId: true,
   professionalId: true,

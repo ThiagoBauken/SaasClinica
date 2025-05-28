@@ -31,51 +31,52 @@ interface AppointmentFilters {
 }
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
+  // Multi-tenant aware methods
+  getUser(id: number, companyId?: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, data: Partial<User>): Promise<User>;
+  updateUser(id: number, data: Partial<User>, companyId?: number): Promise<User>;
   
-  // Patients
-  getPatients(): Promise<Patient[]>;
-  getPatient(id: number): Promise<Patient | undefined>;
-  createPatient(patient: any): Promise<Patient>;
-  updatePatient(id: number, data: any): Promise<Patient>;
+  // Patients - tenant-aware
+  getPatients(companyId: number): Promise<Patient[]>;
+  getPatient(id: number, companyId: number): Promise<Patient | undefined>;
+  createPatient(patient: any, companyId: number): Promise<Patient>;
+  updatePatient(id: number, data: any, companyId: number): Promise<Patient>;
   
-  // Appointments
-  getAppointments(filters?: AppointmentFilters): Promise<any[]>;
-  getAppointment(id: number): Promise<any | undefined>;
-  createAppointment(appointment: any): Promise<any>;
-  updateAppointment(id: number, data: any): Promise<any>;
+  // Appointments - tenant-aware
+  getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]>;
+  getAppointment(id: number, companyId: number): Promise<any | undefined>;
+  createAppointment(appointment: any, companyId: number): Promise<any>;
+  updateAppointment(id: number, data: any, companyId: number): Promise<any>;
   
-  // Professionals
-  getProfessionals(): Promise<User[]>;
+  // Professionals - tenant-aware
+  getProfessionals(companyId: number): Promise<User[]>;
 
-  // Rooms
-  getRooms(): Promise<Room[]>;
+  // Rooms - tenant-aware
+  getRooms(companyId: number): Promise<Room[]>;
   
-  // Procedures
-  getProcedures(): Promise<Procedure[]>;
+  // Procedures - tenant-aware
+  getProcedures(companyId: number): Promise<Procedure[]>;
   
-  // Patient records
-  getPatientRecords(patientId: number): Promise<PatientRecord[]>;
-  createPatientRecord(record: any): Promise<PatientRecord>;
+  // Patient records - tenant-aware
+  getPatientRecords(patientId: number, companyId: number): Promise<PatientRecord[]>;
+  createPatientRecord(record: any, companyId: number): Promise<PatientRecord>;
   
-  // Odontogram
-  getOdontogramEntries(patientId: number): Promise<OdontogramEntry[]>;
-  createOdontogramEntry(entry: any): Promise<OdontogramEntry>;
+  // Odontogram - tenant-aware
+  getOdontogramEntries(patientId: number, companyId: number): Promise<OdontogramEntry[]>;
+  createOdontogramEntry(entry: any, companyId: number): Promise<OdontogramEntry>;
   
-  // Financial
-  getTransactions(): Promise<Transaction[]>;
-  createTransaction(transaction: any): Promise<Transaction>;
+  // Financial - tenant-aware
+  getTransactions(companyId: number): Promise<Transaction[]>;
+  createTransaction(transaction: any, companyId: number): Promise<Transaction>;
   
-  // Automations
-  getAutomations(): Promise<Automation[]>;
-  createAutomation(automation: any): Promise<Automation>;
-  updateAutomation(id: number, data: any): Promise<Automation>;
-  deleteAutomation(id: number): Promise<void>;
+  // Automations - tenant-aware
+  getAutomations(companyId: number): Promise<Automation[]>;
+  createAutomation(automation: any, companyId: number): Promise<Automation>;
+  updateAutomation(id: number, data: any, companyId: number): Promise<Automation>;
+  deleteAutomation(id: number, companyId: number): Promise<void>;
   
   sessionStore: session.SessionStore;
 }
