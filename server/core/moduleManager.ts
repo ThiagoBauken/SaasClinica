@@ -1,4 +1,4 @@
-import { Express } from "express";
+import { Express, Router } from "express";
 import fs from "fs";
 import path from "path";
 import { db } from "../db";
@@ -33,16 +33,20 @@ export interface ModuleDefinition {
 
 class ModuleManager {
   private loadedModules: Map<string, ModuleDefinition> = new Map();
+  private moduleRouter = Router();
   private app: Express | null = null;
 
-  async initialize(app: Express) {
-    this.app = app;
+  async initialize() {
     await this.loadAvailableModules();
     await this.registerModuleRoutes();
   }
 
+  getModuleRoutes() {
+    return this.moduleRouter;
+  }
+
   private async loadAvailableModules() {
-    const modulesPath = path.join(__dirname, "../modules");
+    const modulesPath = path.join(process.cwd(), "server/modules");
     
     if (!fs.existsSync(modulesPath)) {
       fs.mkdirSync(modulesPath, { recursive: true });
