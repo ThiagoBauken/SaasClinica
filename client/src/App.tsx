@@ -23,6 +23,7 @@ import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
+import ClinicModulesPage from "@/pages/ClinicModulesPage";
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
             <ProtectedRoute path="/saas-admin" component={SaasAdminPage} />
             <ProtectedRoute path="/company-admin" component={CompanyAdminPage} />
+            <ProtectedRoute path="/clinic-modules" component={ClinicModulesPage} />
           </Switch>
         </Suspense>
         <Toaster />

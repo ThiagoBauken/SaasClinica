@@ -106,7 +106,7 @@ export default function ClinicModulesPage() {
     );
   }
 
-  const { byCategory } = modulesData || { byCategory: {} };
+  const { byCategory = {}, loaded = 0 } = modulesData || {};
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -118,7 +118,7 @@ export default function ClinicModulesPage() {
           </p>
         </div>
         <Badge variant="secondary" className="text-sm">
-          {modulesData?.loaded || 0} módulos carregados
+          {loaded} módulos carregados
         </Badge>
       </div>
 

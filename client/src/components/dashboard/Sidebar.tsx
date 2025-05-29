@@ -19,7 +19,8 @@ import {
   PackageOpen,
   Settings,
   BoxSelect,
-  Shield
+  Shield,
+  Building2
 } from "lucide-react";
 
 interface SidebarProps {
@@ -113,6 +114,10 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
         <Link href="/company-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/company-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Settings className="mr-3 h-5 w-5" />
           Admin Clínica
+        </Link>
+        <Link href="/clinic-modules" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/clinic-modules" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Building2 className="mr-3 h-5 w-5" />
+          Módulos da Clínica
         </Link>
       </nav>
     </div>
