@@ -42,17 +42,23 @@ export default function SaasAdminPage() {
   });
 
   // Buscar módulos da empresa selecionada (usando rota de teste)
-  const { data: modules = [], isLoading: modulesLoading } = useQuery({
-    queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules"],
+  const { data: modules = [], isLoading: modulesLoading, refetch: refetchModules } = useQuery({
+    queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules", Date.now()],
     queryFn: async () => {
-      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules`, {
-        cache: 'no-store'
+      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
       return response.json();
     },
     enabled: !!selectedCompany,
     staleTime: 0,
-    cacheTime: 0
+    gcTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   // Mutation para ativar/desativar módulos
@@ -72,7 +78,9 @@ export default function SaasAdminPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules"] });
+      // Forçar refetch imediato
+      refetchModules();
+      
       toast({
         title: "Sucesso",
         description: "Módulo atualizado com sucesso",
