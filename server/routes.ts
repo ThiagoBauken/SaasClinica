@@ -24,6 +24,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
+  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
+    const companyId = 3; // Dental Care Plus
+    const activeModules = await db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      WHERE cm.is_enabled = true
+      ORDER BY m.display_name
+    `, [companyId]);
+    res.json(activeModules.rows);
+  }));
+
+  app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {
+    const modules = moduleRegistry.getAllModules();
+    const modulesByCategory = moduleRegistry.getModulesByCategory();
+    res.json({
+      all: modules,
+      byCategory: modulesByCategory,
+      loaded: modules.length
+    });
+  }));
+
   // === ROTAS SaaS TEMPORÁRIAS (SEM AUTENTICAÇÃO) ===
   app.get("/api/saas/companies", (req: Request, res: Response) => {
     db.$client.query('SELECT * FROM companies ORDER BY name')
