@@ -173,12 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // === ROTAS DE USUÁRIO NORMAL ===
-  // Para usuários consultarem suas próprias permissões
-  app.get("/api/user/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    const permissions = await getUserModulePermissions(user.id, user.companyId);
-    res.json(permissions);
-  }));
+  // Esta rota foi movida para a seção de APIs de módulos mais abaixo
 
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
