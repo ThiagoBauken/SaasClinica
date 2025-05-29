@@ -49,17 +49,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { companyId, moduleId } = req.params;
     const { enabled } = req.body;
     
-    const query = enabled 
-      ? `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
-         VALUES ($1, $2, true, NOW(), NOW()) 
-         ON CONFLICT (company_id, module_id) 
-         DO UPDATE SET is_enabled = true, updated_at = NOW()`
-      : `UPDATE company_modules SET is_enabled = false, updated_at = NOW() 
-         WHERE company_id = $1 AND module_id = $2`;
-         
-    db.$client.query(query, [companyId, moduleId])
-      .then(() => res.json({ success: true }))
-      .catch(err => res.status(500).json({ error: err.message }));
+    if (enabled) {
+      // Inserir ou atualizar para ativado
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
+                     VALUES ($1, $2, true, NOW(), NOW()) 
+                     ON CONFLICT (company_id, module_id) 
+                     DO UPDATE SET is_enabled = true, updated_at = NOW()`;
+      
+      db.$client.query(query, [companyId, moduleId])
+        .then(() => res.json({ success: true, message: 'Módulo ativado' }))
+        .catch(err => res.status(500).json({ error: err.message }));
+    } else {
+      // Inserir ou atualizar para desativado
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
+                     VALUES ($1, $2, false, NOW(), NOW()) 
+                     ON CONFLICT (company_id, module_id) 
+                     DO UPDATE SET is_enabled = false, updated_at = NOW()`;
+      
+      db.$client.query(query, [companyId, moduleId])
+        .then(() => res.json({ success: true, message: 'Módulo desativado' }))
+        .catch(err => res.status(500).json({ error: err.message }));
+    }
   });
 
   // Middleware para verificar autenticação em todas as rotas API
