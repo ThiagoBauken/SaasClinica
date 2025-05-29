@@ -24,6 +24,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // Função auxiliar para tratamento de erros assíncrono
+  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
+  };
+
   // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
   app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
     const companyId = 3; // Dental Care Plus
@@ -114,13 +121,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware combinado: auth + tenant isolation
   const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
-
-  // Função auxiliar para tratamento de erros assíncrono
-  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
-  };
 
   // Company info for current user
   app.get("/api/user/company", authCheck, asyncHandler(async (req, res) => {
