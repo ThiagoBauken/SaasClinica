@@ -44,7 +44,7 @@ export default function CompanyAdminPage() {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const response = await apiRequest("/api/admin/users", "GET");
+      const response = await apiRequest("GET", "/api/admin/users");
       return response.json();
     }
   });
@@ -53,7 +53,7 @@ export default function CompanyAdminPage() {
   const { data: userPermissions = [], isLoading: permissionsLoading } = useQuery({
     queryKey: ["/api/admin/users", selectedUser?.id, "permissions"],
     queryFn: async () => {
-      const response = await apiRequest(`/api/admin/users/${selectedUser?.id}/permissions`, "GET");
+      const response = await apiRequest("GET", `/api/admin/users/${selectedUser?.id}/permissions`);
       return response.json();
     },
     enabled: !!selectedUser

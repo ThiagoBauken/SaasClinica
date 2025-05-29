@@ -34,7 +34,7 @@ export default function SaasAdminPage() {
   const { data: companies = [], isLoading: companiesLoading } = useQuery({
     queryKey: ["/api/saas/companies"],
     queryFn: async () => {
-      const response = await apiRequest("/api/saas/companies", "GET");
+      const response = await apiRequest("GET", "/api/saas/companies");
       return response.json();
     }
   });
@@ -43,7 +43,7 @@ export default function SaasAdminPage() {
   const { data: modules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ["/api/saas/companies", selectedCompany?.id, "modules"],
     queryFn: async () => {
-      const response = await apiRequest(`/api/saas/companies/${selectedCompany?.id}/modules`, "GET");
+      const response = await apiRequest("GET", `/api/saas/companies/${selectedCompany?.id}/modules`);
       return response.json();
     },
     enabled: !!selectedCompany
