@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useModules } from "@/hooks/use-modules";
 import { 
   Search, 
   LayoutDashboard, 
@@ -20,7 +21,8 @@ import {
   Settings,
   BoxSelect,
   Shield,
-  Building2
+  Building2,
+  CalendarDays
 } from "lucide-react";
 
 interface SidebarProps {
@@ -30,6 +32,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: SidebarProps) {
+  const { dynamicMenuItems, isLoading } = useModules();
   const [filters, setFilters] = useState({
     status: "all",
     professional: "all",
@@ -53,6 +56,23 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
       procedure: "all",
       room: "all",
     });
+  };
+
+  // Mapeamento de ícones
+  const iconMap = {
+    Calendar,
+    CalendarDays,
+    Users,
+    DollarSign,
+    Package,
+    Scissors,
+    Activity,
+    Bot,
+    LayoutDashboard,
+    Settings,
+    BoxSelect,
+    Shield,
+    Building2
   };
 
   // Menu de navegação com links
