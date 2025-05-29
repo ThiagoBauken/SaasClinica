@@ -23,8 +23,6 @@ import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
-import ClinicModulesPage from "@/pages/ClinicModulesPage";
-import ClinicDashboard from "@/pages/ClinicDashboard";
 
 export default function App() {
   return (
@@ -32,9 +30,9 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<div className="flex items-center justify-center h-screen">Carregando...</div>}>
           <Switch>
-            {/* Redirecionamento da raiz para o dashboard da clínica */}
+            {/* Redirecionamento da raiz para a página de autenticação */}
             <Route path="/">
-              <Redirect to="/clinic-dashboard" />
+              <Redirect to="/auth" />
             </Route>
             
             {/* Rotas públicas */}
@@ -56,11 +54,6 @@ export default function App() {
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
             <ProtectedRoute path="/saas-admin" component={SaasAdminPage} />
             <ProtectedRoute path="/company-admin" component={CompanyAdminPage} />
-            <ProtectedRoute path="/admin/saas" component={SaasAdminPage} />
-            <ProtectedRoute path="/admin/company" component={CompanyAdminPage} />
-            <ProtectedRoute path="/admin/company/modules" component={ClinicModulesPage} />
-            <ProtectedRoute path="/clinic-dashboard" component={ClinicDashboard} />
-            <ProtectedRoute path="/calendar" component={AgendaPage} />
           </Switch>
         </Suspense>
         <Toaster />
