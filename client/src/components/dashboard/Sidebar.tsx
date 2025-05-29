@@ -6,8 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useUserModules } from "@/hooks/use-user-modules";
-import { useAuth } from "@/hooks/use-auth";
 import { 
   Search, 
   LayoutDashboard, 
@@ -22,8 +20,7 @@ import {
   Settings,
   BoxSelect,
   Shield,
-  Building2,
-  CalendarDays
+  Building2
 } from "lucide-react";
 
 interface SidebarProps {
@@ -33,8 +30,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: SidebarProps) {
-  const { user } = useAuth();
-  const { menuItems, isModuleActive, isLoading } = useUserModules();
   const [filters, setFilters] = useState({
     status: "all",
     professional: "all",
@@ -60,54 +55,43 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
     });
   };
 
-  // Mapeamento de ícones
-  const iconMap: Record<string, any> = {
-    LayoutDashboard,
-    Calendar,
-    CalendarDays,
-    Users,
-    DollarSign,
-    Bot,
-    Scissors,
-    Activity,
-    Package,
-    PackageOpen,
-    Settings,
-    BoxSelect,
-    Shield,
-    Building2
-  };
-
-  // Menu de navegação com links dinâmicos
+  // Menu de navegação com links
   const navigationMenu = (
     <div className="mb-8">
       <h2 className="text-lg font-semibold text-foreground mb-4 px-4">Menu</h2>
       <nav className="space-y-1">
-        {/* Dashboard sempre visível */}
         <Link href="/dashboard" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/dashboard" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
-
-        {/* Módulos dinâmicos baseados em permissões */}
-        {!isLoading && menuItems.map((item) => {
-          const IconComponent = iconMap[item.icon] || Settings;
-          return (
-            <Link 
-              key={item.path}
-              href={item.path} 
-              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${
-                currentPath === item.path ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
-              }`} 
-              onClick={onMobileClose}
-            >
-              <IconComponent className="mr-3 h-5 w-5" />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        {/* Links estáticos (sempre visíveis) */}
+        <Link href="/schedule" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/schedule" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Calendar className="mr-3 h-5 w-5" />
+          Agenda
+        </Link>
+        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Users className="mr-3 h-5 w-5" />
+          Pacientes
+        </Link>
+        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <DollarSign className="mr-3 h-5 w-5" />
+          Financeiro
+        </Link>
+        <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Bot className="mr-3 h-5 w-5" />
+          Automações
+        </Link>
+        <Link href="/prosthesis" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthesis" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Scissors className="mr-3 h-5 w-5" />
+          Controle de Próteses
+        </Link>
+        <Link href="/inventory" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/inventory" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <PackageOpen className="mr-3 h-5 w-5" />
+          Controle de Estoque
+        </Link>
+        <Link href="/odontogram-demo" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram-demo" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Activity className="mr-3 h-5 w-5" />
+          Odontograma
+        </Link>
         <Link href="/cadastros" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/cadastros" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <BoxSelect className="mr-3 h-5 w-5" />
           Cadastros
@@ -117,26 +101,20 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           Configurações
         </Link>
         
-        {/* Seção de Administração - apenas para admins */}
-        {(user?.role === 'admin' || user?.role === 'superadmin') && (
-          <>
-            <div className="mt-6 mb-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
-                Administração
-              </h3>
-            </div>
-            {user?.role === 'superadmin' && (
-              <Link href="/saas-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/saas-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
-                <Shield className="mr-3 h-5 w-5" />
-                Admin SaaS
-              </Link>
-            )}
-            <Link href="/company-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/company-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
-              <Settings className="mr-3 h-5 w-5" />
-              Admin Clínica
-            </Link>
-          </>
-        )}
+        {/* Seção de Administração */}
+        <div className="mt-6 mb-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
+            Administração
+          </h3>
+        </div>
+        <Link href="/saas-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/saas-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Shield className="mr-3 h-5 w-5" />
+          Admin SaaS
+        </Link>
+        <Link href="/company-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/company-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Settings className="mr-3 h-5 w-5" />
+          Admin Clínica
+        </Link>
       </nav>
     </div>
   );
