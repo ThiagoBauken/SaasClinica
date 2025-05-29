@@ -37,6 +37,7 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
   // Menu estático como fallback
   const fallbackMenuItems = [
     { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
+    { label: 'Agenda Modular', path: '/schedule-modular', icon: 'CalendarDays' },
     { label: 'Pacientes', path: '/patients', icon: 'Users' },
     { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
     { label: 'Automações', path: '/automation', icon: 'Bot' },

@@ -25,6 +25,7 @@ import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
+import ScheduleModularPage from "@/pages/schedule-modular-page";
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/schedule" component={SchedulePage} />
+            <ProtectedRoute path="/schedule-modular" component={ScheduleModularPage} />
             <ProtectedRoute path="/agenda" component={AgendaPage} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
