@@ -16,19 +16,6 @@ const ModuleLoader = () => (
   </div>
 );
 
-// Componente de erro
-const ModuleError = ({ error, resetErrorBoundary }: any) => (
-  <div className="flex flex-col items-center justify-center h-64 space-y-4">
-    <div className="text-lg text-red-600">Erro ao carregar módulo</div>
-    <button 
-      onClick={resetErrorBoundary}
-      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80"
-    >
-      Tentar novamente
-    </button>
-  </div>
-);
-
 // Map de módulos lazy
 export const lazyModules = {
   schedule: LazySchedulePage,
@@ -40,7 +27,7 @@ export const lazyModules = {
   odontogram: LazyOdontogramPage,
 };
 
-// Wrapper para carregar módulos com segurança
+// Wrapper simples para carregar módulos com segurança
 export function LazyModuleWrapper({ 
   moduleName, 
   fallback 
@@ -60,13 +47,8 @@ export function LazyModuleWrapper({
   }
 
   return (
-    <ErrorBoundary
-      FallbackComponent={ModuleError}
-      onReset={() => window.location.reload()}
-    >
-      <Suspense fallback={<ModuleLoader />}>
-        <LazyComponent />
-      </Suspense>
-    </ErrorBoundary>
+    <Suspense fallback={<ModuleLoader />}>
+      <LazyComponent />
+    </Suspense>
   );
 }
