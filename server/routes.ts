@@ -124,13 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Middleware para verificar autenticação em todas as rotas API
-  const authCheck = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-  };
+
 
   // Middleware combinado: auth + tenant isolation
   const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
