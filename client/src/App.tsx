@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { LazyModuleWrapper } from "@/components/LazyModuleLoader";
 
 // Import pages diretamente em vez de lazy loading para evitar erros no desenvolvimento
 import DashboardPage from "@/pages/dashboard-page";

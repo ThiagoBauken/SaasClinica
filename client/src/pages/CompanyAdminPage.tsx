@@ -85,9 +85,13 @@ export default function CompanyAdminPage() {
     enabled: !!selectedUser
   });
 
-  // Buscar módulos da clínica
-  const { data: modulesData, isLoading: modulesLoading } = useQuery({
-    queryKey: ["/api/clinic/modules"],
+  // Buscar módulos usando a mesma API do SaaS (empresa 3 - Dental Care Plus)
+  const { data: modulesData = [], isLoading: modulesLoading } = useQuery({
+    queryKey: ["/api/test/saas/companies/3/modules"],
+    queryFn: async () => {
+      const response = await fetch("/api/test/saas/companies/3/modules");
+      return response.json();
+    },
     staleTime: 30000
   });
 
@@ -201,7 +205,22 @@ export default function CompanyAdminPage() {
     );
   }
 
-  const { byCategory = {}, loaded = 0 } = modulesData || {};
+  // Adaptar dados dos módulos para o formato esperado
+  const adaptedModulesData = {
+    byCategory: {
+      clinica: modulesData.map((module: any) => ({
+        definition: {
+          id: module.name,
+          displayName: module.display_name,
+          description: module.description
+        },
+        isActive: module.is_enabled || false
+      }))
+    },
+    loaded: modulesData.length
+  };
+
+  const { byCategory = {}, loaded = 0 } = adaptedModulesData;
 
   return (
     <div className="container mx-auto p-6">
