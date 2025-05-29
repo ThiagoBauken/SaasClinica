@@ -113,21 +113,21 @@ export default function SaasAdminPage() {
           </p>
         </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Lista de Empresas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Empresas
-            </CardTitle>
-            <CardDescription>
-              Selecione uma empresa para gerenciar seus módulos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {companies.map((company: Company) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Lista de Empresas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Empresas
+              </CardTitle>
+              <CardDescription>
+                Selecione uma empresa para gerenciar seus módulos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {companies.map((company: Company) => (
                 <div
                   key={company.id}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -212,7 +212,6 @@ export default function SaasAdminPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
     </div>
   );
 }
