@@ -36,14 +36,14 @@ export function useModules() {
 
   useEffect(() => {
     if (userPermissions && Array.isArray(userPermissions)) {
-      // Criar menu dinâmico baseado nas permissões do usuário
-      const moduleMenuMap = {
-        'agenda': { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-        'pacientes': { label: 'Pacientes', path: '/patients', icon: 'Users' },
-        'financeiro': { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+      // Criar menu dinâmico baseado nas permissões do usuário (usando rotas modulares)
+      const moduleMenuMap: Record<string, { label: string; path: string; icon: string }> = {
+        'agenda': { label: 'Agenda', path: '/schedule-modular', icon: 'Calendar' },
+        'pacientes': { label: 'Pacientes', path: '/patients-modular', icon: 'Users' },
+        'financeiro': { label: 'Financeiro', path: '/financial-modular', icon: 'DollarSign' },
         'automacoes': { label: 'Automações', path: '/automation', icon: 'Bot' },
         'proteses': { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-        'estoque': { label: 'Estoque', path: '/inventory', icon: 'Package' },
+        'estoque': { label: 'Estoque', path: '/inventory-modular', icon: 'Package' },
         'odontograma': { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
       };
 
