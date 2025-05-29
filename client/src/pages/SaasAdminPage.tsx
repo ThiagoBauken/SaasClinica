@@ -45,10 +45,14 @@ export default function SaasAdminPage() {
   const { data: modules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules"],
     queryFn: async () => {
-      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules`);
+      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules`, {
+        cache: 'no-store'
+      });
       return response.json();
     },
-    enabled: !!selectedCompany
+    enabled: !!selectedCompany,
+    staleTime: 0,
+    cacheTime: 0
   });
 
   // Mutation para ativar/desativar módulos

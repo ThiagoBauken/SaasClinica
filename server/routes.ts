@@ -33,6 +33,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/saas/companies/:companyId/modules", (req: Request, res: Response) => {
     const { companyId } = req.params;
+    
+    // Desabilitar cache para esta rota
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    
     db.$client.query(`
       SELECT 
         m.id, m.name, m.display_name, m.description,
