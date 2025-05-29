@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Building2, Settings, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import AdminNavbar from "@/components/admin/AdminNavbar";
 
 interface Company {
   id: number;
@@ -87,25 +88,30 @@ export default function SaasAdminPage() {
 
   if (companiesLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Carregando empresas...</div>
+      <div className="min-h-screen bg-gray-50">
+        <AdminNavbar type="saas" />
+        <div className="container mx-auto p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Carregando empresas...</div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Settings className="h-8 w-8" />
-          Administração SaaS
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gerencie empresas e seus módulos habilitados
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AdminNavbar type="saas" />
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Settings className="h-8 w-8" />
+            Administração SaaS
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Gerencie empresas e seus módulos habilitados
+          </p>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lista de Empresas */}
@@ -206,6 +212,7 @@ export default function SaasAdminPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
     </div>
   );
 }
