@@ -2,7 +2,7 @@
 import { lazy } from 'react';
 
 // Lazy loading dos componentes do módulo
-export const FinancialPage = lazy(() => import('../../../pages/financial-page'));
+export const FinancialPage = lazy(() => import('./FinanceiroPage'));
 
 // Configuração do módulo frontend
 export const financeiroModuleConfig = {

@@ -2,7 +2,7 @@
 import { lazy } from 'react';
 
 // Lazy loading dos componentes do módulo
-export const PatientsPage = lazy(() => import('../../../pages/patients-page'));
+export const PatientsPage = lazy(() => import('./PacientesPage'));
 
 // Configuração do módulo frontend
 export const pacientesModuleConfig = {
