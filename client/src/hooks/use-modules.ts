@@ -19,49 +19,38 @@ export function useModules() {
   const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>([]);
 
   // Buscar permissões do usuário
-  const { data: userPermissions = [] } = useQuery({
+  const { data: userPermissions = [], error: permissionsError } = useQuery({
     queryKey: ['/api/user/modules'],
     enabled: !!user,
     staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: false
   });
 
   // Buscar módulos ativos do backend
-  const { data: backendModules } = useQuery({
+  const { data: backendModules, error: modulesError } = useQuery({
     queryKey: ['/api/clinic/modules'],
     enabled: !!user,
-    staleTime: 30000
+    staleTime: 30000,
+    retry: false
   });
 
   useEffect(() => {
-    if (!user || !userPermissions.length) {
-      setActiveModules([]);
-      setDynamicRoutes([]);
-      setDynamicMenuItems([]);
-      return;
-    }
-
-    // Extrair permissões do usuário
-    const permissions = userPermissions.flatMap((perm: any) => 
-      perm.moduleEnabled ? perm.permissions : []
-    );
-
-    // Filtrar módulos frontend baseado nas permissões
-    const userActiveModules = getActiveModulesForUser(permissions);
+    // Menu padrão sempre disponível
+    const defaultMenuItems = [
+      { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
+      { label: 'Calendário', path: '/agenda', icon: 'CalendarDays' },
+      { label: 'Pacientes', path: '/patients', icon: 'Users' },
+      { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+      { label: 'Automações', path: '/automation', icon: 'Bot' },
+      { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
+      { label: 'Estoque', path: '/inventory', icon: 'Package' },
+      { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
+    ];
     
-    // Filtrar apenas módulos que estão ativos no backend
-    const activeBackendModules = backendModules?.byCategory ? 
-      Object.values(backendModules.byCategory).flat().filter((mod: any) => mod.isActive) : [];
-    
-    const finalActiveModules = userActiveModules.filter(frontendModule =>
-      activeBackendModules.some((backendModule: any) => 
-        backendModule.definition.id === frontendModule.id
-      )
-    );
-
-    setActiveModules(finalActiveModules);
-    setDynamicRoutes(generateDynamicRoutes(finalActiveModules));
-    setDynamicMenuItems(generateDynamicMenuItems(finalActiveModules));
-  }, [user, userPermissions, backendModules]);
+    setDynamicMenuItems(defaultMenuItems);
+    setActiveModules(frontendModules);
+    setDynamicRoutes(generateDynamicRoutes(frontendModules));
+  }, []); // Apenas executar uma vez na inicialização
 
   return {
     activeModules,

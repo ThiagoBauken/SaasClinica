@@ -32,7 +32,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: SidebarProps) {
-  const { dynamicMenuItems, isLoading } = useModules();
+  // Temporariamente desabilitado o sistema modular dinâmico para evitar loops
+  // const { dynamicMenuItems, isLoading } = useModules();
   const [filters, setFilters] = useState({
     status: "all",
     professional: "all",
@@ -75,15 +76,18 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
     Building2
   };
 
-  // Menu de navegação com links
+  // Menu de navegação com links dinâmicos
   const navigationMenu = (
     <div className="mb-8">
       <h2 className="text-lg font-semibold text-foreground mb-4 px-4">Menu</h2>
       <nav className="space-y-1">
+        {/* Dashboard sempre visível */}
         <Link href="/dashboard" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/dashboard" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
+        
+        {/* Menu estático funcional */}
         <Link href="/schedule" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/schedule" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Calendar className="mr-3 h-5 w-5" />
           Agenda
@@ -105,13 +109,15 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           Controle de Próteses
         </Link>
         <Link href="/inventory" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/inventory" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
-          <PackageOpen className="mr-3 h-5 w-5" />
+          <Package className="mr-3 h-5 w-5" />
           Controle de Estoque
         </Link>
         <Link href="/odontogram-demo" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram-demo" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Activity className="mr-3 h-5 w-5" />
           Odontograma
         </Link>
+
+        {/* Menu estático de apoio */}
         <Link href="/cadastros" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/cadastros" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <BoxSelect className="mr-3 h-5 w-5" />
           Cadastros
