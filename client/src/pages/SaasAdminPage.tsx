@@ -33,13 +33,19 @@ export default function SaasAdminPage() {
   // Buscar todas as empresas
   const { data: companies = [], isLoading: companiesLoading } = useQuery({
     queryKey: ["/api/saas/companies"],
-    queryFn: () => apiRequest("/api/saas/companies")
+    queryFn: async () => {
+      const response = await apiRequest("/api/saas/companies", "GET");
+      return response.json();
+    }
   });
 
   // Buscar módulos da empresa selecionada
   const { data: modules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ["/api/saas/companies", selectedCompany?.id, "modules"],
-    queryFn: () => apiRequest(`/api/saas/companies/${selectedCompany?.id}/modules`),
+    queryFn: async () => {
+      const response = await apiRequest(`/api/saas/companies/${selectedCompany?.id}/modules`, "GET");
+      return response.json();
+    },
     enabled: !!selectedCompany
   });
 

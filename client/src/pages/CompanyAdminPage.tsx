@@ -43,13 +43,19 @@ export default function CompanyAdminPage() {
   // Buscar usuários da empresa
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiRequest("/api/admin/users")
+    queryFn: async () => {
+      const response = await apiRequest("/api/admin/users", "GET");
+      return response.json();
+    }
   });
 
   // Buscar permissões do usuário selecionado
   const { data: userPermissions = [], isLoading: permissionsLoading } = useQuery({
     queryKey: ["/api/admin/users", selectedUser?.id, "permissions"],
-    queryFn: () => apiRequest(`/api/admin/users/${selectedUser?.id}/permissions`),
+    queryFn: async () => {
+      const response = await apiRequest(`/api/admin/users/${selectedUser?.id}/permissions`, "GET");
+      return response.json();
+    },
     enabled: !!selectedUser
   });
 
