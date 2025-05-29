@@ -64,8 +64,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Para gerenciar empresas e ativar/desativar módulos
   app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
     const user = req.user as any;
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: "SuperAdmin access required" });
+    console.log('User in SaaS route:', user); // Debug log
+    if (!user || user.role !== 'superadmin') {
+      return res.status(403).json({ message: "SuperAdmin access required", userRole: user?.role });
     }
     
     const result = await db.$client.query('SELECT * FROM companies ORDER BY name');
