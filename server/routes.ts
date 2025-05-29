@@ -24,6 +24,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // Middleware para verificar autenticação
+  const authCheck = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  };
+
   // Função auxiliar para tratamento de erros assíncrono
   const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
     return (req: Request, res: Response, next: NextFunction) => {
@@ -31,19 +39,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
-  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
-    const companyId = 3; // Dental Care Plus
-    const activeModules = await db.$client.query(`
+  // === APIs DE MÓDULOS (COM AUTENTICAÇÃO) ===
+  app.get("/api/user/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    
+    // Buscar módulos ativos para a empresa e permissões do usuário
+    const userModules = await db.$client.query(`
       SELECT 
         m.id, m.name, m.display_name, m.description,
-        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
+        COALESCE(ump.permissions, '[]'::jsonb) as permissions
       FROM modules m
-      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      INNER JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      LEFT JOIN user_module_permissions ump ON m.id = ump.module_id AND ump.user_id = $2 AND ump.company_id = $1
       WHERE cm.is_enabled = true
       ORDER BY m.display_name
-    `, [companyId]);
-    res.json(activeModules.rows);
+    `, [companyId, user.id]);
+    
+    res.json(userModules.rows);
   }));
 
   app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {

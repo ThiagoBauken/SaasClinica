@@ -35,22 +35,46 @@ export function useModules() {
   });
 
   useEffect(() => {
-    // Menu padrão sempre disponível
-    const defaultMenuItems = [
-      { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-      { label: 'Calendário', path: '/agenda', icon: 'CalendarDays' },
-      { label: 'Pacientes', path: '/patients', icon: 'Users' },
-      { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
-      { label: 'Automações', path: '/automation', icon: 'Bot' },
-      { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-      { label: 'Estoque', path: '/inventory', icon: 'Package' },
-      { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
-    ];
-    
-    setDynamicMenuItems(defaultMenuItems);
-    setActiveModules(frontendModules);
-    setDynamicRoutes(generateDynamicRoutes(frontendModules));
-  }, []); // Apenas executar uma vez na inicialização
+    if (userPermissions && Array.isArray(userPermissions)) {
+      // Criar menu dinâmico baseado nas permissões do usuário
+      const moduleMenuMap = {
+        'agenda': { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
+        'pacientes': { label: 'Pacientes', path: '/patients', icon: 'Users' },
+        'financeiro': { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+        'automacoes': { label: 'Automações', path: '/automation', icon: 'Bot' },
+        'proteses': { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
+        'estoque': { label: 'Estoque', path: '/inventory', icon: 'Package' },
+        'odontograma': { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
+      };
+
+      // Filtrar apenas módulos que o usuário tem permissão
+      const authorizedMenuItems = userPermissions
+        .filter((module: any) => {
+          const permissions = Array.isArray(module.permissions) ? module.permissions : [];
+          return permissions.length > 0;
+        })
+        .map((module: any) => moduleMenuMap[module.name])
+        .filter(Boolean);
+
+      // Adicionar calendário se tiver acesso à agenda
+      const hasAgendaAccess = userPermissions.some((module: any) => 
+        module.name === 'agenda' && module.permissions?.length > 0
+      );
+      
+      if (hasAgendaAccess) {
+        authorizedMenuItems.push({ label: 'Calendário', path: '/agenda', icon: 'CalendarDays' });
+      }
+
+      setDynamicMenuItems(authorizedMenuItems);
+      setActiveModules(userPermissions);
+      setDynamicRoutes(generateDynamicRoutes(frontendModules));
+    } else {
+      // Menu mínimo quando não há permissões
+      setDynamicMenuItems([]);
+      setActiveModules([]);
+      setDynamicRoutes([]);
+    }
+  }, [userPermissions]);
 
   return {
     activeModules,
