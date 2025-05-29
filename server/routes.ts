@@ -98,17 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(company);
   }));
 
-  // === ROTAS DUPLICADAS REMOVIDAS ===
-    
-    await db.$client.query(`
-      INSERT INTO company_modules (company_id, module_id, is_enabled, enabled_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (company_id, module_id)
-      DO UPDATE SET is_enabled = $3, enabled_at = NOW()
-    `, [companyId, moduleId, enabled]);
-    
-    res.json({ message: `Module ${enabled ? 'enabled' : 'disabled'} for company` });
-  }));
+  // === ROTAS DE ADMINISTRAÇÃO SaaS ===
+  // (Rotas movidas para testRoutes.ts temporariamente)
 
   // === ROTAS DE ADMINISTRAÇÃO DA CLÍNICA (Admin da Empresa) ===
   // Para gerenciar usuários e permissões dentro da empresa
