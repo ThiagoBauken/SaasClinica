@@ -7,6 +7,7 @@ import os from "os";
 import compression from "compression";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { moduleLoader } from "../modules/moduleLoader";
 
 // Determina quantos workers serão usados (no máximo)
 const WORKERS = process.env.NODE_ENV === "production" 
@@ -105,6 +106,13 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   setupTestRoutes(app);
   
   (async () => {
+    // Inicializar sistema de módulos
+    try {
+      await moduleLoader.loadAllModules();
+    } catch (error) {
+      console.error('❌ Falha ao carregar módulos:', error);
+    }
+    
     const server = await registerRoutes(app);
 
     // Middleware de tratamento de erros mais robusto

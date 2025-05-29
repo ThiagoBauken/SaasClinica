@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
+import { moduleRegistry } from "../modules/index";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -685,6 +686,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
+  }));
+
+  // === APIs PARA MÓDULOS DA CLÍNICA ===
+  app.get("/api/clinic/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const modules = moduleRegistry.getAllModules();
+    const modulesByCategory = moduleRegistry.getModulesByCategory();
+    
+    res.json({
+      all: modules,
+      byCategory: modulesByCategory,
+      loaded: modules.length
+    });
+  }));
+
+  app.get("/api/clinic/modules/:moduleId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const module = moduleRegistry.getModule(moduleId);
+    
+    if (!module) {
+      return res.status(404).json({ message: "Módulo não encontrado" });
+    }
+    
+    res.json(module);
+  }));
+
+  app.post("/api/clinic/modules/:moduleId/activate", authCheck, tenantIsolationMiddleware, requireModulePermission('clinica', 'admin'), asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const success = moduleRegistry.activate(moduleId);
+    
+    if (success) {
+      res.json({ message: `Módulo ${moduleId} ativado com sucesso` });
+    } else {
+      res.status(404).json({ message: "Módulo não encontrado" });
+    }
+  }));
+
+  app.post("/api/clinic/modules/:moduleId/deactivate", authCheck, tenantIsolationMiddleware, requireModulePermission('clinica', 'admin'), asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const success = moduleRegistry.deactivate(moduleId);
+    
+    if (success) {
+      res.json({ message: `Módulo ${moduleId} desativado com sucesso` });
+    } else {
+      res.status(404).json({ message: "Módulo não encontrado" });
+    }
   }));
 
   const httpServer = createServer(app);
