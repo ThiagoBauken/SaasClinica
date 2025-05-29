@@ -78,9 +78,10 @@ export default function AgendaModular() {
       <div className="flex-1 p-4">
         {viewType === 'month' && (
           <MonthAgendaView 
-            appointments={[]}
-            onDateSelect={(date) => setCurrentDate(date)}
-            onAppointmentClick={() => {}}
+            currentDate={currentDate}
+            onDateChange={setCurrentDate}
+            onEventClick={() => {}}
+            onTimeSlotClick={() => {}}
           />
         )}
         

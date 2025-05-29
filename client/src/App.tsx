@@ -26,10 +26,6 @@ import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
 import ScheduleModularPage from "@/pages/schedule-modular-page";
-import PatientsModularPage from "@/pages/patients-modular-page";
-import FinancialModularPage from "@/pages/financial-modular-page";
-import InventoryModularPage from "@/pages/inventory-modular-page";
-import PermissionsAdminPage from "@/pages/permissions-admin-page";
 
 export default function App() {
   return (
@@ -51,16 +47,12 @@ export default function App() {
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/schedule" component={SchedulePage} />
             <ProtectedRoute path="/schedule-modular" component={ScheduleModularPage} />
-            <ProtectedRoute path="/patients-modular" component={PatientsModularPage} />
-            <ProtectedRoute path="/financial-modular" component={FinancialModularPage} />
-            <ProtectedRoute path="/inventory-modular" component={InventoryModularPage} />
             <ProtectedRoute path="/agenda" component={AgendaPage} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
             <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
             <ProtectedRoute path="/inventory" component={InventoryPage} />
             <ProtectedRoute path="/odontogram-demo" component={OdontogramDemo} />
-            <ProtectedRoute path="/admin/permissions" component={PermissionsAdminPage} />
             <ProtectedRoute path="/cadastros" component={CadastrosPage} />
             <ProtectedRoute path="/configuracoes" component={ConfiguracoesPage} />
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
