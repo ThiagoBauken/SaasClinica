@@ -23,6 +23,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // === ROTAS SaaS TEMPORÁRIAS (SEM AUTENTICAÇÃO) ===
+  app.get("/api/saas/companies", (req: Request, res: Response) => {
+    db.$client.query('SELECT * FROM companies ORDER BY name')
+      .then(result => res.json(result.rows))
+      .catch(err => res.status(500).json({ error: err.message }));
+  });
+
+  app.get("/api/saas/companies/:companyId/modules", (req: Request, res: Response) => {
+    const { companyId } = req.params;
+    db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        COALESCE(cm.is_enabled, false) as enabled
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      ORDER BY m.display_name
+    `, [companyId])
+      .then(result => res.json(result.rows))
+      .catch(err => res.status(500).json({ error: err.message }));
+  });
+
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", (req: Request, res: Response) => {
+    const { companyId, moduleId } = req.params;
+    const { enabled } = req.body;
+    
+    const query = enabled 
+      ? `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
+         VALUES ($1, $2, true, NOW(), NOW()) 
+         ON CONFLICT (company_id, module_id) 
+         DO UPDATE SET is_enabled = true, updated_at = NOW()`
+      : `UPDATE company_modules SET is_enabled = false, updated_at = NOW() 
+         WHERE company_id = $1 AND module_id = $2`;
+         
+    db.$client.query(query, [companyId, moduleId])
+      .then(() => res.json({ success: true }))
+      .catch(err => res.status(500).json({ error: err.message }));
+  });
+
   // Middleware para verificar autenticação em todas as rotas API
   const authCheck = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
@@ -60,34 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(company);
   }));
 
-  // === ROTAS DE ADMINISTRAÇÃO SaaS (SuperAdmin) ===
-  // Para gerenciar empresas e ativar/desativar módulos
-  app.get("/api/saas/companies", asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste - SEM authCheck
-    const result = await db.$client.query('SELECT * FROM companies ORDER BY name');
-    res.json(result.rows);
-  }));
-
-  app.get("/api/saas/companies/:companyId/modules", asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste - SEM authCheck
-    const { companyId } = req.params;
-    const result = await db.$client.query(`
-      SELECT 
-        m.id, m.name, m.display_name, m.description,
-        COALESCE(cm.is_enabled, false) as enabled
-      FROM modules m
-      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
-      ORDER BY m.display_name
-    `, [companyId]);
-    
-    res.json(result.rows);
-  }));
-
-  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste - SEM authCheck
-    
-    const { companyId, moduleId } = req.params;
-    const { enabled } = req.body;
+  // === ROTAS DUPLICADAS REMOVIDAS ===
     
     await db.$client.query(`
       INSERT INTO company_modules (company_id, module_id, is_enabled, enabled_at)

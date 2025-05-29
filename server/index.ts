@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { setupTestRoutes } from "./testRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import cluster from "cluster";
 import os from "os";
