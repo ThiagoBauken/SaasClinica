@@ -707,10 +707,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === APIs PARA MÓDULOS DO USUÁRIO ===
   app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
-    // Mock user para desenvolvimento - usar usuário padrão
-    const mockUser = { id: 99999, companyId: 3 };
-    const permissions = await getUserModulePermissions(mockUser.id, mockUser.companyId);
-    res.json(permissions);
+    // Retornar permissões baseadas nos módulos ativos da empresa
+    const companyId = 3; // Dental Care Plus
+    
+    const activeModules = await db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      WHERE cm.is_enabled = true
+      ORDER BY m.display_name
+    `, [companyId]);
+    
+    res.json(activeModules.rows);
   }));
 
   // === APIs PARA MÓDULOS DA CLÍNICA ===
