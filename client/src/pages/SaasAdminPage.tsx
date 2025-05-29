@@ -156,8 +156,8 @@ export default function SaasAdminPage() {
             <div className="text-center py-8">Carregando módulos...</div>
           ) : (
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {modules.map((module: Module) => (
-                <div key={module.id} className="flex items-center justify-between p-3 border rounded-lg">
+              {modules.map((module: Module, index: number) => (
+                <div key={`module-${module.id}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium">{module.display_name}</h4>
                     <p className="text-sm text-muted-foreground">{module.description}</p>
