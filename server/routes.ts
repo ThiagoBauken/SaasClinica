@@ -698,6 +698,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
   }));
 
+  // === APIs PARA MÓDULOS DO USUÁRIO ===
+  app.get("/api/user/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const permissions = await getUserModulePermissions(user.id, user.companyId);
+    res.json(permissions);
+  }));
+
   // === APIs PARA MÓDULOS DA CLÍNICA ===
   app.get("/api/clinic/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
     const modules = moduleRegistry.getAllModules();
