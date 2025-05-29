@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Building2, Settings, Users } from "lucide-react";
+import { Building2, Settings, Users, Shield, LayoutDashboard, ArrowLeft, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface Company {
   id: number;
@@ -27,6 +28,7 @@ interface Module {
 
 export default function SaasAdminPage() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [activeTab, setActiveTab] = useState<'companies' | 'analytics' | 'settings'>('companies');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -49,7 +51,7 @@ export default function SaasAdminPage() {
     enabled: !!selectedCompany
   });
 
-  // Mutation para toggle de módulo (usando rota de teste)
+  // Mutation para ativar/desativar módulos
   const toggleModuleMutation = useMutation({
     mutationFn: async ({ companyId, moduleId, enabled }: { companyId: number; moduleId: number; enabled: boolean }) => {
       const response = await fetch(`/api/test/saas/companies/${companyId}/modules/${moduleId}/toggle`, {
@@ -57,19 +59,25 @@ export default function SaasAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled })
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao alterar módulo');
+      }
+      
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/saas/companies", selectedCompany?.id, "modules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules"] });
       toast({
-        title: "Módulo atualizado",
-        description: "O status do módulo foi atualizado com sucesso.",
+        title: "Sucesso",
+        description: "Módulo atualizado com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: "Falha ao atualizar o módulo.",
+        description: error.message || "Erro ao atualizar módulo",
         variant: "destructive",
       });
     }
@@ -85,126 +93,233 @@ export default function SaasAdminPage() {
     });
   };
 
+  const renderCompaniesTab = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Lista de Empresas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Empresas
+          </CardTitle>
+          <CardDescription>
+            Selecione uma empresa para gerenciar seus módulos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {companies.map((company: Company) => (
+              <div
+                key={company.id}
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedCompany?.id === company.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted/50"
+                }`}
+                onClick={() => setSelectedCompany(company)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">{company.name}</h3>
+                    <p className="text-sm text-muted-foreground">{company.email}</p>
+                  </div>
+                  <Badge variant={company.active ? "default" : "secondary"}>
+                    {company.active ? "Ativa" : "Inativa"}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Módulos da Empresa Selecionada */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Módulos {selectedCompany && `- ${selectedCompany.name}`}
+          </CardTitle>
+          <CardDescription>
+            {selectedCompany
+              ? "Ative ou desative módulos para esta empresa"
+              : "Selecione uma empresa para ver seus módulos"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!selectedCompany ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Selecione uma empresa para gerenciar seus módulos
+            </div>
+          ) : modulesLoading ? (
+            <div className="text-center py-8">Carregando módulos...</div>
+          ) : (
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {modules.map((module: Module) => (
+                <div key={module.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{module.display_name}</h4>
+                    <p className="text-sm text-muted-foreground">{module.description}</p>
+                    {module.enabled_at && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ativado em: {new Date(module.enabled_at).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <Switch
+                    checked={module.is_enabled}
+                    onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
+                    disabled={toggleModuleMutation.isPending}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const renderAnalyticsTab = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Total de Empresas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{companies.length}</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Empresas Ativas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">
+            {companies.filter((c: Company) => c.active).length}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Empresas Inativas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-orange-600">
+            {companies.filter((c: Company) => !c.active).length}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const renderSettingsTab = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Configurações da Plataforma</CardTitle>
+        <CardDescription>
+          Configurações globais do sistema SaaS
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            Configurações avançadas em desenvolvimento...
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (companiesLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Carregando empresas...</div>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-lg">Carregando empresas...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Settings className="h-8 w-8" />
-          Administração SaaS
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gerencie empresas e seus módulos habilitados
-        </p>
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-card border-r flex flex-col">
+        <div className="p-6 border-b">
+          <div className="flex items-center space-x-3">
+            <Shield className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold">Admin SaaS</h1>
+              <p className="text-sm text-muted-foreground">Painel Global</p>
+            </div>
+          </div>
+        </div>
+        
+        <nav className="flex-1 p-4 space-y-2">
+          <Link href="/dashboard" className="flex items-center px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted">
+            <ArrowLeft className="mr-3 h-4 w-4" />
+            Voltar ao Dashboard
+          </Link>
+          
+          <div className="pt-4 space-y-1">
+            <button
+              onClick={() => setActiveTab('companies')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+                activeTab === 'companies' ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <Building2 className="mr-3 h-4 w-4" />
+              Empresas & Módulos
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+                activeTab === 'analytics' ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <BarChart3 className="mr-3 h-4 w-4" />
+              Analytics
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+                activeTab === 'settings' ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <Settings className="mr-3 h-4 w-4" />
+              Configurações
+            </button>
+          </div>
+        </nav>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Lista de Empresas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Empresas
-            </CardTitle>
-            <CardDescription>
-              Selecione uma empresa para gerenciar seus módulos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {companies.map((company: Company) => (
-                <div
-                  key={company.id}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedCompany?.id === company.id
-                      ? "bg-primary/10 border-primary"
-                      : "hover:bg-muted"
-                  }`}
-                  onClick={() => setSelectedCompany(company)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">{company.name}</h3>
-                      <p className="text-sm text-muted-foreground">{company.email}</p>
-                    </div>
-                    <Badge variant={company.active ? "default" : "secondary"}>
-                      {company.active ? "Ativa" : "Inativa"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+      {/* Conteúdo principal */}
+      <div className="flex-1">
+        <div className="border-b bg-card">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {activeTab === 'companies' && 'Gerenciamento de Empresas'}
+                  {activeTab === 'analytics' && 'Analytics da Plataforma'}
+                  {activeTab === 'settings' && 'Configurações Globais'}
+                </h2>
+                <p className="text-muted-foreground">
+                  {activeTab === 'companies' && 'Controle de empresas e seus módulos ativos'}
+                  {activeTab === 'analytics' && 'Métricas e estatísticas da plataforma'}
+                  {activeTab === 'settings' && 'Configurações gerais do sistema SaaS'}
+                </p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Módulos da Empresa Selecionada */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Módulos
-              {selectedCompany && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  - {selectedCompany.name}
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription>
-              Ative ou desative módulos para a empresa selecionada
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!selectedCompany ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Selecione uma empresa para ver seus módulos
-              </div>
-            ) : modulesLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Carregando módulos...
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {modules.map((module: Module) => (
-                  <div
-                    key={module.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <h3 className="font-medium">{module.display_name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {module.description}
-                      </p>
-                      {module.enabled_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Ativado em: {new Date(module.enabled_at).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={module.is_enabled ? "default" : "secondary"}>
-                        {module.is_enabled ? "Ativo" : "Inativo"}
-                      </Badge>
-                      <Switch
-                        checked={module.is_enabled}
-                        onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
-                        disabled={toggleModuleMutation.isPending}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="p-6">
+          {activeTab === 'companies' && renderCompaniesTab()}
+          {activeTab === 'analytics' && renderAnalyticsTab()}
+          {activeTab === 'settings' && renderSettingsTab()}
+        </div>
       </div>
     </div>
   );
