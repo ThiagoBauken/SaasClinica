@@ -101,6 +101,9 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     next();
   });
 
+  // Setup test routes (temporary for SaaS testing)
+  setupTestRoutes(app);
+  
   (async () => {
     const server = await registerRoutes(app);
 

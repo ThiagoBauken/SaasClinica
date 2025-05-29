@@ -30,29 +30,35 @@ export default function SaasAdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Buscar todas as empresas
+  // Buscar todas as empresas (usando rota de teste)
   const { data: companies = [], isLoading: companiesLoading } = useQuery({
-    queryKey: ["/api/saas/companies"],
+    queryKey: ["/api/test/saas/companies"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/saas/companies");
+      const response = await fetch("/api/test/saas/companies");
       return response.json();
     }
   });
 
-  // Buscar módulos da empresa selecionada
+  // Buscar módulos da empresa selecionada (usando rota de teste)
   const { data: modules = [], isLoading: modulesLoading } = useQuery({
-    queryKey: ["/api/saas/companies", selectedCompany?.id, "modules"],
+    queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/saas/companies/${selectedCompany?.id}/modules`);
+      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules`);
       return response.json();
     },
     enabled: !!selectedCompany
   });
 
-  // Mutation para toggle de módulo
+  // Mutation para toggle de módulo (usando rota de teste)
   const toggleModuleMutation = useMutation({
-    mutationFn: ({ companyId, moduleId, enabled }: { companyId: number; moduleId: number; enabled: boolean }) =>
-      apiRequest(`/api/saas/companies/${companyId}/modules/${moduleId}/toggle`, "POST", { enabled }),
+    mutationFn: async ({ companyId, moduleId, enabled }: { companyId: number; moduleId: number; enabled: boolean }) => {
+      const response = await fetch(`/api/test/saas/companies/${companyId}/modules/${moduleId}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/saas/companies", selectedCompany?.id, "modules"] });
       toast({
