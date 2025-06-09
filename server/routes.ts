@@ -453,46 +453,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Buscar atividades recentes apenas dos agendamentos e pacientes
     const recentActivities = await db.$client.query(`
-      WITH recent_appointments AS (
-        SELECT 
-          a.id::text as id,
-          'appointment' as type,
-          CASE 
-            WHEN a.status = 'confirmed' THEN 'Consulta confirmada'
-            WHEN a.status = 'cancelled' THEN 'Consulta cancelada'
-            WHEN a.status = 'completed' THEN 'Consulta realizada'
-            ELSE 'Consulta agendada'
-          END as title,
-          CONCAT(p.full_name, ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
-          a.created_at,
-          p.id::text as patient_id,
-          a.id::text as appointment_id
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        WHERE a.company_id = $1
-        ORDER BY a.created_at DESC
-        LIMIT 7
-      ),
-      recent_patients AS (
-        SELECT 
-          p.id::text as id,
-          'patient' as type,
-          'Novo paciente cadastrado' as title,
-          CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
-          p.created_at,
-          p.id::text as patient_id,
-          NULL::text as appointment_id
-        FROM patients p
-        WHERE p.company_id = $1
-        ORDER BY p.created_at DESC
-        LIMIT 3
-      )
-      SELECT * FROM (
-        SELECT * FROM recent_appointments
-        UNION ALL
-        SELECT * FROM recent_patients
-      ) combined
-      ORDER BY created_at DESC
+      SELECT 
+        'appointment-' || a.id as id,
+        'appointment' as type,
+        CASE 
+          WHEN a.status = 'confirmed' THEN 'Consulta confirmada'
+          WHEN a.status = 'cancelled' THEN 'Consulta cancelada'
+          WHEN a.status = 'completed' THEN 'Consulta realizada'
+          ELSE 'Consulta agendada'
+        END as title,
+        COALESCE(p.full_name, 'Paciente') || ' - ' || TO_CHAR(a.start_time, 'DD/MM às HH24:MI') as description,
+        a.created_at,
+        p.id::text as patient_id,
+        a.id::text as appointment_id
+      FROM appointments a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      WHERE a.company_id = $1
+      ORDER BY a.created_at DESC
       LIMIT 10
     `, [companyId]);
     

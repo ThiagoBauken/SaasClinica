@@ -35,10 +35,11 @@ export function useModules() {
   });
 
   useEffect(() => {
+    if (!user) return;
+
     // Menu padrão sempre disponível
     const defaultMenuItems = [
       { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-      { label: 'Calendário', path: '/agenda', icon: 'CalendarDays' },
       { label: 'Pacientes', path: '/patients', icon: 'Users' },
       { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
       { label: 'Automações', path: '/automation', icon: 'Bot' },
@@ -50,7 +51,7 @@ export function useModules() {
     setDynamicMenuItems(defaultMenuItems);
     setActiveModules(frontendModules);
     setDynamicRoutes(generateDynamicRoutes(frontendModules));
-  }, []); // Apenas executar uma vez na inicialização
+  }, [user]); // Executar quando user muda
 
   return {
     activeModules,

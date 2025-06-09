@@ -206,21 +206,41 @@ export default function CompanyAdminPage() {
   }
 
   // Adaptar dados dos módulos para o formato esperado
-  const adaptedModulesData = {
-    byCategory: {
-      clinica: modulesData.map((module: any) => ({
+  const categorizeModules = (modules: any[]) => {
+    const categorized = {
+      clinico: [] as any[],
+      administrativo: [] as any[],
+      integracao: [] as any[]
+    };
+
+    modules.forEach((module: any) => {
+      const moduleData = {
         definition: {
           id: module.name,
           displayName: module.display_name,
           description: module.description
         },
         isActive: module.is_enabled || false
-      }))
-    },
-    loaded: modulesData.length
+      };
+
+      // Categorizar módulos baseado no nome
+      if (['agenda', 'pacientes', 'odontograma', 'proteses'].includes(module.name)) {
+        categorized.clinico.push(moduleData);
+      } else if (['financeiro', 'estoque'].includes(module.name)) {
+        categorized.administrativo.push(moduleData);
+      } else if (['automacoes'].includes(module.name)) {
+        categorized.integracao.push(moduleData);
+      } else {
+        // Padrão para clínico
+        categorized.clinico.push(moduleData);
+      }
+    });
+
+    return categorized;
   };
 
-  const { byCategory = {}, loaded = 0 } = adaptedModulesData;
+  const byCategory = categorizeModules(modulesData);
+  const loaded = modulesData.length;
 
   return (
     <div className="container mx-auto p-6">

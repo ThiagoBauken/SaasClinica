@@ -2,7 +2,7 @@
 import { lazy } from 'react';
 
 // Lazy loading dos componentes do módulo
-export const InventoryPage = lazy(() => import('../../../pages/inventory-page'));
+export const InventoryPage = lazy(() => import('./EstoquePage'));
 
 // Configuração do módulo frontend
 export const estoqueModuleConfig = {
