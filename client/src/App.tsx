@@ -24,7 +24,7 @@ import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
-import ScheduleModularPage from "@/pages/schedule-modular-page";
+import { SchedulePage } from "@/modules/clinica/agenda";
 
 export default function App() {
   return (
@@ -44,7 +44,7 @@ export default function App() {
             {/* Rotas protegidas */}
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
-            <ProtectedRoute path="/schedule" component={ScheduleModularPage} />
+            <ProtectedRoute path="/schedule" component={SchedulePage} />
             <ProtectedRoute path="/agenda" component={AgendaPage} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
