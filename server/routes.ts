@@ -455,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const recentActivities = await db.$client.query(`
       WITH recent_appointments AS (
         SELECT 
-          a.id,
+          a.id::text as id,
           'appointment' as type,
           CASE 
             WHEN a.status = 'confirmed' THEN 'Consulta confirmada'
@@ -465,8 +465,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           END as title,
           CONCAT(p.full_name, ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
           a.created_at,
-          p.id as patient_id,
-          a.id as appointment_id
+          p.id::text as patient_id,
+          a.id::text as appointment_id
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
         WHERE a.company_id = $1
@@ -475,13 +475,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ),
       recent_patients AS (
         SELECT 
-          p.id,
+          p.id::text as id,
           'patient' as type,
           'Novo paciente cadastrado' as title,
           CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
           p.created_at,
-          p.id as patient_id,
-          NULL as appointment_id
+          p.id::text as patient_id,
+          NULL::text as appointment_id
         FROM patients p
         WHERE p.company_id = $1
         ORDER BY p.created_at DESC
