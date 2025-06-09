@@ -451,7 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/recent-activities", asyncHandler(async (req, res) => {
     const companyId = 3; // Dental Care Plus (empresa padrão)
     
-    // Buscar atividades recentes dos agendamentos
+    // Buscar atividades recentes apenas dos agendamentos e pacientes
     const recentActivities = await db.$client.query(`
       WITH recent_appointments AS (
         SELECT 
@@ -463,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN a.status = 'completed' THEN 'Consulta realizada'
             ELSE 'Consulta agendada'
           END as title,
-          CONCAT(p.name, ' - ', TO_CHAR(a.date + a.start_time, 'DD/MM às HH24:MI')) as description,
+          CONCAT(p.full_name, ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
           a.created_at,
           p.id as patient_id,
           a.id as appointment_id
@@ -471,41 +471,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         JOIN patients p ON a.patient_id = p.id
         WHERE a.company_id = $1
         ORDER BY a.created_at DESC
-        LIMIT 5
-      ),
-      recent_payments AS (
-        SELECT 
-          t.id,
-          'payment' as type,
-          'Pagamento recebido' as title,
-          CONCAT(p.name, ' - R$ ', (t.amount / 100.0)::decimal(10,2)) as description,
-          t.created_at,
-          p.id as patient_id,
-          NULL as appointment_id
-        FROM transactions t
-        JOIN patients p ON t.patient_id = p.id
-        WHERE t.company_id = $1 AND t.type = 'income'
-        ORDER BY t.created_at DESC
-        LIMIT 3
+        LIMIT 7
       ),
       recent_patients AS (
         SELECT 
           p.id,
           'patient' as type,
           'Novo paciente cadastrado' as title,
-          CONCAT(p.name, ' foi adicionado ao sistema') as description,
+          CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
           p.created_at,
           p.id as patient_id,
           NULL as appointment_id
         FROM patients p
         WHERE p.company_id = $1
         ORDER BY p.created_at DESC
-        LIMIT 2
+        LIMIT 3
       )
       SELECT * FROM (
         SELECT * FROM recent_appointments
-        UNION ALL
-        SELECT * FROM recent_payments
         UNION ALL
         SELECT * FROM recent_patients
       ) combined
