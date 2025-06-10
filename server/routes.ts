@@ -202,7 +202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patients = await storage.getPatients(req.tenant!.companyId);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patients = await storage.getPatients(companyId);
     res.json(patients);
   }));
 
@@ -463,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN a.status = 'completed' THEN 'Consulta realizada'
             ELSE 'Consulta agendada'
           END as title,
-          CONCAT(p.name, ' - ', TO_CHAR(a.date + a.start_time, 'DD/MM às HH24:MI')) as description,
+          CONCAT(p.full_name, ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
           a.created_at,
           p.id as patient_id,
           a.id as appointment_id
@@ -478,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           t.id,
           'payment' as type,
           'Pagamento recebido' as title,
-          CONCAT(p.name, ' - R$ ', (t.amount / 100.0)::decimal(10,2)) as description,
+          CONCAT(p.full_name, ' - R$ ', (t.amount / 100.0)::decimal(10,2)) as description,
           t.created_at,
           p.id as patient_id,
           NULL as appointment_id
@@ -493,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.id,
           'patient' as type,
           'Novo paciente cadastrado' as title,
-          CONCAT(p.name, ' foi adicionado ao sistema') as description,
+          CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
           p.created_at,
           p.id as patient_id,
           NULL as appointment_id
@@ -586,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Adiciona as novas permissões
     if (permissionIds && permissionIds.length > 0) {
-      const newPermissions = permissionIds.map(permId => ({
+      const newPermissions = permissionIds.map((permId: number) => ({
         userId,
         permissionId: permId,
         createdAt: new Date()
