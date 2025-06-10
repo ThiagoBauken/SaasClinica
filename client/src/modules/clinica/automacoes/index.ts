@@ -2,7 +2,7 @@
 import { lazy } from 'react';
 
 // Lazy loading dos componentes do módulo
-export const AutomationPage = lazy(() => import('./AutomacoesPage'));
+export const AutomationPage = lazy(() => import('../../../pages/automation-page'));
 
 // Configuração do módulo frontend
 export const automacoesModuleConfig = {
