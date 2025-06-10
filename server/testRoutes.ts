@@ -35,6 +35,23 @@ export function setupTestRoutes(app: Express) {
       const { companyId, moduleId } = req.params;
       const { enabled } = req.body;
       
+      // Primeiro, buscar o ID numérico do módulo pelo nome
+      let numericModuleId = moduleId;
+      
+      // Se moduleId não é um número, buscar pelo nome
+      if (isNaN(parseInt(moduleId))) {
+        const moduleResult = await db.$client.query(
+          'SELECT id FROM modules WHERE name = $1', 
+          [moduleId]
+        );
+        
+        if (moduleResult.rows.length === 0) {
+          return res.status(404).json({ error: `Módulo '${moduleId}' não encontrado` });
+        }
+        
+        numericModuleId = moduleResult.rows[0].id;
+      }
+      
       const query = enabled 
         ? `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
            VALUES ($1, $2, true, NOW(), NOW()) 
@@ -43,7 +60,7 @@ export function setupTestRoutes(app: Express) {
         : `UPDATE company_modules SET is_enabled = false, updated_at = NOW() 
            WHERE company_id = $1 AND module_id = $2`;
            
-      await db.$client.query(query, [companyId, moduleId]);
+      await db.$client.query(query, [companyId, numericModuleId]);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

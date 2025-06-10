@@ -1,43 +1,45 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
-import { useAuth } from "@/core/AuthProvider";
+import { AlertTriangle, ArrowLeft, Home } from "lucide-react";
+import { Link } from "wouter";
 
 export default function UnauthorizedPage() {
-  const { logout } = useAuth();
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-red-100 rounded-full">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+            </div>
           </div>
-          <CardTitle className="text-xl font-semibold text-gray-900">
+          <CardTitle className="text-2xl font-bold text-red-600">
             Acesso Negado
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-base">
             Você não tem permissão para acessar esta página
           </CardDescription>
         </CardHeader>
+        
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500 text-center">
-            Entre em contato com o administrador do sistema para solicitar acesso.
+          <p className="text-sm text-muted-foreground text-center">
+            Entre em contato com o administrador do sistema para solicitar as permissões necessárias.
           </p>
-          <div className="flex flex-col gap-3">
-            <Button 
-              onClick={() => window.history.back()} 
-              variant="outline" 
-              className="w-full"
-            >
-              Voltar
-            </Button>
-            <Button 
-              onClick={logout} 
-              className="w-full"
-            >
-              Fazer Logout
-            </Button>
+          
+          <div className="flex flex-col space-y-2">
+            <Link href="/dashboard">
+              <Button className="w-full" variant="default">
+                <Home className="mr-2 h-4 w-4" />
+                Voltar ao Dashboard
+              </Button>
+            </Link>
+            
+            <Link href="/auth">
+              <Button className="w-full" variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Fazer Login Novamente
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
