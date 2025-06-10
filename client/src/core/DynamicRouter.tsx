@@ -135,24 +135,6 @@ export default function DynamicRouter() {
   );
 }
 
-// Componente para rotas de módulos com verificação de permissões
-function ModuleRoute({ 
-  component: Component, 
-  permissions 
-}: { 
-  component: React.LazyExoticComponent<any>;
-  permissions?: string[];
-}) {
-  // TODO: Implementar verificação de permissões específicas
-  // Por enquanto, permite acesso se o usuário está autenticado
-  
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Component />
-    </Suspense>
-  );
-}
-
 // Componente para redirecionamento padrão baseado no role
 function DefaultRedirect() {
   const { user } = useAuth();
