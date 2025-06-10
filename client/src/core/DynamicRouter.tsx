@@ -9,14 +9,16 @@ const DashboardPage = lazy(() => import('@/pages/dashboard-page'));
 const SuperAdminPage = lazy(() => import('@/pages/SuperAdminPage'));
 const CompanyAdminPage = lazy(() => import('@/pages/CompanyAdminPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/UnauthorizedPage'));
+const AuthPage = lazy(() => import('@/pages/auth-page'));
 
-// Lazy load de módulos específicos (fallback)
+// Lazy load de módulos específicos (usando páginas existentes)
 const AgendaPage = lazy(() => import('@/pages/agenda-page'));
 const PatientsPage = lazy(() => import('@/pages/patients-page'));
 const FinancialPage = lazy(() => import('@/pages/financial-page'));
 const InventoryPage = lazy(() => import('@/pages/inventory-page'));
-const AutomationsPage = lazy(() => import('@/pages/automations-page'));
-const OdontogramPage = lazy(() => import('@/pages/odontogram-page'));
+const AutomationPage = lazy(() => import('@/pages/automation-page'));
+const OdontogramDemo = lazy(() => import('@/pages/odontogram-demo'));
+const ProsthesisPage = lazy(() => import('@/pages/prosthesis-control-page'));
 
 function LoadingFallback() {
   return (
@@ -62,9 +64,13 @@ export default function DynamicRouter() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Switch>
-        {/* Rota de login */}
+        {/* Rotas públicas de autenticação */}
         <Route path="/login">
           <LoginPage />
+        </Route>
+        
+        <Route path="/auth">
+          <AuthPage />
         </Route>
 
         {/* Rota de não autorizado */}
@@ -93,19 +99,8 @@ export default function DynamicRouter() {
           </ProtectedRoute>
         </Route>
 
-        {/* Rotas dinâmicas dos módulos */}
-        {!modulesLoading && modules.map(module => 
-          module.routes?.map(route => (
-            <Route key={route.path} path={route.path}>
-              <ProtectedRoute>
-                <ModuleRoute 
-                  component={route.component} 
-                  permissions={route.permissions}
-                />
-              </ProtectedRoute>
-            </Route>
-          ))
-        )}
+        {/* Rotas dinâmicas dos módulos - implementação futura */}
+        {/* TODO: Implementar carregamento dinâmico real quando módulos estiverem completamente modularizados */}
 
         {/* Rotas estáticas (fallback) para módulos não modularizados ainda */}
         <Route path="/agenda">
@@ -134,13 +129,19 @@ export default function DynamicRouter() {
 
         <Route path="/automacoes">
           <ProtectedRoute>
-            <AutomationsPage />
+            <AutomationPage />
           </ProtectedRoute>
         </Route>
 
         <Route path="/odontograma">
           <ProtectedRoute>
-            <OdontogramPage />
+            <OdontogramDemo />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/prosthesis">
+          <ProtectedRoute>
+            <ProsthesisPage />
           </ProtectedRoute>
         </Route>
 
