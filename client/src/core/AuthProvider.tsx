@@ -6,11 +6,19 @@ import { useLocation } from 'wouter';
 interface User {
   id: number;
   username: string;
+  password: string;
   fullName: string;
   email: string;
   role: string;
-  companyId: number;
+  phone: string | null;
+  profileImageUrl: string | null;
+  speciality: string | null;
   active: boolean;
+  googleId: string | null;
+  companyId: number;
+  trialEndsAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 interface AuthContextType {
@@ -29,6 +37,11 @@ interface AuthContextType {
     isPending: boolean;
     mutateAsync: (data: any) => Promise<void>;
     mutate: (data: any) => Promise<void>;
+  };
+  logoutMutation: {
+    isPending: boolean;
+    mutateAsync: () => Promise<void>;
+    mutate: () => void;
   };
 }
 
@@ -148,12 +161,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await apiRequest('/api/auth/logout', 'POST');
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
     } catch (error) {
       console.error('Erro no logout:', error);
     } finally {
       setUser(null);
-      setLocation('/login');
+      queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
+      setLocation('/auth');
     }
   };
 
@@ -173,6 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPending: isRegisterPending,
       mutateAsync: register,
       mutate: register
+    },
+    logoutMutation: {
+      isPending: false,
+      mutateAsync: logout,
+      mutate: () => { logout(); }
     }
   };
 
