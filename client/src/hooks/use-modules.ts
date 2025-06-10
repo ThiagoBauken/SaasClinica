@@ -1,7 +1,7 @@
 // Hook para gerenciar módulos dinâmicos
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from './use-auth';
+import { AuthContext } from '@/core/AuthProvider';
 import { 
   frontendModules, 
   getActiveModulesForUser, 
@@ -13,7 +13,15 @@ import {
 } from '@/modules/clinica';
 
 export function useModules() {
-  const { user } = useAuth();
+  // Use a try-catch to safely access auth context
+  let user = null;
+  try {
+    const authContext = useContext(AuthContext);
+    user = authContext?.user || null;
+  } catch (error) {
+    // AuthContext not available, continue with null user
+    console.log('AuthContext not available in useModules');
+  }
   const [activeModules, setActiveModules] = useState<FrontendModuleConfig[]>([]);
   const [dynamicRoutes, setDynamicRoutes] = useState<ModuleRoute[]>([]);
   const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>([]);
