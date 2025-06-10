@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
-import { useToast } from '@/hooks/use-toast';
 
 interface User {
   id: number;
@@ -21,8 +20,6 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
-  loginMutation: any;
-  registerMutation: any;
 }
 
 interface LoginCredentials {
@@ -35,7 +32,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
 
   // Verificar se usuário está autenticado
   const { data: currentUser, isLoading, error } = useQuery({
@@ -64,88 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
     }
   }, [currentUser, error]);
-
-  // Mutations for login and register
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: LoginCredentials) => {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setUser(data.user || data);
-      
-      toast({
-        title: "Login realizado com sucesso!",
-        description: `Bem-vindo, ${data.user?.fullName || data.fullName}`,
-      });
-      
-      // Redirecionamento baseado no role
-      const userRole = data.user?.role || data.role;
-      if (userRole === 'superadmin') {
-        setLocation('/superadmin');
-      } else if (userRole === 'admin') {
-        setLocation('/admin');
-      } else {
-        setLocation('/dashboard');
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro no login",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: async (userData: any) => {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Conta criada com sucesso!",
-        description: `Bem-vindo, ${data.user?.fullName || data.fullName}`,
-      });
-      // Auto login after registration
-      setUser(data.user || data);
-      setLocation('/dashboard');
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro no registro",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const login = async (credentials: LoginCredentials) => {
     try {
@@ -197,9 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isSuperAdmin: user?.role === 'superadmin',
     login,
-    logout,
-    loginMutation,
-    registerMutation
+    logout
   };
 
   return (

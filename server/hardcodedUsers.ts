@@ -8,7 +8,7 @@ export const fixedUsers: User[] = [
     password: "admin123",
     fullName: "Administrador",
     email: "admin@dentalsys.com",
-    role: "superadmin",
+    role: "admin",
     phone: null,
     profileImageUrl: null,
     speciality: null,

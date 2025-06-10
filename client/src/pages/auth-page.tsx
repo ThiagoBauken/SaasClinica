@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/core/AuthProvider";
+import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 
 const loginSchema = insertUserSchema.pick({
@@ -136,9 +136,9 @@ export default function AuthPage() {
                       <Button
                         type="submit"
                         className="w-full"
-                        disabled={loginMutation?.isPending}
+                        disabled={loginMutation.isPending}
                       >
-                        {loginMutation?.isPending ? "Entrando..." : "Entrar"}
+                        {loginMutation.isPending ? "Entrando..." : "Entrar"}
                       </Button>
                       
                       <div className="relative my-4">

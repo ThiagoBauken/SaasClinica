@@ -886,21 +886,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }));
 
-  // === APIs DE AUTENTICAÇÃO ===
-  // Verificar usuário atual
-  app.get("/api/user/me", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    res.json({
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      email: user.email,
-      role: user.role,
-      companyId: user.companyId,
-      active: user.active
-    });
-  }));
-
   // === APIs PARA MÓDULOS DO USUÁRIO ===
   app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
     // Retornar permissões baseadas nos módulos ativos da empresa
