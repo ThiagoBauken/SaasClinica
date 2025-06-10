@@ -48,7 +48,7 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header user={user} onMenuToggle={handleMenuToggle} />
+      <Header user={user!} onMenuToggle={handleMenuToggle} />
       
       <div className="flex-1 flex overflow-hidden">
         <Sidebar 
@@ -58,8 +58,8 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
         />
         
         <main className="flex-1 overflow-y-auto bg-background">
-          <div className="container mx-auto px-4 py-6">
-            <h1 className="text-2xl font-bold text-foreground mb-6">{title}</h1>
+          <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">{title}</h1>
             {children}
           </div>
         </main>
