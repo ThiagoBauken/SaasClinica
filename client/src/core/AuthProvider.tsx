@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
 
@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoginPending, setIsLoginPending] = useState(false);
   const [isRegisterPending, setIsRegisterPending] = useState(false);
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   // Verificar se usuário está autenticado
   const { data: currentUser, isLoading, error } = useQuery({
@@ -51,14 +52,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryFn: async () => {
       try {
         const response = await fetch('/api/user/me', {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         if (!response.ok) {
-          throw new Error('Not authenticated');
+          if (response.status === 401) {
+            return null;
+          }
+          throw new Error('Authentication check failed');
         }
         return await response.json();
       } catch (error) {
-        throw error;
+        return null;
       }
     },
     retry: false,
@@ -90,10 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       const data = await response.json();
-      setUser(data.user || data);
+      setUser(data);
+      
+      // Invalidate and refetch the user query
+      queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
       
       // Redirecionamento baseado no role
-      const userRole = data.user?.role || data.role;
+      const userRole = data.role;
       if (userRole === 'superadmin') {
         setLocation('/superadmin');
       } else if (userRole === 'admin') {
