@@ -453,7 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/recent-activities", asyncHandler(async (req, res) => {
     const companyId = 3; // Dental Care Plus (empresa padrão)
     
-    // Buscar atividades recentes dos agendamentos
+    // Buscar atividades recentes dos agendamentos e pacientes
     const recentActivities = await db.$client.query(`
       WITH recent_appointments AS (
         SELECT 
@@ -465,12 +465,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN a.status = 'completed' THEN 'Consulta realizada'
             ELSE 'Consulta agendada'
           END as title,
-          CONCAT(p.full_name, ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
+          CONCAT(COALESCE(p.full_name, 'Paciente'), ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
           a.created_at,
-          p.id as patient_id,
+          a.patient_id,
           a.id as appointment_id
         FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN patients p ON a.patient_id = p.id
         WHERE a.company_id = $1
         ORDER BY a.created_at DESC
         LIMIT 5
@@ -479,14 +479,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT 
           t.id,
           'payment' as type,
-          'Pagamento recebido' as title,
-          CONCAT(p.full_name, ' - R$ ', (t.amount / 100.0)::decimal(10,2)) as description,
+          'Transação registrada' as title,
+          CONCAT(t.description, ' - R$ ', t.amount::text) as description,
           t.created_at,
-          p.id as patient_id,
+          NULL as patient_id,
           NULL as appointment_id
-        FROM transactions t
-        JOIN patients p ON t.patient_id = p.id
-        WHERE t.company_id = $1 AND t.type = 'income'
+        FROM box_transactions t
+        WHERE t.type = 'income'
         ORDER BY t.created_at DESC
         LIMIT 3
       ),

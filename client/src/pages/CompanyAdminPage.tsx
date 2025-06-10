@@ -95,6 +95,30 @@ export default function CompanyAdminPage() {
     staleTime: 30000
   });
 
+  // Processar e categorizar módulos
+  const processedModules = modulesData.map((module: any) => ({
+    definition: {
+      id: module.definition?.id || module.id,
+      displayName: module.definition?.displayName || module.name,
+      description: module.definition?.description || module.description
+    },
+    isActive: module.is_enabled || false
+  }));
+
+  const byCategory = {
+    clinico: processedModules.filter((module: any) => 
+      ['agenda', 'pacientes', 'odontograma', 'proteses'].includes(module.definition?.id)
+    ),
+    administrativo: processedModules.filter((module: any) => 
+      ['financeiro', 'estoque'].includes(module.definition?.id)
+    ),
+    integracao: processedModules.filter((module: any) => 
+      ['automacoes'].includes(module.definition?.id)
+    )
+  };
+
+  const loaded = modulesData.length;
+
   // Mutation para atualizar permissões
   const updatePermissionsMutation = useMutation({
     mutationFn: ({ userId, moduleName, permissions }: { userId: number; moduleName: string; permissions: string[] }) =>
