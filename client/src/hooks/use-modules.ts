@@ -1,7 +1,7 @@
 // Hook para gerenciar módulos dinâmicos
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from './use-auth';
+import { useAuth } from '@/core/AuthProvider';
 import { 
   frontendModules, 
   getActiveModulesForUser, 
