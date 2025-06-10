@@ -53,6 +53,9 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
+      secure: false, // Set to true in production with HTTPS
+      httpOnly: true,
+      sameSite: 'lax'
     }
   };
 
@@ -135,6 +138,7 @@ export function setupAuth(app: Express) {
                 fullName: displayName,
                 email: email,
                 role: "dentist",
+                companyId: 3,
                 googleId: profile.id,
                 trialEndsAt: trialEndsAt
               });
@@ -199,8 +203,19 @@ export function setupAuth(app: Express) {
     }
   });
 
+  app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
+    res.status(200).json(req.user);
+  });
+
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
     res.status(200).json(req.user);
+  });
+
+  app.post("/api/auth/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.sendStatus(200);
+    });
   });
 
   app.post("/api/logout", (req, res, next) => {
