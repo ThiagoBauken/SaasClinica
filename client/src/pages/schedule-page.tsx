@@ -19,7 +19,7 @@ import { Settings } from "lucide-react";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";

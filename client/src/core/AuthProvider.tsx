@@ -20,6 +20,16 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
+  loginMutation: {
+    isPending: boolean;
+    mutateAsync: (credentials: LoginCredentials) => Promise<void>;
+    mutate: (credentials: LoginCredentials) => Promise<void>;
+  };
+  registerMutation: {
+    isPending: boolean;
+    mutateAsync: (data: any) => Promise<void>;
+    mutate: (data: any) => Promise<void>;
+  };
 }
 
 interface LoginCredentials {
@@ -31,6 +41,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoginPending, setIsLoginPending] = useState(false);
+  const [isRegisterPending, setIsRegisterPending] = useState(false);
   const [, setLocation] = useLocation();
 
   // Verificar se usuário está autenticado
@@ -62,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser, error]);
 
   const login = async (credentials: LoginCredentials) => {
+    setIsLoginPending(true);
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -91,6 +104,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Erro no login:', error);
       throw error;
+    } finally {
+      setIsLoginPending(false);
+    }
+  };
+
+  const register = async (data: any) => {
+    setIsRegisterPending(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Registration failed');
+      }
+      
+      const result = await response.json();
+      setUser(result.user || result);
+      setLocation('/dashboard');
+    } catch (error) {
+      console.error('Erro no registro:', error);
+      throw error;
+    } finally {
+      setIsRegisterPending(false);
     }
   };
 
@@ -111,7 +153,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isSuperAdmin: user?.role === 'superadmin',
     login,
-    logout
+    logout,
+    loginMutation: {
+      isPending: isLoginPending,
+      mutateAsync: login,
+      mutate: login
+    },
+    registerMutation: {
+      isPending: isRegisterPending,
+      mutateAsync: register,
+      mutate: register
+    }
   };
 
   return (

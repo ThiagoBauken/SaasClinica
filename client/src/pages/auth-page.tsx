@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { Redirect } from "wouter";
 
 const loginSchema = insertUserSchema.pick({

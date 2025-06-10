@@ -21,7 +21,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
