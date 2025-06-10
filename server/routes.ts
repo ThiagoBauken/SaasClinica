@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
-    const patients = await storage.getPatients(companyId);
+    const patients = await storage.getPatients();
     res.json(patients);
   }));
 
@@ -457,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const recentActivities = await db.$client.query(`
       WITH recent_appointments AS (
         SELECT 
-          a.id,
+          a.id::text as id,
           'appointment' as type,
           CASE 
             WHEN a.status = 'confirmed' THEN 'Consulta confirmada'
@@ -467,8 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           END as title,
           CONCAT(COALESCE(p.full_name, 'Paciente'), ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
           a.created_at,
-          a.patient_id,
-          a.id as appointment_id
+          a.patient_id::text,
+          a.id::text as appointment_id
         FROM appointments a
         LEFT JOIN patients p ON a.patient_id = p.id
         WHERE a.company_id = $1
@@ -477,13 +477,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ),
       recent_payments AS (
         SELECT 
-          t.id,
+          t.id::text as id,
           'payment' as type,
           'Transação registrada' as title,
           CONCAT(t.description, ' - R$ ', t.amount::text) as description,
           t.created_at,
-          NULL as patient_id,
-          NULL as appointment_id
+          NULL::text as patient_id,
+          NULL::text as appointment_id
         FROM box_transactions t
         WHERE t.type = 'income'
         ORDER BY t.created_at DESC
@@ -491,13 +491,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ),
       recent_patients AS (
         SELECT 
-          p.id,
+          p.id::text as id,
           'patient' as type,
           'Novo paciente cadastrado' as title,
           CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
           p.created_at,
-          p.id as patient_id,
-          NULL as appointment_id
+          p.id::text as patient_id,
+          NULL::text as appointment_id
         FROM patients p
         WHERE p.company_id = $1
         ORDER BY p.created_at DESC

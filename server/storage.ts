@@ -78,7 +78,7 @@ export interface IStorage {
   updateAutomation(id: number, data: any, companyId: number): Promise<Automation>;
   deleteAutomation(id: number, companyId: number): Promise<void>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
 export class MemStorage implements IStorage {
@@ -662,6 +662,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Database Patient methods
+  async getPatients(): Promise<Patient[]> {
+    return db.select().from(patients);
+  }
 
   async getPatient(id: number): Promise<Patient | undefined> {
     const [patient] = await db.select().from(patients).where(eq(patients.id, id));
