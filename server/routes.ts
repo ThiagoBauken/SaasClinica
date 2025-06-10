@@ -455,13 +455,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const companyId = user?.companyId || 3;
     
     try {
-      // Usar storage layer para buscar dados
-      const recentAppointments = await storage.getAppointments({
-        companyId,
-        limit: 5
-      });
-
-      const recentPatients = await storage.getPatients(companyId);
+      // Usar storage layer para buscar dados com fallback seguro
+      let recentAppointments: any[] = [];
+      let recentPatients: any[] = [];
+      
+      try {
+        recentAppointments = await storage.getAppointments() || [];
+      } catch (error) {
+        console.error('Erro ao buscar agendamentos:', error);
+      }
+      
+      try {
+        recentPatients = await storage.getPatients() || [];
+      } catch (error) {
+        console.error('Erro ao buscar pacientes:', error);
+      }
 
       // Formatar atividades de agendamentos
       const appointmentActivities = recentAppointments.map(apt => ({
@@ -776,6 +784,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
+  }));
+
+  // === API DE AUTENTICAÇÃO ===
+  // Verificar usuário atual
+  app.get("/api/user/me", asyncHandler(async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const user = req.user as any;
+    res.json({
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId || 3, // Default company for existing users
+      active: user.active
+    });
   }));
 
   // === APIs SUPERADMIN ===
