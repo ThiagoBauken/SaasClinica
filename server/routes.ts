@@ -6,8 +6,8 @@ import { parse, formatISO, addDays } from "date-fns";
 import { cacheMiddleware } from "./simpleCache";
 import { invalidateClusterCache } from "./clusterCache";
 import { db } from "./db";
-import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies, appointments, patients } from "@shared/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
@@ -451,70 +451,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Atividades Recentes da Agenda
   app.get("/api/recent-activities", asyncHandler(async (req, res) => {
-    const companyId = 3; // Dental Care Plus (empresa padrão)
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
     
-    // Buscar atividades recentes dos agendamentos e pacientes
-    const recentActivities = await db.$client.query(`
-      WITH recent_appointments AS (
-        SELECT 
-          a.id::text as id,
-          'appointment' as type,
-          CASE 
-            WHEN a.status = 'confirmed' THEN 'Consulta confirmada'
-            WHEN a.status = 'cancelled' THEN 'Consulta cancelada'
-            WHEN a.status = 'completed' THEN 'Consulta realizada'
-            ELSE 'Consulta agendada'
-          END as title,
-          CONCAT(COALESCE(p.full_name, 'Paciente'), ' - ', TO_CHAR(a.start_time, 'DD/MM às HH24:MI')) as description,
-          a.created_at,
-          a.patient_id::text,
-          a.id::text as appointment_id
-        FROM appointments a
-        LEFT JOIN patients p ON a.patient_id = p.id
-        WHERE a.company_id = $1
-        ORDER BY a.created_at DESC
-        LIMIT 5
-      ),
-      recent_payments AS (
-        SELECT 
-          t.id::text as id,
-          'payment' as type,
-          'Transação registrada' as title,
-          CONCAT(t.description, ' - R$ ', t.amount::text) as description,
-          t.created_at,
-          NULL::text as patient_id,
-          NULL::text as appointment_id
-        FROM box_transactions t
-        WHERE t.type = 'income'
-        ORDER BY t.created_at DESC
-        LIMIT 3
-      ),
-      recent_patients AS (
-        SELECT 
-          p.id::text as id,
-          'patient' as type,
-          'Novo paciente cadastrado' as title,
-          CONCAT(p.full_name, ' foi adicionado ao sistema') as description,
-          p.created_at,
-          p.id::text as patient_id,
-          NULL::text as appointment_id
-        FROM patients p
-        WHERE p.company_id = $1
-        ORDER BY p.created_at DESC
-        LIMIT 2
-      )
-      SELECT * FROM (
-        SELECT * FROM recent_appointments
-        UNION ALL
-        SELECT * FROM recent_payments
-        UNION ALL
-        SELECT * FROM recent_patients
-      ) combined
-      ORDER BY created_at DESC
-      LIMIT 10
-    `, [companyId]);
-    
-    res.json(recentActivities.rows);
+    try {
+      // Usar storage layer para buscar dados
+      const recentAppointments = await storage.getAppointments({
+        companyId,
+        limit: 5
+      });
+
+      const recentPatients = await storage.getPatients(companyId);
+
+      // Formatar atividades de agendamentos
+      const appointmentActivities = recentAppointments.map(apt => ({
+        id: apt.id.toString(),
+        type: 'appointment',
+        title: apt.status === 'confirmed' ? 'Consulta confirmada' :
+               apt.status === 'cancelled' ? 'Consulta cancelada' :
+               apt.status === 'completed' ? 'Consulta realizada' : 'Consulta agendada',
+        description: `${apt.patientName || 'Paciente'} - ${new Date(apt.startTime).toLocaleDateString('pt-BR')}`,
+        created_at: apt.createdAt,
+        patient_id: apt.patientId?.toString(),
+        appointment_id: apt.id.toString()
+      }));
+
+      // Formatar atividades de pacientes
+      const patientActivities = recentPatients.map(patient => ({
+        id: patient.id.toString(),
+        type: 'patient',
+        title: 'Novo paciente cadastrado',
+        description: `${patient.fullName} foi adicionado ao sistema`,
+        created_at: patient.createdAt,
+        patient_id: patient.id.toString(),
+        appointment_id: null
+      }));
+
+      // Combinar e ordenar
+      const allActivities = [...appointmentActivities, ...patientActivities]
+        .filter(activity => activity.created_at) // Remove activities without dates
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, 10);
+
+      res.json(allActivities);
+    } catch (error) {
+      console.error('Erro ao buscar atividades recentes:', error);
+      res.json([]);
+    }
   }));
 
   // Configurações Fiscais
