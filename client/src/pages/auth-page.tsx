@@ -136,9 +136,9 @@ export default function AuthPage() {
                       <Button
                         type="submit"
                         className="w-full"
-                        disabled={loginMutation.isPending}
+                        disabled={loginMutation?.isPending}
                       >
-                        {loginMutation.isPending ? "Entrando..." : "Entrar"}
+                        {loginMutation?.isPending ? "Entrando..." : "Entrar"}
                       </Button>
                       
                       <div className="relative my-4">
