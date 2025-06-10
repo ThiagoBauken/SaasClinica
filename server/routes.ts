@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patients = await storage.getPatients();
+    const patients = await storage.getPatients(req.tenant!.companyId);
     res.json(patients);
   }));
 
@@ -546,7 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Adiciona as novas permissões
     if (permissionIds && permissionIds.length > 0) {
-      const newPermissions = permissionIds.map((permId: number) => ({
+      const newPermissions = permissionIds.map(permId => ({
         userId,
         permissionId: permId,
         createdAt: new Date()
