@@ -95,7 +95,7 @@ export class MemStorage implements IStorage {
   private appointmentProcedures: Map<number, AppointmentProcedure>;
   private transactions: Map<number, Transaction>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   userIdCounter: number;
   patientIdCounter: number;
   appointmentIdCounter: number;
@@ -153,7 +153,8 @@ export class MemStorage implements IStorage {
       email: "admin@dentalclinic.com",
       role: "admin",
       speciality: "Administração",
-      active: true
+      active: true,
+      companyId: 3
     });
     
     // Create dentist user
@@ -164,7 +165,8 @@ export class MemStorage implements IStorage {
       email: "ana.silva@dentalclinic.com",
       role: "dentist",
       speciality: "Clínico Geral",
-      active: true
+      active: true,
+      companyId: 3
     });
     
     // Create rooms
@@ -214,6 +216,8 @@ export class MemStorage implements IStorage {
       active: true,
       googleId: insertUser.googleId || null,
       trialEndsAt: insertUser.trialEndsAt || null,
+      phone: insertUser.phone || null,
+      role: insertUser.role || "user",
     };
     this.users.set(id, user);
     return user;
@@ -272,16 +276,16 @@ export class MemStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(filters?: AppointmentFilters): Promise<any[]> {
+  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
     let appointments = Array.from(this.appointments.values());
     
     // Apply filters
     if (filters) {
       if (filters.startDate) {
-        appointments = appointments.filter(a => a.startTime >= filters.startDate);
+        appointments = appointments.filter(a => a.startTime >= new Date(filters.startDate));
       }
       if (filters.endDate) {
-        appointments = appointments.filter(a => a.startTime < filters.endDate);
+        appointments = appointments.filter(a => a.startTime < new Date(filters.endDate));
       }
       if (filters.professionalId !== undefined) {
         appointments = appointments.filter(a => a.professionalId === filters.professionalId);
@@ -600,7 +604,7 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
