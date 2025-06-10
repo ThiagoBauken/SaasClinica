@@ -218,6 +218,7 @@ export class MemStorage implements IStorage {
       trialEndsAt: insertUser.trialEndsAt || null,
       phone: insertUser.phone || null,
       role: insertUser.role || "user",
+      profileImageUrl: insertUser.profileImageUrl || null,
     };
     this.users.set(id, user);
     return user;
@@ -282,10 +283,10 @@ export class MemStorage implements IStorage {
     // Apply filters
     if (filters) {
       if (filters.startDate) {
-        appointments = appointments.filter(a => a.startTime >= new Date(filters.startDate));
+        appointments = appointments.filter(a => a.startTime >= new Date(filters.startDate!));
       }
       if (filters.endDate) {
-        appointments = appointments.filter(a => a.startTime < new Date(filters.endDate));
+        appointments = appointments.filter(a => a.startTime < new Date(filters.endDate!));
       }
       if (filters.professionalId !== undefined) {
         appointments = appointments.filter(a => a.professionalId === filters.professionalId);
