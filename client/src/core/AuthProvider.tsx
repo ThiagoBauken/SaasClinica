@@ -37,8 +37,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: currentUser, isLoading, error } = useQuery({
     queryKey: ['/api/user/me'],
     queryFn: async () => {
-      const response = await apiRequest('/api/user/me', 'GET');
-      return response;
+      try {
+        const response = await fetch('/api/user/me', {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Not authenticated');
+        }
+        return await response.json();
+      } catch (error) {
+        throw error;
+      }
     },
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutos
@@ -54,13 +63,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      const response = await apiRequest('/api/auth/login', 'POST', credentials);
-      setUser(response.user);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+      
+      const data = await response.json();
+      setUser(data.user || data);
       
       // Redirecionamento baseado no role
-      if (response.user.role === 'superadmin') {
+      const userRole = data.user?.role || data.role;
+      if (userRole === 'superadmin') {
         setLocation('/superadmin');
-      } else if (response.user.role === 'admin') {
+      } else if (userRole === 'admin') {
         setLocation('/admin');
       } else {
         setLocation('/dashboard');

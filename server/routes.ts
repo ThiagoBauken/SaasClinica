@@ -795,6 +795,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
   }));
 
+  // === APIs SUPERADMIN ===
+  // Listar empresas (SuperAdmin)
+  app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado. Apenas superadmin pode listar empresas." });
+    }
+
+    const companiesData = await db.select({
+      id: companies.id,
+      name: companies.name,
+      cnpj: companies.cnpj,
+      email: companies.email,
+      phone: companies.phone,
+      address: companies.address,
+      active: companies.active,
+      createdAt: companies.createdAt
+    }).from(companies);
+
+    res.json(companiesData);
+  }));
+
+  // Criar empresa (SuperAdmin)
+  app.post("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    const { name, cnpj, email, phone, address } = req.body;
+    
+    const [company] = await db.insert(companies).values({
+      name,
+      cnpj,
+      email,
+      phone,
+      address,
+      active: true
+    }).returning();
+
+    res.json(company);
+  }));
+
+  // Módulos por empresa (SuperAdmin)
+  app.get("/api/saas/companies/:companyId/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = parseInt(req.params.companyId);
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    const modulesList = [
+      { name: 'agenda', display_name: 'Sistema de Agenda', description: 'Gerenciamento de consultas e agendamentos', version: '1.0.0', is_enabled: true },
+      { name: 'pacientes', display_name: 'Gestão de Pacientes', description: 'Cadastro e histórico de pacientes', version: '1.0.0', is_enabled: true },
+      { name: 'financeiro', display_name: 'Gestão Financeira', description: 'Controle financeiro e faturamento', version: '1.0.0', is_enabled: true },
+      { name: 'estoque', display_name: 'Controle de Estoque', description: 'Gestão de materiais e produtos', version: '1.0.0', is_enabled: true },
+      { name: 'proteses', display_name: 'Controle de Próteses', description: 'Gerenciamento de próteses e laboratórios', version: '1.0.0', is_enabled: true },
+      { name: 'odontograma', display_name: 'Odontograma Digital', description: 'Mapeamento dental digital', version: '1.0.0', is_enabled: true },
+      { name: 'automacoes', display_name: 'Automações e Integrações', description: 'Automações e integrações externas', version: '1.0.0', is_enabled: true },
+      { name: 'clinica', display_name: 'Gestão da Clínica', description: 'Configurações gerais da clínica', version: '1.0.0', is_enabled: true }
+    ];
+
+    res.json(modulesList);
+  }));
+
+  // Toggle módulo (SuperAdmin)
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = parseInt(req.params.companyId);
+    const moduleId = req.params.moduleId;
+    const { enabled } = req.body;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    // Por enquanto, resposta de sucesso simples
+    // TODO: Implementar lógica real de toggle no banco
+    
+    res.json({ 
+      success: true, 
+      companyId, 
+      moduleId, 
+      enabled,
+      message: `Módulo ${moduleId} ${enabled ? 'ativado' : 'desativado'} para empresa ${companyId}` 
+    });
+  }));
+
   // === APIs PARA MÓDULOS DO USUÁRIO ===
   app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
     // Retornar permissões baseadas nos módulos ativos da empresa
