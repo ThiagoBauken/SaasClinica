@@ -460,13 +460,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let recentPatients: any[] = [];
       
       try {
-        recentAppointments = await storage.getAppointments() || [];
+        recentAppointments = await storage.getAppointments(companyId) || [];
       } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);
       }
       
       try {
-        recentPatients = await storage.getPatients() || [];
+        recentPatients = await storage.getPatients(companyId) || [];
       } catch (error) {
         console.error('Erro ao buscar pacientes:', error);
       }
