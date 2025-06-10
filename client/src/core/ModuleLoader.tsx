@@ -133,18 +133,24 @@ export function useActiveModules() {
     queryFn: async () => {
       const modules: ModuleComponent[] = [];
       
-      for (const userModule of userModules) {
-        if (userModule.isActive) {
-          const module = await moduleRegistry.loadModule(userModule.definition.id);
-          if (module) {
-            modules.push(module);
+      // Ensure userModules is an array before iteration
+      const moduleArray = Array.isArray(userModules) ? userModules : [];
+      
+      for (const userModule of moduleArray) {
+        if (userModule && typeof userModule === 'object' && userModule.isActive) {
+          const moduleId = userModule.definition?.id || userModule.id;
+          if (moduleId) {
+            const module = await moduleRegistry.loadModule(moduleId);
+            if (module) {
+              modules.push(module);
+            }
           }
         }
       }
       
       return modules;
     },
-    enabled: !isLoading && userModules.length > 0
+    enabled: !isLoading && Array.isArray(userModules) && userModules.length > 0
   });
 
   return {
