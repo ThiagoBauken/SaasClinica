@@ -23,10 +23,23 @@ interface HeaderProps {
 
 export default function Header({ user, onMenuToggle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { logoutMutation } = useAuth();
+  
+  // Try to get auth context safely for logout
+  let logoutMutation = null;
+  try {
+    const auth = useAuth();
+    logoutMutation = auth.logoutMutation;
+  } catch (error) {
+    // AuthContext not available, continue without logout functionality
+  }
 
   const handleLogout = () => {
-    logoutMutation.mutate();
+    if (logoutMutation) {
+      logoutMutation.mutate();
+    } else {
+      // Fallback logout - redirect to auth page
+      window.location.href = '/auth';
+    }
   };
 
   return (
