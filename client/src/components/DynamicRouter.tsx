@@ -1,5 +1,5 @@
 import { Route } from "wouter";
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useModules } from "@/hooks/use-modules";
 
@@ -13,6 +13,14 @@ import OdontogramDemo from "@/pages/odontogram-demo";
 // Import páginas modularizadas
 import { PatientsPage } from "@/modules/clinica/pacientes";
 import { FinancialPage } from "@/modules/clinica/financeiro";
+
+// Lazy imports for new modular pages
+const ConfiguracoesPage = lazy(() => import("../../../modules/clinica/configuracoes/ConfiguracoesPage"));
+const CadastrosPage = lazy(() => import("../../../modules/clinica/cadastros/CadastrosPage"));
+const AutomacoesPage = lazy(() => import("../../../modules/clinica/automacoes/AutomacoesPage"));
+const ProtesesPage = lazy(() => import("../../../modules/clinica/proteses/ProtesesPage"));
+const EstoquePage = lazy(() => import("../../../modules/clinica/estoque/EstoquePage"));
+const OdontogramaPage = lazy(() => import("../../../modules/clinica/odontograma/OdontogramaPage"));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen">
@@ -46,6 +54,43 @@ export function DynamicRouter() {
       <Route path="/financial">
         <Suspense fallback={<LoadingFallback />}>
           <FinancialPage />
+        </Suspense>
+      </Route>
+
+      {/* Novas rotas modularizadas */}
+      <Route path="/configuracoes">
+        <Suspense fallback={<LoadingFallback />}>
+          <ConfiguracoesPage />
+        </Suspense>
+      </Route>
+
+      <Route path="/cadastros">
+        <Suspense fallback={<LoadingFallback />}>
+          <CadastrosPage />
+        </Suspense>
+      </Route>
+
+      <Route path="/automacoes">
+        <Suspense fallback={<LoadingFallback />}>
+          <AutomacoesPage />
+        </Suspense>
+      </Route>
+
+      <Route path="/proteses">
+        <Suspense fallback={<LoadingFallback />}>
+          <ProtesesPage />
+        </Suspense>
+      </Route>
+
+      <Route path="/estoque">
+        <Suspense fallback={<LoadingFallback />}>
+          <EstoquePage />
+        </Suspense>
+      </Route>
+
+      <Route path="/odontograma">
+        <Suspense fallback={<LoadingFallback />}>
+          <OdontogramaPage />
         </Suspense>
       </Route>
       

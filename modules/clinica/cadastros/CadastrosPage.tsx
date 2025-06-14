@@ -4,35 +4,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../client/src/co
 import { Button } from '../../../client/src/components/ui/button';
 import { Input } from '../../../client/src/components/ui/input';
 import { Label } from '../../../client/src/components/ui/label';
+import { Badge } from '../../../client/src/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../client/src/components/ui/tabs';
 import { 
   Users, 
   UserPlus, 
-  Building, 
-  Stethoscope, 
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Archive
+  Search, 
+  Edit, 
+  Trash2, 
+  Shield, 
+  UserCheck,
+  UserX,
+  Building,
+  Stethoscope,
+  Settings
 } from 'lucide-react';
 import { useToast } from '../../../client/src/hooks/use-toast';
 
-interface Professional {
+interface User {
   id: number;
-  name: string;
-  speciality: string;
-  cro: string;
-  phone: string;
+  username: string;
+  fullName: string;
   email: string;
+  role: 'admin' | 'dentist' | 'assistant' | 'receptionist';
+  speciality?: string;
+  crm?: string;
+  phone?: string;
   active: boolean;
-}
-
-interface Room {
-  id: number;
-  name: string;
-  description: string;
-  active: boolean;
+  lastLogin?: string;
+  createdAt: string;
 }
 
 interface Procedure {
@@ -45,20 +45,23 @@ interface Procedure {
   active: boolean;
 }
 
+interface Room {
+  id: number;
+  name: string;
+  description?: string;
+  equipment: string[];
+  active: boolean;
+}
+
 export function CadastrosPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('professionals');
+  const [activeTab, setActiveTab] = useState('users');
 
-  const { data: professionals = [], isLoading: professionalsLoading } = useQuery({
-    queryKey: ['/api/professionals'],
-    select: (data: Professional[]) => data || []
-  });
-
-  const { data: rooms = [], isLoading: roomsLoading } = useQuery({
-    queryKey: ['/api/rooms'],
-    select: (data: Room[]) => data || []
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['/api/users'],
+    select: (data: User[]) => data || []
   });
 
   const { data: procedures = [], isLoading: proceduresLoading } = useQuery({
@@ -66,127 +69,106 @@ export function CadastrosPage() {
     select: (data: Procedure[]) => data || []
   });
 
-  const createProfessionalMutation = useMutation({
-    mutationFn: async (professionalData: Partial<Professional>) => {
-      const response = await fetch('/api/professionals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(professionalData)
-      });
-      if (!response.ok) throw new Error('Failed to create professional');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/professionals'] });
-      toast({
-        title: "Profissional criado",
-        description: "Novo profissional foi adicionado com sucesso.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar profissional.",
-        variant: "destructive",
-      });
-    }
+  const { data: rooms = [], isLoading: roomsLoading } = useQuery({
+    queryKey: ['/api/rooms'],
+    select: (data: Room[]) => data || []
   });
 
-  const createRoomMutation = useMutation({
-    mutationFn: async (roomData: Partial<Room>) => {
-      const response = await fetch('/api/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roomData)
-      });
-      if (!response.ok) throw new Error('Failed to create room');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
-      toast({
-        title: "Sala criada",
-        description: "Nova sala foi adicionada com sucesso.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar sala.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const createProcedureMutation = useMutation({
-    mutationFn: async (procedureData: Partial<Procedure>) => {
-      const response = await fetch('/api/procedures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(procedureData)
-      });
-      if (!response.ok) throw new Error('Failed to create procedure');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/procedures'] });
-      toast({
-        title: "Procedimento criado",
-        description: "Novo procedimento foi adicionado com sucesso.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar procedimento.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ type, id, active }: { type: string; id: number; active: boolean }) => {
-      const response = await fetch(`/api/${type}/${id}`, {
+  const toggleUserMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const response = await fetch(`/api/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active })
       });
-      if (!response.ok) throw new Error(`Failed to update ${type}`);
+      if (!response.ok) throw new Error('Failed to update user');
       return response.json();
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/${variables.type}`] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       toast({
-        title: "Status atualizado",
-        description: "Item foi atualizado com sucesso.",
+        title: "Usuário atualizado",
+        description: "Status do usuário foi alterado com sucesso.",
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Falha ao atualizar item.",
+        description: "Falha ao atualizar usuário.",
         variant: "destructive",
       });
     }
   });
 
-  const filteredProfessionals = professionals.filter(prof =>
-    prof.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prof.speciality.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prof.cro.includes(searchTerm)
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to delete user');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Usuário removido",
+        description: "Usuário foi removido com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao remover usuário.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const getRoleBadge = (role: string) => {
+    const roleConfig = {
+      admin: { label: 'Administrador', variant: 'default' as const, icon: Shield },
+      dentist: { label: 'Dentista', variant: 'secondary' as const, icon: Stethoscope },
+      assistant: { label: 'Auxiliar', variant: 'outline' as const, icon: UserCheck },
+      receptionist: { label: 'Recepcionista', variant: 'outline' as const, icon: Users }
+    };
+    
+    const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.assistant;
+    const Icon = config.icon;
+    
+    return (
+      <Badge variant={config.variant} className="flex items-center gap-1">
+        <Icon className="h-3 w-3" />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const handleToggleUser = (user: User) => {
+    toggleUserMutation.mutate({ id: user.id, active: !user.active });
+  };
+
+  const handleDeleteUser = (userId: number) => {
+    if (confirm('Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.')) {
+      deleteUserMutation.mutate(userId);
+    }
+  };
+
+  const filteredUsers = users.filter(user =>
+    user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredProcedures = procedures.filter(procedure =>
+    procedure.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    procedure.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredRooms = rooms.filter(room =>
     room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (room.description && room.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    room.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredProcedures = procedures.filter(proc =>
-    proc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    proc.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const isLoading = professionalsLoading || roomsLoading || proceduresLoading;
+  const isLoading = usersLoading || proceduresLoading || roomsLoading;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -194,111 +176,288 @@ export function CadastrosPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Cadastros</h1>
           <p className="text-muted-foreground">
-            Gerencie profissionais, salas e procedimentos da clínica
+            Gerencie usuários, procedimentos e consultórios
           </p>
         </div>
+        <Button>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Novo Cadastro
+        </Button>
       </div>
 
-      {/* Search Bar */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar em todos os cadastros..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="professionals" className="flex items-center gap-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Profissionais
-          </TabsTrigger>
-          <TabsTrigger value="rooms" className="flex items-center gap-2">
-            <Building className="h-4 w-4" />
-            Salas
+            Usuários
           </TabsTrigger>
           <TabsTrigger value="procedures" className="flex items-center gap-2">
             <Stethoscope className="h-4 w-4" />
             Procedimentos
           </TabsTrigger>
+          <TabsTrigger value="rooms" className="flex items-center gap-2">
+            <Building className="h-4 w-4" />
+            Consultórios
+          </TabsTrigger>
         </TabsList>
 
-        {/* Professionals Tab */}
-        <TabsContent value="professionals" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Profissionais</h2>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Profissional
-            </Button>
+        {/* Search Bar */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Users Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{users.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {users.filter(u => u.active).length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Dentistas</CardTitle>
+                <Stethoscope className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {users.filter(u => u.role === 'dentist').length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Inativos</CardTitle>
+                <UserX className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {users.filter(u => !u.active).length}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
-            <CardContent className="pt-6">
-              {filteredProfessionals.length === 0 ? (
+            <CardHeader>
+              <CardTitle>Lista de Usuários</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredUsers.length === 0 ? (
                 <div className="text-center py-8">
                   <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-lg font-semibold">
-                    {searchTerm ? 'Nenhum profissional encontrado' : 'Nenhum profissional cadastrado'}
+                    {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                   </h3>
                   <p className="mt-2 text-muted-foreground">
                     {searchTerm 
-                      ? 'Tente ajustar os termos de busca.'
-                      : 'Comece adicionando o primeiro profissional da clínica.'
+                      ? 'Tente ajustar os filtros de busca.'
+                      : 'Comece adicionando o primeiro usuário ao sistema.'
                     }
                   </p>
-                  {!searchTerm && (
-                    <Button className="mt-4">
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Adicionar Primeiro Profissional
-                    </Button>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredProfessionals.map((professional) => (
+                  {filteredUsers.map((user) => (
                     <div
-                      key={professional.id}
+                      key={user.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={user.active ? "default" : "secondary"}>
+                            {user.active ? "Ativo" : "Inativo"}
+                          </Badge>
+                          {getRoleBadge(user.role)}
+                        </div>
+                        
                         <div className="space-y-1">
-                          <div className="font-semibold">{professional.name}</div>
+                          <div className="font-semibold">{user.fullName}</div>
                           <div className="text-sm text-muted-foreground">
-                            {professional.speciality} • CRO: {professional.cro}
+                            {user.email} • @{user.username}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {professional.phone} • {professional.email}
-                          </div>
+                          {user.speciality && (
+                            <div className="text-sm text-muted-foreground">
+                              Especialidade: {user.speciality}
+                            </div>
+                          )}
+                          {user.crm && (
+                            <div className="text-sm text-muted-foreground">
+                              CRM: {user.crm}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => toggleActiveMutation.mutate({ 
-                            type: 'professionals', 
-                            id: professional.id, 
-                            active: !professional.active 
-                          })}
-                          disabled={toggleActiveMutation.isPending}
-                        >
-                          {professional.active ? <Archive className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right space-y-1">
+                          <div className="text-sm text-muted-foreground">
+                            Criado: {new Date(user.createdAt).toLocaleDateString()}
+                          </div>
+                          {user.lastLogin && (
+                            <div className="text-sm text-muted-foreground">
+                              Último acesso: {new Date(user.lastLogin).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleUser(user)}
+                            disabled={toggleUserMutation.isPending}
+                          >
+                            {user.active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={deleteUserMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Procedures Tab */}
+        <TabsContent value="procedures" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Procedimentos</CardTitle>
+                <Stethoscope className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{procedures.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {procedures.filter(p => p.active).length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Preço Médio</CardTitle>
+                <Settings className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  R$ {procedures.length > 0 
+                    ? (procedures.reduce((sum, p) => sum + p.price, 0) / procedures.length / 100).toFixed(0)
+                    : '0'
+                  }
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Procedimentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredProcedures.length === 0 ? (
+                <div className="text-center py-8">
+                  <Stethoscope className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">
+                    {searchTerm ? 'Nenhum procedimento encontrado' : 'Nenhum procedimento cadastrado'}
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">
+                    {searchTerm 
+                      ? 'Tente ajustar os filtros de busca.'
+                      : 'Comece adicionando o primeiro procedimento ao sistema.'
+                    }
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredProcedures.map((procedure) => (
+                    <div
+                      key={procedure.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <Badge variant={procedure.active ? "default" : "secondary"}>
+                          {procedure.active ? "Ativo" : "Inativo"}
+                        </Badge>
+                        
+                        <div className="space-y-1">
+                          <div className="font-semibold">{procedure.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {procedure.category} • {procedure.duration} min
+                          </div>
+                          {procedure.description && (
+                            <div className="text-sm text-muted-foreground">
+                              {procedure.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <div className="font-semibold">
+                            R$ {(procedure.price / 100).toFixed(2)}
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -310,162 +469,94 @@ export function CadastrosPage() {
 
         {/* Rooms Tab */}
         <TabsContent value="rooms" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Salas</h2>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Sala
-            </Button>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Consultórios</CardTitle>
+                <Building className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{rooms.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {rooms.filter(r => r.active).length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Com Equipamentos</CardTitle>
+                <Settings className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {rooms.filter(r => r.equipment && r.equipment.length > 0).length}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
-            <CardContent className="pt-6">
+            <CardHeader>
+              <CardTitle>Lista de Consultórios</CardTitle>
+            </CardHeader>
+            <CardContent>
               {filteredRooms.length === 0 ? (
                 <div className="text-center py-8">
                   <Building className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-lg font-semibold">
-                    {searchTerm ? 'Nenhuma sala encontrada' : 'Nenhuma sala cadastrada'}
+                    {searchTerm ? 'Nenhum consultório encontrado' : 'Nenhum consultório cadastrado'}
                   </h3>
                   <p className="mt-2 text-muted-foreground">
                     {searchTerm 
-                      ? 'Tente ajustar os termos de busca.'
-                      : 'Comece adicionando a primeira sala da clínica.'
+                      ? 'Tente ajustar os filtros de busca.'
+                      : 'Comece adicionando o primeiro consultório ao sistema.'
                     }
                   </p>
-                  {!searchTerm && (
-                    <Button className="mt-4">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Adicionar Primeira Sala
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredRooms.map((room) => (
-                    <Card key={room.id}>
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <span>{room.name}</span>
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                          {room.description || 'Sem descrição'}
-                        </p>
-                        <div className="mt-4 flex items-center justify-between">
-                          <span className={`text-sm ${room.active ? 'text-green-600' : 'text-red-600'}`}>
-                            {room.active ? 'Ativa' : 'Inativa'}
-                          </span>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => toggleActiveMutation.mutate({ 
-                              type: 'rooms', 
-                              id: room.id, 
-                              active: !room.active 
-                            })}
-                            disabled={toggleActiveMutation.isPending}
-                          >
-                            {room.active ? 'Desativar' : 'Ativar'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Procedures Tab */}
-        <TabsContent value="procedures" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Procedimentos</h2>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Procedimento
-            </Button>
-          </div>
-
-          <Card>
-            <CardContent className="pt-6">
-              {filteredProcedures.length === 0 ? (
-                <div className="text-center py-8">
-                  <Stethoscope className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-semibold">
-                    {searchTerm ? 'Nenhum procedimento encontrado' : 'Nenhum procedimento cadastrado'}
-                  </h3>
-                  <p className="mt-2 text-muted-foreground">
-                    {searchTerm 
-                      ? 'Tente ajustar os termos de busca.'
-                      : 'Comece adicionando o primeiro procedimento da clínica.'
-                    }
-                  </p>
-                  {!searchTerm && (
-                    <Button className="mt-4">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Adicionar Primeiro Procedimento
-                    </Button>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredProcedures.map((procedure) => (
+                  {filteredRooms.map((room) => (
                     <div
-                      key={procedure.id}
+                      key={room.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
+                        <Badge variant={room.active ? "default" : "secondary"}>
+                          {room.active ? "Ativo" : "Inativo"}
+                        </Badge>
+                        
                         <div className="space-y-1">
-                          <div className="font-semibold">{procedure.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {procedure.category} • {procedure.duration} min
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {procedure.description}
-                          </div>
+                          <div className="font-semibold">{room.name}</div>
+                          {room.description && (
+                            <div className="text-sm text-muted-foreground">
+                              {room.description}
+                            </div>
+                          )}
+                          {room.equipment && room.equipment.length > 0 && (
+                            <div className="text-sm text-muted-foreground">
+                              Equipamentos: {room.equipment.join(', ')}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            R$ {(procedure.price / 100).toFixed(2)}
-                          </div>
-                          <div className={`text-sm ${procedure.active ? 'text-green-600' : 'text-red-600'}`}>
-                            {procedure.active ? 'Ativo' : 'Inativo'}
-                          </div>
-                        </div>
-                        
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => toggleActiveMutation.mutate({ 
-                              type: 'procedures', 
-                              id: procedure.id, 
-                              active: !procedure.active 
-                            })}
-                            disabled={toggleActiveMutation.isPending}
-                          >
-                            {procedure.active ? <Archive className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      <div className="flex space-x-2">
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
