@@ -1,8 +1,8 @@
-import { lazy } from 'react';
-import { DashboardLayout } from '@/layouts/DashboardLayout';
-import { useAuth } from '@/core/AuthProvider';
+import React, { lazy } from 'react';
+import DashboardLayout from '../../../client/src/layouts/DashboardLayout';
+import { useAuth } from '../../../client/src/core/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../client/src/components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';

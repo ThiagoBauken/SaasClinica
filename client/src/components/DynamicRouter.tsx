@@ -3,9 +3,11 @@ import { Suspense } from "react";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useModules } from "@/hooks/use-modules";
 
+// Import módulos já migrados
+import { DashboardModule } from "@/modules/clinica/dashboard";
+import { AgendaModule } from "@/modules/clinica/agenda/AgendaModule";
+
 // Import páginas estáticas que ainda não foram modularizadas
-import DashboardPage from "@/pages/dashboard-page";
-import SchedulePage from "@/pages/schedule-page";
 import AutomationPage from "@/pages/automation-page";
 import ProsthesisControlPage from "@/pages/prosthesis-control-page";
 import InventoryPage from "@/pages/inventory-page";
@@ -30,10 +32,27 @@ export function DynamicRouter() {
 
   return (
     <>
-      {/* Dashboard sempre disponível */}
-      <ProtectedRoute path="/dashboard" component={DashboardPage} />
+      {/* Dashboard modularizado */}
+      <ProtectedRoute path="/dashboard">
+        <Suspense fallback={<LoadingFallback />}>
+          <DashboardModule />
+        </Suspense>
+      </ProtectedRoute>
       
-      {/* Rotas modularizadas */}
+      {/* Agenda modularizada */}
+      <ProtectedRoute path="/schedule">
+        <Suspense fallback={<LoadingFallback />}>
+          <AgendaModule />
+        </Suspense>
+      </ProtectedRoute>
+      
+      <ProtectedRoute path="/agenda">
+        <Suspense fallback={<LoadingFallback />}>
+          <AgendaModule />
+        </Suspense>
+      </ProtectedRoute>
+      
+      {/* Rotas modularizadas existentes */}
       <ProtectedRoute path="/patients">
         <Suspense fallback={<LoadingFallback />}>
           <PatientsPage />
@@ -47,7 +66,6 @@ export function DynamicRouter() {
       </ProtectedRoute>
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
-      <ProtectedRoute path="/schedule" component={SchedulePage} />
       <ProtectedRoute path="/automation" component={AutomationPage} />
       <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
       <ProtectedRoute path="/inventory" component={InventoryPage} />

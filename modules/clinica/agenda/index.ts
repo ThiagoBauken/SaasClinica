@@ -1,5 +1,9 @@
 // Módulo de Agenda
 import { ModuleDefinition } from '../../index';
+import { lazy } from 'react';
+
+// Dynamic import for the agenda component
+export const AgendaComponent = lazy(() => import('./AgendaModule').then(module => ({ default: module.AgendaModule })));
 
 export const agendaModule: ModuleDefinition = {
   id: 'agenda',
@@ -19,6 +23,21 @@ export const agendaModule: ModuleDefinition = {
     'CalendarView',
     'AppointmentForm',
     'ScheduleManager'
+  ],
+  // Frontend routes for modular loading
+  frontendRoutes: [
+    {
+      path: '/agenda',
+      component: AgendaComponent,
+      title: 'Agenda',
+      permissions: ['agenda:read']
+    },
+    {
+      path: '/schedule',
+      component: AgendaComponent,
+      title: 'Agenda',
+      permissions: ['agenda:read']
+    }
   ]
 };
 
