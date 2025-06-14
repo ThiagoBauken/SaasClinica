@@ -344,7 +344,7 @@ export class MemStorage implements IStorage {
     return enrichedAppointments;
   }
 
-  async getAppointment(id: number, companyId?: number): Promise<any | undefined> {
+  async getAppointment(id: number, companyId: number): Promise<any | undefined> {
     const appointment = this.appointments.get(id);
     if (!appointment) return undefined;
     
@@ -384,7 +384,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createAppointment(appointmentData: any): Promise<any> {
+  async createAppointment(appointmentData: any, companyId: number): Promise<any> {
     const id = this.appointmentIdCounter++;
     const now = new Date();
     
@@ -415,8 +415,8 @@ export class MemStorage implements IStorage {
     return this.getAppointment(id);
   }
 
-  async updateAppointment(id: number, data: any): Promise<any> {
-    const appointment = await this.getAppointment(id);
+  async updateAppointment(id: number, data: any, companyId: number): Promise<any> {
+    const appointment = await this.getAppointment(id, companyId);
     if (!appointment) {
       throw new Error("Appointment not found");
     }
