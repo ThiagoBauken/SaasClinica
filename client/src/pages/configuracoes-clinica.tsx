@@ -326,6 +326,307 @@ export default function ConfiguracoesClinicaPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="website" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Coluna Esquerda - Editor */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5" />
+                      Criador de Sites
+                    </CardTitle>
+                    <CardDescription>
+                      Crie seu site profissional em minutos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs value={websiteActiveTab} onValueChange={setWebsiteActiveTab} className="space-y-4">
+                      <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full">
+                        <TabsTrigger value="template">Template</TabsTrigger>
+                        <TabsTrigger value="content">Conteúdo</TabsTrigger>
+                        <TabsTrigger value="design">Design</TabsTrigger>
+                        <TabsTrigger value="contact">Contato</TabsTrigger>
+                        <TabsTrigger value="gallery">Galeria</TabsTrigger>
+                        <TabsTrigger value="seo">SEO</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="template" className="space-y-4">
+                        <div className="space-y-4">
+                          <h3 className="font-medium">Escolha seu Template</h3>
+                          <div className="grid grid-cols-1 gap-4">
+                            {['modern', 'classic', 'minimalist'].map((template) => (
+                              <div 
+                                key={template}
+                                className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                                  websiteData.template === template 
+                                    ? 'border-primary bg-primary/5' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                onClick={() => setWebsiteData(prev => ({ ...prev, template }))}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-16 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
+                                    <Palette className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium capitalize">{template}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {template === 'modern' && 'Design contemporâneo com gradientes'}
+                                      {template === 'classic' && 'Design tradicional e elegante'}
+                                      {template === 'minimalist' && 'Clean e simples'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="content" className="space-y-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Título Principal</Label>
+                            <Input 
+                              value={websiteData.content.title}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                content: { ...prev.content, title: e.target.value }
+                              }))}
+                              placeholder="Ex: Clínica Odontológica Dr. Silva"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label>Subtítulo</Label>
+                            <Input 
+                              value={websiteData.content.subtitle}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                content: { ...prev.content, subtitle: e.target.value }
+                              }))}
+                              placeholder="Ex: Cuidando do seu sorriso com excelência"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Sobre a Clínica</Label>
+                            <Textarea 
+                              value={websiteData.content.about.description}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                content: { 
+                                  ...prev.content, 
+                                  about: { ...prev.content.about, description: e.target.value }
+                                }
+                              }))}
+                              placeholder="Descreva sua clínica, missão e diferenciais..."
+                              rows={4}
+                            />
+                          </div>
+
+                          <div className="space-y-4">
+                            <Label>Serviços Oferecidos</Label>
+                            {websiteData.content.services.map((service, index) => (
+                              <div key={index} className="flex gap-2 items-start">
+                                <div className="flex-1 space-y-2">
+                                  <Input 
+                                    value={service.name}
+                                    onChange={(e) => {
+                                      const newServices = [...websiteData.content.services];
+                                      newServices[index].name = e.target.value;
+                                      setWebsiteData(prev => ({
+                                        ...prev,
+                                        content: { ...prev.content, services: newServices }
+                                      }));
+                                    }}
+                                    placeholder="Nome do serviço"
+                                  />
+                                  <Input 
+                                    value={service.price}
+                                    onChange={(e) => {
+                                      const newServices = [...websiteData.content.services];
+                                      newServices[index].price = e.target.value;
+                                      setWebsiteData(prev => ({
+                                        ...prev,
+                                        content: { ...prev.content, services: newServices }
+                                      }));
+                                    }}
+                                    placeholder="Preço (opcional)"
+                                  />
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const newServices = websiteData.content.services.filter((_, i) => i !== index);
+                                    setWebsiteData(prev => ({
+                                      ...prev,
+                                      content: { ...prev.content, services: newServices }
+                                    }));
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                const newServices = [...websiteData.content.services, { name: '', description: '', price: '' }];
+                                setWebsiteData(prev => ({
+                                  ...prev,
+                                  content: { ...prev.content, services: newServices }
+                                }));
+                              }}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Adicionar Serviço
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="contact" className="space-y-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>WhatsApp (com botão flutuante)</Label>
+                            <Input 
+                              value={websiteData.contact.whatsapp}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                contact: { ...prev.contact, whatsapp: e.target.value }
+                              }))}
+                              placeholder="Ex: 11999999999"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Telefone</Label>
+                            <Input 
+                              value={websiteData.contact.phone}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                contact: { ...prev.contact, phone: e.target.value }
+                              }))}
+                              placeholder="Ex: (11) 3333-3333"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>E-mail</Label>
+                            <Input 
+                              value={websiteData.contact.email}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                contact: { ...prev.contact, email: e.target.value }
+                              }))}
+                              placeholder="Ex: contato@clinica.com.br"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Endereço</Label>
+                            <Textarea 
+                              value={websiteData.contact.address}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                contact: { ...prev.contact, address: e.target.value }
+                              }))}
+                              placeholder="Endereço completo da clínica"
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Horários de Funcionamento</Label>
+                            <Input 
+                              value={websiteData.contact.hours}
+                              onChange={(e) => setWebsiteData(prev => ({
+                                ...prev,
+                                contact: { ...prev.contact, hours: e.target.value }
+                              }))}
+                              placeholder="Ex: Segunda a Sexta: 8:00 - 18:00"
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Coluna Direita - Preview */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Preview do Site
+                    </CardTitle>
+                    <CardDescription>
+                      Visualize como seu site ficará
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px]">
+                      <div className="text-center space-y-4">
+                        <h1 className="text-2xl font-bold" style={{ color: websiteData.design.primaryColor }}>
+                          {websiteData.content.title}
+                        </h1>
+                        <p className="text-gray-600">
+                          {websiteData.content.subtitle}
+                        </p>
+                        
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <h3 className="font-semibold mb-2">Serviços</h3>
+                          <div className="space-y-2">
+                            {websiteData.content.services.slice(0, 3).map((service, index) => (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span>{service.name}</span>
+                                <span className="font-medium">{service.price}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {websiteData.contact.whatsapp && (
+                          <div className="flex justify-center">
+                            <div 
+                              className="bg-green-500 text-white px-4 py-2 rounded-full flex items-center gap-2"
+                              style={{ backgroundColor: websiteData.design.accentColor }}
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              WhatsApp
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <p>{websiteData.contact.phone}</p>
+                          <p>{websiteData.contact.email}</p>
+                          <p>{websiteData.contact.hours}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {websiteData.domain && (
+                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800">
+                          Site publicado em: <strong>{websiteData.domain}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
