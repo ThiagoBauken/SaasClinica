@@ -1,5 +1,9 @@
 // Módulo de Odontograma
 import { ModuleDefinition } from '../../index';
+import { lazy } from 'react';
+
+// Dynamic import for the odontogram component
+export const OdontogramaComponent = lazy(() => import('./OdontogramaPage').then(module => ({ default: module.default })));
 
 export const odontogramaModule: ModuleDefinition = {
   id: 'odontograma',
@@ -20,6 +24,20 @@ export const odontogramaModule: ModuleDefinition = {
     'ToothStatus',
     'ProcedureMarker',
     'DiagnosisForm'
+  ],
+  frontendRoutes: [
+    {
+      path: '/odontograma',
+      component: OdontogramaComponent,
+      title: 'Odontograma Digital',
+      permissions: ['odontograma:read']
+    },
+    {
+      path: '/odontogram-demo',
+      component: OdontogramaComponent,
+      title: 'Odontograma Digital',
+      permissions: ['odontograma:read']
+    }
   ]
 };
 

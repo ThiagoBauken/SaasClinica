@@ -50,7 +50,6 @@ export function DynamicRouter() {
       </Route>
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
-      <ProtectedRoute path="/odontogram-demo" component={OdontogramDemo} />
       
       {/* Rotas dinâmicas dos módulos */}
       {dynamicRoutes.map((route) => (
