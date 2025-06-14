@@ -39,6 +39,12 @@ interface WebsiteData {
     };
     gallery: string[];
   };
+  social?: {
+    instagram?: string;
+    facebook?: string;
+    linkedin?: string;
+    youtube?: string;
+  };
   seo: {
     title: string;
     description: string;
@@ -996,7 +1002,7 @@ export async function getWebsitePreview(req: Request, res: Response) {
     const templates = {
       modern: generateModernTemplate,
       classic: generateClassicTemplate,
-      minimalist: generateMinimalTemplate
+      minimal: generateMinimalTemplate
     };
 
     const html = templates[template](websiteData);
