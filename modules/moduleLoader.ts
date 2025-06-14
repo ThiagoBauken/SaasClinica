@@ -43,7 +43,9 @@ export class ModuleLoader {
       'odontograma', 
       'automacoes',
       'configuracoes',
-      'cadastros'
+      'cadastros',
+      'laboratorio',
+      'relatorios'
     ];
     
     clinicaModules.forEach(moduleId => {
