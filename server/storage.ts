@@ -782,7 +782,7 @@ export class DatabaseStorage implements IStorage {
       })
     );
     
-    return enrichedAppointments;
+      return enrichedAppointments;
     } catch (error) {
       console.error('Database error in getAppointments:', error);
       return [];
@@ -1076,6 +1076,7 @@ export class DatabaseStorage implements IStorage {
         email: "admin@dentalclinic.com",
         role: "admin",
         speciality: "Administração",
+        companyId: 1,
       });
       
       // Create dentist user
@@ -1086,6 +1087,7 @@ export class DatabaseStorage implements IStorage {
         email: "ana.silva@dentalclinic.com",
         role: "dentist",
         speciality: "Clínico Geral",
+        companyId: 1,
       });
       
       // Create rooms
