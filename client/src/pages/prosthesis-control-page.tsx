@@ -482,28 +482,39 @@ export default function ProsthesisControlPage() {
         if (returnDate) {
           data.returnDate = returnDate;
         }
-        const res = await apiRequest("PATCH", `/api/prosthesis/${id}`, data);
-        if (!res.ok) {
-          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+        
+        const response = await fetch(`/api/prosthesis/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+          throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
         }
-        return await res.json();
+        
+        const result = await response.json();
+        return result;
       } catch (error) {
         console.error("Erro ao atualizar status:", error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       toast({
         title: "Sucesso",
-        description: "Status atualizado com sucesso!",
+        description: data.message || "Status atualizado com sucesso!",
       });
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao atualizar status:", error);
       toast({
         title: "Erro",
-        description: `Falha ao atualizar status: ${error.message}`,
+        description: error.message || "Falha ao atualizar status",
         variant: "destructive",
       });
     }
