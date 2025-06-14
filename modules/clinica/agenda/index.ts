@@ -25,7 +25,7 @@ export const agendaModule: ModuleDefinition = {
     'ScheduleManager'
   ],
   // Frontend routes for modular loading
-  routes: [
+  frontendRoutes: [
     {
       path: '/agenda',
       component: AgendaComponent,

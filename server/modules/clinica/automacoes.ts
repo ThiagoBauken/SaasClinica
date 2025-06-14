@@ -12,7 +12,7 @@ export function registerAutomacoesRoutes(app: Express) {
   };
 
   const asyncHandler = (fn: (req: Request, res: Response, next: Function) => Promise<any>) => (req: Request, res: Response, next: Function) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch((error) => next(error));
   };
 
   // Listar automações da empresa

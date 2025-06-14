@@ -10,6 +10,7 @@ export interface ModuleDefinition {
   components?: any[];
   permissions?: string[];
   icon?: string;
+  frontendRoutes?: any[];
 }
 
 export interface ModuleInstance {
