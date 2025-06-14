@@ -1,5 +1,9 @@
 // Módulo de Próteses
 import { ModuleDefinition } from '../../index';
+import { lazy } from 'react';
+
+// Dynamic import for the prosthesis component
+export const ProtesesComponent = lazy(() => import('./ProtesesPage').then(module => ({ default: module.default })));
 
 export const protesesModule: ModuleDefinition = {
   id: 'proteses',
@@ -20,6 +24,20 @@ export const protesesModule: ModuleDefinition = {
     'ProsthesisForm',
     'LaboratoryManager',
     'OrderTracking'
+  ],
+  frontendRoutes: [
+    {
+      path: '/proteses',
+      component: ProtesesComponent,
+      title: 'Controle de Próteses',
+      permissions: ['proteses:read']
+    },
+    {
+      path: '/prosthesis-control',
+      component: ProtesesComponent,
+      title: 'Controle de Próteses',
+      permissions: ['proteses:read']
+    }
   ]
 };
 

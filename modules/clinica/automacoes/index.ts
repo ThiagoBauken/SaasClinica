@@ -1,5 +1,9 @@
 // Módulo de Automações
 import { ModuleDefinition } from '../../index';
+import { lazy } from 'react';
+
+// Dynamic import for the automation component
+export const AutomacoesComponent = lazy(() => import('./AutomacoesPage').then(module => ({ default: module.default })));
 
 export const automacoesModule: ModuleDefinition = {
   id: 'automacoes',
@@ -20,6 +24,20 @@ export const automacoesModule: ModuleDefinition = {
     'IntegrationManager',
     'NotificationCenter',
     'AutomationRules'
+  ],
+  frontendRoutes: [
+    {
+      path: '/automacoes',
+      component: AutomacoesComponent,
+      title: 'Automações',
+      permissions: ['automacoes:read']
+    },
+    {
+      path: '/automation',
+      component: AutomacoesComponent,
+      title: 'Automações',
+      permissions: ['automacoes:read']
+    }
   ]
 };
 

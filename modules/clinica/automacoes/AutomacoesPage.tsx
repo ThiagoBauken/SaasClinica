@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../client/src/components/ui/card';
+import { Button } from '../../../client/src/components/ui/button';
+import { Badge } from '../../../client/src/components/ui/badge';
+import { Switch } from '../../../client/src/components/ui/switch';
 import { 
   Settings, 
   Zap, 
@@ -16,7 +16,7 @@ import {
   Play,
   BarChart3
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../../client/src/hooks/use-toast';
 
 interface Automation {
   id: number;
