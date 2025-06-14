@@ -9,6 +9,7 @@ import { db } from "./db";
 import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies, appointments, patients, subscriptions, payments } from "@shared/schema";
 import * as paymentHandlers from "./payments";
 import * as clinicHandlers from "./clinic-apis";
+import * as backupHandlers from "./backup";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -823,6 +824,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/users/:id", authCheck, clinicHandlers.deleteUser);
   app.get("/api/procedures", authCheck, clinicHandlers.getProcedures);
   app.get("/api/rooms", authCheck, clinicHandlers.getRooms);
+
+  // === API DE BACKUP ===
+  app.post("/api/backup/create", authCheck, backupHandlers.createBackup);
+  app.post("/api/backup/schedule", authCheck, backupHandlers.scheduleBackup);
+  app.get("/api/backup/status", authCheck, backupHandlers.getBackupStatus);
 
   // === API DE AUTENTICAÇÃO ===
   // Verificar usuário atual
