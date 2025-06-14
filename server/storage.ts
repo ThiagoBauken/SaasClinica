@@ -1013,6 +1013,7 @@ export class DatabaseStorage implements IStorage {
       .insert(automations)
       .values({
         ...data,
+        companyId,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

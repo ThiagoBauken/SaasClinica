@@ -401,19 +401,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.patch("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
-    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body, req.user!.companyId);
     res.json(updatedAutomation);
   }));
 
   app.delete("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
-    await storage.deleteAutomation(parseInt(req.params.id));
+    await storage.deleteAutomation(parseInt(req.params.id), req.user!.companyId);
     res.status(204).end();
   }));
 
   app.patch("/api/automations/:id/toggle", authCheck, asyncHandler(async (req, res) => {
     const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), {
       active: req.body.active,
-    });
+    }, req.user!.companyId);
     res.json(updatedAutomation);
   }));
 

@@ -759,7 +759,7 @@ export const financialCategories = pgTable("financial_categories", {
   name: text("name").notNull(),
   type: text("type").notNull(), // revenue, expense
   color: text("color"),
-  parentId: integer("parent_id").references(() => financialCategories.id),
+  parentId: integer("parent_id").references((): any => financialCategories.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
