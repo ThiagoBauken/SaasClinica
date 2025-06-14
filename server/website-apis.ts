@@ -287,6 +287,9 @@ async function generateStaticWebsite(websiteData: WebsiteData): Promise<void> {
 }
 
 function generateModernTemplate(data: WebsiteData): string {
+  const socialLinks = data.social || {};
+  const gallery = data.gallery || [];
+  
   return `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -296,41 +299,253 @@ function generateModernTemplate(data: WebsiteData): string {
       <title>${data.seo.title || data.clinicName}</title>
       <meta name="description" content="${data.seo.description}">
       <meta name="keywords" content="${data.seo.keywords}">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; line-height: 1.6; }
-        .hero { background: linear-gradient(135deg, ${data.colors.primary}, ${data.colors.secondary}); color: white; padding: 100px 20px; text-align: center; }
-        .hero h1 { font-size: 3rem; margin-bottom: 1rem; }
-        .hero p { font-size: 1.2rem; opacity: 0.9; }
-        .services { padding: 80px 20px; }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; overflow-x: hidden; }
+        
+        /* Header */
+        .header { position: fixed; top: 0; width: 100%; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; z-index: 1000; }
+        .nav { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .logo { font-size: 1.5rem; font-weight: 700; color: ${data.colors.primary}; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { text-decoration: none; color: #333; font-weight: 500; }
+        
+        /* Hero Section */
+        .hero { 
+          background: linear-gradient(135deg, ${data.colors.primary}, ${data.colors.accent}); 
+          color: white; padding: 120px 20px 80px; text-align: center; position: relative;
+          min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .hero-content { max-width: 800px; }
+        .hero h1 { font-size: 3.5rem; margin-bottom: 1.5rem; font-weight: 700; }
+        .hero p { font-size: 1.3rem; opacity: 0.9; margin-bottom: 2rem; }
+        .cta-button { 
+          background: ${data.colors.accent}; color: white; padding: 1rem 2rem; 
+          border: none; border-radius: 50px; font-size: 1.1rem; font-weight: 600;
+          cursor: pointer; transition: transform 0.3s ease;
+        }
+        .cta-button:hover { transform: translateY(-2px); }
+        
+        /* About Section */
+        .about { padding: 100px 20px; background: ${data.colors.secondary}; }
+        .about-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .about h2 { font-size: 2.5rem; margin-bottom: 1.5rem; color: ${data.colors.primary}; }
+        .about p { font-size: 1.1rem; color: #666; }
+        
+        /* Services Section */
+        .services { padding: 100px 20px; }
+        .services h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors.primary}; }
         .service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1200px; margin: 0 auto; }
-        .service-card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .whatsapp-btn { position: fixed; bottom: 20px; right: 20px; background: #25D366; color: white; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .service-card { 
+          background: white; padding: 2.5rem; border-radius: 20px; 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center;
+          transition: transform 0.3s ease;
+        }
+        .service-card:hover { transform: translateY(-10px); }
+        .service-card h3 { font-size: 1.3rem; margin-bottom: 1rem; color: ${data.colors.primary}; }
+        .service-card p { color: #666; margin-bottom: 1rem; }
+        .service-price { font-size: 1.2rem; font-weight: 600; color: ${data.colors.accent}; }
+        
+        /* Gallery Section */
+        .gallery { padding: 100px 20px; background: ${data.colors.secondary}; }
+        .gallery h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors.primary}; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; max-width: 1200px; margin: 0 auto; }
+        .gallery-item { border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .gallery-item img { width: 100%; height: 200px; object-fit: cover; }
+        
+        /* Contact Section */
+        .contact { padding: 100px 20px; background: ${data.colors.primary}; color: white; }
+        .contact-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+        .contact h2 { font-size: 2.5rem; margin-bottom: 2rem; }
+        .contact-info { display: flex; flex-direction: column; gap: 1rem; }
+        .contact-item { display: flex; align-items: center; gap: 1rem; }
+        .contact-item span { font-size: 1.5rem; }
+        
+        /* Social Media */
+        .social-links { display: flex; gap: 1rem; margin-top: 2rem; }
+        .social-link { 
+          width: 50px; height: 50px; border-radius: 50%; 
+          display: flex; align-items: center; justify-content: center;
+          text-decoration: none; color: white; font-size: 1.5rem;
+          transition: transform 0.3s ease;
+        }
+        .social-link:hover { transform: scale(1.1); }
+        .social-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .social-facebook { background: #4267B2; }
+        .social-linkedin { background: #0077B5; }
+        .social-youtube { background: #FF0000; }
+        
+        /* WhatsApp Button */
+        .whatsapp-btn { 
+          position: fixed; bottom: 30px; right: 30px; background: #25D366; 
+          color: white; border: none; border-radius: 50%; width: 70px; height: 70px; 
+          font-size: 28px; cursor: pointer; box-shadow: 0 8px 25px rgba(37,211,102,0.4);
+          z-index: 1000; transition: transform 0.3s ease;
+        }
+        .whatsapp-btn:hover { transform: scale(1.1); }
+        
+        /* Footer */
+        .footer { background: #333; color: white; padding: 2rem; text-align: center; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+          .hero h1 { font-size: 2.5rem; }
+          .about-content, .contact-content { grid-template-columns: 1fr; }
+          .nav-links { display: none; }
+        }
       </style>
     </head>
     <body>
-      <div class="hero">
-        <h1>${data.content.hero.title}</h1>
-        <p>${data.content.hero.subtitle}</p>
-      </div>
+      <!-- Header -->
+      <header class="header">
+        <nav class="nav">
+          <div class="logo">${data.clinicName}</div>
+          <ul class="nav-links">
+            <li><a href="#home">Início</a></li>
+            <li><a href="#about">Sobre</a></li>
+            <li><a href="#services">Serviços</a></li>
+            <li><a href="#gallery">Galeria</a></li>
+            <li><a href="#contact">Contato</a></li>
+          </ul>
+        </nav>
+      </header>
       
-      <div class="services">
+      <!-- Hero Section -->
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <h1>${data.content.hero.title}</h1>
+          <p>${data.content.hero.subtitle}</p>
+          <button class="cta-button" onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'})">
+            Agendar Consulta
+          </button>
+        </div>
+      </section>
+      
+      <!-- About Section -->
+      <section id="about" class="about">
+        <div class="about-content">
+          <div>
+            <h2>${data.content.about.title}</h2>
+            <p>${data.content.about.description}</p>
+          </div>
+          <div>
+            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=500&h=400&fit=crop" alt="Clínica" style="width: 100%; border-radius: 15px;">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Services Section -->
+      <section id="services" class="services">
+        <h2>Nossos Serviços</h2>
         <div class="service-grid">
           ${data.content.services.map(service => `
             <div class="service-card">
               <h3>${service.name}</h3>
               <p>${service.description}</p>
-              ${service.price ? `<div style="color: ${data.colors.primary}; font-weight: bold; margin-top: 1rem;">${service.price}</div>` : ''}
+              ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
             </div>
           `).join('')}
         </div>
-      </div>
+      </section>
       
+      ${gallery.length > 0 ? `
+      <!-- Gallery Section -->
+      <section id="gallery" class="gallery">
+        <h2>Nossa Galeria</h2>
+        <div class="gallery-grid">
+          ${gallery.map(photo => photo.url ? `
+            <div class="gallery-item">
+              <img src="${photo.url}" alt="${photo.alt}">
+            </div>
+          ` : '').join('')}
+        </div>
+      </section>
+      ` : ''}
+      
+      <!-- Contact Section -->
+      <section id="contact" class="contact">
+        <div class="contact-content">
+          <div>
+            <h2>Entre em Contato</h2>
+            <div class="contact-info">
+              <div class="contact-item">
+                <span>📞</span>
+                <div>
+                  <strong>Telefone</strong><br>
+                  ${data.content.contact.phone}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>📧</span>
+                <div>
+                  <strong>Email</strong><br>
+                  ${data.content.contact.email}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>📍</span>
+                <div>
+                  <strong>Endereço</strong><br>
+                  ${data.content.contact.address}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>🕒</span>
+                <div>
+                  <strong>Horários</strong><br>
+                  ${data.content.contact.hours}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Social Media Links -->
+            <div class="social-links">
+              ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" class="social-link social-instagram" target="_blank">📷</a>` : ''}
+              ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" class="social-link social-facebook" target="_blank">📘</a>` : ''}
+              ${socialLinks.linkedin ? `<a href="${socialLinks.linkedin}" class="social-link social-linkedin" target="_blank">💼</a>` : ''}
+              ${socialLinks.youtube ? `<a href="${socialLinks.youtube}" class="social-link social-youtube" target="_blank">📺</a>` : ''}
+            </div>
+          </div>
+          <div>
+            <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Consultório" style="width: 100%; border-radius: 15px;">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Footer -->
+      <footer class="footer">
+        <p>&copy; 2024 ${data.clinicName}. Todos os direitos reservados.</p>
+      </footer>
+      
+      <!-- WhatsApp Button -->
       ${data.content.contact.whatsapp ? `
-        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')">
+        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')" title="Fale conosco no WhatsApp">
           💬
         </button>
       ` : ''}
+      
+      <script>
+        // Smooth scroll for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+              behavior: 'smooth'
+            });
+          });
+        });
+        
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+          const header = document.querySelector('.header');
+          if (window.scrollY > 100) {
+            header.style.background = 'rgba(255,255,255,0.98)';
+          } else {
+            header.style.background = 'rgba(255,255,255,0.95)';
+          }
+        });
+      </script>
     </body>
     </html>
   `;

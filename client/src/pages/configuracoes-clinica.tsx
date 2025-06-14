@@ -454,12 +454,25 @@ export default function ConfiguracoesClinicaPage() {
                                     <Palette className="h-6 w-6 text-white" />
                                   </div>
                                   <div className="flex-1">
-                                    <h4 className="font-medium">{template.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{template.desc}</p>
-                                    <div className="flex gap-1 mt-2">
-                                      <Badge variant="secondary" className="text-xs">Landing Page</Badge>
-                                      <Badge variant="secondary" className="text-xs">WhatsApp</Badge>
-                                      <Badge variant="secondary" className="text-xs">SEO</Badge>
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <h4 className="font-medium">{template.name}</h4>
+                                        <p className="text-sm text-muted-foreground">{template.desc}</p>
+                                        <div className="flex gap-1 mt-2">
+                                          <Badge variant="secondary" className="text-xs">Landing Page</Badge>
+                                          <Badge variant="secondary" className="text-xs">WhatsApp</Badge>
+                                          <Badge variant="secondary" className="text-xs">SEO</Badge>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(`/api/website/preview/${template.id}`, '_blank')}
+                                        className="ml-2"
+                                      >
+                                        <ExternalLink className="h-4 w-4 mr-1" />
+                                        Ver Demo
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1050,45 +1063,51 @@ export default function ConfiguracoesClinicaPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px]">
-                      <div className="text-center space-y-4">
-                        <h1 className="text-2xl font-bold" style={{ color: websiteData.design.primaryColor }}>
-                          {websiteData.content.title}
-                        </h1>
-                        <p className="text-gray-600">
-                          {websiteData.content.subtitle}
-                        </p>
+                    <div className="border rounded-lg bg-white min-h-[500px] relative">
+                      <iframe 
+                        key={websiteData.template}
+                        src={`/api/website/preview/${websiteData.template}`}
+                        className="w-full h-[500px] border-0 rounded-lg"
+                        title="Preview do Site"
+                      />
+                      
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(`/api/website/preview/${websiteData.template}`, '_blank')}
+                          className="bg-white/90 backdrop-blur-sm"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Abrir Preview
+                        </Button>
                         
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <h3 className="font-semibold mb-2">Serviços</h3>
-                          <div className="space-y-2">
-                            {websiteData.content.services.slice(0, 3).map((service, index) => (
-                              <div key={index} className="flex justify-between text-sm">
-                                <span>{service.name}</span>
-                                <span className="font-medium">{service.price}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {websiteData.contact.whatsapp && (
-                          <div className="flex justify-center">
-                            <div 
-                              className="bg-green-500 text-white px-4 py-2 rounded-full flex items-center gap-2"
-                              style={{ backgroundColor: websiteData.design.accentColor }}
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                              WhatsApp
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="text-sm text-gray-500 space-y-1">
-                          <p>{websiteData.contact.phone}</p>
-                          <p>{websiteData.contact.email}</p>
-                          <p>{websiteData.contact.hours}</p>
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const iframe = document.querySelector('iframe[title="Preview do Site"]') as HTMLIFrameElement;
+                            if (iframe) {
+                              iframe.src = iframe.src; // Força reload
+                            }
+                          }}
+                          className="bg-white/90 backdrop-blur-sm"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Atualizar
+                        </Button>
                       </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>Template:</strong> {websiteData.template === 'modern' ? 'Moderno Pro' : 
+                                                     websiteData.template === 'classic' ? 'Clássico Profissional' : 
+                                                     'Minimalista Premium'}
+                      </p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Este é o preview em tempo real do seu site com dados da clínica.
+                      </p>
                     </div>
 
                     {websiteData.domain && (

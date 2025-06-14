@@ -836,6 +836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/website", authCheck, websiteHandlers.saveWebsite);
   app.put("/api/website", authCheck, websiteHandlers.saveWebsite);
   app.post("/api/website/publish", authCheck, websiteHandlers.publishWebsite);
+  app.get("/api/website/preview/:template", authCheck, websiteHandlers.getWebsitePreview);
   app.post("/api/website/unpublish", authCheck, websiteHandlers.unpublishWebsite);
   app.get("/api/website/public/:domain", websiteHandlers.getPublicWebsite);
   app.get("/api/websites/published", authCheck, websiteHandlers.listPublishedWebsites);
