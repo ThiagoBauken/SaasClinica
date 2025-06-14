@@ -939,7 +939,7 @@ export default function ProsthesisControlPage() {
                   (column.id === 'sent' && delayedSent > 0) && "border-red-400",
                   (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
                 )}>
-                  <div className="p-4 font-semibold border-b flex justify-between items-center">
+                  <div className="p-4 font-semibold border-b flex justify-between items-center select-none">
                     <span className={cn(
                       "",
                       (column.id === 'sent' && delayedSent > 0) && "text-red-500",
