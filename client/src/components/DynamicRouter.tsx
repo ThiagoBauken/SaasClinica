@@ -3,9 +3,9 @@ import { Suspense } from "react";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useModules } from "@/hooks/use-modules";
 
-// Import módulos já migrados
-import { DashboardModule } from "@/modules/clinica/dashboard";
-import { AgendaModule } from "@/modules/clinica/agenda/AgendaModule";
+// Import páginas que serão gradualmente migradas para módulos
+import DashboardPage from "@/pages/dashboard-page";
+import SchedulePage from "@/pages/schedule-page";
 
 // Import páginas estáticas que ainda não foram modularizadas
 import AutomationPage from "@/pages/automation-page";
@@ -32,38 +32,25 @@ export function DynamicRouter() {
 
   return (
     <>
-      {/* Dashboard modularizado */}
-      <ProtectedRoute path="/dashboard">
-        <Suspense fallback={<LoadingFallback />}>
-          <DashboardModule />
-        </Suspense>
-      </ProtectedRoute>
+      {/* Dashboard */}
+      <ProtectedRoute path="/dashboard" component={DashboardPage} />
       
-      {/* Agenda modularizada */}
-      <ProtectedRoute path="/schedule">
-        <Suspense fallback={<LoadingFallback />}>
-          <AgendaModule />
-        </Suspense>
-      </ProtectedRoute>
-      
-      <ProtectedRoute path="/agenda">
-        <Suspense fallback={<LoadingFallback />}>
-          <AgendaModule />
-        </Suspense>
-      </ProtectedRoute>
+      {/* Agenda/Schedule */}
+      <ProtectedRoute path="/schedule" component={SchedulePage} />
+      <ProtectedRoute path="/agenda" component={SchedulePage} />
       
       {/* Rotas modularizadas existentes */}
-      <ProtectedRoute path="/patients">
+      <Route path="/patients">
         <Suspense fallback={<LoadingFallback />}>
           <PatientsPage />
         </Suspense>
-      </ProtectedRoute>
+      </Route>
       
-      <ProtectedRoute path="/financial">
+      <Route path="/financial">
         <Suspense fallback={<LoadingFallback />}>
           <FinancialPage />
         </Suspense>
-      </ProtectedRoute>
+      </Route>
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
       <ProtectedRoute path="/automation" component={AutomationPage} />
@@ -71,13 +58,13 @@ export function DynamicRouter() {
       <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/odontogram-demo" component={OdontogramDemo} />
       
-      {/* Rotas dinâmicas dos módulos (futuro) */}
+      {/* Rotas dinâmicas dos módulos */}
       {dynamicRoutes.map((route) => (
-        <ProtectedRoute key={route.path} path={route.path}>
+        <Route key={route.path} path={route.path} component={() => (
           <Suspense fallback={<LoadingFallback />}>
             <route.component />
           </Suspense>
-        </ProtectedRoute>
+        )} />
       ))}
     </>
   );
