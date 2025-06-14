@@ -241,8 +241,8 @@ export class MemStorage implements IStorage {
   }
 
   // Patient methods
-  async getPatients(): Promise<Patient[]> {
-    return Array.from(this.patients.values());
+  async getPatients(companyId: number): Promise<Patient[]> {
+    return Array.from(this.patients.values()).filter(patient => patient.companyId === companyId);
   }
 
   async getPatient(id: number): Promise<Patient | undefined> {
@@ -446,7 +446,7 @@ export class MemStorage implements IStorage {
       }
     }
     
-    return this.getAppointment(id);
+    return this.getAppointment(id, 1); // Default companyId for now
   }
 
   // Professional methods
