@@ -244,6 +244,40 @@ export const insertHolidaySchema = createInsertSchema(holidays).pick({
   isRecurringYearly: true,
 });
 
+// Subscriptions and Payments
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  planId: text("plan_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, active, canceled, expired
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("BRL"),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  nextBillingDate: timestamp("next_billing_date"),
+  mercadoPagoId: text("mercado_pago_id"),
+  paymentMethod: text("payment_method").notNull().default("mercadopago"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  subscriptionId: text("subscription_id").notNull(),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("BRL"),
+  status: text("status").notNull(), // approved, pending, rejected, cancelled
+  paymentDate: timestamp("payment_date").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  mercadoPagoId: text("mercado_pago_id"),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions);
+export const insertPaymentSchema = createInsertSchema(payments);
+
 // N8N Automations
 export const automations = pgTable("automations", {
   id: serial("id").primaryKey(),
