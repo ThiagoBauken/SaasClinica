@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const appointment = await storage.createAppointment(req.body);
+      const appointment = await storage.createAppointment(req.body, req.user!.companyId);
       res.status(201).json(appointment);
     } catch (error) {
       next(error);

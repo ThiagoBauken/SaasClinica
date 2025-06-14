@@ -570,8 +570,8 @@ export class MemStorage implements IStorage {
   }
 
   // Automation methods
-  async getAutomations(): Promise<Automation[]> {
-    return Array.from(this.automations.values());
+  async getAutomations(companyId: number): Promise<Automation[]> {
+    return Array.from(this.automations.values()).filter(automation => automation.companyId === companyId);
   }
 
   async createAutomation(data: any): Promise<Automation> {
