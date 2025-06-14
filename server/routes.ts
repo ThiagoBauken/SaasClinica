@@ -10,6 +10,7 @@ import { clinicSettings, fiscalSettings, permissions, userPermissions, commissio
 import * as paymentHandlers from "./payments";
 import * as clinicHandlers from "./clinic-apis";
 import * as backupHandlers from "./backup";
+import * as websiteHandlers from "./website-apis";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -829,6 +830,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/backup/create", authCheck, backupHandlers.createBackup);
   app.post("/api/backup/schedule", authCheck, backupHandlers.scheduleBackup);
   app.get("/api/backup/status", authCheck, backupHandlers.getBackupStatus);
+
+  // === API DE CRIADOR DE SITES ===
+  app.get("/api/website", authCheck, websiteHandlers.getWebsite);
+  app.post("/api/website", authCheck, websiteHandlers.saveWebsite);
+  app.put("/api/website", authCheck, websiteHandlers.saveWebsite);
+  app.post("/api/website/publish", authCheck, websiteHandlers.publishWebsite);
+  app.post("/api/website/unpublish", authCheck, websiteHandlers.unpublishWebsite);
+  app.get("/api/website/public/:domain", websiteHandlers.getPublicWebsite);
+  app.get("/api/websites/published", authCheck, websiteHandlers.listPublishedWebsites);
 
   // === API DE AUTENTICAÇÃO ===
   // Verificar usuário atual

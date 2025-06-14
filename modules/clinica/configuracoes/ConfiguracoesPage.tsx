@@ -148,7 +148,7 @@ export function ConfiguracoesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="clinic">
             <Building className="h-4 w-4 mr-2" />
             Clínica
@@ -164,6 +164,10 @@ export function ConfiguracoesPage() {
           <TabsTrigger value="security">
             <Shield className="h-4 w-4 mr-2" />
             Segurança
+          </TabsTrigger>
+          <TabsTrigger value="website">
+            <Globe className="h-4 w-4 mr-2" />
+            Site da Clínica
           </TabsTrigger>
         </TabsList>
 
