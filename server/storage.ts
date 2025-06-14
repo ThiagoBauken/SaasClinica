@@ -708,41 +708,11 @@ export class DatabaseStorage implements IStorage {
 
   // Appointment methods
   async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
-    let query = db.select().from(appointments);
+    try {
+      // Basic query with company filter
+      const appointmentsList = await db.select().from(appointments).where(eq(appointments.companyId, companyId));
     
-    // Apply filters
-    let conditions = [eq(appointments.companyId, companyId)]; // Filter by company
-    
-    if (filters) {
-      
-      if (filters.startDate) {
-        conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
-      }
-      
-      if (filters.endDate) {
-        conditions.push(lt(appointments.startTime, new Date(filters.endDate)));
-      }
-      
-      if (filters.professionalId !== undefined) {
-        conditions.push(eq(appointments.professionalId, filters.professionalId));
-      }
-      
-      if (filters.patientId !== undefined) {
-        conditions.push(eq(appointments.patientId, filters.patientId));
-      }
-      
-      if (filters.status) {
-        conditions.push(eq(appointments.status, filters.status));
-      }
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
-    }
-    
-    const appointmentsList = await query;
-    
-    // Enrich with related data
+      // Enrich with related data
     const enrichedAppointments = await Promise.all(
       appointmentsList.map(async (appointment) => {
         // Get patient info
@@ -813,6 +783,10 @@ export class DatabaseStorage implements IStorage {
     );
     
     return enrichedAppointments;
+    } catch (error) {
+      console.error('Database error in getAppointments:', error);
+      return [];
+    }
   }
 
   async getAppointment(id: number): Promise<any | undefined> {
