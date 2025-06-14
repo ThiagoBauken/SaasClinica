@@ -47,7 +47,7 @@ export interface IStorage {
   
   // Appointments - tenant-aware
   getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]>;
-  getAppointment(id: number, companyId: number): Promise<any | undefined>;
+  getAppointment(id: number, companyId?: number): Promise<any | undefined>;
   createAppointment(appointment: any, companyId: number): Promise<any>;
   updateAppointment(id: number, data: any, companyId: number): Promise<any>;
   
@@ -247,11 +247,15 @@ export class MemStorage implements IStorage {
     return Array.from(this.patients.values()).filter(patient => patient.companyId === companyId);
   }
 
-  async getPatient(id: number): Promise<Patient | undefined> {
-    return this.patients.get(id);
+  async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
+    const patient = this.patients.get(id);
+    if (patient && patient.companyId === companyId) {
+      return patient;
+    }
+    return undefined;
   }
 
-  async createPatient(patient: any): Promise<Patient> {
+  async createPatient(patient: any, companyId: number): Promise<Patient> {
     const id = this.patientIdCounter++;
     const now = new Date();
     const newPatient: Patient = {
@@ -263,8 +267,8 @@ export class MemStorage implements IStorage {
     return newPatient;
   }
 
-  async updatePatient(id: number, data: any): Promise<Patient> {
-    const patient = await this.getPatient(id);
+  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
+    const patient = await this.getPatient(id, companyId);
     if (!patient) {
       throw new Error("Patient not found");
     }
@@ -304,7 +308,7 @@ export class MemStorage implements IStorage {
     // Enrich with related data
     const enrichedAppointments = await Promise.all(
       appointments.map(async (appointment) => {
-        const patient = appointment.patientId ? await this.getPatient(appointment.patientId) : undefined;
+        const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId) : undefined;
         const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
         const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
         
