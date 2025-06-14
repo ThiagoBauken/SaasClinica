@@ -204,12 +204,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
-    const patients = await storage.getPatients();
+    const patients = await storage.getPatients(companyId);
     res.json(patients);
   }));
 
   app.get("/api/patients/:id", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patient = await storage.getPatient(parseInt(req.params.id));
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patient = await storage.getPatient(parseInt(req.params.id), companyId);
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
@@ -217,7 +219,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.post("/api/patients", authCheck, asyncHandler(async (req, res) => {
-    const patient = await storage.createPatient(req.body);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patient = await storage.createPatient(req.body, companyId);
     // Invalida o cache relacionado a pacientes em todos os workers
     invalidateClusterCache('api:/api/patients');
     res.status(201).json(patient);

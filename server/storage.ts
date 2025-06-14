@@ -352,7 +352,7 @@ export class MemStorage implements IStorage {
     if (companyId && appointment.companyId !== companyId) return undefined;
     
     // Enrich with related data
-    const patient = appointment.patientId ? await this.getPatient(appointment.patientId) : undefined;
+    const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId || appointment.companyId) : undefined;
     const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
     const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
     
@@ -680,12 +680,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(patients).where(eq(patients.companyId, companyId));
   }
 
-  async getPatient(id: number): Promise<Patient | undefined> {
-    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+  async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
+    const [patient] = await db.select().from(patients).where(
+      and(eq(patients.id, id), eq(patients.companyId, companyId))
+    );
     return patient || undefined;
   }
 
-  async createPatient(patientData: any): Promise<Patient> {
+  async createPatient(patientData: any, companyId: number): Promise<Patient> {
     const [patient] = await db
       .insert(patients)
       .values({
