@@ -441,3 +441,88 @@ function generateMinimalTemplate(data: WebsiteData): string {
     </html>
   `;
 }
+
+// Função para gerar preview do template com dados atuais
+export async function getWebsitePreview(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    const template = req.params.template as 'modern' | 'classic' | 'minimal';
+    
+    if (!['modern', 'classic', 'minimal'].includes(template)) {
+      return res.status(400).json({ error: 'Template inválido' });
+    }
+
+    // Buscar dados salvos ou usar dados padrão da empresa
+    let websiteData = websiteStorage.get(companyId || 0);
+    
+    if (!websiteData && companyId) {
+      // Buscar dados da empresa no banco para popular automaticamente
+      const company = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      const companyInfo = company[0];
+      
+      websiteData = {
+        id: companyId,
+        clinicName: companyInfo?.name || 'Clínica Odontológica',
+        template,
+        colors: {
+          primary: '#0066cc',
+          secondary: '#f8f9fa', 
+          accent: '#28a745'
+        },
+        content: {
+          hero: {
+            title: companyInfo?.name || 'Clínica Odontológica',
+            subtitle: 'Cuidando do seu sorriso com excelência e tecnologia de ponta'
+          },
+          about: {
+            title: 'Sobre Nossa Clínica',
+            description: 'Oferecemos tratamentos odontológicos de qualidade com uma equipe especializada e equipamentos modernos, priorizando o conforto e bem-estar dos nossos pacientes.'
+          },
+          services: [
+            { name: 'Limpeza e Profilaxia', description: 'Limpeza profissional completa', price: 'A partir de R$ 80,00' },
+            { name: 'Clareamento Dental', description: 'Clareamento a laser ou moldeira', price: 'A partir de R$ 350,00' },
+            { name: 'Implantes Dentários', description: 'Implantes com tecnologia avançada', price: 'A partir de R$ 2.500,00' },
+            { name: 'Ortodontia', description: 'Aparelhos fixos e alinhadores', price: 'A partir de R$ 180,00/mês' }
+          ],
+          contact: {
+            phone: '(11) 9999-9999',
+            whatsapp: '11999999999',
+            email: companyInfo?.email || 'contato@clinica.com',
+            address: 'Rua das Flores, 123 - Centro, São Paulo - SP',
+            hours: 'Segunda a Sexta: 8:00 - 18:00 | Sábado: 8:00 - 12:00'
+          },
+          gallery: []
+        },
+        seo: {
+          title: `${companyInfo?.name || 'Clínica Odontológica'} - Dentista Especializado`,
+          description: 'Clínica odontológica com atendimento de qualidade, equipamentos modernos e profissionais especializados.',
+          keywords: 'dentista, odontologia, clínica dental, implante, clareamento, ortodontia'
+        },
+        published: false,
+        companyId: companyId || 0
+      };
+    }
+
+    if (!websiteData) {
+      return res.status(404).json({ error: 'Dados não encontrados' });
+    }
+
+    // Forçar o template solicitado para o preview
+    websiteData.template = template;
+
+    // Gerar HTML do template
+    const templates = {
+      modern: generateModernTemplate,
+      classic: generateClassicTemplate,
+      minimal: generateMinimalTemplate
+    };
+
+    const html = templates[template](websiteData);
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (error) {
+    console.error('Erro ao gerar preview:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+}

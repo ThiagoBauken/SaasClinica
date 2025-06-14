@@ -739,6 +739,299 @@ export default function ConfiguracoesClinicaPage() {
                           </div>
                         </div>
                       </TabsContent>
+
+                      <TabsContent value="social" className="space-y-4">
+                        <div className="space-y-4">
+                          <h3 className="font-medium">Redes Sociais</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Conecte suas redes sociais para aumentar sua presença online
+                          </p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2">
+                                <Instagram className="h-4 w-4 text-pink-600" />
+                                Instagram
+                              </Label>
+                              <Input 
+                                placeholder="https://instagram.com/sua_clinica"
+                                value={websiteData.social.instagram}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  social: { ...prev.social, instagram: e.target.value }
+                                }))}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2">
+                                <Facebook className="h-4 w-4 text-blue-600" />
+                                Facebook
+                              </Label>
+                              <Input 
+                                placeholder="https://facebook.com/sua_clinica"
+                                value={websiteData.social.facebook}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  social: { ...prev.social, facebook: e.target.value }
+                                }))}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2">
+                                <Linkedin className="h-4 w-4 text-blue-700" />
+                                LinkedIn
+                              </Label>
+                              <Input 
+                                placeholder="https://linkedin.com/company/sua-clinica"
+                                value={websiteData.social.linkedin}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  social: { ...prev.social, linkedin: e.target.value }
+                                }))}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2">
+                                <Youtube className="h-4 w-4 text-red-600" />
+                                YouTube
+                              </Label>
+                              <Input 
+                                placeholder="https://youtube.com/@sua_clinica"
+                                value={websiteData.social.youtube}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  social: { ...prev.social, youtube: e.target.value }
+                                }))}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h4 className="font-medium text-blue-900 mb-2">Dicas para Redes Sociais</h4>
+                            <div className="space-y-1 text-sm text-blue-800">
+                              <p>• As redes sociais aparecerão como ícones no seu site</p>
+                              <p>• Mantenha seus perfis atualizados com informações da clínica</p>
+                              <p>• Use hashtags relevantes: #odontologia #dentista #saude</p>
+                              <p>• Poste conteúdo educativo sobre saúde bucal</p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="gallery" className="space-y-4">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="font-medium">Galeria de Fotos</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Adicione fotos da clínica, consultórios e resultados
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => {
+                                const newPhoto = {
+                                  id: Date.now(),
+                                  url: '',
+                                  alt: 'Nova foto',
+                                  category: 'instalacoes'
+                                };
+                                setWebsiteData(prev => ({
+                                  ...prev,
+                                  gallery: [...prev.gallery, newPhoto]
+                                }));
+                              }}
+                              size="sm"
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Adicionar Foto
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {websiteData.gallery.map((photo, index) => (
+                              <div key={photo.id} className="border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <Badge variant="outline" className="text-xs">
+                                    {photo.category === 'instalacoes' ? 'Instalações' : 
+                                     photo.category === 'resultados' ? 'Resultados' : 'Equipe'}
+                                  </Badge>
+                                  <Button
+                                    onClick={() => {
+                                      setWebsiteData(prev => ({
+                                        ...prev,
+                                        gallery: prev.gallery.filter(p => p.id !== photo.id)
+                                      }));
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>URL da Imagem</Label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      placeholder="https://exemplo.com/foto.jpg"
+                                      value={photo.url}
+                                      onChange={(e) => {
+                                        setWebsiteData(prev => ({
+                                          ...prev,
+                                          gallery: prev.gallery.map(p => 
+                                            p.id === photo.id ? { ...p, url: e.target.value } : p
+                                          )
+                                        }));
+                                      }}
+                                    />
+                                    <Button variant="outline" size="sm">
+                                      <Upload className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Descrição</Label>
+                                    <Input
+                                      placeholder="Descrição da foto"
+                                      value={photo.alt}
+                                      onChange={(e) => {
+                                        setWebsiteData(prev => ({
+                                          ...prev,
+                                          gallery: prev.gallery.map(p => 
+                                            p.id === photo.id ? { ...p, alt: e.target.value } : p
+                                          )
+                                        }));
+                                      }}
+                                      className="text-xs"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Categoria</Label>
+                                    <Select
+                                      value={photo.category}
+                                      onValueChange={(value) => {
+                                        setWebsiteData(prev => ({
+                                          ...prev,
+                                          gallery: prev.gallery.map(p => 
+                                            p.id === photo.id ? { ...p, category: value } : p
+                                          )
+                                        }));
+                                      }}
+                                    >
+                                      <SelectTrigger className="text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="instalacoes">Instalações</SelectItem>
+                                        <SelectItem value="resultados">Resultados</SelectItem>
+                                        <SelectItem value="equipe">Equipe</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                {photo.url && (
+                                  <div className="mt-2">
+                                    <img 
+                                      src={photo.url} 
+                                      alt={photo.alt}
+                                      className="w-full h-24 object-cover rounded border"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 className="font-medium text-green-900 mb-2">Dicas para Galeria</h4>
+                            <div className="space-y-1 text-sm text-green-800">
+                              <p>• Use imagens de alta qualidade (mínimo 800x600px)</p>
+                              <p>• Fotos de instalações mostram profissionalismo</p>
+                              <p>• Resultados (antes/depois) aumentam confiança</p>
+                              <p>• Imagens da equipe humanizam sua clínica</p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="seo" className="space-y-4">
+                        <div className="space-y-4">
+                          <h3 className="font-medium">SEO e Otimização</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Melhore a visibilidade do seu site nos mecanismos de busca
+                          </p>
+
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>Título da Página (SEO)</Label>
+                              <Input 
+                                value={websiteData.seo.title}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  seo: { ...prev.seo, title: e.target.value }
+                                }))}
+                                placeholder="Ex: Clínica Odontológica em São Paulo | Dentista Especializado"
+                                maxLength={60}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {websiteData.seo.title.length}/60 caracteres
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Descrição Meta</Label>
+                              <Textarea 
+                                value={websiteData.seo.description}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  seo: { ...prev.seo, description: e.target.value }
+                                }))}
+                                placeholder="Descreva sua clínica e serviços para aparecer no Google"
+                                maxLength={160}
+                                rows={3}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {websiteData.seo.description.length}/160 caracteres
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Palavras-chave</Label>
+                              <Input 
+                                value={websiteData.seo.keywords}
+                                onChange={(e) => setWebsiteData(prev => ({
+                                  ...prev,
+                                  seo: { ...prev.seo, keywords: e.target.value }
+                                }))}
+                                placeholder="dentista, odontologia, clínica dental, implante"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Separe as palavras-chave com vírgulas
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                            <h4 className="font-medium text-purple-900 mb-2">Dicas de SEO</h4>
+                            <div className="space-y-1 text-sm text-purple-800">
+                              <p>• Use palavras-chave relevantes para odontologia</p>
+                              <p>• Inclua sua localização (cidade/bairro)</p>
+                              <p>• Mantenha títulos únicos e descritivos</p>
+                              <p>• Atualize conteúdo regularmente</p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
                     </Tabs>
                   </CardContent>
                 </Card>
