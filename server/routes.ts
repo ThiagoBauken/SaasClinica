@@ -228,7 +228,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.patch("/api/patients/:id", authCheck, asyncHandler(async (req, res) => {
-    const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body, companyId);
     // Invalida caches específicos em todos os workers
     invalidateClusterCache(`api:/api/patients/${req.params.id}`);
     invalidateClusterCache('api:/api/patients');

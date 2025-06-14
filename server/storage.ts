@@ -698,11 +698,11 @@ export class DatabaseStorage implements IStorage {
     return patient;
   }
 
-  async updatePatient(id: number, data: any): Promise<Patient> {
+  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
     const [updatedPatient] = await db
       .update(patients)
       .set(data)
-      .where(eq(patients.id, id))
+      .where(and(eq(patients.id, id), eq(patients.companyId, companyId)))
       .returning();
     
     if (!updatedPatient) {
