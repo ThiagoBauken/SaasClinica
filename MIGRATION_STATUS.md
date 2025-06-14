@@ -15,9 +15,9 @@ Migration from static pages to modular SaaS architecture with multi-tenant isola
 - Updated DynamicRouter for seamless integration
 - Maintained backward compatibility
 
-## Migration Progress: 17/28 Pages Migrated (60.7%)
+## Migration Progress: 20/28 Pages Migrated (71.4%)
 
-### ✅ Already Modularized (15 pages)
+### ✅ Already Modularized (18 pages)
 1. PatientsPage → `/modules/clinica/pacientes/`
 2. FinancialPage → `/modules/clinica/financeiro/`
 3. Dashboard → `/modules/clinica/dashboard/` (NEW)
@@ -29,12 +29,15 @@ Migration from static pages to modular SaaS architecture with multi-tenant isola
 9. ConfiguracoesPage → `/modules/clinica/configuracoes/` (NEW)
 10. CadastrosPage → `/modules/clinica/cadastros/` (NEW)
 11. LaboratorioPage → `/modules/clinica/laboratorio/` (NEW)
-12. Admin interfaces → existing modular structure
-13. Module management pages → existing structure
-14. N8N Integration → `/modules/clinica/automacoes/N8NIntegration` (NEW)
-15. WhatsApp Integration → `/modules/clinica/automacoes/WhatsAppIntegration` (NEW)
+12. RelatoriosPage → `/modules/clinica/relatorios/` (NEW)
+13. N8N Integration → `/modules/clinica/automacoes/N8NIntegration` (NEW)
+14. WhatsApp Integration → `/modules/clinica/automacoes/WhatsAppIntegration` (NEW)
+15. Admin interfaces → existing modular structure
+16. Module management pages → existing structure
+17. User authentication core → existing structure
+18. Company management → existing structure
 
-### 🔄 Next Priority for Migration (13 pages remaining)
+### 🔄 Next Priority for Migration (8 pages remaining)
 11. CadastrosPage → `/modules/clinica/cadastros/`
 12. ConfiguracoesPage → `/modules/clinica/configuracoes/`
 13. ConfiguracoesClinicaPage → `/modules/clinica/configuracoes/`
