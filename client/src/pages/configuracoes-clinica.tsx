@@ -28,7 +28,14 @@ import {
   Edit3,
   Plus,
   Save,
-  Share2
+  Share2,
+  Instagram,
+  Facebook,
+  Linkedin,
+  Youtube,
+  Camera,
+  Image,
+  ExternalLink
 } from "lucide-react";
 
 export default function ConfiguracoesClinicaPage() {
@@ -96,7 +103,17 @@ export default function ConfiguracoesClinicaPage() {
       address: '',
       hours: 'Segunda a Sexta: 8:00 - 18:00'
     },
-    gallery: [],
+    social: {
+      instagram: '',
+      facebook: '',
+      linkedin: '',
+      youtube: ''
+    },
+    gallery: [
+      { id: 1, url: '', alt: 'Recepção da clínica', category: 'instalacoes' },
+      { id: 2, url: '', alt: 'Consultório', category: 'instalacoes' },
+      { id: 3, url: '', alt: 'Antes e depois', category: 'resultados' }
+    ],
     seo: {
       title: '',
       description: '',
@@ -132,10 +149,15 @@ export default function ConfiguracoesClinicaPage() {
     mutationFn: () => 
       fetch('/api/website/publish', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(websiteData)
       }).then(res => res.json()),
-    onSuccess: () => {
-      toast({ title: 'Site publicado com sucesso!', description: 'Seu site está disponível online.' });
+    onSuccess: (data) => {
+      setWebsiteData(prev => ({ ...prev, isPublished: true, domain: data.domain }));
+      toast({ 
+        title: 'Site publicado com sucesso!', 
+        description: `Seu site está disponível em: ${data.domain}` 
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/website'] });
     }
   });
@@ -166,8 +188,49 @@ export default function ConfiguracoesClinicaPage() {
         receiptHeader: clinicSettings.receiptHeader || "",
         receiptFooter: clinicSettings.receiptFooter || ""
       });
+
+      // Sincroniza dados com o criador de sites
+      setWebsiteData(prev => ({
+        ...prev,
+        content: {
+          ...prev.content,
+          title: clinicSettings.name || prev.content.title
+        },
+        contact: {
+          ...prev.contact,
+          phone: clinicSettings.phone || prev.contact.phone,
+          email: clinicSettings.email || prev.contact.email,
+          address: clinicSettings.address ? 
+            `${clinicSettings.address}, ${clinicSettings.neighborhood}, ${clinicSettings.city} - ${clinicSettings.state}` 
+            : prev.contact.address,
+          whatsapp: clinicSettings.cellphone || prev.contact.whatsapp,
+          hours: `${clinicSettings.openingTime} - ${clinicSettings.closingTime}` || prev.contact.hours
+        }
+      }));
     }
   }, [clinicSettings]);
+
+  // Carrega dados do site salvos
+  useEffect(() => {
+    if (savedWebsite) {
+      setWebsiteData(prevData => ({
+        ...prevData,
+        ...savedWebsite,
+        // Mantém sincronização com dados da clínica se não há dados salvos específicos
+        content: {
+          ...prevData.content,
+          ...savedWebsite.content,
+          title: savedWebsite.content?.title || form.name || prevData.content.title
+        },
+        contact: {
+          ...prevData.contact,
+          ...savedWebsite.contact,
+          phone: savedWebsite.contact?.phone || form.phone || prevData.contact.phone,
+          email: savedWebsite.contact?.email || form.email || prevData.contact.email
+        }
+      }));
+    }
+  }, [savedWebsite, form.name, form.phone, form.email]);
   
   // Função para lidar com mudanças no formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +268,16 @@ export default function ConfiguracoesClinicaPage() {
             )}
             {activeTab === 'website' && (
               <>
+                {websiteData.domain && (
+                  <Button 
+                    onClick={() => window.open(`https://${websiteData.domain}`, '_blank')}
+                    variant="outline"
+                    className="text-green-700 border-green-300 hover:bg-green-50"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver Site Publicado
+                  </Button>
+                )}
                 <Button 
                   onClick={() => saveWebsiteMutation.mutate(websiteData)} 
                   variant="outline"
@@ -344,11 +417,12 @@ export default function ConfiguracoesClinicaPage() {
                   </CardHeader>
                   <CardContent>
                     <Tabs value={websiteActiveTab} onValueChange={setWebsiteActiveTab} className="space-y-4">
-                      <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full">
+                      <TabsList className="grid grid-cols-4 lg:grid-cols-7 w-full">
                         <TabsTrigger value="template">Template</TabsTrigger>
                         <TabsTrigger value="content">Conteúdo</TabsTrigger>
                         <TabsTrigger value="design">Design</TabsTrigger>
                         <TabsTrigger value="contact">Contato</TabsTrigger>
+                        <TabsTrigger value="social">Social</TabsTrigger>
                         <TabsTrigger value="gallery">Galeria</TabsTrigger>
                         <TabsTrigger value="seo">SEO</TabsTrigger>
                       </TabsList>
@@ -357,27 +431,36 @@ export default function ConfiguracoesClinicaPage() {
                         <div className="space-y-4">
                           <h3 className="font-medium">Escolha seu Template</h3>
                           <div className="grid grid-cols-1 gap-4">
-                            {['modern', 'classic', 'minimalist'].map((template) => (
+                            {[
+                              { id: 'modern', name: 'Moderno Pro', desc: 'Landing page com animações, hero section e CTA destacados' },
+                              { id: 'classic', name: 'Clássico Profissional', desc: 'Layout tradicional com seções bem definidas e credibilidade' },
+                              { id: 'minimalist', name: 'Minimalista Premium', desc: 'Design clean com foco na conversão e experiência' }
+                            ].map((template) => (
                               <div 
-                                key={template}
+                                key={template.id}
                                 className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-                                  websiteData.template === template 
+                                  websiteData.template === template.id 
                                     ? 'border-primary bg-primary/5' 
                                     : 'border-gray-200 hover:border-gray-300'
                                 }`}
-                                onClick={() => setWebsiteData(prev => ({ ...prev, template }))}
+                                onClick={() => setWebsiteData(prev => ({ ...prev, template: template.id }))}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-16 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
-                                    <Palette className="h-6 w-6 text-blue-600" />
+                                  <div className={`w-16 h-12 rounded flex items-center justify-center ${
+                                    template.id === 'modern' ? 'bg-gradient-to-br from-blue-500 to-purple-600' :
+                                    template.id === 'classic' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
+                                    'bg-gradient-to-br from-gray-400 to-gray-600'
+                                  }`}>
+                                    <Palette className="h-6 w-6 text-white" />
                                   </div>
-                                  <div>
-                                    <h4 className="font-medium capitalize">{template}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {template === 'modern' && 'Design contemporâneo com gradientes'}
-                                      {template === 'classic' && 'Design tradicional e elegante'}
-                                      {template === 'minimalist' && 'Clean e simples'}
-                                    </p>
+                                  <div className="flex-1">
+                                    <h4 className="font-medium">{template.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{template.desc}</p>
+                                    <div className="flex gap-1 mt-2">
+                                      <Badge variant="secondary" className="text-xs">Landing Page</Badge>
+                                      <Badge variant="secondary" className="text-xs">WhatsApp</Badge>
+                                      <Badge variant="secondary" className="text-xs">SEO</Badge>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -487,6 +570,107 @@ export default function ConfiguracoesClinicaPage() {
                               <Plus className="h-4 w-4 mr-2" />
                               Adicionar Serviço
                             </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="design" className="space-y-4">
+                        <div className="space-y-4">
+                          <h3 className="font-medium">Personalização Visual</h3>
+                          
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Cor Primária</Label>
+                              <div className="flex gap-2">
+                                <Input 
+                                  type="color"
+                                  value={websiteData.design.primaryColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, primaryColor: e.target.value }
+                                  }))}
+                                  className="w-12 h-10 p-1"
+                                />
+                                <Input 
+                                  value={websiteData.design.primaryColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, primaryColor: e.target.value }
+                                  }))}
+                                  placeholder="#0066cc"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Cor Secundária</Label>
+                              <div className="flex gap-2">
+                                <Input 
+                                  type="color"
+                                  value={websiteData.design.secondaryColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, secondaryColor: e.target.value }
+                                  }))}
+                                  className="w-12 h-10 p-1"
+                                />
+                                <Input 
+                                  value={websiteData.design.secondaryColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, secondaryColor: e.target.value }
+                                  }))}
+                                  placeholder="#f8f9fa"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Cor de Destaque</Label>
+                              <div className="flex gap-2">
+                                <Input 
+                                  type="color"
+                                  value={websiteData.design.accentColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, accentColor: e.target.value }
+                                  }))}
+                                  className="w-12 h-10 p-1"
+                                />
+                                <Input 
+                                  value={websiteData.design.accentColor}
+                                  onChange={(e) => setWebsiteData(prev => ({
+                                    ...prev,
+                                    design: { ...prev.design, accentColor: e.target.value }
+                                  }))}
+                                  placeholder="#28a745"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <h4 className="font-medium mb-2">Preview das Cores</h4>
+                            <div className="flex gap-4">
+                              <div 
+                                className="w-16 h-16 rounded-lg flex items-center justify-center text-white font-medium"
+                                style={{ backgroundColor: websiteData.design.primaryColor }}
+                              >
+                                Primária
+                              </div>
+                              <div 
+                                className="w-16 h-16 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: websiteData.design.secondaryColor, color: websiteData.design.primaryColor }}
+                              >
+                                Secundária
+                              </div>
+                              <div 
+                                className="w-16 h-16 rounded-lg flex items-center justify-center text-white font-medium"
+                                style={{ backgroundColor: websiteData.design.accentColor }}
+                              >
+                                Destaque
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </TabsContent>
@@ -616,9 +800,20 @@ export default function ConfiguracoesClinicaPage() {
 
                     {websiteData.domain && (
                       <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800">
-                          Site publicado em: <strong>{websiteData.domain}</strong>
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-green-800">
+                            Site publicado em: <strong>{websiteData.domain}</strong>
+                          </p>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => window.open(`https://${websiteData.domain}`, '_blank')}
+                            className="text-green-800 border-green-300 hover:bg-green-100"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver Site
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
