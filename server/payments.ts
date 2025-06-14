@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { db } from './db';
-import { subscriptions, payments, plans } from '../shared/schema';
+import { subscriptions, payments } from '../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Configurar Mercado Pago

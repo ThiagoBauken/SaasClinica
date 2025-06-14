@@ -6,7 +6,9 @@ import { parse, formatISO, addDays } from "date-fns";
 import { cacheMiddleware } from "./simpleCache";
 import { invalidateClusterCache } from "./clusterCache";
 import { db } from "./db";
-import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies, appointments, patients } from "@shared/schema";
+import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies, appointments, patients, subscriptions, payments } from "@shared/schema";
+import * as paymentHandlers from "./payments";
+import * as clinicHandlers from "./clinic-apis";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -793,6 +795,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
   }));
+
+  // === API DE PAGAMENTOS MERCADO PAGO ===
+  app.get("/api/payments/plans", paymentHandlers.getPlans);
+  app.get("/api/payments/subscription", authCheck, paymentHandlers.getCurrentSubscription);
+  app.post("/api/payments/subscribe", authCheck, paymentHandlers.createSubscription);
+  app.post("/api/payments/cancel", authCheck, paymentHandlers.cancelSubscription);
+  app.get("/api/payments/history", authCheck, paymentHandlers.getPaymentHistory);
+  app.post("/api/payments/webhook", paymentHandlers.handleWebhook);
+  app.get("/payments/success", paymentHandlers.getPaymentSuccess);
+  app.get("/payments/failure", (req, res) => res.redirect('/payments?status=error'));
+  app.get("/payments/pending", (req, res) => res.redirect('/payments?status=pending'));
+
+  // === API DE CONFIGURAÇÕES DA CLÍNICA ===
+  app.get("/api/clinic/settings", authCheck, clinicHandlers.getClinicSettings);
+  app.patch("/api/clinic/settings", authCheck, clinicHandlers.updateClinicSettings);
+
+  // === API DE RELATÓRIOS ===
+  app.get("/api/reports/revenue", authCheck, clinicHandlers.getRevenueReport);
+  app.get("/api/reports/appointments", authCheck, clinicHandlers.getAppointmentStats);
+  app.get("/api/reports/procedures", authCheck, clinicHandlers.getProcedureAnalytics);
+  app.get("/api/reports/patients", authCheck, clinicHandlers.getPatientAnalytics);
+
+  // === API DE USUÁRIOS E CADASTROS ===
+  app.get("/api/users", authCheck, clinicHandlers.getUsers);
+  app.patch("/api/users/:id", authCheck, clinicHandlers.updateUser);
+  app.delete("/api/users/:id", authCheck, clinicHandlers.deleteUser);
+  app.get("/api/procedures", authCheck, clinicHandlers.getProcedures);
+  app.get("/api/rooms", authCheck, clinicHandlers.getRooms);
 
   // === API DE AUTENTICAÇÃO ===
   // Verificar usuário atual
