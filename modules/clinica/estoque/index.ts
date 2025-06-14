@@ -1,5 +1,9 @@
 // Módulo de Estoque
 import { ModuleDefinition } from '../../index';
+import { lazy } from 'react';
+
+// Dynamic import for the inventory component
+export const EstoqueComponent = lazy(() => import('./EstoquePage').then(module => ({ default: module.default })));
 
 export const estoqueModule: ModuleDefinition = {
   id: 'estoque',
@@ -20,6 +24,20 @@ export const estoqueModule: ModuleDefinition = {
     'ItemForm',
     'StockMovements',
     'LowStockAlerts'
+  ],
+  frontendRoutes: [
+    {
+      path: '/estoque',
+      component: EstoqueComponent,
+      title: 'Controle de Estoque',
+      permissions: ['estoque:read']
+    },
+    {
+      path: '/inventory',
+      component: EstoqueComponent,
+      title: 'Controle de Estoque',
+      permissions: ['estoque:read']
+    }
   ]
 };
 

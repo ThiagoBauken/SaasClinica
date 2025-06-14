@@ -8,9 +8,6 @@ import DashboardPage from "@/pages/dashboard-page";
 import SchedulePage from "@/pages/schedule-page";
 
 // Import páginas estáticas que ainda não foram modularizadas
-import AutomationPage from "@/pages/automation-page";
-import ProsthesisControlPage from "@/pages/prosthesis-control-page";
-import InventoryPage from "@/pages/inventory-page";
 import OdontogramDemo from "@/pages/odontogram-demo";
 
 // Import páginas modularizadas
@@ -53,9 +50,6 @@ export function DynamicRouter() {
       </Route>
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
-      <ProtectedRoute path="/automation" component={AutomationPage} />
-      <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
-      <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/odontogram-demo" component={OdontogramDemo} />
       
       {/* Rotas dinâmicas dos módulos */}
