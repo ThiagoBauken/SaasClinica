@@ -247,6 +247,7 @@ export const insertHolidaySchema = createInsertSchema(holidays).pick({
 // N8N Automations
 export const automations = pgTable("automations", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   name: text("name").notNull(),
   triggerType: text("trigger_type").notNull(), // appointment, time_before, after_appointment, status_change
   timeBeforeValue: integer("time_before_value"),

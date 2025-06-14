@@ -574,12 +574,13 @@ export class MemStorage implements IStorage {
     return Array.from(this.automations.values()).filter(automation => automation.companyId === companyId);
   }
 
-  async createAutomation(data: any): Promise<Automation> {
+  async createAutomation(data: any, companyId: number): Promise<Automation> {
     const id = this.automationIdCounter++;
     const now = new Date();
     const automation: Automation = {
       ...data,
       id,
+      companyId,
       createdAt: now,
       updatedAt: now
     };
@@ -1002,11 +1003,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Automations
-  async getAutomations(): Promise<Automation[]> {
+  async getAutomations(companyId: number): Promise<Automation[]> {
     return db.select().from(automations);
   }
 
-  async createAutomation(data: any): Promise<Automation> {
+  async createAutomation(data: any, companyId: number): Promise<Automation> {
     const [automation] = await db
       .insert(automations)
       .values({
