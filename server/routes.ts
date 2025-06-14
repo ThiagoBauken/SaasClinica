@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        recentPatients = await storage.getPatients(companyId) || [];
+        recentPatients = await storage.getPatients(companyId);
       } catch (error) {
         console.error('Erro ao buscar pacientes:', error);
       }

@@ -236,7 +236,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {recentActivities && recentActivities.length > 0 ? (
+                {Array.isArray(recentActivities) && recentActivities.length > 0 ? (
                   recentActivities.map((activity: any, index: number) => (
                     <div key={index} className="flex items-start">
                       <div className={`w-2 h-2 mt-2 mr-3 rounded-full ${getActivityColor(activity.type)}`}></div>
