@@ -412,7 +412,7 @@ export class MemStorage implements IStorage {
       });
     }
     
-    return this.getAppointment(id);
+    return this.getAppointment(id, companyId);
   }
 
   async updateAppointment(id: number, data: any, companyId: number): Promise<any> {
@@ -455,7 +455,7 @@ export class MemStorage implements IStorage {
       }
     }
     
-    return this.getAppointment(id); // CompanyId is optional now
+    return this.getAppointment(id, companyId);
   }
 
   // Professional methods
@@ -870,7 +870,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createAppointment(appointmentData: any): Promise<any> {
+  async createAppointment(appointmentData: any, companyId: number): Promise<any> {
     // Extract procedures to create appointment procedures
     const procedures = appointmentData.procedures || [];
     delete appointmentData.procedures;

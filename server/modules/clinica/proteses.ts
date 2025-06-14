@@ -11,7 +11,7 @@ export function registerProtesesRoutes(app: Express) {
     next();
   };
 
-  const asyncHandler = (fn: Function) => (req: Request, res: Response, next: Function) => {
+  const asyncHandler = (fn: (req: Request, res: Response, next: Function) => Promise<any>) => (req: Request, res: Response, next: Function) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 
