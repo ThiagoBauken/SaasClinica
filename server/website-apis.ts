@@ -328,14 +328,14 @@ function generateModernTemplate(data: WebsiteData): string {
         .cta-button:hover { transform: translateY(-2px); }
         
         /* About Section */
-        .about { padding: 100px 20px; background: ${data.colors.secondary}; }
+        .about { padding: 100px 20px; background: ${data.colors?.secondary || '#f8fafc'}; }
         .about-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
-        .about h2 { font-size: 2.5rem; margin-bottom: 1.5rem; color: ${data.colors.primary}; }
+        .about h2 { font-size: 2.5rem; margin-bottom: 1.5rem; color: ${data.colors?.primary || '#2563eb'}; }
         .about p { font-size: 1.1rem; color: #666; }
         
         /* Services Section */
         .services { padding: 100px 20px; }
-        .services h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors.primary}; }
+        .services h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors?.primary || '#2563eb'}; }
         .service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1200px; margin: 0 auto; }
         .service-card { 
           background: white; padding: 2.5rem; border-radius: 20px; 
@@ -343,19 +343,19 @@ function generateModernTemplate(data: WebsiteData): string {
           transition: transform 0.3s ease;
         }
         .service-card:hover { transform: translateY(-10px); }
-        .service-card h3 { font-size: 1.3rem; margin-bottom: 1rem; color: ${data.colors.primary}; }
+        .service-card h3 { font-size: 1.3rem; margin-bottom: 1rem; color: ${data.colors?.primary || '#2563eb'}; }
         .service-card p { color: #666; margin-bottom: 1rem; }
-        .service-price { font-size: 1.2rem; font-weight: 600; color: ${data.colors.accent}; }
+        .service-price { font-size: 1.2rem; font-weight: 600; color: ${data.colors?.accent || '#10b981'}; }
         
         /* Gallery Section */
-        .gallery { padding: 100px 20px; background: ${data.colors.secondary}; }
-        .gallery h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors.primary}; }
+        .gallery { padding: 100px 20px; background: ${data.colors?.secondary || '#f8fafc'}; }
+        .gallery h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors?.primary || '#2563eb'}; }
         .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; max-width: 1200px; margin: 0 auto; }
         .gallery-item { border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .gallery-item img { width: 100%; height: 200px; object-fit: cover; }
         
         /* Contact Section */
-        .contact { padding: 100px 20px; background: ${data.colors.primary}; color: white; }
+        .contact { padding: 100px 20px; background: ${data.colors?.primary || '#2563eb'}; color: white; }
         .contact-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
         .contact h2 { font-size: 2.5rem; margin-bottom: 2rem; }
         .contact-info { display: flex; flex-direction: column; gap: 1rem; }
@@ -922,59 +922,7 @@ function generateClassicTemplate(data: WebsiteData): string {
   `;
 }
 
-function generateMinimalTemplate(data: WebsiteData): string {
-  return `
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${data.seo.title || data.clinicName}</title>
-      <meta name="description" content="${data.seo.description}">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Helvetica', sans-serif; line-height: 1.8; color: #2c3e50; background: #fafafa; }
-        .container { max-width: 800px; margin: 0 auto; padding: 80px 20px; }
-        h1 { font-size: 2.5rem; margin-bottom: 1rem; color: ${data.colors.primary}; }
-        h2 { font-size: 1.8rem; margin: 3rem 0 1rem; color: ${data.colors.secondary}; }
-        .service { margin: 2rem 0; padding: 1rem 0; border-bottom: 1px solid #eee; }
-        .service:last-child { border-bottom: none; }
-        .whatsapp-btn { position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; border: none; padding: 12px; border-radius: 50%; width: 50px; height: 50px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>${data.content.hero.title}</h1>
-        <p style="font-size: 1.1rem; margin-bottom: 3rem;">${data.content.hero.subtitle}</p>
-        
-        <h2>${data.content.about.title}</h2>
-        <p>${data.content.about.description}</p>
-        
-        <h2>Serviços</h2>
-        ${data.content.services.map(service => `
-          <div class="service">
-            <h3>${service.name}</h3>
-            <p>${service.description}</p>
-            ${service.price ? `<p style="color: ${data.colors.primary}; font-weight: 600;">${service.price}</p>` : ''}
-          </div>
-        `).join('')}
-        
-        <h2>Contato</h2>
-        <p>📍 ${data.content.contact.address}</p>
-        <p>📞 ${data.content.contact.phone}</p>
-        <p>📧 ${data.content.contact.email}</p>
-        <p>🕒 ${data.content.contact.hours}</p>
-      </div>
-      
-      ${data.content.contact.whatsapp ? `
-        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')">
-          💬
-        </button>
-      ` : ''}
-    </body>
-    </html>
-  `;
-}
+
 
 // Função para gerar preview do template com dados atuais
 export async function getWebsitePreview(req: Request, res: Response) {
@@ -982,7 +930,7 @@ export async function getWebsitePreview(req: Request, res: Response) {
     const companyId = req.user?.companyId;
     const template = req.params.template as 'modern' | 'classic' | 'minimal';
     
-    if (!['modern', 'classic', 'minimalist'].includes(template)) {
+    if (!['modern', 'classic', 'minimal'].includes(template)) {
       return res.status(400).json({ error: 'Template inválido' });
     }
 
@@ -1059,4 +1007,394 @@ export async function getWebsitePreview(req: Request, res: Response) {
     console.error('Erro ao gerar preview:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
+}
+
+function generateMinimalTemplate(data: WebsiteData): string {
+  const socialLinks = data.social || {};
+  const gallery = data.content?.gallery || [];
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.seo?.title || data.clinicName}</title>
+      <meta name="description" content="${data.seo?.description || 'Clínica odontológica especializada'}">
+      <meta name="keywords" content="${data.seo?.keywords || 'dentista, odontologia, clínica dental'}">
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #2d3748; background: #ffffff; }
+        
+        /* Clean Header */
+        .header { position: fixed; top: 0; width: 100%; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); padding: 1rem 2rem; z-index: 1000; border-bottom: 1px solid #e2e8f0; }
+        .nav { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto; }
+        .logo { font-size: 1.8rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a { text-decoration: none; color: #4a5568; font-weight: 500; transition: color 0.3s ease; }
+        .nav-links a:hover { color: ${data.colors?.primary || '#4a5568'}; }
+        .cta-nav { background: ${data.colors?.primary || '#4a5568'}; color: white; padding: 12px 24px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; }
+        .cta-nav:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(74,85,104,0.3); }
+        
+        /* Hero Minimalista */
+        .hero { min-height: 100vh; display: flex; align-items: center; padding: 0 2rem; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); }
+        .hero-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+        .hero-text h1 { font-size: 3.5rem; font-weight: 700; color: #2d3748; margin-bottom: 1.5rem; line-height: 1.1; }
+        .hero-text .highlight { color: ${data.colors?.primary || '#4a5568'}; }
+        .hero-text p { font-size: 1.2rem; color: #718096; margin-bottom: 2.5rem; }
+        .hero-cta { display: flex; gap: 1rem; }
+        .btn-primary { background: ${data.colors?.primary || '#4a5568'}; color: white; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; border: 2px solid ${data.colors?.primary || '#4a5568'}; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(74,85,104,0.3); }
+        .btn-secondary { background: transparent; color: ${data.colors?.primary || '#4a5568'}; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; border: 2px solid ${data.colors?.primary || '#4a5568'}; transition: all 0.3s ease; }
+        .btn-secondary:hover { background: ${data.colors?.primary || '#4a5568'}; color: white; }
+        .hero-image { text-align: center; }
+        .hero-image img { width: 100%; max-width: 450px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        
+        /* Stats Section */
+        .stats { padding: 4rem 2rem; background: white; }
+        .stats-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3rem; text-align: center; }
+        .stat-item { padding: 2rem; }
+        .stat-number { font-size: 3rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; display: block; }
+        .stat-label { font-size: 1rem; color: #718096; margin-top: 0.5rem; }
+        
+        /* Services Clean */
+        .services { padding: 6rem 2rem; background: #f7fafc; }
+        .services-content { max-width: 1100px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 1rem; }
+        .section-header p { font-size: 1.2rem; color: #718096; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; }
+        .service-card { background: white; padding: 3rem 2rem; border-radius: 20px; text-align: center; transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .service-card:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        .service-icon { width: 80px; height: 80px; background: linear-gradient(135deg, ${data.colors?.primary || '#4a5568'}, ${data.colors?.accent || '#68d391'}); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 2rem; }
+        .service-card h3 { font-size: 1.4rem; font-weight: 600; color: #2d3748; margin-bottom: 1rem; }
+        .service-card p { color: #718096; margin-bottom: 1.5rem; }
+        .service-price { font-size: 1.3rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; }
+        
+        /* About Clean */
+        .about { padding: 6rem 2rem; background: white; }
+        .about-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+        .about-text h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 2rem; }
+        .about-text p { font-size: 1.1rem; color: #718096; margin-bottom: 2rem; }
+        .features-list { list-style: none; }
+        .features-list li { padding: 0.8rem 0; color: #718096; position: relative; padding-left: 2rem; }
+        .features-list li:before { content: "✓"; position: absolute; left: 0; color: ${data.colors?.primary || '#4a5568'}; font-weight: bold; }
+        .about-image img { width: 100%; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        
+        /* CTA Section */
+        .cta-section { padding: 6rem 2rem; background: linear-gradient(135deg, ${data.colors?.primary || '#4a5568'}, ${data.colors?.accent || '#68d391'}); color: white; text-align: center; }
+        .cta-content { max-width: 800px; margin: 0 auto; }
+        .cta-content h2 { font-size: 2.8rem; font-weight: 700; margin-bottom: 1.5rem; }
+        .cta-content p { font-size: 1.2rem; opacity: 0.9; margin-bottom: 2.5rem; }
+        .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .btn-white { background: white; color: ${data.colors?.primary || '#4a5568'}; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; }
+        .btn-white:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(255,255,255,0.3); }
+        
+        /* Contact Minimal */
+        .contact { padding: 6rem 2rem; background: white; }
+        .contact-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; }
+        .contact-info h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 2rem; }
+        .contact-details { display: flex; flex-direction: column; gap: 2rem; }
+        .contact-item { display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; background: #f7fafc; border-radius: 15px; }
+        .contact-icon { width: 50px; height: 50px; background: ${data.colors?.primary || '#4a5568'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; }
+        .contact-form { background: #f7fafc; padding: 3rem; border-radius: 20px; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #2d3748; }
+        .form-group input, .form-group textarea { width: 100%; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; transition: border-color 0.3s ease; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: ${data.colors?.primary || '#4a5568'}; }
+        .form-group textarea { resize: vertical; min-height: 120px; }
+        
+        /* Footer Minimal */
+        .footer { background: #2d3748; color: white; padding: 3rem 2rem 1rem; }
+        .footer-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3rem; }
+        .footer-info h3 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+        .footer-info p { color: #a0aec0; }
+        .footer-links h4 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+        .footer-links ul { list-style: none; }
+        .footer-links a { color: #a0aec0; text-decoration: none; }
+        .footer-links a:hover { color: white; }
+        .footer-social { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-link { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; color: white; font-size: 1.2rem; transition: transform 0.3s ease; }
+        .social-link:hover { transform: translateY(-3px); }
+        .social-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .social-facebook { background: #4267B2; }
+        .social-linkedin { background: #0077B5; }
+        .social-youtube { background: #FF0000; }
+        .footer-bottom { border-top: 1px solid #4a5568; padding-top: 2rem; margin-top: 2rem; text-align: center; color: #a0aec0; }
+        
+        /* WhatsApp Minimal */
+        .whatsapp-btn { position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; border: none; border-radius: 50%; width: 65px; height: 65px; font-size: 26px; cursor: pointer; box-shadow: 0 8px 30px rgba(37,211,102,0.4); z-index: 1000; transition: all 0.3s ease; }
+        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 12px 40px rgba(37,211,102,0.5); }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+          .hero-content, .about-content, .contact-content, .footer-content { grid-template-columns: 1fr; text-align: center; }
+          .hero-text h1 { font-size: 2.5rem; }
+          .nav-links { display: none; }
+          .stats-content { grid-template-columns: repeat(2, 1fr); }
+          .cta-buttons { flex-direction: column; align-items: center; }
+          .services-grid { grid-template-columns: 1fr; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Header -->
+      <header class="header">
+        <nav class="nav">
+          <div class="logo">${data.clinicName}</div>
+          <ul class="nav-links">
+            <li><a href="#home">Início</a></li>
+            <li><a href="#services">Serviços</a></li>
+            <li><a href="#about">Sobre</a></li>
+            <li><a href="#contact">Contato</a></li>
+          </ul>
+          <a href="#contact" class="cta-nav">Agendar</a>
+        </nav>
+      </header>
+      
+      <!-- Hero -->
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1>Seu <span class="highlight">Sorriso</span><br>Nossa Especialidade</h1>
+            <p>Transformamos sorrisos com tecnologia avançada, atendimento humanizado e resultados que superam expectativas. Cuide da sua saúde bucal com quem entende do assunto.</p>
+            <div class="hero-cta">
+              <a href="#contact" class="btn-primary">Agendar Consulta</a>
+              <a href="#services" class="btn-secondary">Ver Serviços</a>
+            </div>
+          </div>
+          <div class="hero-image">
+            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=450&h=500&fit=crop" alt="Sorriso perfeito">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Stats -->
+      <section class="stats">
+        <div class="stats-content">
+          <div class="stat-item">
+            <span class="stat-number">15+</span>
+            <span class="stat-label">Anos de Experiência</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">5000+</span>
+            <span class="stat-label">Sorrisos Transformados</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">99%</span>
+            <span class="stat-label">Satisfação dos Pacientes</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">24h</span>
+            <span class="stat-label">Suporte Disponível</span>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Services -->
+      <section id="services" class="services">
+        <div class="services-content">
+          <div class="section-header">
+            <h2>Nossos Serviços</h2>
+            <p>Soluções completas para sua saúde bucal com tecnologia de ponta</p>
+          </div>
+          <div class="services-grid">
+            ${data.content?.services?.map(service => `
+              <div class="service-card">
+                <div class="service-icon">🦷</div>
+                <h3>${service.name}</h3>
+                <p>${service.description}</p>
+                ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
+              </div>
+            `).join('') || `
+              <div class="service-card">
+                <div class="service-icon">✨</div>
+                <h3>Clareamento Dental</h3>
+                <p>Transforme seu sorriso com clareamento profissional</p>
+                <div class="service-price">A partir de R$ 350</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">🔧</div>
+                <h3>Implantes Dentários</h3>
+                <p>Reposição de dentes com tecnologia avançada</p>
+                <div class="service-price">A partir de R$ 2.500</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">🎯</div>
+                <h3>Ortodontia</h3>
+                <p>Alinhamento perfeito com aparelhos modernos</p>
+                <div class="service-price">A partir de R$ 180/mês</div>
+              </div>
+            `}
+          </div>
+        </div>
+      </section>
+      
+      <!-- About -->
+      <section id="about" class="about">
+        <div class="about-content">
+          <div class="about-text">
+            <h2>${data.content?.about?.title || 'Por que nos escolher?'}</h2>
+            <p>${data.content?.about?.description || 'Nossa clínica combina experiência profissional com tecnologia de ponta para oferecer o melhor em cuidados odontológicos. Cada tratamento é personalizado para suas necessidades específicas.'}</p>
+            <ul class="features-list">
+              <li>Equipamentos de última geração</li>
+              <li>Profissionais altamente qualificados</li>
+              <li>Atendimento personalizado e humanizado</li>
+              <li>Protocolos rigorosos de segurança</li>
+              <li>Acompanhamento pós-tratamento</li>
+            </ul>
+          </div>
+          <div class="about-image">
+            <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Nossa clínica">
+          </div>
+        </div>
+      </section>
+      
+      <!-- CTA -->
+      <section class="cta-section">
+        <div class="cta-content">
+          <h2>Pronto para transformar seu sorriso?</h2>
+          <p>Agende sua consulta e descubra como podemos cuidar da sua saúde bucal com excelência e dedicação</p>
+          <div class="cta-buttons">
+            <a href="#contact" class="btn-white">Agendar Consulta</a>
+            ${data.content?.contact?.whatsapp ? `<a href="https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!" class="btn-white" target="_blank">WhatsApp</a>` : ''}
+          </div>
+        </div>
+      </section>
+      
+      <!-- Contact -->
+      <section id="contact" class="contact">
+        <div class="contact-content">
+          <div class="contact-info">
+            <h2>Entre em Contato</h2>
+            <div class="contact-details">
+              <div class="contact-item">
+                <div class="contact-icon">📞</div>
+                <div>
+                  <strong>Telefone</strong><br>
+                  ${data.content?.contact?.phone || '(11) 99999-9999'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📧</div>
+                <div>
+                  <strong>Email</strong><br>
+                  ${data.content?.contact?.email || 'contato@clinica.com'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📍</div>
+                <div>
+                  <strong>Endereço</strong><br>
+                  ${data.content?.contact?.address || 'Rua das Flores, 123 - Centro'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">🕒</div>
+                <div>
+                  <strong>Horários</strong><br>
+                  ${data.content?.contact?.hours || 'Segunda a Sexta: 8h às 18h'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="contact-form">
+            <h3>Solicite um Orçamento</h3>
+            <form>
+              <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" required>
+              </div>
+              <div class="form-group">
+                <label>WhatsApp</label>
+                <input type="tel" required>
+              </div>
+              <div class="form-group">
+                <label>Serviço de Interesse</label>
+                <input type="text" placeholder="Ex: Clareamento, Implante...">
+              </div>
+              <div class="form-group">
+                <label>Mensagem</label>
+                <textarea placeholder="Como podemos ajudar você?"></textarea>
+              </div>
+              <button type="submit" class="btn-primary">Enviar Mensagem</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-content">
+          <div class="footer-info">
+            <h3>${data.clinicName}</h3>
+            <p>Transformando sorrisos com excelência, tecnologia e cuidado humanizado. Sua saúde bucal é nossa prioridade.</p>
+            <div class="footer-social">
+              ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" class="social-link social-instagram" target="_blank">📷</a>` : ''}
+              ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" class="social-link social-facebook" target="_blank">📘</a>` : ''}
+              ${socialLinks.linkedin ? `<a href="${socialLinks.linkedin}" class="social-link social-linkedin" target="_blank">💼</a>` : ''}
+              ${socialLinks.youtube ? `<a href="${socialLinks.youtube}" class="social-link social-youtube" target="_blank">📺</a>` : ''}
+            </div>
+          </div>
+          <div class="footer-links">
+            <h4>Serviços</h4>
+            <ul>
+              <li><a href="#services">Clínica Geral</a></li>
+              <li><a href="#services">Ortodontia</a></li>
+              <li><a href="#services">Implantes</a></li>
+              <li><a href="#services">Clareamento</a></li>
+            </ul>
+          </div>
+          <div class="footer-links">
+            <h4>Contato</h4>
+            <ul>
+              <li><a href="#contact">Agendar Consulta</a></li>
+              <li><a href="#contact">WhatsApp</a></li>
+              <li><a href="#contact">Localização</a></li>
+              <li><a href="#contact">Horários</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2024 ${data.clinicName}. Todos os direitos reservados.</p>
+        </div>
+      </footer>
+      
+      <!-- WhatsApp -->
+      ${data.content?.contact?.whatsapp ? `
+        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')" title="Fale conosco no WhatsApp">
+          💬
+        </button>
+      ` : ''}
+      
+      <script>
+        // Navegação suave
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+              behavior: 'smooth'
+            });
+          });
+        });
+        
+        // Formulário de contato
+        document.querySelector('form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          alert('Mensagem enviada com sucesso! Entraremos em contato em breve.');
+        });
+        
+        // Efeito parallax sutil no hero
+        window.addEventListener('scroll', () => {
+          const scrolled = window.pageYOffset;
+          const hero = document.querySelector('.hero');
+          if (hero) {
+            hero.style.transform = \`translateY(\${scrolled * 0.5}px)\`;
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
 }
