@@ -992,7 +992,7 @@ export default function ProsthesisControlPage() {
                                     ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
                                     snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
                                     isDelayed(item) && "border-red-400"
                                   )}
