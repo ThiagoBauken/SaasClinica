@@ -391,12 +391,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Automations
   app.get("/api/automations", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const automations = await storage.getAutomations();
+    const automations = await storage.getAutomations(req.user!.companyId);
     res.json(automations);
   }));
 
   app.post("/api/automations", authCheck, asyncHandler(async (req, res) => {
-    const automation = await storage.createAutomation(req.body);
+    const automation = await storage.createAutomation(req.body, req.user!.companyId);
     res.status(201).json(automation);
   }));
 

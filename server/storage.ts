@@ -588,9 +588,9 @@ export class MemStorage implements IStorage {
     return automation;
   }
 
-  async updateAutomation(id: number, data: any): Promise<Automation> {
+  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> {
     const automation = this.automations.get(id);
-    if (!automation) {
+    if (!automation || automation.companyId !== companyId) {
       throw new Error("Automation not found");
     }
     
@@ -605,8 +605,9 @@ export class MemStorage implements IStorage {
     return updatedAutomation;
   }
 
-  async deleteAutomation(id: number): Promise<void> {
-    if (!this.automations.has(id)) {
+  async deleteAutomation(id: number, companyId: number): Promise<void> {
+    const automation = this.automations.get(id);
+    if (!automation || automation.companyId !== companyId) {
       throw new Error("Automation not found");
     }
     
@@ -1004,7 +1005,7 @@ export class DatabaseStorage implements IStorage {
 
   // Automations
   async getAutomations(companyId: number): Promise<Automation[]> {
-    return db.select().from(automations);
+    return db.select().from(automations).where(eq(automations.companyId, companyId));
   }
 
   async createAutomation(data: any, companyId: number): Promise<Automation> {
@@ -1019,7 +1020,7 @@ export class DatabaseStorage implements IStorage {
     return automation;
   }
 
-  async updateAutomation(id: number, data: any): Promise<Automation> {
+  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> {
     try {
       // Verificar se a automação existe antes de tentar atualizar
       const [existingAutomation] = await db
@@ -1050,7 +1051,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteAutomation(id: number): Promise<void> {
+  async deleteAutomation(id: number, companyId: number): Promise<void> {
     await db
       .delete(automations)
       .where(eq(automations.id, id));
