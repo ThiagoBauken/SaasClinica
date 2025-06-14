@@ -208,8 +208,9 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
     const now = new Date();
+    const { speciality, ...userWithoutSpeciality } = insertUser;
     const user: User = { 
-      ...insertUser, 
+      ...userWithoutSpeciality, 
       id, 
       createdAt: now,
       updatedAt: now,
@@ -219,6 +220,7 @@ export class MemStorage implements IStorage {
       phone: insertUser.phone || null,
       role: insertUser.role || "user",
       profileImageUrl: insertUser.profileImageUrl || null,
+      speciality: speciality || null,
     };
     this.users.set(id, user);
     return user;
@@ -338,9 +340,12 @@ export class MemStorage implements IStorage {
     return enrichedAppointments;
   }
 
-  async getAppointment(id: number): Promise<any | undefined> {
+  async getAppointment(id: number, companyId?: number): Promise<any | undefined> {
     const appointment = this.appointments.get(id);
     if (!appointment) return undefined;
+    
+    // Filter by company if provided
+    if (companyId && appointment.companyId !== companyId) return undefined;
     
     // Enrich with related data
     const patient = appointment.patientId ? await this.getPatient(appointment.patientId) : undefined;
@@ -446,7 +451,7 @@ export class MemStorage implements IStorage {
       }
     }
     
-    return this.getAppointment(id, 1); // Default companyId for now
+    return this.getAppointment(id); // CompanyId is optional now
   }
 
   // Professional methods
@@ -702,12 +707,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(filters?: AppointmentFilters): Promise<any[]> {
+  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
     let query = db.select().from(appointments);
     
     // Apply filters
+    let conditions = [eq(appointments.companyId, companyId)]; // Filter by company
+    
     if (filters) {
-      let conditions = [];
       
       if (filters.startDate) {
         conditions.push(gte(appointments.startTime, filters.startDate));
