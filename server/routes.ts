@@ -236,6 +236,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       
+      const companyId = (req.user as any)?.companyId || 1; // Extract from session
+      
       let startDate: Date | undefined;
       let endDate: Date | undefined;
       
@@ -244,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate = addDays(startDate, 1);
       }
       
-      const appointments = await storage.getAppointments({
+      const appointments = await storage.getAppointments(companyId, {
         startDate: startDate ? formatISO(startDate) : undefined,
         endDate: endDate ? formatISO(endDate) : undefined,
         professionalId: req.query.professionalId ? parseInt(req.query.professionalId as string) : undefined,
@@ -460,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let recentPatients: any[] = [];
       
       try {
-        recentAppointments = await storage.getAppointments(companyId) || [];
+        recentAppointments = await storage.getAppointments(companyId, {}) || [];
       } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);
       }

@@ -3,7 +3,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
 import { db, pool } from "./db";
-import { eq, and, gte, lt, count } from "drizzle-orm";
+import { eq, and, gte, lt, count, sql } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
@@ -672,8 +672,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Database Patient methods
-  async getPatients(): Promise<Patient[]> {
-    return db.select().from(patients);
+  async getPatients(companyId: number): Promise<Patient[]> {
+    return db.select().from(patients).where(eq(patients.companyId, companyId));
   }
 
   async getPatient(id: number): Promise<Patient | undefined> {
@@ -716,11 +716,11 @@ export class DatabaseStorage implements IStorage {
     if (filters) {
       
       if (filters.startDate) {
-        conditions.push(gte(appointments.startTime, filters.startDate));
+        conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
       }
       
       if (filters.endDate) {
-        conditions.push(lt(appointments.startTime, filters.endDate));
+        conditions.push(lt(appointments.startTime, new Date(filters.endDate)));
       }
       
       if (filters.professionalId !== undefined) {
