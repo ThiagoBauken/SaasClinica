@@ -9,6 +9,7 @@ import { estoqueModule } from './estoque/index';
 import { protesesModule } from './proteses/index';
 import { odontogramaModule } from './odontograma/index';
 import { automacoesModule } from './automacoes/index';
+import digitalizacaoModule from './digitalizacao/index';
 
 export const clinicaModule: ModuleDefinition = {
   id: 'clinica',
@@ -34,6 +35,7 @@ export function initializeClinicaModule() {
   moduleRegistry.register(protesesModule);
   moduleRegistry.register(odontogramaModule);
   moduleRegistry.register(automacoesModule);
+  moduleRegistry.register(digitalizacaoModule);
   
   console.log('✅ Módulo Clínica e submódulos registrados com sucesso');
 }
@@ -45,5 +47,6 @@ export {
   estoqueModule,
   protesesModule,
   odontogramaModule,
-  automacoesModule
+  automacoesModule,
+  digitalizacaoModule
 };

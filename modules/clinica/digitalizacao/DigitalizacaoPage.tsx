@@ -48,7 +48,7 @@ export default function DigitalizacaoPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Query para buscar histórico de processamentos
-  const { data: processHistory } = useQuery({
+  const { data: processHistory = [] } = useQuery({
     queryKey: ['/api/digitalizacao/history'],
     enabled: true
   });
@@ -405,7 +405,7 @@ export default function DigitalizacaoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {processHistory && processHistory.length > 0 ? (
+          {Array.isArray(processHistory) && processHistory.length > 0 ? (
             <div className="space-y-3">
               {processHistory.map((item: ProcessingResult) => (
                 <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
