@@ -434,7 +434,7 @@ export default function ConfiguracoesClinicaPage() {
                             {[
                               { id: 'modern', name: 'Moderno Pro', desc: 'Landing page com animações, hero section e CTA destacados' },
                               { id: 'classic', name: 'Clássico Profissional', desc: 'Layout tradicional com seções bem definidas e credibilidade' },
-                              { id: 'minimalist', name: 'Minimalista Premium', desc: 'Design clean com foco na conversão e experiência' }
+                              { id: 'minimal', name: 'Minimalista Premium', desc: 'Design clean com foco na conversão e experiência' }
                             ].map((template) => (
                               <div 
                                 key={template.id}
