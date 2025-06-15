@@ -1,4 +1,5 @@
-export default import React from 'react';
+
+import React from 'react';
 
 export default function DigitalizarPage() {
   return (
@@ -90,5 +91,3 @@ export default function DigitalizarPage() {
     </div>
   );
 }
-
-export default DigitalizarPage;
