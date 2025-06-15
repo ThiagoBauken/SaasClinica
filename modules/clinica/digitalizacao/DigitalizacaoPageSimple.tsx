@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 
-export default function DigitalizacaoPage() {
+function DigitalizacaoPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,3 +125,5 @@ export default function DigitalizacaoPage() {
     </div>
   );
 }
+
+export default DigitalizacaoPage;
