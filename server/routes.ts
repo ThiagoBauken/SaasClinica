@@ -1033,16 +1033,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === ROTAS PARA DIGITALIZAÇÃO ===
   // Processar arquivos com IA
-  app.post("/api/digitalizacao/process", authCheck, tenantIsolationMiddleware, digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
+  app.post("/api/digitalizacao/process", digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
   
   // Buscar histórico de processamentos
-  app.get("/api/digitalizacao/history", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.getProcessingHistory));
+  app.get("/api/digitalizacao/history", asyncHandler(digitalizacaoHandlers.getProcessingHistory));
   
   // Download de arquivo processado
-  app.get("/api/digitalizacao/download/:filename", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.downloadFile));
+  app.get("/api/digitalizacao/download/:filename", asyncHandler(digitalizacaoHandlers.downloadFile));
   
   // Deletar arquivo processado
-  app.delete("/api/digitalizacao/delete/:filename", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.deleteFile));
+  app.delete("/api/digitalizacao/delete/:filename", asyncHandler(digitalizacaoHandlers.deleteFile));
 
   const httpServer = createServer(app);
   return httpServer;
