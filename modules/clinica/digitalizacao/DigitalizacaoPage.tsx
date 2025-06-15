@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ import {
   FileSpreadsheet,
   History,
   Zap,
-  Camera
+  Camera,
+  X,
+  CheckCircle
 } from 'lucide-react';
 
 interface UploadedFile {
@@ -46,6 +48,7 @@ export default function DigitalizacaoPage() {
   const [outputFormat, setOutputFormat] = useState('xlsx');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Query para buscar histórico de processamentos
   const { data: processHistory = [] } = useQuery({
@@ -102,8 +105,7 @@ export default function DigitalizacaoPage() {
     }
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const handleFileSelect = useCallback((files: File[]) => {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff'];
     
     const validFiles = files.filter(file => {
@@ -126,31 +128,33 @@ export default function DigitalizacaoPage() {
     }));
 
     setUploadedFiles(prev => [...prev, ...newFiles]);
+  }, [toast]);
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    handleFileSelect(files);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  };
+    setIsDragOver(true);
+  }, []);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
     
     const files = Array.from(e.dataTransfer.files);
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff'];
-    
-    const validFiles = files.filter(file => allowedTypes.includes(file.type));
-    
-    const newFiles: UploadedFile[] = validFiles.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      name: file.name,
-      size: file.size,
-      preview: URL.createObjectURL(file)
-    }));
-
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-  };
+    handleFileSelect(files);
+  }, [handleFileSelect]);
 
   const removeFile = (fileId: string) => {
     setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
@@ -298,61 +302,93 @@ export default function DigitalizacaoPage() {
         </CardHeader>
         <CardContent>
           <div
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+            className={`border-2 border-dashed rounded-lg p-12 text-center transition-all duration-300 cursor-pointer ${
+              isDragOver 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-300 hover:border-blue-400'
+            }`}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <FileImage className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg text-gray-600 mb-2">
-              Arraste imagens aqui ou clique para selecionar
-            </p>
-            <p className="text-sm text-gray-500">
-              Suporte: JPG, PNG, TIFF • Múltiplos arquivos aceitos
-            </p>
+            <div className="flex flex-col items-center space-y-4">
+              <div className={`p-4 rounded-full ${isDragOver ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                <Camera className={`h-12 w-12 ${isDragOver ? 'text-blue-600' : 'text-gray-400'}`} />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  Upload de Fichas Odontológicas
+                </h3>
+                <p className="text-gray-600 mb-1">
+                  Arraste e solte as imagens aqui ou clique para selecionar
+                </p>
+                <p className="text-sm text-gray-500">
+                  Formatos aceitos: JPG, PNG, TIFF (máximo 20 arquivos)
+                </p>
+              </div>
+              <Button type="button" variant="outline" className="mt-4">
+                <Upload className="h-4 w-4 mr-2" />
+                Selecionar Arquivos
+              </Button>
+            </div>
             <Input
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*"
-              onChange={handleFileSelect}
+              accept=".jpg,.jpeg,.png,.tiff"
+              onChange={handleInputChange}
               className="hidden"
             />
           </div>
 
           {/* Lista de Arquivos */}
           {uploadedFiles.length > 0 && (
-            <div className="mt-6">
+            <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">
-                  Arquivos Selecionados ({uploadedFiles.length})
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <h3 className="text-lg font-semibold text-gray-700">
+                    {uploadedFiles.length} arquivo{uploadedFiles.length !== 1 ? 's' : ''} selecionado{uploadedFiles.length !== 1 ? 's' : ''}
+                  </h3>
+                </div>
                 <Button variant="outline" size="sm" onClick={clearAllFiles}>
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <X className="h-4 w-4 mr-2" />
                   Limpar Todos
                 </Button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+              <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-4 bg-gray-50">
                 {uploadedFiles.map((file) => (
-                  <div key={file.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                    {file.preview && (
-                      <img 
-                        src={file.preview} 
-                        alt={file.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                    )}
+                  <div key={file.id} className="flex items-center gap-4 p-3 bg-white border rounded-lg shadow-sm">
+                    <div className="flex-shrink-0">
+                      {file.preview ? (
+                        <img 
+                          src={file.preview} 
+                          alt={file.name}
+                          className="w-16 h-16 object-cover rounded-lg border"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                          <FileImage className="h-8 w-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{file.name}</p>
-                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                      <p className="font-medium text-gray-900 truncate">{file.name}</p>
+                      <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                      <div className="flex items-center mt-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span className="text-xs text-green-600 font-medium">Pronto para processar</span>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(file.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
