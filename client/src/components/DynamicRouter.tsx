@@ -95,9 +95,9 @@ export function DynamicRouter() {
         </Suspense>
       </Route>
 
-      <ProtectedRoute path="/digitalizacao" component={() => (
+      <ProtectedRoute path="/digitalizar" component={() => (
         <Suspense fallback={<LoadingFallback />}>
-          <DigitalizacaoPage />
+          <DigitalizarPage />
         </Suspense>
       )} />
       
