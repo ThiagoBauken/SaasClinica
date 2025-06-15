@@ -407,21 +407,22 @@ export default function DigitalizacaoPage() {
             </div>
           )}
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-8 flex gap-3">
             <Button 
               onClick={handleProcess}
               disabled={uploadedFiles.length === 0 || isProcessing}
-              className="flex-1"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
+              size="lg"
             >
               {isProcessing ? (
                 <>
-                  <Bot className="h-4 w-4 mr-2 animate-spin" />
-                  Processando...
+                  <Bot className="h-5 w-5 mr-2 animate-spin" />
+                  Processando com IA...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Processar com IA
+                  <Zap className="h-5 w-5 mr-2" />
+                  Processar {uploadedFiles.length} arquivo{uploadedFiles.length !== 1 ? 's' : ''} com IA
                 </>
               )}
             </Button>
