@@ -126,6 +126,82 @@ export default function ConfiguracoesClinicaPage() {
 
   const [websiteActiveTab, setWebsiteActiveTab] = useState('template');
   const [newService, setNewService] = useState({ name: '', description: '', price: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Função para preview em tempo real
+  const generatePreviewUrl = () => {
+    const params = new URLSearchParams({
+      template: websiteData.template,
+      data: JSON.stringify(websiteData)
+    });
+    return `/api/website/preview?${params.toString()}`;
+  };
+
+  // Função para upload de imagens
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const uploadedImages: any[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        // Converter arquivo para base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+        });
+        reader.readAsDataURL(file);
+        const base64 = await base64Promise;
+
+        // Enviar para o servidor
+        const response = await fetch('/api/website/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageData: base64,
+            filename: file.name
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          uploadedImages.push({
+            id: Date.now() + i,
+            url: result.url,
+            alt: file.name.split('.')[0],
+            category: 'instalacoes'
+          });
+        }
+      } catch (error) {
+        console.error('Erro no upload:', error);
+        toast({
+          title: "Erro no upload",
+          description: `Falha ao enviar ${file.name}`,
+          variant: "destructive"
+        });
+      }
+    }
+
+    if (uploadedImages.length > 0) {
+      setWebsiteData(prev => ({
+        ...prev,
+        gallery: [...prev.gallery, ...uploadedImages]
+      }));
+      
+      toast({
+        title: "Imagens enviadas!",
+        description: `${uploadedImages.length} imagem(ns) adicionada(s) à galeria`
+      });
+    }
+
+    // Limpar input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   // Queries e mutations para o criador de sites
   const { data: savedWebsite } = useQuery({
@@ -154,10 +230,14 @@ export default function ConfiguracoesClinicaPage() {
         body: JSON.stringify(websiteData)
       }).then(res => res.json()),
     onSuccess: (data) => {
-      setWebsiteData(prev => ({ ...prev, isPublished: true, domain: data.domain }));
+      setWebsiteData(prev => ({ 
+        ...prev, 
+        isPublished: true, 
+        domain: data.domain || `${websiteData.content.title.toLowerCase().replace(/\s+/g, '-')}.dentcare.app`
+      }));
       toast({ 
         title: 'Site publicado com sucesso!', 
-        description: `Seu site está disponível em: ${data.domain}` 
+        description: `Seu site está disponível em: ${data.domain || websiteData.domain}` 
       });
       queryClient.invalidateQueries({ queryKey: ['/api/website'] });
     }
@@ -844,24 +924,42 @@ export default function ConfiguracoesClinicaPage() {
                                 Adicione fotos da clínica, consultórios e resultados
                               </p>
                             </div>
-                            <Button 
-                              onClick={() => {
-                                const newPhoto = {
-                                  id: Date.now(),
-                                  url: '',
-                                  alt: 'Nova foto',
-                                  category: 'instalacoes'
-                                };
-                                setWebsiteData(prev => ({
-                                  ...prev,
-                                  gallery: [...prev.gallery, newPhoto]
-                                }));
-                              }}
-                              size="sm"
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Adicionar Foto
-                            </Button>
+                            <div className="flex gap-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                style={{ display: 'none' }}
+                                ref={fileInputRef}
+                                multiple
+                              />
+                              <Button 
+                                onClick={() => fileInputRef.current?.click()}
+                                size="sm"
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Upload Fotos
+                              </Button>
+                              <Button 
+                                onClick={() => {
+                                  const newPhoto = {
+                                    id: Date.now(),
+                                    url: '',
+                                    alt: 'Nova foto',
+                                    category: 'instalacoes'
+                                  };
+                                  setWebsiteData(prev => ({
+                                    ...prev,
+                                    gallery: [...prev.gallery, newPhoto]
+                                  }));
+                                }}
+                                size="sm"
+                                variant="outline"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Adicionar por URL
+                              </Button>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1066,8 +1164,8 @@ export default function ConfiguracoesClinicaPage() {
                   <CardContent>
                     <div className="border rounded-lg bg-white min-h-[500px] relative">
                       <iframe 
-                        key={websiteData.template}
-                        src={`/api/website/preview/${websiteData.template}`}
+                        key={JSON.stringify(websiteData)}
+                        src={generatePreviewUrl()}
                         className="w-full h-[500px] border-0 rounded-lg"
                         title="Preview do Site"
                       />
@@ -1076,7 +1174,7 @@ export default function ConfiguracoesClinicaPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(`/api/website/preview/${websiteData.template}`, '_blank')}
+                          onClick={() => window.open(generatePreviewUrl(), '_blank')}
                           className="bg-white/90 backdrop-blur-sm"
                         >
                           <ExternalLink className="h-4 w-4 mr-1" />
@@ -1089,7 +1187,7 @@ export default function ConfiguracoesClinicaPage() {
                           onClick={() => {
                             const iframe = document.querySelector('iframe[title="Preview do Site"]') as HTMLIFrameElement;
                             if (iframe) {
-                              iframe.src = iframe.src; // Força reload
+                              iframe.src = generatePreviewUrl(); // Atualizar com dados atuais
                             }
                           }}
                           className="bg-white/90 backdrop-blur-sm"
