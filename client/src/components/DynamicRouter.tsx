@@ -94,6 +94,12 @@ export function DynamicRouter() {
           <OdontogramaPage />
         </Suspense>
       </Route>
+
+      <Route path="/digitalizacao">
+        <Suspense fallback={<LoadingFallback />}>
+          <DigitalizacaoPage />
+        </Suspense>
+      </Route>
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
       
