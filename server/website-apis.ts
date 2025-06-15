@@ -454,8 +454,8 @@ function generateModernTemplate(data: WebsiteData): string {
       <!-- Hero Section -->
       <section id="home" class="hero">
         <div class="hero-content">
-          <h1>${data.content.hero.title}</h1>
-          <p>${data.content.hero.subtitle}</p>
+          <h1>${data.content?.hero?.title || data.clinicName || 'Minha Clínica'}</h1>
+          <p>${data.content?.hero?.subtitle || 'Cuidando do seu sorriso com excelência'}</p>
           <button class="cta-button" onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'})">
             Agendar Consulta
           </button>
@@ -631,11 +631,48 @@ export async function previewWebsite(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
-    // Buscar dados salvos ou usar dados do query
-    const websiteData = websiteStorage.get(companyId) || req.query as any;
+    // Buscar dados salvos ou criar dados padrão
+    let websiteData = websiteStorage.get(companyId);
     
     if (!websiteData) {
-      return res.status(404).json({ message: 'Dados do site não encontrados' });
+      // Criar dados padrão se não existir
+      websiteData = {
+        id: companyId,
+        clinicName: 'Minha Clínica',
+        template: 'modern',
+        colors: {
+          primary: '#0066cc',
+          secondary: '#f8f9fa',
+          accent: '#28a745'
+        },
+        content: {
+          hero: {
+            title: 'Minha Clínica Odontológica',
+            subtitle: 'Cuidando do seu sorriso com excelência'
+          },
+          about: {
+            title: 'Sobre Nossa Clínica',
+            description: 'Oferecemos tratamentos odontológicos de qualidade.'
+          },
+          services: [],
+          contact: {
+            phone: '',
+            whatsapp: '',
+            email: '',
+            address: '',
+            hours: 'Segunda a Sexta: 8:00 - 18:00'
+          },
+          gallery: []
+        },
+        social: {},
+        seo: {
+          title: '',
+          description: '',
+          keywords: ''
+        },
+        published: false,
+        companyId
+      };
     }
 
     // Gerar HTML baseado no template
