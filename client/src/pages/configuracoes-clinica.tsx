@@ -293,25 +293,48 @@ export default function ConfiguracoesClinicaPage() {
 
   // Carrega dados do site salvos
   useEffect(() => {
-    if (savedWebsite) {
-      setWebsiteData(prevData => ({
-        ...prevData,
-        ...savedWebsite,
-        // Mantém sincronização com dados da clínica se não há dados salvos específicos
+    if (savedWebsite && savedWebsite.data) {
+      const data = savedWebsite.data;
+      setWebsiteData({
+        template: data.template || 'modern',
         content: {
-          ...prevData.content,
-          ...savedWebsite.content,
-          title: savedWebsite.content?.title || form.name || prevData.content.title
+          title: data.content?.hero?.title || data.clinicName || form.name || 'Minha Clínica',
+          subtitle: data.content?.hero?.subtitle || 'Cuidando do seu sorriso',
+          about: {
+            title: data.content?.about?.title || 'Sobre Nossa Clínica',
+            description: data.content?.about?.description || 'Oferecemos tratamentos de qualidade.'
+          },
+          services: data.content?.services || []
+        },
+        design: {
+          primaryColor: data.colors?.primary || '#0066cc',
+          secondaryColor: data.colors?.secondary || '#f8f9fa',
+          accentColor: data.colors?.accent || '#28a745'
         },
         contact: {
-          ...prevData.contact,
-          ...savedWebsite.contact,
-          phone: savedWebsite.contact?.phone || form.phone || prevData.contact.phone,
-          email: savedWebsite.contact?.email || form.email || prevData.contact.email
-        }
-      }));
+          phone: data.content?.contact?.phone || form.phone || '',
+          whatsapp: data.content?.contact?.whatsapp || form.cellphone || '',
+          email: data.content?.contact?.email || form.email || '',
+          address: data.content?.contact?.address || form.address || '',
+          hours: data.content?.contact?.hours || 'Segunda a Sexta: 8:00 - 18:00'
+        },
+        social: data.social || {},
+        gallery: data.content?.gallery?.map((url: string, index: number) => ({
+          id: index + 1,
+          url,
+          alt: `Foto ${index + 1}`,
+          category: 'instalacoes'
+        })) || [],
+        seo: data.seo || {
+          title: '',
+          description: '',
+          keywords: ''
+        },
+        domain: data.domain || '',
+        isPublished: data.published || false
+      });
     }
-  }, [savedWebsite, form.name, form.phone, form.email]);
+  }, [savedWebsite, form.name, form.phone, form.email, form.cellphone, form.address]);
   
   // Função para lidar com mudanças no formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1223,6 +1246,15 @@ export default function ConfiguracoesClinicaPage() {
                         >
                           <RefreshCw className="h-4 w-4 mr-1" />
                           Recarregar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => publishWebsiteMutation.mutate()}
+                          disabled={publishWebsiteMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Globe className="h-4 w-4 mr-1" />
+                          {publishWebsiteMutation.isPending ? 'Publicando...' : 'Publicar Site'}
                         </Button>
                       </div>
                     </div>
