@@ -483,11 +483,12 @@ export default function WebsiteBuilder() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="template">Template</TabsTrigger>
           <TabsTrigger value="content">Conteúdo</TabsTrigger>
           <TabsTrigger value="design">Design</TabsTrigger>
           <TabsTrigger value="contact">Contato</TabsTrigger>
+          <TabsTrigger value="social">Social</TabsTrigger>
           {getCurrentTemplateConfig().gallery.enabled && (
             <TabsTrigger value="gallery">Galeria</TabsTrigger>
           )}
@@ -881,6 +882,66 @@ export default function WebsiteBuilder() {
                   <p className="text-sm text-green-700">
                     Visitantes poderão entrar em contato diretamente pelo WhatsApp através do botão flutuante no site.
                   </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="social" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Redes Sociais</CardTitle>
+              <CardDescription>
+                Configure as redes sociais da clínica que aparecerão no site
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {getCurrentTemplateConfig().social.instagram && (
+                <div>
+                  <Label htmlFor="instagram">Instagram</Label>
+                  <Input
+                    id="instagram"
+                    value={websiteData.social?.instagram || ''}
+                    onChange={(e) => updateWebsiteData('social.instagram', e.target.value)}
+                    placeholder="https://instagram.com/sua_clinica"
+                  />
+                </div>
+              )}
+              
+              {getCurrentTemplateConfig().social.facebook && (
+                <div>
+                  <Label htmlFor="facebook">Facebook</Label>
+                  <Input
+                    id="facebook"
+                    value={websiteData.social?.facebook || ''}
+                    onChange={(e) => updateWebsiteData('social.facebook', e.target.value)}
+                    placeholder="https://facebook.com/sua_clinica"
+                  />
+                </div>
+              )}
+              
+              {getCurrentTemplateConfig().social.linkedin && (
+                <div>
+                  <Label htmlFor="linkedin">LinkedIn</Label>
+                  <Input
+                    id="linkedin"
+                    value={websiteData.social?.linkedin || ''}
+                    onChange={(e) => updateWebsiteData('social.linkedin', e.target.value)}
+                    placeholder="https://linkedin.com/company/sua_clinica"
+                  />
+                </div>
+              )}
+              
+              {getCurrentTemplateConfig().social.youtube && (
+                <div>
+                  <Label htmlFor="youtube">YouTube</Label>
+                  <Input
+                    id="youtube"
+                    value={websiteData.social?.youtube || ''}
+                    onChange={(e) => updateWebsiteData('social.youtube', e.target.value)}
+                    placeholder="https://youtube.com/@sua_clinica"
+                  />
                 </div>
               )}
             </CardContent>
