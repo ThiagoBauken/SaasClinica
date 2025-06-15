@@ -232,7 +232,7 @@ async function generatePDF(data: ExtractedPatientData[], filename: string): Prom
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
   const doc = new PDFKit();
-  doc.pipe(fs.createWriteStream(outputPath) as any);
+  doc.pipe(createWriteStream(outputPath));
 
   // Título
   doc.fontSize(16).font('Helvetica-Bold').text('Dados Extraídos - Digitalização de Fichas', { align: 'center' });
