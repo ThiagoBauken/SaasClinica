@@ -40,25 +40,55 @@ export function useModules() {
     enabled: !!user,
     staleTime: 30000,
     retry: false
-  });
+  }) as { data: any; error: any };
 
   useEffect(() => {
-    // Menu padrão sempre disponível
-    const defaultMenuItems = [
-      { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-      { label: 'Calendário', path: '/agenda', icon: 'CalendarDays' },
-      { label: 'Pacientes', path: '/patients', icon: 'Users' },
-      { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
-      { label: 'Automações', path: '/automation', icon: 'Bot' },
-      { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-      { label: 'Estoque', path: '/inventory', icon: 'Package' },
-      { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
-    ];
+    // Menu dinâmico baseado nos módulos do backend
+    if (backendModules?.all && Array.isArray(backendModules.all)) {
+      const dynamicMenu = backendModules.all.map((module: any) => {
+        // Mapear módulos para itens de menu
+        const menuItemMap: Record<string, any> = {
+          'agenda': { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
+          'pacientes': { label: 'Pacientes', path: '/patients', icon: 'Users' },
+          'financeiro': { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+          'automacoes': { label: 'Automações', path: '/automation', icon: 'Bot' },
+          'proteses': { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
+          'estoque': { label: 'Estoque', path: '/inventory', icon: 'Package' },
+          'odontograma': { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
+          'digitalizar': { label: 'Digitalizar Fichas', path: '/digitalizar', icon: 'ScanText' },
+          'configuracoes': { label: 'Configurações', path: '/configuracoes', icon: 'Settings' },
+          'cadastros': { label: 'Cadastros', path: '/cadastros', icon: 'UserPlus' },
+          'laboratorio': { label: 'Laboratório', path: '/laboratorio', icon: 'Beaker' },
+          'relatorios': { label: 'Relatórios', path: '/relatorios', icon: 'BarChart3' }
+        };
+        
+        return menuItemMap[module.definition.id] || {
+          label: module.definition.displayName,
+          path: `/${module.definition.id}`,
+          icon: module.definition.icon || 'CircleDot'
+        };
+      }).filter(Boolean);
+      
+      setDynamicMenuItems(dynamicMenu);
+    } else {
+      // Menu padrão como fallback
+      const defaultMenuItems = [
+        { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
+        { label: 'Pacientes', path: '/patients', icon: 'Users' },
+        { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+        { label: 'Automações', path: '/automation', icon: 'Bot' },
+        { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
+        { label: 'Estoque', path: '/inventory', icon: 'Package' },
+        { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
+        { label: 'Digitalizar Fichas', path: '/digitalizar', icon: 'ScanText' }
+      ];
+      
+      setDynamicMenuItems(defaultMenuItems);
+    }
     
-    setDynamicMenuItems(defaultMenuItems);
     setActiveModules(frontendModules);
     setDynamicRoutes(generateDynamicRoutes(frontendModules));
-  }, []); // Apenas executar uma vez na inicialização
+  }, [backendModules]); // Reagir a mudanças nos módulos do backend
 
   return {
     activeModules,
