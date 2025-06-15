@@ -328,7 +328,7 @@ async function generateStaticWebsite(websiteData: WebsiteData): Promise<void> {
 
 function generateModernTemplate(data: WebsiteData): string {
   const socialLinks = data.social || {};
-  const gallery = data.gallery || [];
+  const gallery = data.content?.gallery || [];
   
   return `
     <!DOCTYPE html>
@@ -466,8 +466,8 @@ function generateModernTemplate(data: WebsiteData): string {
       <section id="about" class="about">
         <div class="about-content">
           <div>
-            <h2>${data.content.about.title}</h2>
-            <p>${data.content.about.description}</p>
+            <h2>${data.content?.about?.title || 'Sobre Nossa Clínica'}</h2>
+            <p>${data.content?.about?.description || 'Oferecemos tratamentos odontológicos de qualidade com profissionais especializados.'}</p>
           </div>
           <div>
             <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=500&h=400&fit=crop" alt="Clínica" style="width: 100%; border-radius: 15px;">
@@ -479,13 +479,29 @@ function generateModernTemplate(data: WebsiteData): string {
       <section id="services" class="services">
         <h2>Nossos Serviços</h2>
         <div class="service-grid">
-          ${data.content.services.map(service => `
+          ${data.content?.services?.map(service => `
             <div class="service-card">
               <h3>${service.name}</h3>
               <p>${service.description}</p>
               ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
             </div>
-          `).join('')}
+          `).join('') || `
+            <div class="service-card">
+              <h3>Limpeza Dental</h3>
+              <p>Profilaxia completa e orientações de higiene bucal</p>
+              <div class="service-price">A partir de R$ 80</div>
+            </div>
+            <div class="service-card">
+              <h3>Clareamento</h3>
+              <p>Clareamento dental seguro e eficaz</p>
+              <div class="service-price">A partir de R$ 350</div>
+            </div>
+            <div class="service-card">
+              <h3>Ortodontia</h3>
+              <p>Aparelhos ortodônticos tradicionais e estéticos</p>
+              <div class="service-price">Consulte preços</div>
+            </div>
+          `}
         </div>
       </section>
       
@@ -494,11 +510,11 @@ function generateModernTemplate(data: WebsiteData): string {
       <section id="gallery" class="gallery">
         <h2>Nossa Galeria</h2>
         <div class="gallery-grid">
-          ${gallery.map(photo => photo.url ? `
+          ${gallery.map(photo => `
             <div class="gallery-item">
-              <img src="${photo.url}" alt="${photo.alt}">
+              <img src="${photo}" alt="Galeria da clínica">
             </div>
-          ` : '').join('')}
+          `).join('')}
         </div>
       </section>
       ` : ''}
@@ -513,14 +529,14 @@ function generateModernTemplate(data: WebsiteData): string {
                 <span>📞</span>
                 <div>
                   <strong>Telefone</strong><br>
-                  ${data.content.contact.phone}
+                  ${data.content?.contact?.phone || ''}
                 </div>
               </div>
               <div class="contact-item">
                 <span>📧</span>
                 <div>
                   <strong>Email</strong><br>
-                  ${data.content.contact.email}
+                  ${data.content?.contact?.email || ''}
                 </div>
               </div>
               <div class="contact-item">
