@@ -11,6 +11,7 @@ import * as paymentHandlers from "./payments";
 import * as clinicHandlers from "./clinic-apis";
 import * as backupHandlers from "./backup";
 import * as websiteHandlers from "./website-apis";
+import * as digitalizacaoHandlers from "./digitalizacao-apis";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -1029,6 +1030,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Upload de imagens para galeria
   app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
+
+  // === ROTAS PARA DIGITALIZAÇÃO ===
+  // Processar arquivos com IA
+  app.post("/api/digitalizacao/process", authCheck, tenantIsolationMiddleware, digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
+  
+  // Buscar histórico de processamentos
+  app.get("/api/digitalizacao/history", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.getProcessingHistory));
+  
+  // Download de arquivo processado
+  app.get("/api/digitalizacao/download/:filename", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.downloadFile));
+  
+  // Deletar arquivo processado
+  app.delete("/api/digitalizacao/delete/:filename", authCheck, tenantIsolationMiddleware, asyncHandler(digitalizacaoHandlers.deleteFile));
 
   const httpServer = createServer(app);
   return httpServer;
