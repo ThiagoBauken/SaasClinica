@@ -1014,6 +1014,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // === ROTAS PARA WEBSITES ===
+  // Obter dados do website
+  app.get("/api/website", authCheck, asyncHandler(websiteHandlers.getWebsite));
+  
+  // Salvar dados do website
+  app.post("/api/website", authCheck, asyncHandler(websiteHandlers.saveWebsite));
+  
+  // Publicar website
+  app.post("/api/website/publish", authCheck, asyncHandler(websiteHandlers.publishWebsite));
+  
+  // Preview do website
+  app.get("/api/website/preview", authCheck, asyncHandler(websiteHandlers.previewWebsite));
+  
+  // Upload de imagens para galeria
+  app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
+
   const httpServer = createServer(app);
   return httpServer;
 }
