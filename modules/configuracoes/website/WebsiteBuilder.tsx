@@ -658,18 +658,19 @@ export default function WebsiteBuilder() {
                       
                       {getCurrentTemplateConfig().content.services.showPrices && (
                         <div>
-                      <Label>Preço (opcional)</Label>
-                      <Input
-                        value={service.price || ''}
-                        onChange={(e) => {
-                          const newServices = [...websiteData.content.services];
-                          newServices[index].price = e.target.value;
-                          updateWebsiteData('content.services', newServices);
-                        }}
-                        placeholder="Ex: R$ 150,00"
-                      />
+                          <Label>Preço (opcional)</Label>
+                          <Input
+                            value={service.price || ''}
+                            onChange={(e) => {
+                              const newServices = [...websiteData.content.services];
+                              newServices[index].price = e.target.value;
+                              updateWebsiteData('content.services', newServices);
+                            }}
+                            placeholder="Ex: R$ 150,00"
+                          />
+                        </div>
+                      )}
                     </div>
-                  </div>
                   
                   <div className="mt-3">
                     <Label>Descrição</Label>
@@ -686,8 +687,9 @@ export default function WebsiteBuilder() {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="design" className="space-y-6">
@@ -703,59 +705,65 @@ export default function WebsiteBuilder() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="primaryColor">Cor Primária</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="primaryColor"
-                      type="color"
-                      value={websiteData.colors.primary}
-                      onChange={(e) => updateWebsiteData('colors.primary', e.target.value)}
-                      className="w-16 h-10"
-                    />
-                    <Input
-                      value={websiteData.colors.primary}
-                      onChange={(e) => updateWebsiteData('colors.primary', e.target.value)}
-                      placeholder="#3B82F6"
-                    />
+                {getCurrentTemplateConfig().design.colors.primary && (
+                  <div>
+                    <Label htmlFor="primaryColor">Cor Primária</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="primaryColor"
+                        type="color"
+                        value={websiteData.colors.primary}
+                        onChange={(e) => updateWebsiteData('colors.primary', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={websiteData.colors.primary}
+                        onChange={(e) => updateWebsiteData('colors.primary', e.target.value)}
+                        placeholder="#3B82F6"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div>
-                  <Label htmlFor="secondaryColor">Cor Secundária</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="secondaryColor"
-                      type="color"
-                      value={websiteData.colors.secondary}
-                      onChange={(e) => updateWebsiteData('colors.secondary', e.target.value)}
-                      className="w-16 h-10"
-                    />
-                    <Input
-                      value={websiteData.colors.secondary}
-                      onChange={(e) => updateWebsiteData('colors.secondary', e.target.value)}
-                      placeholder="#1E40AF"
-                    />
+                {getCurrentTemplateConfig().design.colors.secondary && (
+                  <div>
+                    <Label htmlFor="secondaryColor">Cor Secundária</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="secondaryColor"
+                        type="color"
+                        value={websiteData.colors.secondary}
+                        onChange={(e) => updateWebsiteData('colors.secondary', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={websiteData.colors.secondary}
+                        onChange={(e) => updateWebsiteData('colors.secondary', e.target.value)}
+                        placeholder="#1E40AF"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div>
-                  <Label htmlFor="accentColor">Cor de Destaque</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="accentColor"
-                      type="color"
-                      value={websiteData.colors.accent}
-                      onChange={(e) => updateWebsiteData('colors.accent', e.target.value)}
-                      className="w-16 h-10"
-                    />
-                    <Input
-                      value={websiteData.colors.accent}
-                      onChange={(e) => updateWebsiteData('colors.accent', e.target.value)}
-                      placeholder="#60A5FA"
-                    />
+                {getCurrentTemplateConfig().design.colors.accent && (
+                  <div>
+                    <Label htmlFor="accentColor">Cor de Destaque</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="accentColor"
+                        type="color"
+                        value={websiteData.colors.accent}
+                        onChange={(e) => updateWebsiteData('colors.accent', e.target.value)}
+                        className="w-16 h-10"
+                      />
+                      <Input
+                        value={websiteData.colors.accent}
+                        onChange={(e) => updateWebsiteData('colors.accent', e.target.value)}
+                        placeholder="#60A5FA"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               
               <div className="p-4 border rounded-lg">
@@ -795,64 +803,74 @@ export default function WebsiteBuilder() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={websiteData.content.contact.phone}
-                    onChange={(e) => updateWebsiteData('content.contact.phone', e.target.value)}
-                    placeholder="(11) 99999-9999"
-                  />
-                </div>
+                {getCurrentTemplateConfig().contact.phone && (
+                  <div>
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input
+                      id="phone"
+                      value={websiteData.content.contact.phone}
+                      onChange={(e) => updateWebsiteData('content.contact.phone', e.target.value)}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                )}
                 
+                {getCurrentTemplateConfig().contact.whatsapp && (
+                  <div>
+                    <Label htmlFor="whatsapp" className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-green-500" />
+                      WhatsApp
+                    </Label>
+                    <Input
+                      id="whatsapp"
+                      value={websiteData.content.contact.whatsapp}
+                      onChange={(e) => updateWebsiteData('content.contact.whatsapp', e.target.value)}
+                      placeholder="(11) 99999-9999"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Será usado para o botão de WhatsApp flutuante no site
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {getCurrentTemplateConfig().contact.email && (
                 <div>
-                  <Label htmlFor="whatsapp" className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-green-500" />
-                    WhatsApp
-                  </Label>
+                  <Label htmlFor="email">E-mail</Label>
                   <Input
-                    id="whatsapp"
-                    value={websiteData.content.contact.whatsapp}
-                    onChange={(e) => updateWebsiteData('content.contact.whatsapp', e.target.value)}
-                    placeholder="(11) 99999-9999"
+                    id="email"
+                    type="email"
+                    value={websiteData.content.contact.email}
+                    onChange={(e) => updateWebsiteData('content.contact.email', e.target.value)}
+                    placeholder="contato@clinica.com"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Será usado para o botão de WhatsApp flutuante no site
-                  </p>
                 </div>
-              </div>
+              )}
               
-              <div>
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={websiteData.content.contact.email}
-                  onChange={(e) => updateWebsiteData('content.contact.email', e.target.value)}
-                  placeholder="contato@clinica.com"
-                />
-              </div>
+              {getCurrentTemplateConfig().contact.address && (
+                <div>
+                  <Label htmlFor="address">Endereço</Label>
+                  <Textarea
+                    id="address"
+                    value={websiteData.content.contact.address}
+                    onChange={(e) => updateWebsiteData('content.contact.address', e.target.value)}
+                    placeholder="Rua Example, 123 - Bairro - Cidade/UF"
+                    rows={2}
+                  />
+                </div>
+              )}
               
-              <div>
-                <Label htmlFor="address">Endereço</Label>
-                <Textarea
-                  id="address"
-                  value={websiteData.content.contact.address}
-                  onChange={(e) => updateWebsiteData('content.contact.address', e.target.value)}
-                  placeholder="Rua Example, 123 - Bairro - Cidade/UF"
-                  rows={2}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="hours">Horário de Funcionamento</Label>
-                <Input
-                  id="hours"
-                  value={websiteData.content.contact.hours}
-                  onChange={(e) => updateWebsiteData('content.contact.hours', e.target.value)}
-                  placeholder="Segunda a Sexta: 8h às 18h"
-                />
-              </div>
+              {getCurrentTemplateConfig().contact.hours && (
+                <div>
+                  <Label htmlFor="hours">Horário de Funcionamento</Label>
+                  <Input
+                    id="hours"
+                    value={websiteData.content.contact.hours}
+                    onChange={(e) => updateWebsiteData('content.contact.hours', e.target.value)}
+                    placeholder="Segunda a Sexta: 8h às 18h"
+                  />
+                </div>
+              )}
 
               {websiteData.content.contact.whatsapp && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
