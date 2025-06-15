@@ -28,6 +28,7 @@ import {
   Edit3,
   Plus,
   Save,
+  RefreshCw,
   Share2,
   Instagram,
   Facebook,
@@ -1108,6 +1109,24 @@ export default function ConfiguracoesClinicaPage() {
                       <p className="text-sm text-blue-600 mt-1">
                         Este é o preview em tempo real do seu site com dados da clínica.
                       </p>
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          size="sm" 
+                          onClick={saveWebsiteData}
+                          disabled={saveWebsiteMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          {saveWebsiteMutation.isPending ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={loadWebsiteData}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Recarregar
+                        </Button>
+                      </div>
                     </div>
 
                     {websiteData.domain && (

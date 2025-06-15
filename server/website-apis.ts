@@ -98,15 +98,49 @@ export async function saveWebsite(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
+    // Converter estrutura do frontend para backend
+    const frontendData = req.body;
     const websiteData: WebsiteData = {
-      ...req.body,
+      id: companyId,
+      clinicName: frontendData.clinicName || frontendData.content?.title || 'Minha Clínica',
+      template: frontendData.template || 'modern',
+      colors: {
+        primary: frontendData.design?.primaryColor || frontendData.colors?.primary || '#0066cc',
+        secondary: frontendData.design?.secondaryColor || frontendData.colors?.secondary || '#f8f9fa',
+        accent: frontendData.design?.accentColor || frontendData.colors?.accent || '#28a745'
+      },
+      content: {
+        hero: {
+          title: frontendData.content?.title || 'Minha Clínica Odontológica',
+          subtitle: frontendData.content?.subtitle || 'Cuidando do seu sorriso com excelência'
+        },
+        about: {
+          title: frontendData.content?.about?.title || 'Sobre Nossa Clínica',
+          description: frontendData.content?.about?.description || 'Oferecemos tratamentos odontológicos de qualidade.'
+        },
+        services: frontendData.content?.services || [],
+        contact: {
+          phone: frontendData.contact?.phone || '',
+          whatsapp: frontendData.contact?.whatsapp || '',
+          email: frontendData.contact?.email || '',
+          address: frontendData.contact?.address || '',
+          hours: frontendData.contact?.hours || 'Segunda a Sexta: 8:00 - 18:00'
+        },
+        gallery: frontendData.gallery?.map((item: any) => item.url).filter(Boolean) || []
+      },
+      social: frontendData.social || {},
+      seo: {
+        title: frontendData.seo?.title || '',
+        description: frontendData.seo?.description || '',
+        keywords: frontendData.seo?.keywords || ''
+      },
+      published: frontendData.published || false,
       companyId,
       updatedAt: new Date().toISOString()
     };
 
     // Se não existe, criar novo
-    if (!websiteData.id) {
-      websiteData.id = companyId; // Usar companyId como ID único
+    if (!websiteStorage.has(companyId)) {
       websiteData.createdAt = new Date().toISOString();
     }
 
