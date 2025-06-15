@@ -82,19 +82,67 @@ const templates = [
     id: 'modern',
     name: 'Moderno',
     description: 'Design contemporâneo com gradientes e animações suaves',
-    features: ['Gradientes', 'Animações suaves', 'Layout responsivo', 'Botão WhatsApp flutuante']
+    features: ['Gradientes', 'Animações suaves', 'Layout responsivo', 'Botão WhatsApp flutuante'],
+    editableSections: {
+      content: {
+        hero: { title: true, subtitle: true, image: true },
+        about: { title: true, description: true, image: true },
+        services: { enabled: true, showPrices: true },
+        testimonials: { enabled: true }
+      },
+      design: {
+        colors: { primary: true, secondary: true, accent: true, gradient: true },
+        fonts: { heading: true, body: true },
+        animations: { enabled: true }
+      },
+      gallery: { enabled: true, layout: 'grid' },
+      contact: { phone: true, email: true, whatsapp: true, address: true, hours: true },
+      social: { instagram: true, facebook: true, linkedin: true, youtube: true }
+    }
   },
   {
     id: 'classic',
     name: 'Clássico',
     description: 'Design tradicional e elegante para clínicas estabelecidas',
-    features: ['Design tradicional', 'Cores sóbrias', 'Tipografia elegante', 'WhatsApp integrado']
+    features: ['Design tradicional', 'Cores sóbrias', 'Tipografia elegante', 'WhatsApp integrado'],
+    editableSections: {
+      content: {
+        hero: { title: true, subtitle: true, image: false },
+        about: { title: true, description: true, image: true },
+        services: { enabled: true, showPrices: false },
+        testimonials: { enabled: false }
+      },
+      design: {
+        colors: { primary: true, secondary: true, accent: false, gradient: false },
+        fonts: { heading: true, body: false },
+        animations: { enabled: false }
+      },
+      gallery: { enabled: true, layout: 'carousel' },
+      contact: { phone: true, email: true, whatsapp: true, address: true, hours: true },
+      social: { instagram: true, facebook: true, linkedin: false, youtube: false }
+    }
   },
   {
     id: 'minimal',
     name: 'Minimalista',
     description: 'Clean e simples, focado no conteúdo essencial',
-    features: ['Design limpo', 'Muito espaço em branco', 'Tipografia moderna', 'WhatsApp discreto']
+    features: ['Design limpo', 'Muito espaço em branco', 'Tipografia moderna', 'WhatsApp discreto'],
+    editableSections: {
+      content: {
+        hero: { title: true, subtitle: false, image: false },
+        about: { title: false, description: true, image: false },
+        services: { enabled: true, showPrices: false },
+        testimonials: { enabled: false }
+      },
+      design: {
+        colors: { primary: true, secondary: false, accent: false, gradient: false },
+        fonts: { heading: true, body: true },
+        animations: { enabled: false }
+      },
+      gallery: { enabled: false, layout: 'none' },
+      contact: { phone: true, email: true, whatsapp: true, address: false, hours: false },
+      social: { instagram: true, facebook: false, linkedin: false, youtube: false }
+    }
   }
 ];
 
@@ -153,12 +201,23 @@ export default function WebsiteBuilder() {
     }
   });
 
+  // Função para obter seções editáveis do template atual
+  const getCurrentTemplateConfig = () => {
+    return templates.find(t => t.id === websiteData.template)?.editableSections || templates[0].editableSections;
+  };
+
   // Carregar dados existentes quando disponíveis
   useEffect(() => {
     if (existingWebsite) {
       setWebsiteData(existingWebsite);
     }
   }, [existingWebsite]);
+
+  // Atualizar configurações quando template mudar
+  useEffect(() => {
+    const templateConfig = getCurrentTemplateConfig();
+    // Aqui podemos ajustar dados baseados no template se necessário
+  }, [websiteData.template]);
 
   // Mutation para salvar o site
   const saveWebsiteMutation = useMutation({
@@ -429,7 +488,9 @@ export default function WebsiteBuilder() {
           <TabsTrigger value="content">Conteúdo</TabsTrigger>
           <TabsTrigger value="design">Design</TabsTrigger>
           <TabsTrigger value="contact">Contato</TabsTrigger>
-          <TabsTrigger value="gallery">Galeria</TabsTrigger>
+          {getCurrentTemplateConfig().gallery.enabled && (
+            <TabsTrigger value="gallery">Galeria</TabsTrigger>
+          )}
           <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
@@ -502,24 +563,28 @@ export default function WebsiteBuilder() {
                 )}
               </div>
               
-              <div>
-                <Label htmlFor="heroTitle">Título Principal</Label>
-                <Input
-                  id="heroTitle"
-                  value={websiteData.content.hero.title}
-                  onChange={(e) => updateWebsiteData('content.hero.title', e.target.value)}
-                />
-              </div>
+              {getCurrentTemplateConfig().content.hero.title && (
+                <div>
+                  <Label htmlFor="heroTitle">Título Principal</Label>
+                  <Input
+                    id="heroTitle"
+                    value={websiteData.content.hero.title}
+                    onChange={(e) => updateWebsiteData('content.hero.title', e.target.value)}
+                  />
+                </div>
+              )}
               
-              <div>
-                <Label htmlFor="heroSubtitle">Subtítulo</Label>
-                <Textarea
-                  id="heroSubtitle"
-                  value={websiteData.content.hero.subtitle}
-                  onChange={(e) => updateWebsiteData('content.hero.subtitle', e.target.value)}
-                  rows={2}
-                />
-              </div>
+              {getCurrentTemplateConfig().content.hero.subtitle && (
+                <div>
+                  <Label htmlFor="heroSubtitle">Subtítulo</Label>
+                  <Textarea
+                    id="heroSubtitle"
+                    value={websiteData.content.hero.subtitle}
+                    onChange={(e) => updateWebsiteData('content.hero.subtitle', e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -528,65 +593,71 @@ export default function WebsiteBuilder() {
               <CardTitle>Sobre a Clínica</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="aboutTitle">Título da Seção</Label>
-                <Input
-                  id="aboutTitle"
-                  value={websiteData.content.about.title}
-                  onChange={(e) => updateWebsiteData('content.about.title', e.target.value)}
-                />
-              </div>
+              {getCurrentTemplateConfig().content.about.title && (
+                <div>
+                  <Label htmlFor="aboutTitle">Título da Seção</Label>
+                  <Input
+                    id="aboutTitle"
+                    value={websiteData.content.about.title}
+                    onChange={(e) => updateWebsiteData('content.about.title', e.target.value)}
+                  />
+                </div>
+              )}
               
-              <div>
-                <Label htmlFor="aboutDescription">Descrição</Label>
-                <Textarea
-                  id="aboutDescription"
-                  value={websiteData.content.about.description}
-                  onChange={(e) => updateWebsiteData('content.about.description', e.target.value)}
-                  rows={4}
-                />
-              </div>
+              {getCurrentTemplateConfig().content.about.description && (
+                <div>
+                  <Label htmlFor="aboutDescription">Descrição</Label>
+                  <Textarea
+                    id="aboutDescription"
+                    value={websiteData.content.about.description}
+                    onChange={(e) => updateWebsiteData('content.about.description', e.target.value)}
+                    rows={4}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Serviços
-                <Button onClick={addService} size="sm">
-                  Adicionar Serviço
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {websiteData.content.services.map((service, index) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-medium">Serviço {index + 1}</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeService(index)}
-                    >
-                      Remover
-                    </Button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Nome do Serviço</Label>
-                      <Input
-                        value={service.name}
-                        onChange={(e) => {
-                          const newServices = [...websiteData.content.services];
-                          newServices[index].name = e.target.value;
-                          updateWebsiteData('content.services', newServices);
-                        }}
-                        placeholder="Ex: Limpeza Dental"
-                      />
+          {getCurrentTemplateConfig().content.services.enabled && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  Serviços
+                  <Button onClick={addService} size="sm">
+                    Adicionar Serviço
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {websiteData.content.services.map((service, index) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <h4 className="font-medium">Serviço {index + 1}</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeService(index)}
+                      >
+                        Remover
+                      </Button>
                     </div>
                     
-                    <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Nome do Serviço</Label>
+                        <Input
+                          value={service.name}
+                          onChange={(e) => {
+                            const newServices = [...websiteData.content.services];
+                            newServices[index].name = e.target.value;
+                            updateWebsiteData('content.services', newServices);
+                          }}
+                          placeholder="Ex: Limpeza Dental"
+                        />
+                      </div>
+                      
+                      {getCurrentTemplateConfig().content.services.showPrices && (
+                        <div>
                       <Label>Preço (opcional)</Label>
                       <Input
                         value={service.price || ''}
