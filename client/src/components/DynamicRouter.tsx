@@ -95,11 +95,11 @@ export function DynamicRouter() {
         </Suspense>
       </Route>
 
-      <Route path="/digitalizacao">
+      <ProtectedRoute path="/digitalizacao" component={() => (
         <Suspense fallback={<LoadingFallback />}>
           <DigitalizacaoPage />
         </Suspense>
-      </Route>
+      )} />
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
       

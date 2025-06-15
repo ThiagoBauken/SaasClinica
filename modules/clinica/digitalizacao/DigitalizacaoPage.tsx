@@ -18,7 +18,7 @@ import {
   FileSpreadsheet,
   History,
   Zap,
-  Scan
+  Camera
 } from 'lucide-react';
 
 interface UploadedFile {
@@ -218,7 +218,7 @@ export default function DigitalizacaoPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Scan className="h-8 w-8 text-blue-600" />
+            <Camera className="h-8 w-8 text-blue-600" />
             Digitalização de Registros
           </h1>
           <p className="text-gray-600">Extraia dados de fichas odontológicas usando IA</p>

@@ -53,7 +53,7 @@ export function useModules() {
       { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
       { label: 'Estoque', path: '/inventory', icon: 'Package' },
       { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
-      { label: 'Digitalização', path: '/digitalizacao', icon: 'Scan' }
+      { label: 'Digitalização', path: '/digitalizacao', icon: 'Camera' }
     ];
     
     setDynamicMenuItems(defaultMenuItems);

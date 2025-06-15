@@ -17,7 +17,7 @@ export default {
     }
   ],
   permissions: ['read', 'write'],
-  icon: 'scan',
+  icon: 'camera',
   frontendRoutes: [
     {
       path: '/clinica/digitalizacao',
