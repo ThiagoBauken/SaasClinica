@@ -1112,7 +1112,7 @@ export default function ConfiguracoesClinicaPage() {
                       <div className="flex gap-2 mt-3">
                         <Button 
                           size="sm" 
-                          onClick={saveWebsiteData}
+                          onClick={() => saveWebsiteMutation.mutate(websiteData)}
                           disabled={saveWebsiteMutation.isPending}
                         >
                           <Save className="h-4 w-4 mr-1" />
@@ -1121,7 +1121,7 @@ export default function ConfiguracoesClinicaPage() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={loadWebsiteData}
+                          onClick={() => window.location.reload()}
                         >
                           <RefreshCw className="h-4 w-4 mr-1" />
                           Recarregar
