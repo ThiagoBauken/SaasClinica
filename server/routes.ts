@@ -12,6 +12,7 @@ import * as clinicHandlers from "./clinic-apis";
 import * as backupHandlers from "./backup";
 import * as websiteHandlers from "./website-apis";
 import * as digitalizacaoHandlers from "./digitalizacao-apis";
+import { digitalizacaoAuthMiddleware } from "./digitalizacao-middleware";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
@@ -1033,16 +1034,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === ROTAS PARA DIGITALIZAÇÃO ===
   // Processar arquivos com IA
-  app.post("/api/digitalizacao/process", digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
+  app.post("/api/digitalizacao/process", digitalizacaoAuthMiddleware, digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
   
   // Buscar histórico de processamentos
-  app.get("/api/digitalizacao/history", asyncHandler(digitalizacaoHandlers.getProcessingHistory));
+  app.get("/api/digitalizacao/history", digitalizacaoAuthMiddleware, asyncHandler(digitalizacaoHandlers.getProcessingHistory));
   
   // Download de arquivo processado
-  app.get("/api/digitalizacao/download/:filename", asyncHandler(digitalizacaoHandlers.downloadFile));
+  app.get("/api/digitalizacao/download/:filename", digitalizacaoAuthMiddleware, asyncHandler(digitalizacaoHandlers.downloadFile));
   
   // Deletar arquivo processado
-  app.delete("/api/digitalizacao/delete/:filename", asyncHandler(digitalizacaoHandlers.deleteFile));
+  app.delete("/api/digitalizacao/delete/:filename", digitalizacaoAuthMiddleware, asyncHandler(digitalizacaoHandlers.deleteFile));
 
   const httpServer = createServer(app);
   return httpServer;
