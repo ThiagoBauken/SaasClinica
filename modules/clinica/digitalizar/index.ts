@@ -1,6 +1,6 @@
 import { lazy } from 'react';
 
-export const DigitalizarPage = lazy(() => import('./DigitalizarPage'));
+export const DigitalizarPage = lazy(() => import('./DigitalizarPageSimple'));
 
 export default {
   id: 'digitalizar',
