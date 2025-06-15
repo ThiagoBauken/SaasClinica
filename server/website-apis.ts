@@ -591,6 +591,74 @@ function generateModernTemplate(data: WebsiteData): string {
   `;
 }
 
+// Upload de imagem para galeria
+export async function uploadImage(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    const { imageData, filename } = req.body;
+    
+    if (!imageData) {
+      return res.status(400).json({ message: 'Dados da imagem são obrigatórios' });
+    }
+
+    // Gerar URL única para a imagem baseada em timestamp
+    const timestamp = Date.now();
+    const extension = filename?.split('.').pop() || 'jpg';
+    const uniqueFilename = `${companyId}-${timestamp}.${extension}`;
+    const imageUrl = `/uploads/gallery/${uniqueFilename}`;
+    
+    res.json({ 
+      success: true,
+      url: imageUrl,
+      filename: uniqueFilename,
+      message: 'Imagem enviada com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload da imagem:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+// Preview do website
+export async function previewWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    // Buscar dados salvos ou usar dados do query
+    const websiteData = websiteStorage.get(companyId) || req.query as any;
+    
+    if (!websiteData) {
+      return res.status(404).json({ message: 'Dados do site não encontrados' });
+    }
+
+    // Gerar HTML baseado no template
+    let html = '';
+    switch (websiteData.template) {
+      case 'classic':
+        html = generateClassicTemplate(websiteData);
+        break;
+      case 'minimal':
+        html = generateMinimalTemplate(websiteData);
+        break;
+      default:
+        html = generateModernTemplate(websiteData);
+    }
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    console.error('Erro ao gerar preview:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
 function generateClassicTemplate(data: WebsiteData): string {
   const socialLinks = data.social || {};
   const gallery = data.content?.gallery || [];
