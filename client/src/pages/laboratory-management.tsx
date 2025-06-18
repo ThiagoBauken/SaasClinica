@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Laboratory {
   id: number;
@@ -50,40 +51,30 @@ interface Laboratory {
 
 export default function LaboratoryManagementPage() {
   const { toast } = useToast();
+  const { user, isLoading: authLoading, loginMutation } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingLaboratory, setEditingLaboratory] = useState<Laboratory | null>(null);
   const [laboratoryToDelete, setLaboratoryToDelete] = useState<Laboratory | null>(null);
+
+  // Auto-login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      loginMutation.mutate({ username: "admin", password: "admin123" });
+    }
+  }, [authLoading, user, loginMutation]);
   
   // Query para buscar laboratórios
-  const { data: laboratories, isLoading } = useQuery<Laboratory[]>({
+  const { data: laboratories, isLoading, error } = useQuery<Laboratory[]>({
     queryKey: ["/api/laboratories"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/laboratories");
-        
-        // Se não conseguirmos carregar os dados reais por algum motivo,
-        // vamos usar alguns dados de exemplo para desenvolvimento
-        if (!res.ok) {
-          console.warn("Usando dados de exemplo para laboratórios");
-          return [
-            { id: 1, name: "Lab Dental", contact: "contato@labdental.com.br", address: "Rua das Flores, 123", phone: "(11) 98765-4321" },
-            { id: 2, name: "Odonto Tech", contact: "contato@odontotech.com.br", address: "Av. Paulista, 1000", phone: "(11) 91234-5678" },
-            { id: 3, name: "Prótese Premium", contact: "contato@protesepremium.com.br", address: "Rua Augusta, 500", phone: "(11) 99876-5432" }
-          ];
-        }
-        
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar laboratórios:", error);
-        // Dados mockados para desenvolvimento
-        return [
-          { id: 1, name: "Lab Dental", contact: "contato@labdental.com.br", address: "Rua das Flores, 123", phone: "(11) 98765-4321" },
-          { id: 2, name: "Odonto Tech", contact: "contato@odontotech.com.br", address: "Av. Paulista, 1000", phone: "(11) 91234-5678" },
-          { id: 3, name: "Prótese Premium", contact: "contato@protesepremium.com.br", address: "Rua Augusta, 500", phone: "(11) 99876-5432" }
-        ];
+      const res = await apiRequest("GET", "/api/laboratories");
+      if (!res.ok) {
+        throw new Error(`Erro ao carregar laboratórios: ${res.status}`);
       }
-    }
+      return await res.json();
+    },
+    retry: false
   });
   
   // Mutation para criar/atualizar laboratório

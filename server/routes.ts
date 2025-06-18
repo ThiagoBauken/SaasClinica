@@ -1083,6 +1083,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // === API DE AUTENTICAÇÃO ===
+  // Auto-login para desenvolvimento
+  app.post("/api/auth/auto-login", asyncHandler(async (req: Request, res: Response) => {
+    try {
+      // Fazer login automático com o usuário admin
+      const user = await storage.getUserByUsername("admin");
+      
+      if (!user) {
+        return res.status(404).json({ message: "Usuário admin não encontrado" });
+      }
+      
+      // Simular login estabelecendo sessão
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Erro no auto-login:", err);
+          return res.status(500).json({ message: "Erro no login automático" });
+        }
+        
+        res.json({
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          companyId: user.companyId || 3,
+          active: user.active
+        });
+      });
+    } catch (error) {
+      console.error("Erro no auto-login:", error);
+      res.status(500).json({ message: "Erro interno no auto-login" });
+    }
+  }));
+
   // Verificar usuário atual
   app.get("/api/user/me", asyncHandler(async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || !req.user) {

@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   
   // Usar usuario real ou mockado para desenvolvimento
-  const USE_MOCK_USER = true; // Defina como false para usar autenticação real
+  const USE_MOCK_USER = false; // Defina como false para usar autenticação real
   
   const {
     data: serverUser,
