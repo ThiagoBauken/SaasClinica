@@ -1033,6 +1033,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Registrar rotas dos módulos da clínica
   registerProtesesRoutes(app);
+  
+  // Import and register laboratory routes
+  const { registerLaboratoryRoutes } = await import('./routes/laboratories');
+  registerLaboratoryRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
