@@ -518,6 +518,11 @@ export default function ProsthesisControlPage() {
     let expectedReturnDateFormatted = expectedReturnDate ? format(expectedReturnDate, "yyyy-MM-dd") : null;
     
     try {
+      console.log('Form data raw:', Object.fromEntries(formData.entries()));
+      console.log('Selected labels:', selectedLabels);
+      console.log('Sent date:', sentDateFormatted);
+      console.log('Expected return date:', expectedReturnDateFormatted);
+      
       // Validar dados básicos
       if (!formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
         throw new Error("Por favor, preencha todos os campos obrigatórios.");
@@ -537,25 +542,20 @@ export default function ProsthesisControlPage() {
         labels: selectedLabels || [],
       };
       
+      console.log('Prosthesis data to send:', prosthesisData);
+      
       // Se estiver editando, manter dados existentes que não foram alterados
       if (editingProsthesis) {
         prosthesisData.id = editingProsthesis.id;
-        // Preservar returnDate e status se existirem
-        if (editingProsthesis.returnDate) {
-          prosthesisData.returnDate = editingProsthesis.returnDate;
-        }
-        
-        // Manter status atual se não houver mudança nas datas
-        if (editingProsthesis.status) {
-          if (editingProsthesis.status === 'completed' || editingProsthesis.status === 'returned') {
-            prosthesisData.status = editingProsthesis.status;
-          }
-        }
+        console.log('Editing existing prosthesis with ID:', editingProsthesis.id);
+      } else {
+        console.log('Creating new prosthesis');
       }
       
       // Enviar dados para o servidor
       prosthesisMutation.mutate(prosthesisData);
     } catch (error) {
+      console.error('Error in handleSaveProsthesis:', error);
       // Tratar erros de validação
       toast({
         title: "Erro ao salvar",
