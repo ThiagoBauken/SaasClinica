@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -799,8 +799,8 @@ export default function ProsthesisControlPage() {
   // Ref para throttling de operações drag
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Handler para drag and drop completamente livre de teleportação
-  const onDragEnd = (result: any) => {
+  // Handler para drag and drop sem teleportação - atualização imediata
+  const onDragEnd = useCallback((result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
     
     // Limpar throttle anterior se existir
@@ -827,31 +827,49 @@ export default function ProsthesisControlPage() {
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus}`);
     
-    // Throttle a operação para evitar múltiplas requisições
-    dragThrottleRef.current = setTimeout(() => {
-      // Preparar dados para atualização
-      let updateData: any = { id: prosthesisId, status: targetStatus };
-      let toastMessage = '';
+    // Encontrar item que está sendo movido
+    const draggedItem = prosthesis?.find(item => item.id === prosthesisId);
+    if (!draggedItem) return;
+    
+    // PASSO 1: Criar item atualizado com novo status
+    let updatedItem = { ...draggedItem, status: targetStatus };
+    let toastMessage = '';
+    
+    // Aplicar lógica específica por transição
+    if (targetStatus === 'sent' && source.droppableId === 'pending') {
+      const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updatedItem.sentDate = sentDateFormatted;
+      toastMessage = 'Prótese enviada para o laboratório';
+    } 
+    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+      const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updatedItem.returnDate = returnDateFormatted;
+      toastMessage = 'Prótese retornada do laboratório';
+    }
+    else if (targetStatus === 'completed') {
+      toastMessage = 'Prótese concluída com sucesso';
+    }
+    else if (targetStatus === 'pending') {
+      toastMessage = 'Status atualizado para pendente';
+    }
+    
+    // PASSO 2: Atualizar cache imediatamente para evitar teleportação
+    queryClient.setQueryData(['/api/prosthesis'], (oldData: any) => {
+      if (!oldData) return oldData;
+      return oldData.map((item: any) => 
+        item.id === prosthesisId ? updatedItem : item
+      );
+    });
+    
+    // PASSO 3: Fazer chamada API assíncrona APÓS atualização da UI
+    setTimeout(() => {
+      const updateData: any = { 
+        id: prosthesisId, 
+        status: targetStatus,
+        ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
+        ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
+      };
       
-      // Lógica específica por transição
-      if (targetStatus === 'sent' && source.droppableId === 'pending') {
-        const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
-        updateData.sentDate = sentDateFormatted;
-        toastMessage = 'Prótese enviada para o laboratório';
-      } 
-      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-        const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
-        updateData.returnDate = returnDateFormatted;
-        toastMessage = 'Prótese retornada do laboratório';
-      }
-      else if (targetStatus === 'completed') {
-        toastMessage = 'Prótese concluída com sucesso';
-      }
-      else if (targetStatus === 'pending') {
-        toastMessage = 'Status atualizado para pendente';
-      }
-      
-      // Executar atualização no backend
       updateStatusMutation.mutate(updateData, {
         onSuccess: () => {
           if (toastMessage) {
@@ -862,6 +880,14 @@ export default function ProsthesisControlPage() {
           }
         },
         onError: () => {
+          // Rollback em caso de erro
+          queryClient.setQueryData(['/api/prosthesis'], (oldData: any) => {
+            if (!oldData) return oldData;
+            return oldData.map((item: any) => 
+              item.id === prosthesisId ? draggedItem : item
+            );
+          });
+          
           toast({
             title: "Erro",
             description: "Falha ao atualizar status da prótese",
@@ -869,8 +895,8 @@ export default function ProsthesisControlPage() {
           });
         }
       });
-    }, 300); // Throttle de 300ms para garantir estabilidade
-  };
+    }, 0); // Execução assíncrona imediata sem delay visual
+  }, [prosthesis, updateStatusMutation, queryClient, toast]);
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
@@ -1195,7 +1221,8 @@ export default function ProsthesisControlPage() {
                         )}
                         style={{ 
                           minHeight: "calc(100vh - 300px)",
-                          height: "calc(100vh - 300px)"
+                          height: "calc(100vh - 300px)",
+                          transform: "translateZ(0)" // Hardware acceleration
                         }}
                       >
                         <div className="space-y-2 flex-shrink-0">
@@ -1214,8 +1241,9 @@ export default function ProsthesisControlPage() {
                                   style={{
                                     ...provided.draggableProps.style,
                                     transform: snapshot.isDragging 
-                                      ? provided.draggableProps.style?.transform 
-                                      : 'none'
+                                      ? `${provided.draggableProps.style?.transform} rotate(2deg) translateZ(0)`
+                                      : 'translateZ(0)',
+                                    transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease'
                                   }}
                                   className={cn(
                                     "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
