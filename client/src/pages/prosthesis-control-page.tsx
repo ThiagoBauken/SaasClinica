@@ -783,14 +783,31 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag and drop com melhor desempenho
+  // Handler para drag and drop com validação de transições
   const onDragEnd = (result: any) => {
     const { source, destination, draggableId } = result;
     
-    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
-    if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
+    // Se não há destino ou movimento dentro da mesma coluna
+    if (!destination || source.droppableId === destination.droppableId) {
+      return;
+    }
+    
+    // Validar transições de status permitidas
+    const validTransitions: Record<string, string[]> = {
+      'pending': ['sent', 'canceled'],
+      'sent': ['returned', 'pending'], 
+      'returned': ['completed', 'sent'],
+      'completed': ['archived'],
+      'canceled': ['pending'],
+      'archived': ['completed']
+    };
+    
+    if (!validTransitions[source.droppableId]?.includes(destination.droppableId)) {
+      toast({
+        title: "Movimento inválido",
+        description: "Esta transição de status não é permitida",
+        variant: "destructive"
+      });
       return;
     }
     
