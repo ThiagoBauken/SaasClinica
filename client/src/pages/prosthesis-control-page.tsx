@@ -430,9 +430,11 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    if (prosthesis) {
-      try {
-        const updatedColumns = {
+    // CRÍTICO: Não atualizar durante arraste para evitar conflitos
+    if (isDragging || !prosthesis) return;
+    
+    try {
+      const updatedColumns = {
           pending: {
             ...columns.pending,
             items: prosthesis.filter(p => p.status === 'pending')
@@ -513,7 +515,10 @@ export default function ProsthesisControlPage() {
         });
       }
     }
-  }, [prosthesis, filters]);
+  }, [prosthesis, filters, isDragging]);
+  
+  // Estado para controlar quando drag está ativo
+  // const [isDragging, setIsDragging] = useState(false); // Já declarado acima
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
@@ -628,7 +633,7 @@ export default function ProsthesisControlPage() {
   // Estado para controle de debouncing
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Mutation simplificada para atualizar status
+  // Mutation simplificada para atualizar status com debounce
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, returnDate, sentDate }: { 
       id: number; 
@@ -636,6 +641,9 @@ export default function ProsthesisControlPage() {
       returnDate?: string;
       sentDate?: string;
     }) => {
+      // Aguardar um pouco para garantir que o arraste terminou
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const updateData: any = { status };
       
       if (status === 'sent' && sentDate) {
@@ -654,8 +662,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // NÃO invalidar cache automaticamente para evitar movimentações indesejadas
-      // O estado local já foi atualizado no onDragEnd para UI responsiva
+      // Estado local já atualizado - sem invalidações para manter fluidez
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -813,8 +820,20 @@ export default function ProsthesisControlPage() {
     }
   };
   
+  // Estado para controlar quando drag está ativo
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Handler para drag start - prevenir mudanças de estado durante arraste
+  const onDragStart = () => {
+    setIsDragging(true);
+    document.body.style.userSelect = 'none';
+  };
+
   // Handler para drag and drop otimizado - sem invalidações desnecessárias
   const onDragEnd = (result: any) => {
+    setIsDragging(false);
+    document.body.style.userSelect = '';
+    
     const { source, destination, draggableId } = result;
     
     // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
@@ -1192,11 +1211,8 @@ export default function ProsthesisControlPage() {
           </div>
         ) : (
           <DragDropContext 
+            onDragStart={onDragStart}
             onDragEnd={onDragEnd}
-            onDragStart={() => {
-              // Melhorar responsividade para touch e movimentos rápidos
-              document.body.style.userSelect = 'none';
-            }}
           >
             <div className={cn(
               "grid grid-cols-1 gap-4",
