@@ -524,6 +524,10 @@ export default function ProsthesisControlPage() {
         if (!res.ok) {
           throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
         }
+        // 204 No Content responses don't have a body, so don't try to parse JSON
+        if (res.status === 204) {
+          return { success: true };
+        }
         return await res.json();
       } catch (error) {
         console.error("Erro ao excluir prótese:", error);
