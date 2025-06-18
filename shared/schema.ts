@@ -239,6 +239,39 @@ export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
 export type Prosthesis = typeof prosthesis.$inferSelect;
 export type InsertProsthesis = z.infer<typeof insertProsthesisSchema>;
 
+// Laboratories - Laboratórios de Próteses
+export const laboratories = pgTable("laboratories", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  contactName: varchar("contact_name", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  address: text("address"),
+  cnpj: varchar("cnpj", { length: 20 }),
+  specialties: jsonb("specialties").$type<string[]>().default([]),
+  notes: text("notes"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLaboratorySchema = createInsertSchema(laboratories).pick({
+  companyId: true,
+  name: true,
+  contactName: true,
+  phone: true,
+  email: true,
+  address: true,
+  cnpj: true,
+  specialties: true,
+  notes: true,
+  active: true,
+});
+
+export type Laboratory = typeof laboratories.$inferSelect;
+export type InsertLaboratory = z.infer<typeof insertLaboratorySchema>;
+
 // Rooms
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),

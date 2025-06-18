@@ -652,16 +652,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProsthesis(data: any): Promise<any> {
-    const [result] = await db
-      .insert(prosthesis)
-      .values({
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    
-    return result;
+    try {
+      // Limpar dados que não devem ser inseridos
+      const cleanData = { ...data };
+      delete cleanData.patientName;
+      delete cleanData.professionalName;
+      delete cleanData.id;
+      
+      const [result] = await db
+        .insert(prosthesis)
+        .values({
+          ...cleanData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar prótese:', error);
+      throw new Error(`Falha ao criar prótese: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   }
 
   async updateProsthesis(id: number, data: any, companyId: number): Promise<any> {

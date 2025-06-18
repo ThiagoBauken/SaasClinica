@@ -524,19 +524,17 @@ export default function ProsthesisControlPage() {
       }
       
       // Preparar dados da prótese
-      const prosthesisData: Partial<Prosthesis> = {
+      const prosthesisData: any = {
         patientId: parseInt(formData.get("patient") as string),
-        patientName: mockPatients.find(p => p.id === parseInt(formData.get("patient") as string))?.fullName || "",
         professionalId: parseInt(formData.get("professional") as string),
-        professionalName: mockProfessionals.find(p => p.id === parseInt(formData.get("professional") as string))?.fullName || "",
         type: formData.get("type") as string,
         description: formData.get("description") as string,
         laboratory: formData.get("laboratory") as string,
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
-        status: (sentDateFormatted ? 'sent' : 'pending') as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled',
-        labels: selectedLabels, // Incluir etiquetas selecionadas
+        status: (sentDateFormatted ? 'sent' : 'pending'),
+        labels: selectedLabels || [],
       };
       
       // Se estiver editando, manter dados existentes que não foram alterados

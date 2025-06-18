@@ -44,16 +44,25 @@ export function registerProtesesRoutes(app: Express) {
       const companyId = user.companyId;
       
       try {
+        console.log('Dados recebidos para criação:', req.body);
+        
         const prosthesisData = {
           ...req.body,
           companyId
         };
         
+        console.log('Dados processados para inserção:', prosthesisData);
+        
         const newProsthesis = await storage.createProsthesis(prosthesisData);
+        console.log('Prótese criada com sucesso:', newProsthesis);
+        
         res.status(201).json(newProsthesis);
       } catch (error) {
-        console.error('Erro ao criar prótese:', error);
-        res.status(500).json({ error: 'Erro ao criar prótese' });
+        console.error('Erro detalhado ao criar prótese:', error);
+        res.status(500).json({ 
+          error: 'Erro ao criar prótese',
+          details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
       }
     })
   );
