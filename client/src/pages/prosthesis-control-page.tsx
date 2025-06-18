@@ -636,7 +636,10 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Só invalidar se não estiver em drag para evitar conflitos
+      if (!isDragging) {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -799,51 +802,50 @@ export default function ProsthesisControlPage() {
   // Ref para throttling de operações drag
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Handler para drag and drop sem teleportação - atualização imediata
+  // Handler para drag and drop com posicionamento preciso - sem teleportação
   const onDragEnd = useCallback((result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
     
-    // Limpar throttle anterior se existir
-    if (dragThrottleRef.current) {
-      clearTimeout(dragThrottleRef.current);
-    }
-    
-    // Finalizar drag imediatamente para liberar interface
-    setIsDragging(false);
-    
     const { source, destination, draggableId } = result;
     
-    // Validar resultado do drag
+    // Validar movimento
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
       console.log('Drag cancelado - sem mudança de posição');
+      setIsDragging(false);
       return;
     }
     
-    // Extrair ID da prótese
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
     const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus}`);
     
-    // Encontrar item que está sendo movido
+    // Encontrar item sendo movido
     const draggedItem = prosthesis?.find(item => item.id === prosthesisId);
-    if (!draggedItem) return;
+    if (!draggedItem) {
+      setIsDragging(false);
+      return;
+    }
     
-    // PASSO 1: Criar item atualizado com novo status
+    // Cancelar todas as queries pendentes
+    queryClient.cancelQueries({ queryKey: ['/api/prosthesis'] });
+    
+    // Snapshot para rollback
+    const previousData = queryClient.getQueryData(['/api/prosthesis']);
+    
+    // Criar item atualizado
     let updatedItem = { ...draggedItem, status: targetStatus };
     let toastMessage = '';
     
-    // Aplicar lógica específica por transição
+    // Aplicar lógica específica
     if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updatedItem.sentDate = sentDateFormatted;
+      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
       toastMessage = 'Prótese enviada para o laboratório';
     } 
     else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updatedItem.returnDate = returnDateFormatted;
+      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
       toastMessage = 'Prótese retornada do laboratório';
     }
     else if (targetStatus === 'completed') {
@@ -853,23 +855,28 @@ export default function ProsthesisControlPage() {
       toastMessage = 'Status atualizado para pendente';
     }
     
-    // PASSO 2: Atualizar cache imediatamente para evitar teleportação
+    // Atualização otimística IMEDIATA - o item fica onde foi dropado
     queryClient.setQueryData(['/api/prosthesis'], (oldData: any) => {
-      if (!oldData) return oldData;
+      if (!oldData || !Array.isArray(oldData)) return oldData;
+      
       return oldData.map((item: any) => 
         item.id === prosthesisId ? updatedItem : item
       );
     });
     
-    // PASSO 3: Fazer chamada API assíncrona APÓS atualização da UI
+    // FINALIZAR drag DEPOIS da atualização otimística
+    setIsDragging(false);
+    
+    // API call sem invalidação automática
+    const updateData: any = { 
+      id: prosthesisId, 
+      status: targetStatus,
+      ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
+      ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
+    };
+    
+    // Executar API call após delay mínimo para garantir estabilidade visual
     setTimeout(() => {
-      const updateData: any = { 
-        id: prosthesisId, 
-        status: targetStatus,
-        ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
-        ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
-      };
-      
       updateStatusMutation.mutate(updateData, {
         onSuccess: () => {
           if (toastMessage) {
@@ -878,15 +885,12 @@ export default function ProsthesisControlPage() {
               description: toastMessage,
             });
           }
+          // Atualizar dados apenas após sucesso da API
+          queryClient.invalidateQueries({ queryKey: ['/api/prosthesis'] });
         },
         onError: () => {
           // Rollback em caso de erro
-          queryClient.setQueryData(['/api/prosthesis'], (oldData: any) => {
-            if (!oldData) return oldData;
-            return oldData.map((item: any) => 
-              item.id === prosthesisId ? draggedItem : item
-            );
-          });
+          queryClient.setQueryData(['/api/prosthesis'], previousData);
           
           toast({
             title: "Erro",
@@ -895,7 +899,7 @@ export default function ProsthesisControlPage() {
           });
         }
       });
-    }, 0); // Execução assíncrona imediata sem delay visual
+    }, 100); // Delay mínimo para evitar conflito visual
   }, [prosthesis, updateStatusMutation, queryClient, toast]);
   
   // Handlers para os filtros
