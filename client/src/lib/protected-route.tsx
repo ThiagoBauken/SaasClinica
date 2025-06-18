@@ -1,8 +1,6 @@
-import { useAuth } from "@/core/AuthProvider";
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
-import { useContext } from "react";
-import { AuthContext } from "@/core/AuthProvider";
 
 export function ProtectedRoute({
   path,
@@ -11,10 +9,7 @@ export function ProtectedRoute({
   path: string;
   component: () => React.JSX.Element;
 }) {
-  // Try to get auth context safely
-  const authContext = useContext(AuthContext);
-  const user = authContext?.user || null;
-  const isLoading = authContext?.isLoading || false;
+  const { user, isLoading } = useAuth();
   
   // Modo de desenvolvimento - para bypass de autenticação
   const BYPASS_AUTH = true; // Remova ou defina como false em produção

@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useModules } from "@/hooks/use-modules";
 import { 
   Search, 
   LayoutDashboard, 
@@ -20,13 +19,7 @@ import {
   PackageOpen,
   Settings,
   BoxSelect,
-  Shield,
-  Building2,
-  CalendarDays,
-  ScanText,
-  UserPlus,
-  Beaker,
-  BarChart3
+  Shield
 } from "lucide-react";
 
 interface SidebarProps {
@@ -36,23 +29,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: SidebarProps) {
-  const { dynamicMenuItems, isLoading } = useModules();
-  
-  // Menu estático como fallback
-  const fallbackMenuItems = [
-    { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-    { label: 'Agenda Modular', path: '/schedule-modular', icon: 'CalendarDays' },
-    { label: 'Pacientes', path: '/patients', icon: 'Users' },
-    { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
-    { label: 'Automações', path: '/automation', icon: 'Bot' },
-    { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-    { label: 'Estoque', path: '/inventory', icon: 'Package' },
-    { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
-    { label: 'Digitalizar Fichas', path: '/digitalizar', icon: 'ScanText' }
-  ];
-  
-  // Usar menu dinâmico se disponível, caso contrário usar fallback
-  const menuItems = (dynamicMenuItems && dynamicMenuItems.length > 0) ? dynamicMenuItems : fallbackMenuItems;
   const [filters, setFilters] = useState({
     status: "all",
     professional: "all",
@@ -78,51 +54,43 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
     });
   };
 
-  // Mapeamento de ícones
-  const iconMap = {
-    Calendar,
-    CalendarDays,
-    Users,
-    DollarSign,
-    Package,
-    Scissors,
-    Activity,
-    Bot,
-    LayoutDashboard,
-    Settings,
-    BoxSelect,
-    Shield,
-    Building2
-  };
-
-  // Menu de navegação com links dinâmicos
+  // Menu de navegação com links
   const navigationMenu = (
     <div className="mb-8">
       <h2 className="text-lg font-semibold text-foreground mb-4 px-4">Menu</h2>
       <nav className="space-y-1">
-        {/* Dashboard sempre visível */}
         <Link href="/dashboard" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/dashboard" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
-        
-        {/* Menu dinâmico com fallback automático */}
-        {!isLoading && menuItems.map((item, index) => {
-          const IconComponent = iconMap[item.icon as keyof typeof iconMap] || Settings;
-          return (
-            <Link 
-              key={`menu-${item.path}-${index}`} 
-              href={item.path} 
-              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === item.path ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} 
-              onClick={onMobileClose}
-            >
-              <IconComponent className="mr-3 h-5 w-5" />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        {/* Menu estático de apoio */}
+        <Link href="/schedule" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/schedule" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Calendar className="mr-3 h-5 w-5" />
+          Agenda
+        </Link>
+        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Users className="mr-3 h-5 w-5" />
+          Pacientes
+        </Link>
+        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <DollarSign className="mr-3 h-5 w-5" />
+          Financeiro
+        </Link>
+        <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Bot className="mr-3 h-5 w-5" />
+          Automações
+        </Link>
+        <Link href="/prosthesis" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthesis" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Scissors className="mr-3 h-5 w-5" />
+          Controle de Próteses
+        </Link>
+        <Link href="/inventory" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/inventory" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <PackageOpen className="mr-3 h-5 w-5" />
+          Controle de Estoque
+        </Link>
+        <Link href="/odontogram-demo" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram-demo" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Activity className="mr-3 h-5 w-5" />
+          Odontograma
+        </Link>
         <Link href="/cadastros" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/cadastros" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <BoxSelect className="mr-3 h-5 w-5" />
           Cadastros

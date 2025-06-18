@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { useAuth } from "@/core/AuthProvider";
+import { useAuth } from "@/hooks/use-auth";
 
 export type UserRole = "admin" | "secretary" | "dentist" | "assistant";
 
