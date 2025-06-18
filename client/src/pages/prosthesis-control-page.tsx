@@ -507,7 +507,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.labels && p.labels.includes(filters.label)
+                (p: any) => p.labels && p.labels.includes(filters.label)
               );
           });
         }
@@ -522,7 +522,7 @@ export default function ProsthesisControlPage() {
         });
       }
     }
-  }, [prosthesis, filters, isDragging]);
+  }, [prosthesisQuery.data, filters, isDragging]);
 
 
   
@@ -1207,7 +1207,7 @@ export default function ProsthesisControlPage() {
 
         
         {/* Quadro Kanban */}
-        {isLoading ? (
+        {prosthesisQuery.isLoading ? (
           <div className="flex justify-center p-8">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
@@ -1267,7 +1267,7 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full">
+                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
                               key={`prosthesis-${item.id}`} 
@@ -1287,9 +1287,9 @@ export default function ProsthesisControlPage() {
                                       : 'none'
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
-                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-2",
-                                    !snapshot.isDragging && "transition-all duration-200 hover:bg-muted hover:shadow-md",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-200",
+                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
+                                    !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
