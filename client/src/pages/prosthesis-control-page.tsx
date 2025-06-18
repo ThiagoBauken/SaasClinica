@@ -539,8 +539,35 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: (data) => {
       console.log('Sucesso na mutation:', data);
-      // Invalidar cache apenas para criar/editar, não para drag-and-drop
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      
+      // Para edição, atualizar localmente sem invalidar cache para manter posição
+      if (editingProsthesis) {
+        setColumns(prevColumns => {
+          const newColumns = { ...prevColumns };
+          
+          // Encontrar o item nas colunas e atualizar no local
+          Object.keys(newColumns).forEach(columnKey => {
+            const columnItems = newColumns[columnKey as keyof typeof newColumns].items;
+            const itemIndex = columnItems.findIndex(item => item.id === data.id);
+            
+            if (itemIndex !== -1) {
+              // Atualizar item na mesma posição
+              newColumns[columnKey as keyof typeof newColumns] = {
+                ...newColumns[columnKey as keyof typeof newColumns],
+                items: columnItems.map((item, index) => 
+                  index === itemIndex ? { ...data, patientName: item.patientName, professionalName: item.professionalName } : item
+                )
+              };
+            }
+          });
+          
+          return newColumns;
+        });
+      } else {
+        // Para criação nova, invalidar cache normalmente
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
+      
       setIsModalOpen(false);
       setEditingProsthesis(null);
       setSelectedLabels([]);
