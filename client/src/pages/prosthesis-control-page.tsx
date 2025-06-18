@@ -1116,7 +1116,7 @@ export default function ProsthesisControlPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os profissionais</SelectItem>
-                        {mockProfessionals.map(prof => (
+                        {professionals.map((prof: any) => (
                           <SelectItem key={prof.id} value={prof.id.toString()}>
                             {prof.fullName}
                           </SelectItem>
