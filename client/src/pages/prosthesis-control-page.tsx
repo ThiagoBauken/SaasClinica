@@ -524,14 +524,7 @@ export default function ProsthesisControlPage() {
     }
   }, [prosthesis, filters, isDragging]);
 
-  // Executar operações adiadas após finalizar o drag
-  useEffect(() => {
-    if (!isDragging && deferredOperations.length > 0) {
-      console.log('Executando operações adiadas:', deferredOperations.length);
-      deferredOperations.forEach(operation => operation());
-      setDeferredOperations([]);
-    }
-  }, [isDragging, deferredOperations]);
+
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
@@ -597,14 +590,7 @@ export default function ProsthesisControlPage() {
       }
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       
       toast({
         title: "Sucesso",
@@ -650,14 +636,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -679,14 +658,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       
       toast({
         title: "Prótese arquivada",
@@ -712,14 +684,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       
       toast({
         title: "Prótese desarquivada",
