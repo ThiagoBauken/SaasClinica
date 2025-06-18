@@ -1355,7 +1355,12 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
+                          <div 
+                            className="flex-shrink-0 overflow-y-auto max-h-full space-y-2 kanban-column" 
+                            style={{ 
+                              minHeight: '200px'
+                            }}
+                          >
                             {column.items.map((item, index) => (
                               <Draggable 
                                 key={`prosthesis-${item.id}`} 
