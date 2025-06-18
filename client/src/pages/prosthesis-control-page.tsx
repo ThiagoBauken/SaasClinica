@@ -442,86 +442,80 @@ export default function ProsthesisControlPage() {
           ...columns.pending,
           items: prosthesis.filter(p => p.status === 'pending')
         },
-          sent: {
-            ...columns.sent,
-            items: prosthesis.filter(p => p.status === 'sent')
-          },
-          returned: {
-            ...columns.returned,
-            items: prosthesis.filter(p => p.status === 'returned')
-          },
-          completed: {
-            ...columns.completed,
-            items: prosthesis.filter(p => p.status === 'completed')
-          },
-          archived: {
-            ...columns.archived,
-            items: prosthesis.filter(p => p.status === 'archived')
-          }
-        };
-        
-        // Manter coluna arquivado oculta por padrão (alternativa antes de excluir)
-
-        // Aplicar filtros
-        if (filters.delayedServices) {
-          // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
-          const now = new Date();
-          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
-            p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
-          );
+        sent: {
+          ...columns.sent,
+          items: prosthesis.filter(p => p.status === 'sent')
+        },
+        returned: {
+          ...columns.returned,
+          items: prosthesis.filter(p => p.status === 'returned')
+        },
+        completed: {
+          ...columns.completed,
+          items: prosthesis.filter(p => p.status === 'completed')
+        },
+        archived: {
+          ...columns.archived,
+          items: prosthesis.filter(p => p.status === 'archived')
         }
+      };
         
-        if (filters.returnedServices) {
-          // Manter apenas serviços que já retornaram
-          updatedColumns.sent.items = [];
-          updatedColumns.pending.items = [];
-        }
-        
-        if (filters.professional !== "all") {
-          // Filtrar por profissional
-          const professionalId = parseInt(filters.professional);
-          Object.keys(updatedColumns).forEach(key => {
-            updatedColumns[key as keyof typeof updatedColumns].items = 
-              updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.professionalId === professionalId
-              );
-          });
-        }
-        
-        if (filters.laboratory !== "all") {
-          // Filtrar por laboratório
-          Object.keys(updatedColumns).forEach(key => {
-            updatedColumns[key as keyof typeof updatedColumns].items = 
-              updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.laboratory === filters.laboratory
-              );
-          });
-        }
-        
-        if (filters.label !== "all") {
-          // Filtrar por etiqueta
-          Object.keys(updatedColumns).forEach(key => {
-            updatedColumns[key as keyof typeof updatedColumns].items = 
-              updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.labels && p.labels.includes(filters.label)
-              );
-          });
-        }
-        
-        setColumns(updatedColumns);
-      } catch (error) {
-        console.error("Erro ao organizar próteses em colunas:", error);
-        toast({
-          title: "Erro",
-          description: "Ocorreu um erro ao processar as próteses.",
-          variant: "destructive",
+      // Aplicar filtros
+      if (filters.delayedServices) {
+        // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
+        const now = new Date();
+        updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
+          p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
+        );
+      }
+      
+      if (filters.returnedServices) {
+        // Manter apenas serviços que já retornaram
+        updatedColumns.sent.items = [];
+        updatedColumns.pending.items = [];
+      }
+      
+      if (filters.professional !== "all") {
+        // Filtrar por profissional
+        const professionalId = parseInt(filters.professional);
+        Object.keys(updatedColumns).forEach(key => {
+          updatedColumns[key as keyof typeof updatedColumns].items = 
+            updatedColumns[key as keyof typeof updatedColumns].items.filter(
+              p => p.professionalId === professionalId
+            );
         });
       }
+      
+      if (filters.laboratory !== "all") {
+        // Filtrar por laboratório
+        Object.keys(updatedColumns).forEach(key => {
+          updatedColumns[key as keyof typeof updatedColumns].items = 
+            updatedColumns[key as keyof typeof updatedColumns].items.filter(
+              p => p.laboratory === filters.laboratory
+            );
+        });
+      }
+      
+      if (filters.label !== "all") {
+        // Filtrar por etiqueta
+        Object.keys(updatedColumns).forEach(key => {
+          updatedColumns[key as keyof typeof updatedColumns].items = 
+            updatedColumns[key as keyof typeof updatedColumns].items.filter(
+              p => p.labels && p.labels.includes(filters.label)
+            );
+        });
+      }
+      
+      setColumns(updatedColumns);
+    } catch (error) {
+      console.error("Erro ao organizar próteses em colunas:", error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao processar as próteses.",
+        variant: "destructive",
+      });
     }
   }, [prosthesis, filters, isDragging]);
-  
-  // Estado para controlar quando drag está ativo
-  // const [isDragging, setIsDragging] = useState(false); // Já declarado acima
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
@@ -823,9 +817,6 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Estado para controlar quando drag está ativo
-  const [isDragging, setIsDragging] = useState(false);
-
   // Handler para drag start - prevenir mudanças de estado durante arraste
   const onDragStart = () => {
     setIsDragging(true);
