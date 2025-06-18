@@ -93,17 +93,7 @@ interface Laboratory {
   address: string;
 }
 
-const mockPatients = [
-  { id: 1, fullName: "Maria Silva", email: "maria@exemplo.com", phone: "(11) 98765-4321" },
-  { id: 2, fullName: "João Pereira", email: "joao@exemplo.com", phone: "(11) 91234-5678" },
-  { id: 3, fullName: "Ana Oliveira", email: "ana@exemplo.com", phone: "(11) 99876-5432" }
-];
-
-const mockProfessionals = [
-  { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista", email: "ana@exemplo.com" },
-  { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista", email: "carlos@exemplo.com" },
-  { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista", email: "juliana@exemplo.com" }
-];
+// Dados de pacientes e profissionais agora vêm do banco de dados via queries
 
 const prosthesisTypes = [
   "Coroa",
@@ -248,6 +238,26 @@ export default function ProsthesisControlPage() {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/laboratories");
       if (!res.ok) throw new Error("Falha ao carregar laboratórios");
+      return res.json();
+    }
+  });
+
+  // Query para buscar pacientes reais do banco de dados
+  const { data: patients = [], isLoading: isLoadingPatients } = useQuery({
+    queryKey: ["/api/patients"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/patients");
+      if (!res.ok) throw new Error("Falha ao carregar pacientes");
+      return res.json();
+    }
+  });
+
+  // Query para buscar profissionais reais do banco de dados
+  const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/users");
+      if (!res.ok) throw new Error("Falha ao carregar profissionais");
       return res.json();
     }
   });
@@ -1395,9 +1405,9 @@ export default function ProsthesisControlPage() {
                           className="w-full justify-between"
                         >
                           {selectedPatient
-                            ? mockPatients.find((patient) => patient.id.toString() === selectedPatient)?.fullName
+                            ? patients.find((patient: any) => patient.id.toString() === selectedPatient)?.fullName
                             : editingProsthesis
-                            ? mockPatients.find((patient) => patient.id === editingProsthesis.patientId)?.fullName
+                            ? patients.find((patient: any) => patient.id === editingProsthesis.patientId)?.fullName
                             : "Selecione o paciente..."}
                           <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -1407,7 +1417,7 @@ export default function ProsthesisControlPage() {
                           <CommandInput placeholder="Buscar paciente..." />
                           <CommandEmpty>Nenhum paciente encontrado.</CommandEmpty>
                           <CommandGroup>
-                            {mockPatients.map((patient) => (
+                            {patients.map((patient: any) => (
                               <CommandItem
                                 key={patient.id}
                                 value={patient.fullName}
@@ -1446,7 +1456,7 @@ export default function ProsthesisControlPage() {
                         <SelectValue placeholder="Selecione o profissional" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockProfessionals.map(professional => (
+                        {professionals.map((professional: any) => (
                           <SelectItem key={professional.id} value={professional.id.toString()}>
                             {professional.fullName}
                           </SelectItem>

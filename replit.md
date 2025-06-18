@@ -179,6 +179,14 @@ The application is designed for deployment on Replit with the following configur
   - Archived prostheses can be restored to "completed" status
   - Enhanced grid layout adapts from 4 to 5 columns when archive is visible
   - **ARCHIVE FEATURE: Complete workflow for historical record management**
+- June 18, 2025: **Enhanced UX for Prosthesis Control System**
+  - Replaced patient selection with filterable Combobox allowing name-based search
+  - Implemented smart laboratory selection with automatic creation feature
+  - New laboratories are created automatically when typing unknown names
+  - Auto-created laboratories have blank WhatsApp field as requested
+  - Enhanced form state management with proper cleanup after save/edit operations
+  - Improved editing workflow with pre-populated Combobox values
+  - **USER EXPERIENCE: Streamlined data entry and laboratory management**
 
 ## User Preferences
 
