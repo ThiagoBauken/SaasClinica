@@ -19,7 +19,7 @@ import { Settings } from "lucide-react";
 import { CalendarViewType, ProfessionalSummary, AppointmentWithRelations, TimeSlot } from "@/lib/types";
 import { format, addMinutes, parseISO, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -68,15 +68,15 @@ export default function SchedulePage() {
     startHour: 7, // Padrão: 7:00
     endHour: 19,  // Padrão: 19:00
     // Configurações por dia da semana (0 = domingo, 1 = segunda, etc.)
-    weekDays: {
-      0: { enabled: false, startHour: 7, endHour: 19 }, // Domingo
-      1: { enabled: true, startHour: 7, endHour: 19 },  // Segunda
-      2: { enabled: true, startHour: 7, endHour: 19 },  // Terça
-      3: { enabled: true, startHour: 7, endHour: 19 },  // Quarta
-      4: { enabled: true, startHour: 7, endHour: 19 },  // Quinta
-      5: { enabled: true, startHour: 7, endHour: 19 },  // Sexta
-      6: { enabled: false, startHour: 7, endHour: 19 }, // Sábado
-    },
+    weekDays: [
+      { enabled: false, startHour: 7, endHour: 19 }, // Domingo
+      { enabled: true, startHour: 7, endHour: 19 },  // Segunda
+      { enabled: true, startHour: 7, endHour: 19 },  // Terça
+      { enabled: true, startHour: 7, endHour: 19 },  // Quarta
+      { enabled: true, startHour: 7, endHour: 19 },  // Quinta
+      { enabled: true, startHour: 7, endHour: 19 },  // Sexta
+      { enabled: false, startHour: 7, endHour: 19 }, // Sábado
+    ],
     lunchBreak: {
       enabled: true,
       startHour: 12, 

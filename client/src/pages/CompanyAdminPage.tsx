@@ -4,8 +4,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Users, Shield, Settings } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { 
+  Users, 
+  Shield, 
+  Settings, 
+  Calendar,
+  DollarSign,
+  Package,
+  Scissors,
+  Activity,
+  Bot,
+  CheckCircle,
+  XCircle
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -20,96 +33,99 @@ interface User {
   created_at: string;
 }
 
-interface UserPermissions {
-  moduleName: string;
-  displayName: string;
-  description: string;
-  permissions: string[];
-  moduleEnabled: boolean;
-}
-
-const PERMISSION_LABELS = {
-  read: "Visualizar",
-  write: "Editar",
-  delete: "Excluir",
-  admin: "Administrar"
+const moduleIcons = {
+  agenda: Calendar,
+  pacientes: Users,
+  financeiro: DollarSign,
+  estoque: Package,
+  proteses: Scissors,
+  odontograma: Activity,
+  automacoes: Bot,
+  clinica: Settings
 };
 
-export default function CompanyAdminPage() {
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+export default function CompanyAdminPageFixed() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Buscar usuários da empresa
+  // Buscar usuários
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/users");
-      return response.json();
+      const response = await apiRequest("/api/admin/users", "GET");
+      return response;
     }
   });
 
-  // Buscar permissões do usuário selecionado
-  const { data: userPermissions = [], isLoading: permissionsLoading } = useQuery({
-    queryKey: ["/api/admin/users", selectedUser?.id, "permissions"],
+  // Buscar módulos
+  const { data: modulesData = [], isLoading: modulesLoading } = useQuery({
+    queryKey: ["/api/test/saas/companies/3/modules"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/admin/users/${selectedUser?.id}/permissions`);
+      const response = await fetch("/api/test/saas/companies/3/modules");
       return response.json();
     },
-    enabled: !!selectedUser
+    staleTime: 30000
   });
 
-  // Mutation para atualizar permissões
-  const updatePermissionsMutation = useMutation({
-    mutationFn: ({ userId, moduleName, permissions }: { userId: number; moduleName: string; permissions: string[] }) =>
-      apiRequest(`/api/admin/users/${userId}/permissions`, "POST", { moduleName, permissions }),
+  // Processar dados dos módulos
+  const processedModules = modulesData.map((module: any) => ({
+    definition: {
+      id: module.name || module.id,
+      displayName: module.display_name || module.name,
+      description: module.description || "Sem descrição"
+    },
+    isActive: module.is_enabled || false
+  }));
+
+  const modulesByCategory = {
+    clinico: processedModules.filter((module: any) => 
+      ['agenda', 'pacientes', 'odontograma', 'proteses'].includes(module.definition.id)
+    ),
+    administrativo: processedModules.filter((module: any) => 
+      ['financeiro', 'estoque'].includes(module.definition.id)
+    ),
+    integracao: processedModules.filter((module: any) => 
+      ['automacoes'].includes(module.definition.id)
+    )
+  };
+
+  const totalModules = modulesData.length;
+
+  // Mutation para toggle de módulos
+  const toggleModuleMutation = useMutation({
+    mutationFn: async ({ moduleId, enabled }: { moduleId: string; enabled: boolean }) => {
+      const response = await fetch(`/api/test/saas/companies/3/modules/${moduleId}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled })
+      });
+      if (!response.ok) {
+        throw new Error('Falha ao alterar módulo');
+      }
+      return response.json();
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id, "permissions"] });
       toast({
-        title: "Permissões atualizadas",
-        description: "As permissões do usuário foram atualizadas com sucesso.",
+        title: "Módulo atualizado",
+        description: "O módulo foi atualizado com sucesso."
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Falha ao atualizar as permissões.",
-        variant: "destructive",
+        description: "Falha ao atualizar módulo.",
+        variant: "destructive"
       });
     }
   });
 
-  const handlePermissionChange = (moduleName: string, permission: string, checked: boolean) => {
-    if (!selectedUser) return;
-
-    const currentModule = userPermissions.find((p: UserPermissions) => p.moduleName === moduleName);
-    if (!currentModule) return;
-
-    let newPermissions = [...currentModule.permissions];
-    
-    if (checked) {
-      if (!newPermissions.includes(permission)) {
-        newPermissions.push(permission);
-      }
-    } else {
-      newPermissions = newPermissions.filter(p => p !== permission);
-    }
-
-    updatePermissionsMutation.mutate({
-      userId: selectedUser.id,
-      moduleName,
-      permissions: newPermissions
+  const handleModuleToggle = (moduleId: string, currentState: boolean) => {
+    toggleModuleMutation.mutate({
+      moduleId,
+      enabled: !currentState
     });
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'default';
-      case 'dentist': return 'secondary';
-      case 'staff': return 'outline';
-      case 'superadmin': return 'destructive';
-      default: return 'outline';
-    }
   };
 
   if (usersLoading) {
@@ -130,133 +146,213 @@ export default function CompanyAdminPage() {
           Administração da Clínica
         </h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie usuários e suas permissões de acesso aos módulos
+          Gerencie usuários, permissões e módulos da clínica
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Lista de Usuários */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Usuários
-            </CardTitle>
-            <CardDescription>
-              Selecione um usuário para gerenciar suas permissões
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {users.map((user: User) => (
-                <div
-                  key={user.id}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedUser?.id === user.id
-                      ? "bg-primary/10 border-primary"
-                      : "hover:bg-muted"
-                  }`}
-                  onClick={() => setSelectedUser(user)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">{user.full_name}</h3>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                      {user.speciality && (
-                        <p className="text-xs text-muted-foreground">{user.speciality}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge variant={getRoleColor(user.role)}>
-                        {user.role}
-                      </Badge>
-                      <Badge variant={user.active ? "default" : "secondary"} className="text-xs">
-                        {user.active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="modules">Módulos</TabsTrigger>
+        </TabsList>
 
-        {/* Permissões do Usuário Selecionado */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Permissões
-              {selectedUser && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  - {selectedUser.full_name}
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription>
-              Configure as permissões de acesso aos módulos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!selectedUser ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Selecione um usuário para ver suas permissões
-              </div>
-            ) : permissionsLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Carregando permissões...
-              </div>
-            ) : (
+        <TabsContent value="users" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Usuários da Clínica</CardTitle>
+              <CardDescription>
+                Gerencie os usuários e suas permissões
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                {userPermissions.map((modulePermission: UserPermissions) => (
-                  <div key={modulePermission.moduleName} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h3 className="font-medium">{modulePermission.displayName}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {modulePermission.description}
-                        </p>
+                {users.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    Nenhum usuário encontrado
+                  </p>
+                ) : (
+                  users.map((user: User) => (
+                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <h3 className="font-medium">{user.full_name}</h3>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                        <Badge variant="secondary">{user.role}</Badge>
                       </div>
-                      <Badge variant={modulePermission.moduleEnabled ? "default" : "secondary"}>
-                        {modulePermission.moduleEnabled ? "Módulo Ativo" : "Módulo Inativo"}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        {user.active ? (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-600" />
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedUser(user)}
+                        >
+                          Gerenciar
+                        </Button>
+                      </div>
                     </div>
-                    
-                    {modulePermission.moduleEnabled && (
-                      <div className="grid grid-cols-2 gap-3">
-                        {Object.entries(PERMISSION_LABELS).map(([permission, label]) => (
-                          <div key={permission} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${modulePermission.moduleName}-${permission}`}
-                              checked={modulePermission.permissions.includes(permission)}
-                              onCheckedChange={(checked) => 
-                                handlePermissionChange(modulePermission.moduleName, permission, checked as boolean)
-                              }
-                              disabled={updatePermissionsMutation.isPending}
-                            />
-                            <label
-                              htmlFor={`${modulePermission.moduleName}-${permission}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {label}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {!modulePermission.moduleEnabled && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Módulo não está ativo para esta empresa
-                      </p>
-                    )}
-                  </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="modules" className="mt-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Módulos da Clínica</h2>
+                <p className="text-muted-foreground">
+                  Gerencie os módulos e funcionalidades da sua clínica
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-sm">
+                {totalModules} módulos carregados
+              </Badge>
+            </div>
+
+            {modulesLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader className="pb-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-20 bg-gray-200 rounded"></div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
+            ) : (
+              <>
+                {/* Módulos Clínicos */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-blue-600">Módulos Clínicos</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {modulesByCategory.clinico.map((module: any) => {
+                      const IconComponent = moduleIcons[module.definition.id as keyof typeof moduleIcons] || Settings;
+                      return (
+                        <Card key={module.definition.id} className="transition-all hover:shadow-lg">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <IconComponent className="h-5 w-5 text-blue-600" />
+                                <CardTitle className="text-lg">{module.definition.displayName}</CardTitle>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {module.isActive ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-600" />
+                                )}
+                                <Switch
+                                  checked={module.isActive}
+                                  onCheckedChange={() => handleModuleToggle(module.definition.id, module.isActive)}
+                                  disabled={toggleModuleMutation.isPending}
+                                />
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {module.definition.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Módulos Administrativos */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-green-600">Módulos Administrativos</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {modulesByCategory.administrativo.map((module: any) => {
+                      const IconComponent = moduleIcons[module.definition.id as keyof typeof moduleIcons] || Settings;
+                      return (
+                        <Card key={module.definition.id} className="transition-all hover:shadow-lg">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <IconComponent className="h-5 w-5 text-green-600" />
+                                <CardTitle className="text-lg">{module.definition.displayName}</CardTitle>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {module.isActive ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-600" />
+                                )}
+                                <Switch
+                                  checked={module.isActive}
+                                  onCheckedChange={() => handleModuleToggle(module.definition.id, module.isActive)}
+                                  disabled={toggleModuleMutation.isPending}
+                                />
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {module.definition.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Módulos de Integração */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-purple-600">Módulos de Integração</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {modulesByCategory.integracao.map((module: any) => {
+                      const IconComponent = moduleIcons[module.definition.id as keyof typeof moduleIcons] || Settings;
+                      return (
+                        <Card key={module.definition.id} className="transition-all hover:shadow-lg">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <IconComponent className="h-5 w-5 text-purple-600" />
+                                <CardTitle className="text-lg">{module.definition.displayName}</CardTitle>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {module.isActive ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-600" />
+                                )}
+                                <Switch
+                                  checked={module.isActive}
+                                  onCheckedChange={() => handleModuleToggle(module.definition.id, module.isActive)}
+                                  disabled={toggleModuleMutation.isPending}
+                                />
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {module.definition.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

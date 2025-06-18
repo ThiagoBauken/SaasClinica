@@ -21,7 +21,10 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
+import { useQuery } from "@tanstack/react-query";
+import { format, formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const appointmentData = [
   { name: "Segunda", agendamentos: 12 },
@@ -55,6 +58,22 @@ const COLORS = ["#1976d2", "#43a047", "#ff5722", "#9c27b0", "#607d8b"];
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  
+  // Buscar atividades recentes da agenda
+  const { data: recentActivities, isLoading: activitiesLoading } = useQuery({
+    queryKey: ["/api/recent-activities"],
+    enabled: !!user
+  });
+
+  // Função para obter cor baseada no tipo de atividade
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'appointment': return 'bg-blue-500';
+      case 'payment': return 'bg-green-500';
+      case 'patient': return 'bg-purple-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
   return (
     <DashboardLayout title="Dashboard" currentPath="/">
@@ -202,43 +221,44 @@ export default function DashboardPage() {
             <CardDescription>Últimas ações no sistema</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start">
-                <div className="w-2 h-2 mt-2 mr-3 rounded-full bg-green-500"></div>
-                <div>
-                  <p className="font-medium">Consulta confirmada</p>
-                  <p className="text-sm text-neutral-medium">Ricardo Almeida confirmou consulta para amanhã às 10:00</p>
-                  <p className="text-xs text-neutral-medium">Há 12 minutos</p>
-                </div>
+            {activitiesLoading ? (
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-start animate-pulse">
+                    <div className="w-2 h-2 mt-2 mr-3 rounded-full bg-gray-300"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-1"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              
-              <div className="flex items-start">
-                <div className="w-2 h-2 mt-2 mr-3 rounded-full bg-blue-500"></div>
-                <div>
-                  <p className="font-medium">Novo agendamento</p>
-                  <p className="text-sm text-neutral-medium">Mariana Santos agendou consulta para 15/08/2023 às 14:30</p>
-                  <p className="text-xs text-neutral-medium">Há 35 minutos</p>
-                </div>
+            ) : (
+              <div className="space-y-4">
+                {Array.isArray(recentActivities) && recentActivities.length > 0 ? (
+                  recentActivities.map((activity: any, index: number) => (
+                    <div key={index} className="flex items-start">
+                      <div className={`w-2 h-2 mt-2 mr-3 rounded-full ${getActivityColor(activity.type)}`}></div>
+                      <div>
+                        <p className="font-medium">{activity.title}</p>
+                        <p className="text-sm text-neutral-medium">{activity.description}</p>
+                        <p className="text-xs text-neutral-medium">
+                          {formatDistanceToNow(new Date(activity.created_at), { 
+                            addSuffix: true, 
+                            locale: ptBR 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-neutral-medium">
+                    <p>Nenhuma atividade recente encontrada</p>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex items-start">
-                <div className="w-2 h-2 mt-2 mr-3 rounded-full bg-red-500"></div>
-                <div>
-                  <p className="font-medium">Consulta cancelada</p>
-                  <p className="text-sm text-neutral-medium">Pedro Oliveira cancelou consulta de hoje às 16:00</p>
-                  <p className="text-xs text-neutral-medium">Há 1 hora</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <div className="w-2 h-2 mt-2 mr-3 rounded-full bg-purple-500"></div>
-                <div>
-                  <p className="font-medium">Procedimento concluído</p>
-                  <p className="text-sm text-neutral-medium">Dr. Ana Silva concluiu tratamento de canal em Bianca Lima</p>
-                  <p className="text-xs text-neutral-medium">Há 3 horas</p>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,0 +1,1563 @@
+import { Request, Response } from 'express';
+import { db } from './db';
+import { companies } from '../shared/schema';
+import { eq } from 'drizzle-orm';
+
+interface WebsiteData {
+  id?: number;
+  clinicName: string;
+  domain?: string;
+  customDomain?: string;
+  template: 'modern' | 'classic' | 'minimal';
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+  content: {
+    hero: {
+      title: string;
+      subtitle: string;
+      image?: string;
+    };
+    about: {
+      title: string;
+      description: string;
+      image?: string;
+    };
+    services: Array<{
+      name: string;
+      description: string;
+      price?: string;
+    }>;
+    contact: {
+      phone: string;
+      whatsapp: string;
+      email: string;
+      address: string;
+      hours: string;
+    };
+    gallery: string[];
+  };
+  social?: {
+    instagram?: string;
+    facebook?: string;
+    linkedin?: string;
+    youtube?: string;
+  };
+  seo: {
+    title: string;
+    description: string;
+    keywords: string;
+  };
+  published: boolean;
+  companyId: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Armazenamento temporário em memória (em produção seria no banco)
+const websiteStorage = new Map<number, WebsiteData>();
+
+// Gerar slug do domínio
+function generateDomainSlug(clinicName: string): string {
+  return clinicName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '-')
+    .trim();
+}
+
+// Obter dados do site da empresa
+export async function getWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    const website = websiteStorage.get(companyId);
+    if (!website) {
+      return res.status(404).json({ message: 'Site não encontrado' });
+    }
+
+    res.json(website);
+  } catch (error) {
+    console.error('Erro ao buscar site:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+// Criar ou atualizar site
+export async function saveWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    // Converter estrutura do frontend para backend
+    const frontendData = req.body;
+    const websiteData: WebsiteData = {
+      id: companyId,
+      clinicName: frontendData.clinicName || frontendData.content?.title || 'Minha Clínica',
+      template: frontendData.template || 'modern',
+      colors: {
+        primary: frontendData.design?.primaryColor || frontendData.colors?.primary || '#0066cc',
+        secondary: frontendData.design?.secondaryColor || frontendData.colors?.secondary || '#f8f9fa',
+        accent: frontendData.design?.accentColor || frontendData.colors?.accent || '#28a745'
+      },
+      content: {
+        hero: {
+          title: frontendData.content?.title || 'Minha Clínica Odontológica',
+          subtitle: frontendData.content?.subtitle || 'Cuidando do seu sorriso com excelência'
+        },
+        about: {
+          title: frontendData.content?.about?.title || 'Sobre Nossa Clínica',
+          description: frontendData.content?.about?.description || 'Oferecemos tratamentos odontológicos de qualidade.'
+        },
+        services: frontendData.content?.services || [],
+        contact: {
+          phone: frontendData.contact?.phone || '',
+          whatsapp: frontendData.contact?.whatsapp || '',
+          email: frontendData.contact?.email || '',
+          address: frontendData.contact?.address || '',
+          hours: frontendData.contact?.hours || 'Segunda a Sexta: 8:00 - 18:00'
+        },
+        gallery: frontendData.gallery?.map((item: any) => item.url).filter(Boolean) || []
+      },
+      social: frontendData.social || {},
+      seo: {
+        title: frontendData.seo?.title || '',
+        description: frontendData.seo?.description || '',
+        keywords: frontendData.seo?.keywords || ''
+      },
+      published: frontendData.published || false,
+      companyId,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Se não existe, criar novo
+    if (!websiteStorage.has(companyId)) {
+      websiteData.createdAt = new Date().toISOString();
+    }
+
+    // Gerar domínio se não existir
+    if (!websiteData.domain && websiteData.clinicName) {
+      const slug = generateDomainSlug(websiteData.clinicName);
+      websiteData.domain = `${slug}.dentcare.com.br`;
+    }
+
+    websiteStorage.set(companyId, websiteData);
+
+    res.json({
+      success: true,
+      data: websiteData,
+      message: 'Site salvo com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao salvar site:', error);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: 'Falha ao salvar site'
+    });
+  }
+}
+
+// Publicar site
+export async function publishWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    const websiteData: WebsiteData = req.body;
+    
+    if (!websiteData.clinicName) {
+      return res.status(400).json({ 
+        error: 'Nome da clínica é obrigatório',
+        message: 'Preencha o nome da clínica antes de publicar'
+      });
+    }
+
+    // Gerar domínio
+    const slug = generateDomainSlug(websiteData.clinicName);
+    const domain = `${slug}.dentcare.com.br`;
+
+    // Marcar como publicado
+    const publishedWebsite: WebsiteData = {
+      ...websiteData,
+      id: companyId,
+      companyId,
+      domain,
+      published: true,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (!publishedWebsite.createdAt) {
+      publishedWebsite.createdAt = new Date().toISOString();
+    }
+
+    websiteStorage.set(companyId, publishedWebsite);
+
+    // Simular criação do site estático
+    await generateStaticWebsite(publishedWebsite);
+
+    res.json({
+      success: true,
+      domain,
+      message: 'Site publicado com sucesso',
+      url: `https://${domain}`
+    });
+  } catch (error) {
+    console.error('Erro ao publicar site:', error);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: 'Falha ao publicar site'
+    });
+  }
+}
+
+// Obter site público por domínio
+export async function getPublicWebsite(req: Request, res: Response) {
+  try {
+    const { domain } = req.params;
+    
+    // Procurar site pelo domínio
+    let foundWebsite: WebsiteData | null = null;
+    for (const website of websiteStorage.values()) {
+      if (website.domain === domain && website.published) {
+        foundWebsite = website;
+        break;
+      }
+    }
+
+    if (!foundWebsite) {
+      return res.status(404).json({ message: 'Site não encontrado' });
+    }
+
+    // Remover dados sensíveis para visualização pública
+    const publicData = {
+      clinicName: foundWebsite.clinicName,
+      template: foundWebsite.template,
+      colors: foundWebsite.colors,
+      content: foundWebsite.content,
+      seo: foundWebsite.seo
+    };
+
+    res.json(publicData);
+  } catch (error) {
+    console.error('Erro ao buscar site público:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+// Listar todos os sites publicados (para administração)
+export async function listPublishedWebsites(req: Request, res: Response) {
+  try {
+    const publishedSites = Array.from(websiteStorage.values())
+      .filter(site => site.published)
+      .map(site => ({
+        id: site.id,
+        clinicName: site.clinicName,
+        domain: site.domain,
+        template: site.template,
+        published: site.published,
+        createdAt: site.createdAt,
+        updatedAt: site.updatedAt
+      }));
+
+    res.json(publishedSites);
+  } catch (error) {
+    console.error('Erro ao listar sites:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+// Despublicar site
+export async function unpublishWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    const website = websiteStorage.get(companyId);
+    if (!website) {
+      return res.status(404).json({ message: 'Site não encontrado' });
+    }
+
+    website.published = false;
+    website.updatedAt = new Date().toISOString();
+    websiteStorage.set(companyId, website);
+
+    res.json({
+      success: true,
+      message: 'Site despublicado com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao despublicar site:', error);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: 'Falha ao despublicar site'
+    });
+  }
+}
+
+// Função auxiliar para gerar site estático (simular)
+async function generateStaticWebsite(websiteData: WebsiteData): Promise<void> {
+  // Em produção, isso geraria arquivos HTML/CSS/JS estáticos
+  console.log(`Gerando site estático para: ${websiteData.domain}`);
+  
+  // Simular templates diferentes
+  const templates = {
+    modern: generateModernTemplate(websiteData),
+    classic: generateClassicTemplate(websiteData),
+    minimal: generateMinimalTemplate(websiteData)
+  };
+  
+  const template = templates[websiteData.template];
+  console.log(`Template ${websiteData.template} gerado com sucesso`);
+  
+  // Aqui salvaria os arquivos no sistema de arquivos ou CDN
+  return Promise.resolve();
+}
+
+function generateModernTemplate(data: WebsiteData): string {
+  const socialLinks = data.social || {};
+  const gallery = data.content?.gallery || [];
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.seo.title || data.clinicName}</title>
+      <meta name="description" content="${data.seo.description}">
+      <meta name="keywords" content="${data.seo.keywords}">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; overflow-x: hidden; }
+        
+        /* Header */
+        .header { position: fixed; top: 0; width: 100%; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; z-index: 1000; }
+        .nav { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .logo { font-size: 1.5rem; font-weight: 700; color: ${data.colors?.primary || '#2563eb'}; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { text-decoration: none; color: #333; font-weight: 500; }
+        
+        /* Hero Section */
+        .hero { 
+          background: linear-gradient(135deg, ${data.colors?.primary || '#2563eb'}, ${data.colors?.accent || '#10b981'}); 
+          color: white; padding: 120px 20px 80px; text-align: center; position: relative;
+          min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .hero-content { max-width: 800px; }
+        .hero h1 { font-size: 3.5rem; margin-bottom: 1.5rem; font-weight: 700; }
+        .hero p { font-size: 1.3rem; opacity: 0.9; margin-bottom: 2rem; }
+        .cta-button { 
+          background: ${data.colors?.accent || '#10b981'}; color: white; padding: 1rem 2rem; 
+          border: none; border-radius: 50px; font-size: 1.1rem; font-weight: 600;
+          cursor: pointer; transition: transform 0.3s ease;
+        }
+        .cta-button:hover { transform: translateY(-2px); }
+        
+        /* About Section */
+        .about { padding: 100px 20px; background: ${data.colors?.secondary || '#f8fafc'}; }
+        .about-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .about h2 { font-size: 2.5rem; margin-bottom: 1.5rem; color: ${data.colors?.primary || '#2563eb'}; }
+        .about p { font-size: 1.1rem; color: #666; }
+        
+        /* Services Section */
+        .services { padding: 100px 20px; }
+        .services h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors?.primary || '#2563eb'}; }
+        .service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1200px; margin: 0 auto; }
+        .service-card { 
+          background: white; padding: 2.5rem; border-radius: 20px; 
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center;
+          transition: transform 0.3s ease;
+        }
+        .service-card:hover { transform: translateY(-10px); }
+        .service-card h3 { font-size: 1.3rem; margin-bottom: 1rem; color: ${data.colors?.primary || '#2563eb'}; }
+        .service-card p { color: #666; margin-bottom: 1rem; }
+        .service-price { font-size: 1.2rem; font-weight: 600; color: ${data.colors?.accent || '#10b981'}; }
+        
+        /* Gallery Section */
+        .gallery { padding: 100px 20px; background: ${data.colors?.secondary || '#f8fafc'}; }
+        .gallery h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; color: ${data.colors?.primary || '#2563eb'}; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; max-width: 1200px; margin: 0 auto; }
+        .gallery-item { border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .gallery-item img { width: 100%; height: 200px; object-fit: cover; }
+        
+        /* Contact Section */
+        .contact { padding: 100px 20px; background: ${data.colors?.primary || '#2563eb'}; color: white; }
+        .contact-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+        .contact h2 { font-size: 2.5rem; margin-bottom: 2rem; }
+        .contact-info { display: flex; flex-direction: column; gap: 1rem; }
+        .contact-item { display: flex; align-items: center; gap: 1rem; }
+        .contact-item span { font-size: 1.5rem; }
+        
+        /* Social Media */
+        .social-links { display: flex; gap: 1rem; margin-top: 2rem; }
+        .social-link { 
+          width: 50px; height: 50px; border-radius: 50%; 
+          display: flex; align-items: center; justify-content: center;
+          text-decoration: none; color: white; font-size: 1.5rem;
+          transition: transform 0.3s ease;
+        }
+        .social-link:hover { transform: scale(1.1); }
+        .social-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .social-facebook { background: #4267B2; }
+        .social-linkedin { background: #0077B5; }
+        .social-youtube { background: #FF0000; }
+        
+        /* WhatsApp Button */
+        .whatsapp-btn { 
+          position: fixed; bottom: 30px; right: 30px; background: #25D366; 
+          color: white; border: none; border-radius: 50%; width: 70px; height: 70px; 
+          cursor: pointer; box-shadow: 0 8px 25px rgba(37,211,102,0.4);
+          z-index: 1000; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center;
+        }
+        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 10px 30px rgba(37,211,102,0.6); }
+        
+        /* Footer */
+        .footer { background: #333; color: white; padding: 2rem; text-align: center; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+          .hero h1 { font-size: 2.5rem; }
+          .about-content, .contact-content { grid-template-columns: 1fr; }
+          .nav-links { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Header -->
+      <header class="header">
+        <nav class="nav">
+          <div class="logo">${data.clinicName}</div>
+          <ul class="nav-links">
+            <li><a href="#home">Início</a></li>
+            <li><a href="#about">Sobre</a></li>
+            <li><a href="#services">Serviços</a></li>
+            <li><a href="#gallery">Galeria</a></li>
+            <li><a href="#contact">Contato</a></li>
+          </ul>
+        </nav>
+      </header>
+      
+      <!-- Hero Section -->
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <h1>${data.content?.hero?.title || data.clinicName || 'Minha Clínica'}</h1>
+          <p>${data.content?.hero?.subtitle || 'Cuidando do seu sorriso com excelência'}</p>
+          <button class="cta-button" onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'})">
+            Agendar Consulta
+          </button>
+        </div>
+      </section>
+      
+      <!-- About Section -->
+      <section id="about" class="about">
+        <div class="about-content">
+          <div>
+            <h2>${data.content?.about?.title || 'Sobre Nossa Clínica'}</h2>
+            <p>${data.content?.about?.description || 'Oferecemos tratamentos odontológicos de qualidade com profissionais especializados.'}</p>
+          </div>
+          <div>
+            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=500&h=400&fit=crop" alt="Clínica" style="width: 100%; border-radius: 15px;">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Services Section -->
+      <section id="services" class="services">
+        <h2>Nossos Serviços</h2>
+        <div class="service-grid">
+          ${data.content?.services?.map(service => `
+            <div class="service-card">
+              <h3>${service.name}</h3>
+              <p>${service.description}</p>
+              ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
+            </div>
+          `).join('') || `
+            <div class="service-card">
+              <h3>Limpeza Dental</h3>
+              <p>Profilaxia completa e orientações de higiene bucal</p>
+              <div class="service-price">A partir de R$ 80</div>
+            </div>
+            <div class="service-card">
+              <h3>Clareamento</h3>
+              <p>Clareamento dental seguro e eficaz</p>
+              <div class="service-price">A partir de R$ 350</div>
+            </div>
+            <div class="service-card">
+              <h3>Ortodontia</h3>
+              <p>Aparelhos ortodônticos tradicionais e estéticos</p>
+              <div class="service-price">Consulte preços</div>
+            </div>
+          `}
+        </div>
+      </section>
+      
+      ${gallery.length > 0 ? `
+      <!-- Gallery Section -->
+      <section id="gallery" class="gallery">
+        <h2>Nossa Galeria</h2>
+        <div class="gallery-grid">
+          ${gallery.map(photo => `
+            <div class="gallery-item">
+              <img src="${photo}" alt="Galeria da clínica">
+            </div>
+          `).join('')}
+        </div>
+      </section>
+      ` : ''}
+      
+      <!-- Contact Section -->
+      <section id="contact" class="contact">
+        <div class="contact-content">
+          <div>
+            <h2>Entre em Contato</h2>
+            <div class="contact-info">
+              <div class="contact-item">
+                <span>📞</span>
+                <div>
+                  <strong>Telefone</strong><br>
+                  ${data.content?.contact?.phone || ''}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>📧</span>
+                <div>
+                  <strong>Email</strong><br>
+                  ${data.content?.contact?.email || ''}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>📍</span>
+                <div>
+                  <strong>Endereço</strong><br>
+                  ${data.content.contact.address}
+                </div>
+              </div>
+              <div class="contact-item">
+                <span>🕒</span>
+                <div>
+                  <strong>Horários</strong><br>
+                  ${data.content.contact.hours}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Social Media Links -->
+            <div class="social-links">
+              ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" class="social-link social-instagram" target="_blank">📷</a>` : ''}
+              ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" class="social-link social-facebook" target="_blank">📘</a>` : ''}
+              ${socialLinks.linkedin ? `<a href="${socialLinks.linkedin}" class="social-link social-linkedin" target="_blank">💼</a>` : ''}
+              ${socialLinks.youtube ? `<a href="${socialLinks.youtube}" class="social-link social-youtube" target="_blank">📺</a>` : ''}
+            </div>
+          </div>
+          <div>
+            <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Consultório" style="width: 100%; border-radius: 15px;">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Footer -->
+      <footer class="footer">
+        <p>&copy; 2024 ${data.clinicName}. Todos os direitos reservados.</p>
+      </footer>
+      
+      <!-- WhatsApp Button -->
+      ${data.content?.contact?.whatsapp ? `
+        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')" title="Fale conosco no WhatsApp">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+          </svg>
+        </button>
+      ` : ''}
+      
+      <script>
+        // Smooth scroll for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+              behavior: 'smooth'
+            });
+          });
+        });
+        
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+          const header = document.querySelector('.header');
+          if (window.scrollY > 100) {
+            header.style.background = 'rgba(255,255,255,0.98)';
+          } else {
+            header.style.background = 'rgba(255,255,255,0.95)';
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+// Upload de imagem para galeria
+export async function uploadImage(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    const { imageData, filename } = req.body;
+    
+    if (!imageData) {
+      return res.status(400).json({ message: 'Dados da imagem são obrigatórios' });
+    }
+
+    // Gerar URL única para a imagem baseada em timestamp
+    const timestamp = Date.now();
+    const extension = filename?.split('.').pop() || 'jpg';
+    const uniqueFilename = `${companyId}-${timestamp}.${extension}`;
+    const imageUrl = `/uploads/gallery/${uniqueFilename}`;
+    
+    res.json({ 
+      success: true,
+      url: imageUrl,
+      filename: uniqueFilename,
+      message: 'Imagem enviada com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload da imagem:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+// Preview do website
+export async function previewWebsite(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Não autorizado' });
+    }
+
+    // Buscar dados salvos ou criar dados padrão
+    let websiteData = websiteStorage.get(companyId);
+    
+    if (!websiteData) {
+      // Criar dados padrão se não existir
+      websiteData = {
+        id: companyId,
+        clinicName: 'Minha Clínica',
+        template: 'modern',
+        colors: {
+          primary: '#0066cc',
+          secondary: '#f8f9fa',
+          accent: '#28a745'
+        },
+        content: {
+          hero: {
+            title: 'Minha Clínica Odontológica',
+            subtitle: 'Cuidando do seu sorriso com excelência'
+          },
+          about: {
+            title: 'Sobre Nossa Clínica',
+            description: 'Oferecemos tratamentos odontológicos de qualidade.'
+          },
+          services: [],
+          contact: {
+            phone: '',
+            whatsapp: '',
+            email: '',
+            address: '',
+            hours: 'Segunda a Sexta: 8:00 - 18:00'
+          },
+          gallery: []
+        },
+        social: {},
+        seo: {
+          title: '',
+          description: '',
+          keywords: ''
+        },
+        published: false,
+        companyId
+      };
+    }
+
+    // Gerar HTML baseado no template
+    let html = '';
+    switch (websiteData.template) {
+      case 'classic':
+        html = generateClassicTemplate(websiteData);
+        break;
+      case 'minimal':
+        html = generateMinimalTemplate(websiteData);
+        break;
+      default:
+        html = generateModernTemplate(websiteData);
+    }
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    console.error('Erro ao gerar preview:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+}
+
+function generateClassicTemplate(data: WebsiteData): string {
+  const socialLinks = data.social || {};
+  const gallery = data.content?.gallery || [];
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.seo?.title || data.clinicName}</title>
+      <meta name="description" content="${data.seo?.description || 'Clínica odontológica especializada'}">
+      <meta name="keywords" content="${data.seo?.keywords || 'dentista, odontologia, clínica dental'}">
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Lora', serif; line-height: 1.7; color: #2c3e50; }
+        
+        /* Header Elegante */
+        .top-bar { background: #1a252f; color: #d4af37; padding: 10px 0; font-size: 14px; }
+        .top-bar-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
+        .contact-top { display: flex; gap: 20px; }
+        .social-top { display: flex; gap: 15px; }
+        .social-top a { color: #d4af37; text-decoration: none; }
+        
+        .main-header { background: linear-gradient(135deg, ${data.colors?.primary || '#2c3e50'}, #34495e); color: white; text-align: center; padding: 80px 20px; position: relative; }
+        .header-content { max-width: 1200px; margin: 0 auto; }
+        .clinic-name { font-family: 'Playfair Display', serif; font-size: 3.5rem; font-weight: 700; margin-bottom: 15px; letter-spacing: 2px; }
+        .clinic-subtitle { font-size: 1.4rem; opacity: 0.9; font-style: italic; }
+        
+        .navigation { background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .nav-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .nav-menu { display: flex; justify-content: center; gap: 40px; list-style: none; padding: 20px 0; }
+        .nav-menu a { text-decoration: none; color: #2c3e50; font-weight: 600; padding: 10px 15px; border-bottom: 3px solid transparent; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; }
+        .nav-menu a:hover { color: ${data.colors?.primary || '#2c3e50'}; border-bottom-color: ${data.colors?.primary || '#2c3e50'}; }
+        
+        /* Hero com Credibilidade */
+        .hero { padding: 80px 20px; background: #f8f9fa; }
+        .hero-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+        .hero-text h1 { font-family: 'Playfair Display', serif; font-size: 3rem; color: #2c3e50; margin-bottom: 25px; line-height: 1.2; }
+        .hero-text p { font-size: 1.2rem; color: #555; margin-bottom: 30px; }
+        .hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+        .stat-item { text-align: center; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+        .stat-number { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 700; color: ${data.colors?.primary || '#2c3e50'}; }
+        .stat-label { font-size: 0.9rem; color: #666; margin-top: 5px; }
+        .hero-image { text-align: center; }
+        .hero-image img { width: 100%; max-width: 500px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+        
+        .cta-primary { background: ${data.colors?.primary || '#2c3e50'}; color: white; padding: 15px 40px; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s ease; border-radius: 50px; }
+        .cta-primary:hover { background: #1a252f; transform: translateY(-2px); }
+        
+        /* Seção do Dentista */
+        .doctor-section { padding: 80px 20px; background: white; }
+        .doctor-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 400px 1fr; gap: 60px; align-items: center; }
+        .doctor-image { text-align: center; }
+        .doctor-image img { width: 100%; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+        .doctor-info h2 { font-family: 'Playfair Display', serif; font-size: 2.8rem; color: #2c3e50; margin-bottom: 20px; }
+        .doctor-title { font-size: 1.3rem; color: ${data.colors?.primary || '#2c3e50'}; font-weight: 600; margin-bottom: 25px; }
+        .doctor-bio { font-size: 1.1rem; color: #555; margin-bottom: 30px; }
+        .credentials { list-style: none; }
+        .credentials li { padding: 8px 0; border-bottom: 1px solid #eee; color: #666; }
+        .credentials li:before { content: "🏆"; margin-right: 10px; }
+        
+        /* Serviços Profissionais */
+        .services-section { padding: 80px 20px; background: #f8f9fa; }
+        .services-content { max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-header h2 { font-family: 'Playfair Display', serif; font-size: 3rem; color: #2c3e50; margin-bottom: 15px; }
+        .section-subtitle { font-size: 1.2rem; color: #666; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; }
+        .service-card { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: transform 0.3s ease; border-top: 5px solid ${data.colors?.primary || '#2c3e50'}; }
+        .service-card:hover { transform: translateY(-10px); }
+        .service-icon { font-size: 3rem; margin-bottom: 20px; }
+        .service-card h3 { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: #2c3e50; margin-bottom: 15px; }
+        .service-card p { color: #666; margin-bottom: 20px; }
+        .service-price { font-size: 1.4rem; font-weight: 600; color: ${data.colors?.primary || '#2c3e50'}; }
+        
+        /* Depoimentos */
+        .testimonials { padding: 80px 20px; background: white; }
+        .testimonials-content { max-width: 1200px; margin: 0 auto; text-align: center; }
+        .testimonial-item { background: #f8f9fa; padding: 40px; border-radius: 15px; margin: 20px; position: relative; }
+        .testimonial-text { font-size: 1.2rem; font-style: italic; color: #555; margin-bottom: 20px; }
+        .testimonial-author { font-weight: 600; color: #2c3e50; }
+        .testimonial-rating { color: #ffd700; font-size: 1.5rem; margin-bottom: 15px; }
+        
+        /* Contato Elegante */
+        .contact-section { padding: 80px 20px; background: ${data.colors?.primary || '#2c3e50'}; color: white; }
+        .contact-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; }
+        .contact-info h2 { font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 30px; }
+        .contact-details { display: flex; flex-direction: column; gap: 25px; }
+        .contact-item { display: flex; align-items: center; gap: 20px; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .contact-icon { font-size: 1.8rem; width: 60px; text-align: center; }
+        .contact-form { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 15px; }
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; }
+        .form-group input, .form-group textarea { width: 100%; padding: 15px; border: none; border-radius: 8px; background: rgba(255,255,255,0.9); color: #333; font-size: 16px; }
+        .form-group textarea { resize: vertical; min-height: 120px; }
+        
+        /* WhatsApp Profissional */
+        .whatsapp-btn { position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; border: none; border-radius: 50%; width: 70px; height: 70px; cursor: pointer; box-shadow: 0 8px 25px rgba(37,211,102,0.4); z-index: 1000; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; }
+        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 10px 30px rgba(37,211,102,0.6); }
+        
+        /* Footer */
+        .footer { background: #1a252f; color: white; padding: 60px 20px 20px; }
+        .footer-content { max-width: 1200px; margin: 0 auto; text-align: center; }
+        .footer-social { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
+        .social-link { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; color: white; font-size: 1.5rem; transition: transform 0.3s ease; }
+        .social-link:hover { transform: translateY(-3px); }
+        .social-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .social-facebook { background: #4267B2; }
+        .social-linkedin { background: #0077B5; }
+        .social-youtube { background: #FF0000; }
+        
+        /* Responsivo */
+        @media (max-width: 768px) {
+          .clinic-name { font-size: 2.5rem; }
+          .hero-content, .doctor-content, .contact-content { grid-template-columns: 1fr; text-align: center; }
+          .hero-stats { grid-template-columns: 1fr; }
+          .nav-menu { flex-direction: column; gap: 10px; }
+          .top-bar-content { flex-direction: column; gap: 10px; }
+          .services-grid { grid-template-columns: 1fr; }
+          .doctor-content { grid-template-columns: 1fr; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Barra Superior -->
+      <div class="top-bar">
+        <div class="top-bar-content">
+          <div class="contact-top">
+            <span>📞 ${data.content?.contact?.phone || '(11) 99999-9999'}</span>
+            <span>📧 ${data.content?.contact?.email || 'contato@clinica.com'}</span>
+          </div>
+          <div class="social-top">
+            ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" target="_blank">Instagram</a>` : ''}
+            ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" target="_blank">Facebook</a>` : ''}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Header Principal -->
+      <header class="main-header">
+        <div class="header-content">
+          <h1 class="clinic-name">${data.clinicName}</h1>
+          <p class="clinic-subtitle">${data.content?.hero?.subtitle || 'Cuidando do seu sorriso com excelência'}</p>
+        </div>
+      </header>
+      
+      <!-- Navegação -->
+      <nav class="navigation">
+        <div class="nav-content">
+          <ul class="nav-menu">
+            <li><a href="#home">Início</a></li>
+            <li><a href="#doctor">Dentista</a></li>
+            <li><a href="#services">Serviços</a></li>
+            <li><a href="#testimonials">Depoimentos</a></li>
+            <li><a href="#contact">Contato</a></li>
+          </ul>
+        </div>
+      </nav>
+      
+      <!-- Hero Section -->
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1>${data.content?.hero?.title || 'Excelência em Odontologia'}</h1>
+            <p>Oferecemos tratamentos odontológicos de alta qualidade com tecnologia de ponta e atendimento humanizado. Nossa missão é cuidar do seu sorriso com dedicação e profissionalismo.</p>
+            <button class="cta-primary" onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'})">
+              Agendar Consulta
+            </button>
+            <div class="hero-stats">
+              <div class="stat-item">
+                <div class="stat-number">15+</div>
+                <div class="stat-label">Anos de Experiência</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">2000+</div>
+                <div class="stat-label">Pacientes Atendidos</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">98%</div>
+                <div class="stat-label">Satisfação</div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-image">
+            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=500&h=600&fit=crop" alt="Clínica Odontológica">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Seção do Dentista -->
+      <section id="doctor" class="doctor-section">
+        <div class="doctor-content">
+          <div class="doctor-image">
+            <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=500&fit=crop" alt="Dr. Especialista">
+          </div>
+          <div class="doctor-info">
+            <h2>Dr. João Silva</h2>
+            <div class="doctor-title">Cirurgião-Dentista Especialista</div>
+            <div class="doctor-bio">
+              Formado pela USP com mais de 15 anos de experiência em odontologia. Especialista em implantodontia e prótese, sempre buscando as mais modernas técnicas para oferecer o melhor tratamento aos pacientes.
+            </div>
+            <ul class="credentials">
+              <li>Graduação em Odontologia - USP</li>
+              <li>Especialização em Implantodontia</li>
+              <li>Mestrado em Prótese Dentária</li>
+              <li>Membro da Associação Brasileira de Odontologia</li>
+              <li>Certificação em Harmonização Orofacial</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Serviços -->
+      <section id="services" class="services-section">
+        <div class="services-content">
+          <div class="section-header">
+            <h2>Nossos Serviços</h2>
+            <p class="section-subtitle">Tratamentos odontológicos completos com tecnologia avançada</p>
+          </div>
+          <div class="services-grid">
+            ${data.content?.services?.map(service => `
+              <div class="service-card">
+                <div class="service-icon">🦷</div>
+                <h3>${service.name}</h3>
+                <p>${service.description}</p>
+                ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
+              </div>
+            `).join('') || `
+              <div class="service-card">
+                <div class="service-icon">🦷</div>
+                <h3>Clínica Geral</h3>
+                <p>Prevenção, diagnóstico e tratamento completo</p>
+                <div class="service-price">A partir de R$ 120</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">✨</div>
+                <h3>Clareamento Dental</h3>
+                <p>Clareamento profissional e caseiro</p>
+                <div class="service-price">A partir de R$ 450</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">🔧</div>
+                <h3>Implantes Dentários</h3>
+                <p>Reposição de dentes com implantes de titânio</p>
+                <div class="service-price">A partir de R$ 2.500</div>
+              </div>
+            `}
+          </div>
+        </div>
+      </section>
+      
+      <!-- Depoimentos -->
+      <section id="testimonials" class="testimonials">
+        <div class="testimonials-content">
+          <div class="section-header">
+            <h2>O que nossos pacientes dizem</h2>
+          </div>
+          <div class="testimonial-item">
+            <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+            <div class="testimonial-text">"Excelente atendimento! O Dr. João é muito atencioso e o resultado do meu tratamento superou as expectativas. Recomendo muito!"</div>
+            <div class="testimonial-author">- Maria Santos</div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Contato -->
+      <section id="contact" class="contact-section">
+        <div class="contact-content">
+          <div class="contact-info">
+            <h2>Entre em Contato</h2>
+            <div class="contact-details">
+              <div class="contact-item">
+                <div class="contact-icon">📞</div>
+                <div>
+                  <strong>Telefone</strong><br>
+                  ${data.content?.contact?.phone || '(11) 99999-9999'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📧</div>
+                <div>
+                  <strong>Email</strong><br>
+                  ${data.content?.contact?.email || 'contato@clinica.com'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📍</div>
+                <div>
+                  <strong>Endereço</strong><br>
+                  ${data.content?.contact?.address || 'Rua das Flores, 123 - Centro'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">🕒</div>
+                <div>
+                  <strong>Horários</strong><br>
+                  ${data.content?.contact?.hours || 'Segunda a Sexta: 8h às 18h'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="contact-form">
+            <h3>Solicite um Orçamento</h3>
+            <form>
+              <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" required>
+              </div>
+              <div class="form-group">
+                <label>Telefone</label>
+                <input type="tel" required>
+              </div>
+              <div class="form-group">
+                <label>Serviço de Interesse</label>
+                <input type="text" placeholder="Ex: Implante, Clareamento...">
+              </div>
+              <div class="form-group">
+                <label>Mensagem</label>
+                <textarea placeholder="Descreva suas necessidades..."></textarea>
+              </div>
+              <button type="submit" class="cta-primary">Enviar Mensagem</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-content">
+          <div class="footer-social">
+            ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" class="social-link social-instagram" target="_blank">📷</a>` : ''}
+            ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" class="social-link social-facebook" target="_blank">📘</a>` : ''}
+            ${socialLinks.linkedin ? `<a href="${socialLinks.linkedin}" class="social-link social-linkedin" target="_blank">💼</a>` : ''}
+            ${socialLinks.youtube ? `<a href="${socialLinks.youtube}" class="social-link social-youtube" target="_blank">📺</a>` : ''}
+          </div>
+          <p>&copy; 2024 ${data.clinicName}. Todos os direitos reservados.</p>
+          <p>Desenvolvido com dedicação para cuidar do seu sorriso</p>
+        </div>
+      </footer>
+      
+      <!-- WhatsApp -->
+      ${data.content?.contact?.whatsapp ? `
+        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')" title="Fale conosco no WhatsApp">
+          💬
+        </button>
+      ` : ''}
+      
+      <script>
+        // Navegação suave
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+              behavior: 'smooth'
+            });
+          });
+        });
+        
+        // Formulário de contato
+        document.querySelector('form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          alert('Mensagem enviada com sucesso! Entraremos em contato em breve.');
+        });
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+
+
+// Função para gerar preview do template com dados atuais
+export async function getWebsitePreview(req: Request, res: Response) {
+  try {
+    const companyId = req.user?.companyId;
+    const template = req.params.template as 'modern' | 'classic' | 'minimal';
+    
+    if (!['modern', 'classic', 'minimal'].includes(template)) {
+      return res.status(400).json({ error: 'Template inválido' });
+    }
+
+    // Buscar dados salvos ou usar dados padrão da empresa
+    let websiteData = websiteStorage.get(companyId || 0);
+    
+    if (!websiteData && companyId) {
+      // Buscar dados da empresa no banco para popular automaticamente
+      const company = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      const companyInfo = company[0];
+      
+      websiteData = {
+        id: companyId,
+        clinicName: companyInfo?.name || 'Clínica Odontológica',
+        template,
+        colors: {
+          primary: '#0066cc',
+          secondary: '#f8f9fa', 
+          accent: '#28a745'
+        },
+        content: {
+          hero: {
+            title: companyInfo?.name || 'Clínica Odontológica',
+            subtitle: 'Cuidando do seu sorriso com excelência e tecnologia de ponta'
+          },
+          about: {
+            title: 'Sobre Nossa Clínica',
+            description: 'Oferecemos tratamentos odontológicos de qualidade com uma equipe especializada e equipamentos modernos, priorizando o conforto e bem-estar dos nossos pacientes.'
+          },
+          services: [
+            { name: 'Limpeza e Profilaxia', description: 'Limpeza profissional completa', price: 'A partir de R$ 80,00' },
+            { name: 'Clareamento Dental', description: 'Clareamento a laser ou moldeira', price: 'A partir de R$ 350,00' },
+            { name: 'Implantes Dentários', description: 'Implantes com tecnologia avançada', price: 'A partir de R$ 2.500,00' },
+            { name: 'Ortodontia', description: 'Aparelhos fixos e alinhadores', price: 'A partir de R$ 180,00/mês' }
+          ],
+          contact: {
+            phone: '(11) 9999-9999',
+            whatsapp: '11999999999',
+            email: companyInfo?.email || 'contato@clinica.com',
+            address: 'Rua das Flores, 123 - Centro, São Paulo - SP',
+            hours: 'Segunda a Sexta: 8:00 - 18:00 | Sábado: 8:00 - 12:00'
+          },
+          gallery: []
+        },
+        seo: {
+          title: `${companyInfo?.name || 'Clínica Odontológica'} - Dentista Especializado`,
+          description: 'Clínica odontológica com atendimento de qualidade, equipamentos modernos e profissionais especializados.',
+          keywords: 'dentista, odontologia, clínica dental, implante, clareamento, ortodontia'
+        },
+        published: false,
+        companyId: companyId || 0
+      };
+    }
+
+    if (!websiteData) {
+      return res.status(404).json({ error: 'Dados não encontrados' });
+    }
+
+    // Forçar o template solicitado para o preview
+    websiteData.template = template;
+
+    // Gerar HTML do template
+    const templates = {
+      modern: generateModernTemplate,
+      classic: generateClassicTemplate,
+      minimal: generateMinimalTemplate
+    };
+
+    const html = templates[template](websiteData);
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (error) {
+    console.error('Erro ao gerar preview:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+}
+
+function generateMinimalTemplate(data: WebsiteData): string {
+  const socialLinks = data.social || {};
+  const gallery = data.content?.gallery || [];
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.seo?.title || data.clinicName}</title>
+      <meta name="description" content="${data.seo?.description || 'Clínica odontológica especializada'}">
+      <meta name="keywords" content="${data.seo?.keywords || 'dentista, odontologia, clínica dental'}">
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #2d3748; background: #ffffff; }
+        
+        /* Clean Header */
+        .header { position: fixed; top: 0; width: 100%; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); padding: 1rem 2rem; z-index: 1000; border-bottom: 1px solid #e2e8f0; }
+        .nav { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto; }
+        .logo { font-size: 1.8rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+        .nav-links a { text-decoration: none; color: #4a5568; font-weight: 500; transition: color 0.3s ease; }
+        .nav-links a:hover { color: ${data.colors?.primary || '#4a5568'}; }
+        .cta-nav { background: ${data.colors?.primary || '#4a5568'}; color: white; padding: 12px 24px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; }
+        .cta-nav:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(74,85,104,0.3); }
+        
+        /* Hero Minimalista */
+        .hero { min-height: 100vh; display: flex; align-items: center; padding: 0 2rem; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); }
+        .hero-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+        .hero-text h1 { font-size: 3.5rem; font-weight: 700; color: #2d3748; margin-bottom: 1.5rem; line-height: 1.1; }
+        .hero-text .highlight { color: ${data.colors?.primary || '#4a5568'}; }
+        .hero-text p { font-size: 1.2rem; color: #718096; margin-bottom: 2.5rem; }
+        .hero-cta { display: flex; gap: 1rem; }
+        .btn-primary { background: ${data.colors?.primary || '#4a5568'}; color: white; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; border: 2px solid ${data.colors?.primary || '#4a5568'}; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(74,85,104,0.3); }
+        .btn-secondary { background: transparent; color: ${data.colors?.primary || '#4a5568'}; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; border: 2px solid ${data.colors?.primary || '#4a5568'}; transition: all 0.3s ease; }
+        .btn-secondary:hover { background: ${data.colors?.primary || '#4a5568'}; color: white; }
+        .hero-image { text-align: center; }
+        .hero-image img { width: 100%; max-width: 450px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        
+        /* Stats Section */
+        .stats { padding: 4rem 2rem; background: white; }
+        .stats-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3rem; text-align: center; }
+        .stat-item { padding: 2rem; }
+        .stat-number { font-size: 3rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; display: block; }
+        .stat-label { font-size: 1rem; color: #718096; margin-top: 0.5rem; }
+        
+        /* Services Clean */
+        .services { padding: 6rem 2rem; background: #f7fafc; }
+        .services-content { max-width: 1100px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-header h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 1rem; }
+        .section-header p { font-size: 1.2rem; color: #718096; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; }
+        .service-card { background: white; padding: 3rem 2rem; border-radius: 20px; text-align: center; transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .service-card:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        .service-icon { width: 80px; height: 80px; background: linear-gradient(135deg, ${data.colors?.primary || '#4a5568'}, ${data.colors?.accent || '#68d391'}); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 2rem; }
+        .service-card h3 { font-size: 1.4rem; font-weight: 600; color: #2d3748; margin-bottom: 1rem; }
+        .service-card p { color: #718096; margin-bottom: 1.5rem; }
+        .service-price { font-size: 1.3rem; font-weight: 700; color: ${data.colors?.primary || '#4a5568'}; }
+        
+        /* About Clean */
+        .about { padding: 6rem 2rem; background: white; }
+        .about-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+        .about-text h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 2rem; }
+        .about-text p { font-size: 1.1rem; color: #718096; margin-bottom: 2rem; }
+        .features-list { list-style: none; }
+        .features-list li { padding: 0.8rem 0; color: #718096; position: relative; padding-left: 2rem; }
+        .features-list li:before { content: "✓"; position: absolute; left: 0; color: ${data.colors?.primary || '#4a5568'}; font-weight: bold; }
+        .about-image img { width: 100%; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+        
+        /* CTA Section */
+        .cta-section { padding: 6rem 2rem; background: linear-gradient(135deg, ${data.colors?.primary || '#4a5568'}, ${data.colors?.accent || '#68d391'}); color: white; text-align: center; }
+        .cta-content { max-width: 800px; margin: 0 auto; }
+        .cta-content h2 { font-size: 2.8rem; font-weight: 700; margin-bottom: 1.5rem; }
+        .cta-content p { font-size: 1.2rem; opacity: 0.9; margin-bottom: 2.5rem; }
+        .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .btn-white { background: white; color: ${data.colors?.primary || '#4a5568'}; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; }
+        .btn-white:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(255,255,255,0.3); }
+        
+        /* Contact Minimal */
+        .contact { padding: 6rem 2rem; background: white; }
+        .contact-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; }
+        .contact-info h2 { font-size: 2.8rem; font-weight: 700; color: #2d3748; margin-bottom: 2rem; }
+        .contact-details { display: flex; flex-direction: column; gap: 2rem; }
+        .contact-item { display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; background: #f7fafc; border-radius: 15px; }
+        .contact-icon { width: 50px; height: 50px; background: ${data.colors?.primary || '#4a5568'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; }
+        .contact-form { background: #f7fafc; padding: 3rem; border-radius: 20px; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #2d3748; }
+        .form-group input, .form-group textarea { width: 100%; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; transition: border-color 0.3s ease; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: ${data.colors?.primary || '#4a5568'}; }
+        .form-group textarea { resize: vertical; min-height: 120px; }
+        
+        /* Footer Minimal */
+        .footer { background: #2d3748; color: white; padding: 3rem 2rem 1rem; }
+        .footer-content { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3rem; }
+        .footer-info h3 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+        .footer-info p { color: #a0aec0; }
+        .footer-links h4 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+        .footer-links ul { list-style: none; }
+        .footer-links a { color: #a0aec0; text-decoration: none; }
+        .footer-links a:hover { color: white; }
+        .footer-social { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-link { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; color: white; font-size: 1.2rem; transition: transform 0.3s ease; }
+        .social-link:hover { transform: translateY(-3px); }
+        .social-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+        .social-facebook { background: #4267B2; }
+        .social-linkedin { background: #0077B5; }
+        .social-youtube { background: #FF0000; }
+        .footer-bottom { border-top: 1px solid #4a5568; padding-top: 2rem; margin-top: 2rem; text-align: center; color: #a0aec0; }
+        
+        /* WhatsApp Minimal */
+        .whatsapp-btn { position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; border: none; border-radius: 50%; width: 65px; height: 65px; font-size: 26px; cursor: pointer; box-shadow: 0 8px 30px rgba(37,211,102,0.4); z-index: 1000; transition: all 0.3s ease; }
+        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 12px 40px rgba(37,211,102,0.5); }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+          .hero-content, .about-content, .contact-content, .footer-content { grid-template-columns: 1fr; text-align: center; }
+          .hero-text h1 { font-size: 2.5rem; }
+          .nav-links { display: none; }
+          .stats-content { grid-template-columns: repeat(2, 1fr); }
+          .cta-buttons { flex-direction: column; align-items: center; }
+          .services-grid { grid-template-columns: 1fr; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Header -->
+      <header class="header">
+        <nav class="nav">
+          <div class="logo">${data.clinicName}</div>
+          <ul class="nav-links">
+            <li><a href="#home">Início</a></li>
+            <li><a href="#services">Serviços</a></li>
+            <li><a href="#about">Sobre</a></li>
+            <li><a href="#contact">Contato</a></li>
+          </ul>
+          <a href="#contact" class="cta-nav">Agendar</a>
+        </nav>
+      </header>
+      
+      <!-- Hero -->
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1>Seu <span class="highlight">Sorriso</span><br>Nossa Especialidade</h1>
+            <p>Transformamos sorrisos com tecnologia avançada, atendimento humanizado e resultados que superam expectativas. Cuide da sua saúde bucal com quem entende do assunto.</p>
+            <div class="hero-cta">
+              <a href="#contact" class="btn-primary">Agendar Consulta</a>
+              <a href="#services" class="btn-secondary">Ver Serviços</a>
+            </div>
+          </div>
+          <div class="hero-image">
+            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=450&h=500&fit=crop" alt="Sorriso perfeito">
+          </div>
+        </div>
+      </section>
+      
+      <!-- Stats -->
+      <section class="stats">
+        <div class="stats-content">
+          <div class="stat-item">
+            <span class="stat-number">15+</span>
+            <span class="stat-label">Anos de Experiência</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">5000+</span>
+            <span class="stat-label">Sorrisos Transformados</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">99%</span>
+            <span class="stat-label">Satisfação dos Pacientes</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">24h</span>
+            <span class="stat-label">Suporte Disponível</span>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Services -->
+      <section id="services" class="services">
+        <div class="services-content">
+          <div class="section-header">
+            <h2>Nossos Serviços</h2>
+            <p>Soluções completas para sua saúde bucal com tecnologia de ponta</p>
+          </div>
+          <div class="services-grid">
+            ${data.content?.services?.map(service => `
+              <div class="service-card">
+                <div class="service-icon">🦷</div>
+                <h3>${service.name}</h3>
+                <p>${service.description}</p>
+                ${service.price ? `<div class="service-price">${service.price}</div>` : ''}
+              </div>
+            `).join('') || `
+              <div class="service-card">
+                <div class="service-icon">✨</div>
+                <h3>Clareamento Dental</h3>
+                <p>Transforme seu sorriso com clareamento profissional</p>
+                <div class="service-price">A partir de R$ 350</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">🔧</div>
+                <h3>Implantes Dentários</h3>
+                <p>Reposição de dentes com tecnologia avançada</p>
+                <div class="service-price">A partir de R$ 2.500</div>
+              </div>
+              <div class="service-card">
+                <div class="service-icon">🎯</div>
+                <h3>Ortodontia</h3>
+                <p>Alinhamento perfeito com aparelhos modernos</p>
+                <div class="service-price">A partir de R$ 180/mês</div>
+              </div>
+            `}
+          </div>
+        </div>
+      </section>
+      
+      <!-- About -->
+      <section id="about" class="about">
+        <div class="about-content">
+          <div class="about-text">
+            <h2>${data.content?.about?.title || 'Por que nos escolher?'}</h2>
+            <p>${data.content?.about?.description || 'Nossa clínica combina experiência profissional com tecnologia de ponta para oferecer o melhor em cuidados odontológicos. Cada tratamento é personalizado para suas necessidades específicas.'}</p>
+            <ul class="features-list">
+              <li>Equipamentos de última geração</li>
+              <li>Profissionais altamente qualificados</li>
+              <li>Atendimento personalizado e humanizado</li>
+              <li>Protocolos rigorosos de segurança</li>
+              <li>Acompanhamento pós-tratamento</li>
+            </ul>
+          </div>
+          <div class="about-image">
+            <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Nossa clínica">
+          </div>
+        </div>
+      </section>
+      
+      <!-- CTA -->
+      <section class="cta-section">
+        <div class="cta-content">
+          <h2>Pronto para transformar seu sorriso?</h2>
+          <p>Agende sua consulta e descubra como podemos cuidar da sua saúde bucal com excelência e dedicação</p>
+          <div class="cta-buttons">
+            <a href="#contact" class="btn-white">Agendar Consulta</a>
+            ${data.content?.contact?.whatsapp ? `<a href="https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!" class="btn-white" target="_blank">WhatsApp</a>` : ''}
+          </div>
+        </div>
+      </section>
+      
+      <!-- Contact -->
+      <section id="contact" class="contact">
+        <div class="contact-content">
+          <div class="contact-info">
+            <h2>Entre em Contato</h2>
+            <div class="contact-details">
+              <div class="contact-item">
+                <div class="contact-icon">📞</div>
+                <div>
+                  <strong>Telefone</strong><br>
+                  ${data.content?.contact?.phone || '(11) 99999-9999'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📧</div>
+                <div>
+                  <strong>Email</strong><br>
+                  ${data.content?.contact?.email || 'contato@clinica.com'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">📍</div>
+                <div>
+                  <strong>Endereço</strong><br>
+                  ${data.content?.contact?.address || 'Rua das Flores, 123 - Centro'}
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-icon">🕒</div>
+                <div>
+                  <strong>Horários</strong><br>
+                  ${data.content?.contact?.hours || 'Segunda a Sexta: 8h às 18h'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="contact-form">
+            <h3>Solicite um Orçamento</h3>
+            <form>
+              <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" required>
+              </div>
+              <div class="form-group">
+                <label>WhatsApp</label>
+                <input type="tel" required>
+              </div>
+              <div class="form-group">
+                <label>Serviço de Interesse</label>
+                <input type="text" placeholder="Ex: Clareamento, Implante...">
+              </div>
+              <div class="form-group">
+                <label>Mensagem</label>
+                <textarea placeholder="Como podemos ajudar você?"></textarea>
+              </div>
+              <button type="submit" class="btn-primary">Enviar Mensagem</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-content">
+          <div class="footer-info">
+            <h3>${data.clinicName}</h3>
+            <p>Transformando sorrisos com excelência, tecnologia e cuidado humanizado. Sua saúde bucal é nossa prioridade.</p>
+            <div class="footer-social">
+              ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" class="social-link social-instagram" target="_blank">📷</a>` : ''}
+              ${socialLinks.facebook ? `<a href="${socialLinks.facebook}" class="social-link social-facebook" target="_blank">📘</a>` : ''}
+              ${socialLinks.linkedin ? `<a href="${socialLinks.linkedin}" class="social-link social-linkedin" target="_blank">💼</a>` : ''}
+              ${socialLinks.youtube ? `<a href="${socialLinks.youtube}" class="social-link social-youtube" target="_blank">📺</a>` : ''}
+            </div>
+          </div>
+          <div class="footer-links">
+            <h4>Serviços</h4>
+            <ul>
+              <li><a href="#services">Clínica Geral</a></li>
+              <li><a href="#services">Ortodontia</a></li>
+              <li><a href="#services">Implantes</a></li>
+              <li><a href="#services">Clareamento</a></li>
+            </ul>
+          </div>
+          <div class="footer-links">
+            <h4>Contato</h4>
+            <ul>
+              <li><a href="#contact">Agendar Consulta</a></li>
+              <li><a href="#contact">WhatsApp</a></li>
+              <li><a href="#contact">Localização</a></li>
+              <li><a href="#contact">Horários</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2024 ${data.clinicName}. Todos os direitos reservados.</p>
+        </div>
+      </footer>
+      
+      <!-- WhatsApp -->
+      ${data.content?.contact?.whatsapp ? `
+        <button class="whatsapp-btn" onclick="window.open('https://wa.me/55${data.content.contact.whatsapp.replace(/\D/g, '')}?text=Olá, gostaria de agendar uma consulta!', '_blank')" title="Fale conosco no WhatsApp">
+          💬
+        </button>
+      ` : ''}
+      
+      <script>
+        // Navegação suave
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+              behavior: 'smooth'
+            });
+          });
+        });
+        
+        // Formulário de contato
+        document.querySelector('form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          alert('Mensagem enviada com sucesso! Entraremos em contato em breve.');
+        });
+        
+        // Efeito parallax sutil no hero
+        window.addEventListener('scroll', () => {
+          const scrolled = window.pageYOffset;
+          const hero = document.querySelector('.hero');
+          if (hero) {
+            hero.style.transform = \`translateY(\${scrolled * 0.5}px)\`;
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
+}

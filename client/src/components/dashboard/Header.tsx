@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // import { ThemeToggle } from "@/components/theme/theme-toggle";
 
@@ -23,10 +23,23 @@ interface HeaderProps {
 
 export default function Header({ user, onMenuToggle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { logoutMutation } = useAuth();
+  
+  // Try to get auth context safely for logout
+  let logoutMutation = null;
+  try {
+    const auth = useAuth();
+    logoutMutation = auth.logoutMutation;
+  } catch (error) {
+    // AuthContext not available, continue without logout functionality
+  }
 
   const handleLogout = () => {
-    logoutMutation.mutate();
+    if (logoutMutation) {
+      logoutMutation.mutate();
+    } else {
+      // Fallback logout - redirect to auth page
+      window.location.href = '/auth';
+    }
   };
 
   return (
@@ -48,8 +61,8 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
           </Link>
         </div>
 
-        <div className="flex items-center space-x-4">
-          {user.trialEndsAt && new Date(user.trialEndsAt) > new Date() && (
+        <div className="flex items-center space-x-2 md:space-x-4">
+          {user?.trialEndsAt && new Date(user.trialEndsAt) > new Date() && (
             <div className="hidden md:flex items-center mr-2">
               <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">
                 Teste Gratuito
@@ -73,10 +86,10 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center text-sm font-medium text-neutral-dark hover:text-primary focus:outline-none">
                 <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={user.profileImageUrl || ""} alt={user.fullName} />
-                  <AvatarFallback>{user.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarImage src={user?.profileImageUrl || ""} alt={user?.fullName || "User"} />
+                  <AvatarFallback>{user?.fullName?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
                 </Avatar>
-                <span className="ml-2 hidden md:block">{user.fullName}</span>
+                <span className="ml-2 hidden md:block">{user?.fullName || "Usuário"}</span>
                 <ChevronDown className="ml-1 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

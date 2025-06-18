@@ -1,10 +1,11 @@
 import { Route, Switch, Redirect } from "wouter";
 import { Suspense } from "react";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider } from "@/core/AuthProvider";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { LazyModuleWrapper } from "@/components/LazyModuleLoader";
 
 // Import pages diretamente em vez de lazy loading para evitar erros no desenvolvimento
 import DashboardPage from "@/pages/dashboard-page";
@@ -23,6 +24,8 @@ import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
+import ClinicModulesPage from "@/pages/ClinicModulesPage";
+import ScheduleModularPage from "@/pages/schedule-modular-page";
 
 export default function App() {
   return (
@@ -43,6 +46,7 @@ export default function App() {
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/schedule" component={SchedulePage} />
+            <ProtectedRoute path="/schedule-modular" component={ScheduleModularPage} />
             <ProtectedRoute path="/agenda" component={AgendaPage} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
@@ -54,6 +58,7 @@ export default function App() {
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
             <ProtectedRoute path="/saas-admin" component={SaasAdminPage} />
             <ProtectedRoute path="/company-admin" component={CompanyAdminPage} />
+            <ProtectedRoute path="/clinic-modules" component={ClinicModulesPage} />
           </Switch>
         </Suspense>
         <Toaster />

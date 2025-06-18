@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 import { Briefcase, Calendar, ChartBar, Database, FileText, Gauge, Lock, MessageCircle, ShieldCheck, Tag, Users } from "lucide-react";
 import { useEffect } from "react";
 

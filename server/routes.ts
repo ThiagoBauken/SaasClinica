@@ -6,11 +6,16 @@ import { parse, formatISO, addDays } from "date-fns";
 import { cacheMiddleware } from "./simpleCache";
 import { invalidateClusterCache } from "./clusterCache";
 import { db } from "./db";
-import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { clinicSettings, fiscalSettings, permissions, userPermissions, commissionSettings, procedureCommissions, machineTaxes, companies, appointments, patients, subscriptions, payments } from "@shared/schema";
+import * as paymentHandlers from "./payments";
+import * as clinicHandlers from "./clinic-apis";
+import * as backupHandlers from "./backup";
+import * as websiteHandlers from "./website-apis";
+import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
+import { moduleRegistry } from "../modules/index";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -23,6 +28,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // Função auxiliar para tratamento de erros assíncrono
+  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
+  };
+
+  // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
+  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
+    const companyId = 3; // Dental Care Plus
+    const activeModules = await db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      WHERE cm.is_enabled = true
+      ORDER BY m.display_name
+    `, [companyId]);
+    res.json(activeModules.rows);
+  }));
+
+  app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {
+    const modules = moduleRegistry.getAllModules();
+    const modulesByCategory = moduleRegistry.getModulesByCategory();
+    res.json({
+      all: modules,
+      byCategory: modulesByCategory,
+      loaded: modules.length
+    });
+  }));
+
+  // === ROTAS SaaS TEMPORÁRIAS (SEM AUTENTICAÇÃO) ===
+  app.get("/api/saas/companies", (req: Request, res: Response) => {
+    db.$client.query('SELECT * FROM companies ORDER BY name')
+      .then(result => res.json(result.rows))
+      .catch(err => res.status(500).json({ error: err.message }));
+  });
+
+  app.get("/api/saas/companies/:companyId/modules", (req: Request, res: Response) => {
+    const { companyId } = req.params;
+    
+    // Desabilitar cache para esta rota
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    
+    db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        COALESCE(cm.is_enabled, false) as enabled
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      ORDER BY m.display_name
+    `, [companyId])
+      .then(result => res.json(result.rows))
+      .catch(err => res.status(500).json({ error: err.message }));
+  });
+
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", (req: Request, res: Response) => {
+    const { companyId, moduleId } = req.params;
+    const { enabled } = req.body;
+    
+    if (enabled) {
+      // Inserir ou atualizar para ativado
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
+                     VALUES ($1, $2, true, NOW(), NOW()) 
+                     ON CONFLICT (company_id, module_id) 
+                     DO UPDATE SET is_enabled = true, updated_at = NOW()`;
+      
+      db.$client.query(query, [companyId, moduleId])
+        .then(() => res.json({ success: true, message: 'Módulo ativado' }))
+        .catch(err => res.status(500).json({ error: err.message }));
+    } else {
+      // Inserir ou atualizar para desativado
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
+                     VALUES ($1, $2, false, NOW(), NOW()) 
+                     ON CONFLICT (company_id, module_id) 
+                     DO UPDATE SET is_enabled = false, updated_at = NOW()`;
+      
+      db.$client.query(query, [companyId, moduleId])
+        .then(() => res.json({ success: true, message: 'Módulo desativado' }))
+        .catch(err => res.status(500).json({ error: err.message }));
+    }
+  });
+
   // Middleware para verificar autenticação em todas as rotas API
   const authCheck = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
@@ -33,13 +125,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware combinado: auth + tenant isolation
   const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
-
-  // Função auxiliar para tratamento de erros assíncrono
-  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
-  };
 
   // Company info for current user
   app.get("/api/user/company", authCheck, asyncHandler(async (req, res) => {
@@ -60,44 +145,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(company);
   }));
 
-  // === ROTAS DE ADMINISTRAÇÃO SaaS (SuperAdmin) ===
-  // Para gerenciar empresas e ativar/desativar módulos
-  app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste
-    const result = await db.$client.query('SELECT * FROM companies ORDER BY name');
-    res.json(result.rows);
-  }));
-
-  app.get("/api/saas/companies/:companyId/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste
-    const { companyId } = req.params;
-    const result = await db.$client.query(`
-      SELECT 
-        m.id, m.name, m.display_name, m.description,
-        COALESCE(cm.is_enabled, false) as enabled
-      FROM modules m
-      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
-      ORDER BY m.display_name
-    `, [companyId]);
-    
-    res.json(result.rows);
-  }));
-
-  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    // Permitir acesso temporário para teste
-    
-    const { companyId, moduleId } = req.params;
-    const { enabled } = req.body;
-    
-    await db.$client.query(`
-      INSERT INTO company_modules (company_id, module_id, is_enabled, enabled_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (company_id, module_id)
-      DO UPDATE SET is_enabled = $3, enabled_at = NOW()
-    `, [companyId, moduleId, enabled]);
-    
-    res.json({ message: `Module ${enabled ? 'enabled' : 'disabled'} for company` });
-  }));
+  // === ROTAS DE ADMINISTRAÇÃO SaaS ===
+  // (Rotas movidas para testRoutes.ts temporariamente)
 
   // === ROTAS DE ADMINISTRAÇÃO DA CLÍNICA (Admin da Empresa) ===
   // Para gerenciar usuários e permissões dentro da empresa
@@ -153,21 +202,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // === ROTAS DE USUÁRIO NORMAL ===
-  // Para usuários consultarem suas próprias permissões
-  app.get("/api/user/modules", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    const permissions = await getUserModulePermissions(user.id, user.companyId);
-    res.json(permissions);
-  }));
+  // Esta rota foi movida para a seção de APIs de módulos mais abaixo
 
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patients = await storage.getPatients(req.tenant!.companyId);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patients = await storage.getPatients(companyId);
     res.json(patients);
   }));
 
   app.get("/api/patients/:id", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const patient = await storage.getPatient(parseInt(req.params.id));
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patient = await storage.getPatient(parseInt(req.params.id), companyId);
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
@@ -175,14 +223,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.post("/api/patients", authCheck, asyncHandler(async (req, res) => {
-    const patient = await storage.createPatient(req.body);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patient = await storage.createPatient(req.body, companyId);
     // Invalida o cache relacionado a pacientes em todos os workers
     invalidateClusterCache('api:/api/patients');
     res.status(201).json(patient);
   }));
 
   app.patch("/api/patients/:id", authCheck, asyncHandler(async (req, res) => {
-    const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body);
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body, companyId);
     // Invalida caches específicos em todos os workers
     invalidateClusterCache(`api:/api/patients/${req.params.id}`);
     invalidateClusterCache('api:/api/patients');
@@ -194,6 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       
+      const companyId = (req.user as any)?.companyId || 1; // Extract from session
+      
       let startDate: Date | undefined;
       let endDate: Date | undefined;
       
@@ -202,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate = addDays(startDate, 1);
       }
       
-      const appointments = await storage.getAppointments({
+      const appointments = await storage.getAppointments(companyId, {
         startDate: startDate ? formatISO(startDate) : undefined,
         endDate: endDate ? formatISO(endDate) : undefined,
         professionalId: req.query.professionalId ? parseInt(req.query.professionalId as string) : undefined,
@@ -218,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const appointment = await storage.createAppointment(req.body);
+      const appointment = await storage.createAppointment(req.body, req.user!.companyId);
       res.status(201).json(appointment);
     } catch (error) {
       next(error);
@@ -341,29 +395,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Automations
   app.get("/api/automations", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
-    const automations = await storage.getAutomations();
+    const automations = await storage.getAutomations(req.user!.companyId);
     res.json(automations);
   }));
 
   app.post("/api/automations", authCheck, asyncHandler(async (req, res) => {
-    const automation = await storage.createAutomation(req.body);
+    const automation = await storage.createAutomation(req.body, req.user!.companyId);
     res.status(201).json(automation);
   }));
 
   app.patch("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
-    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+    const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), req.body, req.user!.companyId);
     res.json(updatedAutomation);
   }));
 
   app.delete("/api/automations/:id", authCheck, asyncHandler(async (req, res) => {
-    await storage.deleteAutomation(parseInt(req.params.id));
+    await storage.deleteAutomation(parseInt(req.params.id), req.user!.companyId);
     res.status(204).end();
   }));
 
   app.patch("/api/automations/:id/toggle", authCheck, asyncHandler(async (req, res) => {
     const updatedAutomation = await storage.updateAutomation(parseInt(req.params.id), {
       active: req.body.active,
-    });
+    }, req.user!.companyId);
     res.json(updatedAutomation);
   }));
 
@@ -404,6 +458,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       invalidateClusterCache('api:/api/clinic-settings');
       res.status(201).json(newSettings);
+    }
+  }));
+
+  // Atividades Recentes da Agenda
+  app.get("/api/recent-activities", asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    
+    try {
+      // Usar storage layer para buscar dados com fallback seguro
+      let recentAppointments: any[] = [];
+      let recentPatients: any[] = [];
+      
+      try {
+        recentAppointments = await storage.getAppointments(companyId, {}) || [];
+      } catch (error) {
+        console.error('Erro ao buscar agendamentos:', error);
+      }
+      
+      try {
+        recentPatients = await storage.getPatients(companyId);
+      } catch (error) {
+        console.error('Erro ao buscar pacientes:', error);
+      }
+
+      // Formatar atividades de agendamentos
+      const appointmentActivities = recentAppointments.map(apt => ({
+        id: apt.id.toString(),
+        type: 'appointment',
+        title: apt.status === 'confirmed' ? 'Consulta confirmada' :
+               apt.status === 'cancelled' ? 'Consulta cancelada' :
+               apt.status === 'completed' ? 'Consulta realizada' : 'Consulta agendada',
+        description: `${apt.patientName || 'Paciente'} - ${new Date(apt.startTime).toLocaleDateString('pt-BR')}`,
+        created_at: apt.createdAt,
+        patient_id: apt.patientId?.toString(),
+        appointment_id: apt.id.toString()
+      }));
+
+      // Formatar atividades de pacientes
+      const patientActivities = recentPatients.map(patient => ({
+        id: patient.id.toString(),
+        type: 'patient',
+        title: 'Novo paciente cadastrado',
+        description: `${patient.fullName} foi adicionado ao sistema`,
+        created_at: patient.createdAt,
+        patient_id: patient.id.toString(),
+        appointment_id: null
+      }));
+
+      // Combinar e ordenar
+      const allActivities = [...appointmentActivities, ...patientActivities]
+        .filter(activity => activity.created_at) // Remove activities without dates
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, 10);
+
+      res.json(allActivities);
+    } catch (error) {
+      console.error('Erro ao buscar atividades recentes:', error);
+      res.json([]);
     }
   }));
 
@@ -477,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Adiciona as novas permissões
     if (permissionIds && permissionIds.length > 0) {
-      const newPermissions = permissionIds.map(permId => ({
+      const newPermissions = permissionIds.map((permId: number) => ({
         userId,
         permissionId: permId,
         createdAt: new Date()
@@ -684,6 +797,246 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     invalidateClusterCache(`api:/api/commissions/procedures/${userId}`);
   }));
+
+  // === API DE PAGAMENTOS MERCADO PAGO ===
+  app.get("/api/payments/plans", paymentHandlers.getPlans);
+  app.get("/api/payments/subscription", authCheck, paymentHandlers.getCurrentSubscription);
+  app.post("/api/payments/subscribe", authCheck, paymentHandlers.createSubscription);
+  app.post("/api/payments/cancel", authCheck, paymentHandlers.cancelSubscription);
+  app.get("/api/payments/history", authCheck, paymentHandlers.getPaymentHistory);
+  app.post("/api/payments/webhook", paymentHandlers.handleWebhook);
+  app.get("/payments/success", paymentHandlers.getPaymentSuccess);
+  app.get("/payments/failure", (req, res) => res.redirect('/payments?status=error'));
+  app.get("/payments/pending", (req, res) => res.redirect('/payments?status=pending'));
+
+  // === API DE CONFIGURAÇÕES DA CLÍNICA ===
+  app.get("/api/clinic/settings", authCheck, clinicHandlers.getClinicSettings);
+  app.patch("/api/clinic/settings", authCheck, clinicHandlers.updateClinicSettings);
+
+  // === API DE RELATÓRIOS ===
+  app.get("/api/reports/revenue", authCheck, clinicHandlers.getRevenueReport);
+  app.get("/api/reports/appointments", authCheck, clinicHandlers.getAppointmentStats);
+  app.get("/api/reports/procedures", authCheck, clinicHandlers.getProcedureAnalytics);
+  app.get("/api/reports/patients", authCheck, clinicHandlers.getPatientAnalytics);
+
+  // === API DE USUÁRIOS E CADASTROS ===
+  app.get("/api/users", authCheck, clinicHandlers.getUsers);
+  app.patch("/api/users/:id", authCheck, clinicHandlers.updateUser);
+  app.delete("/api/users/:id", authCheck, clinicHandlers.deleteUser);
+  app.get("/api/procedures", authCheck, clinicHandlers.getProcedures);
+  app.get("/api/rooms", authCheck, clinicHandlers.getRooms);
+
+  // === API DE BACKUP ===
+  app.post("/api/backup/create", authCheck, backupHandlers.createBackup);
+  app.post("/api/backup/schedule", authCheck, backupHandlers.scheduleBackup);
+  app.get("/api/backup/status", authCheck, backupHandlers.getBackupStatus);
+
+  // === API DE CRIADOR DE SITES ===
+  app.get("/api/website", authCheck, websiteHandlers.getWebsite);
+  app.post("/api/website", authCheck, websiteHandlers.saveWebsite);
+  app.put("/api/website", authCheck, websiteHandlers.saveWebsite);
+  app.post("/api/website/publish", authCheck, websiteHandlers.publishWebsite);
+  app.get("/api/website/preview/:template", authCheck, websiteHandlers.getWebsitePreview);
+  app.post("/api/website/unpublish", authCheck, websiteHandlers.unpublishWebsite);
+  app.get("/api/website/public/:domain", websiteHandlers.getPublicWebsite);
+  app.get("/api/websites/published", authCheck, websiteHandlers.listPublishedWebsites);
+
+  // === API DE AUTENTICAÇÃO ===
+  // Verificar usuário atual
+  app.get("/api/user/me", asyncHandler(async (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const user = req.user as any;
+    res.json({
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId || 3, // Default company for existing users
+      active: user.active
+    });
+  }));
+
+  // === APIs SUPERADMIN ===
+  // Listar empresas (SuperAdmin)
+  app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado. Apenas superadmin pode listar empresas." });
+    }
+
+    const companiesData = await db.select({
+      id: companies.id,
+      name: companies.name,
+      cnpj: companies.cnpj,
+      email: companies.email,
+      phone: companies.phone,
+      address: companies.address,
+      active: companies.active,
+      createdAt: companies.createdAt
+    }).from(companies);
+
+    res.json(companiesData);
+  }));
+
+  // Criar empresa (SuperAdmin)
+  app.post("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    const { name, cnpj, email, phone, address } = req.body;
+    
+    const [company] = await db.insert(companies).values({
+      name,
+      cnpj,
+      email,
+      phone,
+      address,
+      active: true
+    }).returning();
+
+    res.json(company);
+  }));
+
+  // Módulos por empresa (SuperAdmin)
+  app.get("/api/saas/companies/:companyId/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = parseInt(req.params.companyId);
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    const modulesList = [
+      { name: 'agenda', display_name: 'Sistema de Agenda', description: 'Gerenciamento de consultas e agendamentos', version: '1.0.0', is_enabled: true },
+      { name: 'pacientes', display_name: 'Gestão de Pacientes', description: 'Cadastro e histórico de pacientes', version: '1.0.0', is_enabled: true },
+      { name: 'financeiro', display_name: 'Gestão Financeira', description: 'Controle financeiro e faturamento', version: '1.0.0', is_enabled: true },
+      { name: 'estoque', display_name: 'Controle de Estoque', description: 'Gestão de materiais e produtos', version: '1.0.0', is_enabled: true },
+      { name: 'proteses', display_name: 'Controle de Próteses', description: 'Gerenciamento de próteses e laboratórios', version: '1.0.0', is_enabled: true },
+      { name: 'odontograma', display_name: 'Odontograma Digital', description: 'Mapeamento dental digital', version: '1.0.0', is_enabled: true },
+      { name: 'automacoes', display_name: 'Automações e Integrações', description: 'Automações e integrações externas', version: '1.0.0', is_enabled: true },
+      { name: 'clinica', display_name: 'Gestão da Clínica', description: 'Configurações gerais da clínica', version: '1.0.0', is_enabled: true }
+    ];
+
+    res.json(modulesList);
+  }));
+
+  // Toggle módulo (SuperAdmin)
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = parseInt(req.params.companyId);
+    const moduleId = req.params.moduleId;
+    const { enabled } = req.body;
+    
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
+
+    // Por enquanto, resposta de sucesso simples
+    // TODO: Implementar lógica real de toggle no banco
+    
+    res.json({ 
+      success: true, 
+      companyId, 
+      moduleId, 
+      enabled,
+      message: `Módulo ${moduleId} ${enabled ? 'ativado' : 'desativado'} para empresa ${companyId}` 
+    });
+  }));
+
+  // === APIs PARA MÓDULOS DO USUÁRIO ===
+  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
+    // Retornar permissões baseadas nos módulos ativos da empresa
+    const companyId = 3; // Dental Care Plus
+    
+    const activeModules = await db.$client.query(`
+      SELECT 
+        m.id, m.name, m.display_name, m.description,
+        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
+      FROM modules m
+      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
+      WHERE cm.is_enabled = true
+      ORDER BY m.display_name
+    `, [companyId]);
+    
+    res.json(activeModules.rows);
+  }));
+
+  // === APIs PARA MÓDULOS DA CLÍNICA ===
+  app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {
+    const modules = moduleRegistry.getAllModules();
+    const modulesByCategory = moduleRegistry.getModulesByCategory();
+    
+    res.json({
+      all: modules,
+      byCategory: modulesByCategory,
+      loaded: modules.length
+    });
+  }));
+
+  app.get("/api/clinic/modules/:moduleId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const module = moduleRegistry.getModule(moduleId);
+    
+    if (!module) {
+      return res.status(404).json({ message: "Módulo não encontrado" });
+    }
+    
+    res.json(module);
+  }));
+
+  app.post("/api/clinic/modules/:moduleId/activate", authCheck, tenantIsolationMiddleware, requireModulePermission('clinica', 'admin'), asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const success = moduleRegistry.activate(moduleId);
+    
+    if (success) {
+      res.json({ message: `Módulo ${moduleId} ativado com sucesso` });
+    } else {
+      res.status(404).json({ message: "Módulo não encontrado" });
+    }
+  }));
+
+  app.post("/api/clinic/modules/:moduleId/deactivate", authCheck, tenantIsolationMiddleware, requireModulePermission('clinica', 'admin'), asyncHandler(async (req: Request, res: Response) => {
+    const { moduleId } = req.params;
+    const success = moduleRegistry.deactivate(moduleId);
+    
+    if (success) {
+      res.json({ message: `Módulo ${moduleId} desativado com sucesso` });
+    } else {
+      res.status(404).json({ message: "Módulo não encontrado" });
+    }
+  }));
+
+  // === ROTAS PARA WEBSITES ===
+  // Obter dados do website
+  app.get("/api/website", authCheck, asyncHandler(websiteHandlers.getWebsite));
+  
+  // Salvar dados do website
+  app.post("/api/website", authCheck, asyncHandler(websiteHandlers.saveWebsite));
+  
+  // Publicar website
+  app.post("/api/website/publish", authCheck, asyncHandler(websiteHandlers.publishWebsite));
+  
+  // Preview do website
+  app.get("/api/website/preview", authCheck, asyncHandler(websiteHandlers.previewWebsite));
+  
+  // Upload de imagens para galeria
+  app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
+
+  // === ROTAS DE DIGITALIZAÇÃO ===
+  const digitalizacaoHandlers = await import('./digitalizacao-apis');
+  
+  app.post("/api/digitalizacao/process", authCheck, digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
+  app.get("/api/digitalizacao/history", authCheck, asyncHandler(digitalizacaoHandlers.getHistory));
+  app.get("/api/digitalizacao/download/:id", authCheck, asyncHandler(digitalizacaoHandlers.downloadFile));
+  app.delete("/api/digitalizacao/delete/:id", authCheck, asyncHandler(digitalizacaoHandlers.deleteFile));
 
   const httpServer = createServer(app);
   return httpServer;

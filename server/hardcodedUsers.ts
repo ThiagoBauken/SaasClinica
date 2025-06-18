@@ -14,6 +14,7 @@ export const fixedUsers: User[] = [
     speciality: null,
     active: true,
     googleId: null,
+    companyId: 3, // Dental Care Plus
     trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
     createdAt: new Date(),
     updatedAt: new Date()
@@ -30,6 +31,7 @@ export const fixedUsers: User[] = [
     speciality: "Clínico Geral",
     active: true,
     googleId: null,
+    companyId: 3, // Dental Care Plus
     trialEndsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 dias
     createdAt: new Date(),
     updatedAt: new Date()

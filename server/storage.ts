@@ -3,7 +3,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
 import { db, pool } from "./db";
-import { eq, and, gte, lt, count } from "drizzle-orm";
+import { eq, and, gte, lt, count, sql } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
@@ -47,7 +47,7 @@ export interface IStorage {
   
   // Appointments - tenant-aware
   getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]>;
-  getAppointment(id: number, companyId: number): Promise<any | undefined>;
+  getAppointment(id: number, companyId?: number): Promise<any | undefined>;
   createAppointment(appointment: any, companyId: number): Promise<any>;
   updateAppointment(id: number, data: any, companyId: number): Promise<any>;
   
@@ -78,7 +78,7 @@ export interface IStorage {
   updateAutomation(id: number, data: any, companyId: number): Promise<Automation>;
   deleteAutomation(id: number, companyId: number): Promise<void>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
 export class MemStorage implements IStorage {
@@ -95,7 +95,7 @@ export class MemStorage implements IStorage {
   private appointmentProcedures: Map<number, AppointmentProcedure>;
   private transactions: Map<number, Transaction>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   userIdCounter: number;
   patientIdCounter: number;
   appointmentIdCounter: number;
@@ -153,7 +153,8 @@ export class MemStorage implements IStorage {
       email: "admin@dentalclinic.com",
       role: "admin",
       speciality: "Administração",
-      active: true
+      active: true,
+      companyId: 3
     });
     
     // Create dentist user
@@ -164,7 +165,8 @@ export class MemStorage implements IStorage {
       email: "ana.silva@dentalclinic.com",
       role: "dentist",
       speciality: "Clínico Geral",
-      active: true
+      active: true,
+      companyId: 3
     });
     
     // Create rooms
@@ -206,14 +208,19 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
     const now = new Date();
+    const { speciality, ...userWithoutSpeciality } = insertUser;
     const user: User = { 
-      ...insertUser, 
+      ...userWithoutSpeciality, 
       id, 
       createdAt: now,
       updatedAt: now,
       active: true,
       googleId: insertUser.googleId || null,
       trialEndsAt: insertUser.trialEndsAt || null,
+      phone: insertUser.phone || null,
+      role: insertUser.role || "user",
+      profileImageUrl: insertUser.profileImageUrl || null,
+      speciality: speciality || null,
     };
     this.users.set(id, user);
     return user;
@@ -236,15 +243,19 @@ export class MemStorage implements IStorage {
   }
 
   // Patient methods
-  async getPatients(): Promise<Patient[]> {
-    return Array.from(this.patients.values());
+  async getPatients(companyId: number): Promise<Patient[]> {
+    return Array.from(this.patients.values()).filter(patient => patient.companyId === companyId);
   }
 
-  async getPatient(id: number): Promise<Patient | undefined> {
-    return this.patients.get(id);
+  async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
+    const patient = this.patients.get(id);
+    if (patient && patient.companyId === companyId) {
+      return patient;
+    }
+    return undefined;
   }
 
-  async createPatient(patient: any): Promise<Patient> {
+  async createPatient(patient: any, companyId: number): Promise<Patient> {
     const id = this.patientIdCounter++;
     const now = new Date();
     const newPatient: Patient = {
@@ -256,8 +267,8 @@ export class MemStorage implements IStorage {
     return newPatient;
   }
 
-  async updatePatient(id: number, data: any): Promise<Patient> {
-    const patient = await this.getPatient(id);
+  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
+    const patient = await this.getPatient(id, companyId);
     if (!patient) {
       throw new Error("Patient not found");
     }
@@ -272,16 +283,16 @@ export class MemStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(filters?: AppointmentFilters): Promise<any[]> {
+  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
     let appointments = Array.from(this.appointments.values());
     
     // Apply filters
     if (filters) {
       if (filters.startDate) {
-        appointments = appointments.filter(a => a.startTime >= filters.startDate);
+        appointments = appointments.filter(a => a.startTime >= new Date(filters.startDate!));
       }
       if (filters.endDate) {
-        appointments = appointments.filter(a => a.startTime < filters.endDate);
+        appointments = appointments.filter(a => a.startTime < new Date(filters.endDate!));
       }
       if (filters.professionalId !== undefined) {
         appointments = appointments.filter(a => a.professionalId === filters.professionalId);
@@ -297,7 +308,7 @@ export class MemStorage implements IStorage {
     // Enrich with related data
     const enrichedAppointments = await Promise.all(
       appointments.map(async (appointment) => {
-        const patient = appointment.patientId ? await this.getPatient(appointment.patientId) : undefined;
+        const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId) : undefined;
         const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
         const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
         
@@ -333,12 +344,15 @@ export class MemStorage implements IStorage {
     return enrichedAppointments;
   }
 
-  async getAppointment(id: number): Promise<any | undefined> {
+  async getAppointment(id: number, companyId: number): Promise<any | undefined> {
     const appointment = this.appointments.get(id);
     if (!appointment) return undefined;
     
+    // Filter by company if provided
+    if (companyId && appointment.companyId !== companyId) return undefined;
+    
     // Enrich with related data
-    const patient = appointment.patientId ? await this.getPatient(appointment.patientId) : undefined;
+    const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId || appointment.companyId) : undefined;
     const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
     const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
     
@@ -370,7 +384,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createAppointment(appointmentData: any): Promise<any> {
+  async createAppointment(appointmentData: any, companyId: number): Promise<any> {
     const id = this.appointmentIdCounter++;
     const now = new Date();
     
@@ -398,11 +412,11 @@ export class MemStorage implements IStorage {
       });
     }
     
-    return this.getAppointment(id);
+    return this.getAppointment(id, companyId);
   }
 
-  async updateAppointment(id: number, data: any): Promise<any> {
-    const appointment = await this.getAppointment(id);
+  async updateAppointment(id: number, data: any, companyId: number): Promise<any> {
+    const appointment = await this.getAppointment(id, companyId);
     if (!appointment) {
       throw new Error("Appointment not found");
     }
@@ -441,7 +455,7 @@ export class MemStorage implements IStorage {
       }
     }
     
-    return this.getAppointment(id);
+    return this.getAppointment(id, companyId);
   }
 
   // Professional methods
@@ -556,16 +570,17 @@ export class MemStorage implements IStorage {
   }
 
   // Automation methods
-  async getAutomations(): Promise<Automation[]> {
-    return Array.from(this.automations.values());
+  async getAutomations(companyId: number): Promise<Automation[]> {
+    return Array.from(this.automations.values()).filter(automation => automation.companyId === companyId);
   }
 
-  async createAutomation(data: any): Promise<Automation> {
+  async createAutomation(data: any, companyId: number): Promise<Automation> {
     const id = this.automationIdCounter++;
     const now = new Date();
     const automation: Automation = {
       ...data,
       id,
+      companyId,
       createdAt: now,
       updatedAt: now
     };
@@ -573,9 +588,9 @@ export class MemStorage implements IStorage {
     return automation;
   }
 
-  async updateAutomation(id: number, data: any): Promise<Automation> {
+  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> {
     const automation = this.automations.get(id);
-    if (!automation) {
+    if (!automation || automation.companyId !== companyId) {
       throw new Error("Automation not found");
     }
     
@@ -590,8 +605,9 @@ export class MemStorage implements IStorage {
     return updatedAutomation;
   }
 
-  async deleteAutomation(id: number): Promise<void> {
-    if (!this.automations.has(id)) {
+  async deleteAutomation(id: number, companyId: number): Promise<void> {
+    const automation = this.automations.get(id);
+    if (!automation || automation.companyId !== companyId) {
       throw new Error("Automation not found");
     }
     
@@ -600,7 +616,7 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -661,17 +677,19 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
-  // Patient methods
-  async getPatients(): Promise<Patient[]> {
-    return db.select().from(patients);
+  // Database Patient methods
+  async getPatients(companyId: number): Promise<Patient[]> {
+    return db.select().from(patients).where(eq(patients.companyId, companyId));
   }
 
-  async getPatient(id: number): Promise<Patient | undefined> {
-    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+  async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
+    const [patient] = await db.select().from(patients).where(
+      and(eq(patients.id, id), eq(patients.companyId, companyId))
+    );
     return patient || undefined;
   }
 
-  async createPatient(patientData: any): Promise<Patient> {
+  async createPatient(patientData: any, companyId: number): Promise<Patient> {
     const [patient] = await db
       .insert(patients)
       .values({
@@ -682,11 +700,11 @@ export class DatabaseStorage implements IStorage {
     return patient;
   }
 
-  async updatePatient(id: number, data: any): Promise<Patient> {
+  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
     const [updatedPatient] = await db
       .update(patients)
       .set(data)
-      .where(eq(patients.id, id))
+      .where(and(eq(patients.id, id), eq(patients.companyId, companyId)))
       .returning();
     
     if (!updatedPatient) {
@@ -697,41 +715,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(filters?: AppointmentFilters): Promise<any[]> {
-    let query = db.select().from(appointments);
+  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
+    try {
+      // Basic query with company filter
+      const appointmentsList = await db.select().from(appointments).where(eq(appointments.companyId, companyId));
     
-    // Apply filters
-    if (filters) {
-      let conditions = [];
-      
-      if (filters.startDate) {
-        conditions.push(gte(appointments.startTime, filters.startDate));
-      }
-      
-      if (filters.endDate) {
-        conditions.push(lt(appointments.startTime, filters.endDate));
-      }
-      
-      if (filters.professionalId !== undefined) {
-        conditions.push(eq(appointments.professionalId, filters.professionalId));
-      }
-      
-      if (filters.patientId !== undefined) {
-        conditions.push(eq(appointments.patientId, filters.patientId));
-      }
-      
-      if (filters.status) {
-        conditions.push(eq(appointments.status, filters.status));
-      }
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
-    }
-    
-    const appointmentsList = await query;
-    
-    // Enrich with related data
+      // Enrich with related data
     const enrichedAppointments = await Promise.all(
       appointmentsList.map(async (appointment) => {
         // Get patient info
@@ -801,7 +790,11 @@ export class DatabaseStorage implements IStorage {
       })
     );
     
-    return enrichedAppointments;
+      return enrichedAppointments;
+    } catch (error) {
+      console.error('Database error in getAppointments:', error);
+      return [];
+    }
   }
 
   async getAppointment(id: number): Promise<any | undefined> {
@@ -879,7 +872,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createAppointment(appointmentData: any): Promise<any> {
+  async createAppointment(appointmentData: any, companyId: number): Promise<any> {
     // Extract procedures to create appointment procedures
     const procedures = appointmentData.procedures || [];
     delete appointmentData.procedures;
@@ -1011,15 +1004,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Automations
-  async getAutomations(): Promise<Automation[]> {
-    return db.select().from(automations);
+  async getAutomations(companyId: number): Promise<Automation[]> {
+    return db.select().from(automations).where(eq(automations.companyId, companyId));
   }
 
-  async createAutomation(data: any): Promise<Automation> {
+  async createAutomation(data: any, companyId: number): Promise<Automation> {
     const [automation] = await db
       .insert(automations)
       .values({
         ...data,
+        companyId,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1027,7 +1021,7 @@ export class DatabaseStorage implements IStorage {
     return automation;
   }
 
-  async updateAutomation(id: number, data: any): Promise<Automation> {
+  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> {
     try {
       // Verificar se a automação existe antes de tentar atualizar
       const [existingAutomation] = await db
@@ -1058,7 +1052,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteAutomation(id: number): Promise<void> {
+  async deleteAutomation(id: number, companyId: number): Promise<void> {
     await db
       .delete(automations)
       .where(eq(automations.id, id));
@@ -1091,6 +1085,7 @@ export class DatabaseStorage implements IStorage {
         email: "admin@dentalclinic.com",
         role: "admin",
         speciality: "Administração",
+        companyId: 1,
       });
       
       // Create dentist user
@@ -1101,6 +1096,7 @@ export class DatabaseStorage implements IStorage {
         email: "ana.silva@dentalclinic.com",
         role: "dentist",
         speciality: "Clínico Geral",
+        companyId: 1,
       });
       
       // Create rooms

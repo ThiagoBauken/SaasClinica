@@ -482,28 +482,39 @@ export default function ProsthesisControlPage() {
         if (returnDate) {
           data.returnDate = returnDate;
         }
-        const res = await apiRequest("PATCH", `/api/prosthesis/${id}`, data);
-        if (!res.ok) {
-          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+        
+        const response = await fetch(`/api/prosthesis/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+          throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
         }
-        return await res.json();
+        
+        const result = await response.json();
+        return result;
       } catch (error) {
         console.error("Erro ao atualizar status:", error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       toast({
         title: "Sucesso",
-        description: "Status atualizado com sucesso!",
+        description: data.message || "Status atualizado com sucesso!",
       });
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao atualizar status:", error);
       toast({
         title: "Erro",
-        description: `Falha ao atualizar status: ${error.message}`,
+        description: error.message || "Falha ao atualizar status",
         variant: "destructive",
       });
     }
@@ -939,7 +950,7 @@ export default function ProsthesisControlPage() {
                   (column.id === 'sent' && delayedSent > 0) && "border-red-400",
                   (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
                 )}>
-                  <div className="p-4 font-semibold border-b flex justify-between items-center">
+                  <div className="p-4 font-semibold border-b flex justify-between items-center select-none">
                     <span className={cn(
                       "",
                       (column.id === 'sent' && delayedSent > 0) && "text-red-500",
@@ -992,7 +1003,7 @@ export default function ProsthesisControlPage() {
                                     ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
                                     snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
                                     isDelayed(item) && "border-red-400"
                                   )}
