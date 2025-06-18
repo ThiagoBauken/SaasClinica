@@ -817,11 +817,16 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler otimizado para drag and drop com máxima fluidez
+  // Sistema de drag super fluido - atualização instantânea na tela
+  const onDragStart = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
   const onDragEnd = useCallback((result: any) => {
+    setIsDragging(false);
+    
     const { source, destination, draggableId } = result;
     
-    // Prevenir ações desnecessárias
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
@@ -836,15 +841,15 @@ export default function ProsthesisControlPage() {
     const draggedItem = sourceItems.find(item => item.id === prosthesisId);
     if (!draggedItem) return;
     
-    // Criar novo estado de forma otimizada
+    // ATUALIZAÇÃO INSTANTÂNEA: Estado local atualizado imediatamente
     const newColumns = { ...columns };
     
-    // Remover da origem
+    // Remover da origem INSTANTANEAMENTE
     newColumns[source.droppableId].items = sourceItems.filter(
       item => item.id !== prosthesisId
     );
     
-    // Preparar item com novo status
+    // Preparar item com novo status INSTANTANEAMENTE
     const updatedItem = { 
       ...draggedItem,
       status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled'
@@ -910,10 +915,10 @@ export default function ProsthesisControlPage() {
       items: destinationItems
     };
     
-    // Atualizar estado local imediatamente (UI responsiva)
+    // ✅ ATUALIZAÇÃO INSTANTÂNEA - Bloco se move imediatamente na tela
     setColumns(newColumns);
     
-    // Atualizar backend de forma otimizada
+    // ⚡ Backend processa em paralelo - não interfere na fluidez visual
     updateStatusMutation.mutate({ 
       id: prosthesisId, 
       ...updateData
@@ -1193,7 +1198,7 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext onDragEnd={onDragEnd}>
+          <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className={cn(
               "grid grid-cols-1 gap-4",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1260,8 +1265,9 @@ export default function ProsthesisControlPage() {
                                     ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
-                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none",
+                                    "transform-gpu will-change-transform",
+                                    snapshot.isDragging ? "shadow-lg border-primary scale-[1.02] border-2 transition-none" : "transition-all duration-150 hover:bg-muted",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
