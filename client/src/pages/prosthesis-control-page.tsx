@@ -815,15 +815,16 @@ export default function ProsthesisControlPage() {
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus} na posição: ${position}`);
     
-    // Obter itens da coluna de destino para calcular posição
-    const targetColumnItems = columns.find(col => col.id === targetStatus)?.items || [];
+    // Obter próteses para calcular posição baseado no status de destino
+    const allProsthesis = prosthesisData || [];
+    const targetColumnItems = allProsthesis.filter((item: any) => item.status === targetStatus);
     let sortOrder = 0;
     
     // Calcular sortOrder baseado na posição desejada
     if (position === 'start') {
       // Inserir no início - usar sortOrder menor que o primeiro item
       if (targetColumnItems.length > 0) {
-        const minOrder = Math.min(...targetColumnItems.map(item => item.sortOrder || 0));
+        const minOrder = Math.min(...targetColumnItems.map((item: any) => item.sortOrder || 0));
         sortOrder = minOrder - 1;
       } else {
         sortOrder = 0;
@@ -831,19 +832,14 @@ export default function ProsthesisControlPage() {
     } else if (position === 'end') {
       // Inserir no final - usar sortOrder maior que o último item
       if (targetColumnItems.length > 0) {
-        const maxOrder = Math.max(...targetColumnItems.map(item => item.sortOrder || 0));
+        const maxOrder = Math.max(...targetColumnItems.map((item: any) => item.sortOrder || 0));
         sortOrder = maxOrder + 1;
       } else {
         sortOrder = 0;
       }
     } else {
-      // Posição exata - usar o índice de destino
-      if (destination.index < targetColumnItems.length) {
-        const targetItem = targetColumnItems[destination.index];
-        sortOrder = targetItem?.sortOrder || destination.index;
-      } else {
-        sortOrder = targetColumnItems.length;
-      }
+      // Posição exata - usar o índice de destino ou timestamp atual
+      sortOrder = Date.now();
     }
     
     // Preparar dados para atualização
