@@ -408,19 +408,19 @@ export default function ProsthesisControlPage() {
       
       console.log('Enviando requisição:', { method, url, data: prosthesisData });
       
-      const res = await apiRequest(method, url, prosthesisData);
-      
-      console.log('Resposta da requisição:', { status: res.status, ok: res.ok });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Erro na resposta:', errorText);
-        throw new Error(`Falha ao salvar: ${res.status} - ${errorText}`);
+      try {
+        const res = await apiRequest(method, url, prosthesisData);
+        
+        console.log('Resposta da requisição:', { status: res.status, ok: res.ok });
+        
+        // apiRequest já verifica se res.ok, então aqui só precisamos fazer o parse do JSON
+        const result = await res.json();
+        console.log('Dados retornados:', result);
+        return result;
+      } catch (error) {
+        console.error('Erro completo na requisição:', error);
+        throw error;
       }
-      
-      const result = await res.json();
-      console.log('Dados retornados:', result);
-      return result;
     },
     onSuccess: (data) => {
       console.log('Sucesso na mutation:', data);
@@ -439,7 +439,7 @@ export default function ProsthesisControlPage() {
       console.error('Erro na mutation:', error);
       toast({
         title: "Erro ao salvar",
-        description: error.message,
+        description: error.message || "Erro desconhecido ao salvar prótese",
         variant: "destructive",
       });
     }

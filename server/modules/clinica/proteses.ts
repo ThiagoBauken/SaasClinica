@@ -56,6 +56,15 @@ export function registerProtesesRoutes(app: Express) {
         const newProsthesis = await storage.createProsthesis(prosthesisData);
         console.log('Prótese criada com sucesso:', newProsthesis);
         
+        // Verificar se newProsthesis tem dados válidos
+        if (!newProsthesis || !newProsthesis.id) {
+          console.error('Prótese criada mas sem dados válidos:', newProsthesis);
+          return res.status(500).json({ 
+            error: 'Erro interno',
+            details: 'Prótese criada mas dados inválidos'
+          });
+        }
+        
         res.status(200).json(newProsthesis);
       } catch (error) {
         console.error('Erro detalhado ao criar prótese:', error);
