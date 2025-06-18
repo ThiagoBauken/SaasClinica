@@ -1355,32 +1355,31 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
+                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
-                              key={`prosthesis-${item.id}`} 
-                              draggableId={`prosthesis-${item.id}`} 
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  onClick={() => handleEditProsthesis(item)}
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    transform: snapshot.isDragging 
-                                      ? provided.draggableProps.style?.transform 
-                                      : 'none'
-                                  }}
-                                  className={cn(
-                                    "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-200 mb-2",
-                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90 mb-0",
-                                    !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
-                                    isDelayed(item) && "border-red-400"
-                                  )}
-                                >
+                                key={`prosthesis-${item.id}`} 
+                                draggableId={`prosthesis-${item.id}`} 
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    onClick={() => handleEditProsthesis(item)}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      margin: 0,
+                                      marginBottom: snapshot.isDragging ? 0 : '8px'
+                                    }}
+                                    className={cn(
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
+                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
+                                      isDelayed(item) && "border-red-400"
+                                    )}
+                                  >
                                   <div className="flex justify-between items-start mb-2">
                                     <div className="cursor-pointer" onClick={(e) => {
                                       e.stopPropagation(); // Evitar propagação do clique
