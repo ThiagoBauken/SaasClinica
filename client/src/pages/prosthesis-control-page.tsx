@@ -820,13 +820,35 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Sistema de drag super fluido - atualização instantânea na tela
-  const onDragStart = useCallback(() => {
+  // Sistema de drag ultra fluido com rastreamento perfeito do mouse
+  const onDragStart = useCallback((start: any) => {
     setIsDragging(true);
+    // Garantir que o elemento segue perfeitamente o cursor
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+  }, []);
+
+  const onDragUpdate = useCallback((update: any) => {
+    // Durante o movimento, garantir que não há interferências
+    if (update.destination) {
+      // Correção automática de posição em tempo real
+      const element = document.querySelector(`[data-rbd-draggable-id="${update.draggableId}"]`);
+      if (element) {
+        (element as HTMLElement).style.pointerEvents = 'none';
+      }
+    }
   }, []);
 
   const onDragEnd = useCallback((result: any) => {
     setIsDragging(false);
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    
+    // Restaurar pointer events
+    const element = document.querySelector(`[data-rbd-draggable-id="${result.draggableId}"]`);
+    if (element) {
+      (element as HTMLElement).style.pointerEvents = '';
+    }
     
     const { source, destination, draggableId } = result;
     
@@ -921,14 +943,13 @@ export default function ProsthesisControlPage() {
     // ✅ ATUALIZAÇÃO INSTANTÂNEA - Bloco se move imediatamente na tela
     setColumns(newColumns);
     
-    // ⚡ Controlar estado de atualização para evitar conflitos
-    setIsUpdating(true);
-    
-    // ⚡ Backend processa em paralelo - não interfere na fluidez visual
-    updateStatusMutation.mutate({ 
-      id: prosthesisId, 
-      ...updateData
-    });
+    // ⚡ Salvar backend em modo FIRE-AND-FORGET para máxima fluidez
+    setTimeout(() => {
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        ...updateData
+      });
+    }, 0);
   }, [columns, updateStatusMutation]);
   
   // Handlers para os filtros
@@ -1204,7 +1225,11 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <DragDropContext 
+            onDragStart={onDragStart} 
+            onDragUpdate={onDragUpdate}
+            onDragEnd={onDragEnd}
+          >
             <div className={cn(
               "grid grid-cols-1 gap-4",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1268,12 +1293,24 @@ export default function ProsthesisControlPage() {
                                   {...provided.dragHandleProps}
                                   onClick={() => handleEditProsthesis(item)}
                                   style={{
-                                    ...provided.draggableProps.style
+                                    ...provided.draggableProps.style,
+                                    // ✅ Rastreamento ULTRA PRECISO do mouse
+                                    transform: snapshot.isDragging 
+                                      ? `${provided.draggableProps.style?.transform} rotate(2deg) scale(1.05)`
+                                      : provided.draggableProps.style?.transform,
+                                    // ✅ ZERO transições durante drag para máxima responsividade
+                                    transition: snapshot.isDragging ? 'none !important' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)',
+                                    // ✅ Força máxima prioridade de renderização
+                                    zIndex: snapshot.isDragging ? 9999 : 'auto',
+                                    // ✅ Elimina lag visual
+                                    willChange: snapshot.isDragging ? 'transform' : 'auto'
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none",
-                                    "transform-gpu will-change-transform",
-                                    snapshot.isDragging ? "shadow-lg border-primary scale-[1.02] border-2 transition-none" : "transition-all duration-150 hover:bg-muted",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm select-none",
+                                    "transform-gpu will-change-transform backface-visibility-hidden",
+                                    snapshot.isDragging ? 
+                                      "shadow-2xl border-primary scale-110 border-2 cursor-grabbing z-50 bg-card" : 
+                                      "transition-all duration-200 hover:bg-muted cursor-grab",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
