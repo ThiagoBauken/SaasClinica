@@ -324,9 +324,9 @@ export default function ProsthesisControlPage() {
       toast({ title: "Erro ao remover laboratório", description: error.message, variant: "destructive" });
     }
   });
-  // Estado de controle para drag & drop
+  // Estado de controle para drag & drop ultra fluido
   const [isDragging, setIsDragging] = useState(false);
-  const [pendingUpdates, setPendingUpdates] = useState<Array<{id: number, data: any}>>([]);
+  const dragStateRef = useRef(false);
 
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
@@ -819,29 +819,19 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Sistema de drag ultra fluido com rastreamento perfeito do mouse
+  // Sistema de drag com taxa de atualização máxima
   const onDragStart = useCallback((start: any) => {
+    dragStateRef.current = true;
     setIsDragging(true);
-    // Garantir que o elemento segue perfeitamente o cursor
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
   }, []);
 
   const onDragUpdate = useCallback((update: any) => {
-    // Evitar qualquer re-renderização durante o movimento
-    // Bloqueio completo de estado durante drag
+    // Taxa de atualização máxima - sem interferências
   }, []);
 
   const onDragEnd = useCallback((result: any) => {
+    dragStateRef.current = false;
     setIsDragging(false);
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
-    
-    // Restaurar pointer events
-    const element = document.querySelector(`[data-rbd-draggable-id="${result.draggableId}"]`);
-    if (element) {
-      (element as HTMLElement).style.pointerEvents = '';
-    }
     
     const { source, destination, draggableId } = result;
     
@@ -933,15 +923,20 @@ export default function ProsthesisControlPage() {
       items: destinationItems
     };
     
-    // ✅ ATUALIZAÇÃO INSTANTÂNEA SEM INTERFERÊNCIA NO DRAG
-    requestAnimationFrame(() => {
+    // ✅ Atualizar estado apenas se não estamos arrastando
+    if (!dragStateRef.current) {
       setColumns(newColumns);
-      
-      // ⚡ Backend atualiza em paralelo sem afetar a UI
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        ...updateData
-      });
+    } else {
+      // Durante drag, agendar atualização para quando terminar
+      setTimeout(() => {
+        setColumns(newColumns);
+      }, 0);
+    }
+    
+    // Backend salva em paralelo
+    updateStatusMutation.mutate({ 
+      id: prosthesisId, 
+      ...updateData
     });
   }, [columns, updateStatusMutation]);
   
@@ -1287,23 +1282,18 @@ export default function ProsthesisControlPage() {
                                   onClick={() => handleEditProsthesis(item)}
                                   style={{
                                     ...provided.draggableProps.style,
-                                    // ✅ Rastreamento ULTRA PRECISO do mouse
-                                    transform: snapshot.isDragging 
-                                      ? `${provided.draggableProps.style?.transform} rotate(2deg) scale(1.05)`
-                                      : provided.draggableProps.style?.transform,
-                                    // ✅ ZERO transições durante drag para máxima responsividade
-                                    transition: snapshot.isDragging ? 'none !important' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)',
-                                    // ✅ Força máxima prioridade de renderização
-                                    zIndex: snapshot.isDragging ? 9999 : 'auto',
-                                    // ✅ Elimina lag visual
-                                    willChange: snapshot.isDragging ? 'transform' : 'auto'
+                                    // ✅ Rastreamento ULTRA FLUIDO - sem modificações visuais
+                                    transition: snapshot.isDragging ? 'none' : undefined,
+                                    // ✅ Taxa de atualização máxima no GPU
+                                    willChange: 'transform',
+                                    // ✅ Renderização otimizada
+                                    contain: 'layout style paint'
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm select-none",
-                                    "transform-gpu will-change-transform backface-visibility-hidden",
-                                    snapshot.isDragging ? 
-                                      "shadow-2xl border-primary scale-110 border-2 cursor-grabbing z-50 bg-card" : 
-                                      "transition-all duration-200 hover:bg-muted cursor-grab",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm select-none cursor-grab",
+                                    "transform-gpu will-change-transform",
+                                    snapshot.isDragging && "shadow-lg cursor-grabbing",
+                                    !snapshot.isDragging && "hover:bg-muted transition-colors duration-150",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
