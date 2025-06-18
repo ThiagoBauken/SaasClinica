@@ -340,6 +340,15 @@ export default function ProsthesisControlPage() {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+
+  // Função para restaurar etiquetas padrão
+  const restoreDefaultLabels = () => {
+    setLabels(defaultLabels);
+    toast({
+      title: "Etiquetas restauradas",
+      description: "As etiquetas padrão foram restauradas com sucesso."
+    });
+  };
   const [filters, setFilters] = useState({
     delayedServices: false,
     returnedServices: false,
@@ -1296,7 +1305,7 @@ export default function ProsthesisControlPage() {
                           className="w-full"
                         />
                         <datalist id="laboratorios-list">
-                          {mockLaboratories.map(lab => (
+                          {laboratories.map((lab: any) => (
                             <option key={lab.id} value={lab.name} />
                           ))}
                         </datalist>
@@ -1430,22 +1439,17 @@ export default function ProsthesisControlPage() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {mockLaboratories.map(lab => (
+                                {laboratories.map((lab: any) => (
                                   <TableRow key={lab.id}>
                                     <TableCell className="font-medium">{lab.name}</TableCell>
-                                    <TableCell>{lab.contact || "-"}</TableCell>
+                                    <TableCell>{lab.email || lab.phone || "-"}</TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex justify-end space-x-1">
                                         <Button
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => {
-                                            // Iniciar edição do laboratório
-                                            setEditingLaboratory({
-                                              id: lab.id,
-                                              name: lab.name,
-                                              contact: lab.contact
-                                            });
+                                            setEditingLab(lab);
                                           }}
                                         >
                                           <Edit className="h-4 w-4 text-muted-foreground" />
@@ -1454,12 +1458,9 @@ export default function ProsthesisControlPage() {
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => {
-                                            // Simular remoção do laboratório
-                                            toast({
-                                              title: "Laboratório removido",
-                                              description: `${lab.name} foi removido com sucesso.`
-                                            });
+                                            deleteLabMutation.mutate(lab.id);
                                           }}
+                                          disabled={deleteLabMutation.isPending}
                                         >
                                           <X className="h-4 w-4 text-destructive" />
                                         </Button>
@@ -1467,7 +1468,7 @@ export default function ProsthesisControlPage() {
                                     </TableCell>
                                   </TableRow>
                                 ))}
-                                {mockLaboratories.length === 0 && (
+                                {laboratories.length === 0 && (
                                   <TableRow>
                                     <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
                                       Nenhum laboratório cadastrado
