@@ -370,6 +370,11 @@ export default function ProsthesisControlPage() {
   const [selectedLaboratory, setSelectedLaboratory] = useState<string>("");
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [laboratorySearchOpen, setLaboratorySearchOpen] = useState(false);
+  
+  // Estados para controle robusto do drag-and-drop
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragSnapshot, setDragSnapshot] = useState<Prosthesis[] | null>(null);
+  const [deferredOperations, setDeferredOperations] = useState<(() => void)[]>([]);
 
   // Função para limpar os estados após salvar
   const clearFormStates = () => {
