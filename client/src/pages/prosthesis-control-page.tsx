@@ -57,6 +57,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
@@ -355,6 +356,23 @@ export default function ProsthesisControlPage() {
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [showArchivedColumn, setShowArchivedColumn] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<string>("");
+  const [selectedLaboratory, setSelectedLaboratory] = useState<string>("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [laboratorySearchOpen, setLaboratorySearchOpen] = useState(false);
+
+  // Função para limpar os estados após salvar
+  const clearFormStates = () => {
+    setSelectedPatient("");
+    setSelectedLaboratory("");
+    setSelectedLabels([]);
+    setSentDate(null);
+    setExpectedReturnDate(null);
+    setPatientSearchOpen(false);
+    setLaboratorySearchOpen(false);
+    setIsDialogOpen(false);
+    setEditingProsthesis(null);
+  };
 
   // Função para restaurar etiquetas padrão
   const restoreDefaultLabels = () => {
@@ -658,9 +676,30 @@ export default function ProsthesisControlPage() {
       });
     }
   });
+
+  // Mutation para criar laboratório automaticamente
+  const createLaboratoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest('POST', '/api/laboratories', {
+        name: name,
+        phone: '',
+        email: ''
+      });
+      if (!response.ok) {
+        throw new Error(`Erro ao criar laboratório: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao criar laboratório:", error);
+    }
+  });
   
   // Handler para salvar prótese
-  const handleSaveProsthesis = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveProsthesis = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     
@@ -677,17 +716,32 @@ export default function ProsthesisControlPage() {
       console.log('Original status:', editingProsthesis?.status);
       
       // Validar dados básicos
-      if (!formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
+      if (!selectedPatient && !formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
         throw new Error("Por favor, preencha todos os campos obrigatórios.");
+      }
+      
+      const laboratoryName = selectedLaboratory || formData.get("laboratory") as string;
+      
+      // Verificar se o laboratório existe, se não, criar automaticamente
+      if (laboratoryName && laboratories) {
+        const existingLab = laboratories.find((lab: any) => lab.name.toLowerCase() === laboratoryName.toLowerCase());
+        if (!existingLab) {
+          console.log("Creating new laboratory:", laboratoryName);
+          try {
+            await createLaboratoryMutation.mutateAsync(laboratoryName);
+          } catch (error) {
+            console.error("Error creating laboratory:", error);
+          }
+        }
       }
       
       // Preparar dados da prótese
       const prosthesisData: any = {
-        patientId: parseInt(formData.get("patient") as string),
+        patientId: parseInt(selectedPatient || formData.get("patient") as string),
         professionalId: parseInt(formData.get("professional") as string),
         type: formData.get("type") as string,
         description: formData.get("description") as string,
-        laboratory: formData.get("laboratory") as string,
+        laboratory: laboratoryName,
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
