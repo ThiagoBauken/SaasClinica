@@ -115,16 +115,14 @@ interface ProsthesisLabel {
   color: string;
 }
 
-// Cores disponíveis para etiquetas
-const LABEL_COLORS = [
-  { name: "Vermelho", value: "#dc2626" },
-  { name: "Laranja", value: "#ea580c" },
-  { name: "Amarelo", value: "#eab308" },
-  { name: "Verde", value: "#16a34a" },
-  { name: "Azul", value: "#2563eb" },
-  { name: "Roxo", value: "#9333ea" },
-  { name: "Rosa", value: "#ec4899" },
-  { name: "Cinza", value: "#6b7280" }
+// Rótulos padrão
+const defaultLabels: ProsthesisLabel[] = [
+  { id: "urgente", name: "Urgente", color: "#dc2626" },
+  { id: "prioridade", name: "Prioridade", color: "#ea580c" },
+  { id: "premium", name: "Premium", color: "#9333ea" },
+  { id: "retrabalho", name: "Retrabalho", color: "#eab308" },
+  { id: "provisorio", name: "Provisório", color: "#2563eb" },
+  { id: "definitivo", name: "Definitivo", color: "#16a34a" }
 ];
 
 // Mock data for prosthesis
@@ -264,29 +262,12 @@ export default function ProsthesisControlPage() {
     }
   });
 
-  // Query para buscar etiquetas do banco de dados
-  const { data: prosthesisLabels = [], isLoading: isLoadingLabels, refetch: refetchLabels } = useQuery({
-    queryKey: ["/api/prosthesis/labels"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/prosthesis/labels");
-      if (!res.ok) throw new Error("Falha ao carregar etiquetas");
-      return res.json();
-    }
-  });
-
   // Estados para laboratórios
   const [newLabName, setNewLabName] = useState("");
   const [newLabWhatsapp, setNewLabWhatsapp] = useState("");
   const [editingLab, setEditingLab] = useState<any>(null);
   const [editLabName, setEditLabName] = useState("");
   const [editLabPhone, setEditLabPhone] = useState("");
-
-  // Estados para gerenciamento de etiquetas
-  const [isManagingLabels, setIsManagingLabels] = useState(false);
-  const [editingLabel, setEditingLabel] = useState<any>(null);
-  const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("#2563eb");
-  const [newLabelDescription, setNewLabelDescription] = useState("");
 
   // Mutations para laboratórios
   const createLabMutation = useMutation({
@@ -380,7 +361,9 @@ export default function ProsthesisControlPage() {
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [prosthesisToDelete, setProsthesisToDelete] = useState<Prosthesis | null>(null);
-  // Note: labels are now loaded from database via prosthesisLabels query
+  const [labels, setLabels] = useState<ProsthesisLabel[]>(defaultLabels);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [showArchivedColumn, setShowArchivedColumn] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<string>("");
@@ -401,54 +384,14 @@ export default function ProsthesisControlPage() {
     setEditingProsthesis(null);
   };
 
-  // Label management mutations
-  const createLabelMutation = useMutation({
-    mutationFn: async (labelData: any) => {
-      const res = await apiRequest("POST", "/api/prosthesis/labels", labelData);
-      if (!res.ok) throw new Error("Falha ao criar etiqueta");
-      return res.json();
-    },
-    onSuccess: () => {
-      refetchLabels();
-      setNewLabelName("");
-      setNewLabelColor("#2563eb");
-      setNewLabelDescription("");
-      toast({ title: "Etiqueta criada com sucesso" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Erro ao criar etiqueta", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const updateLabelMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      const res = await apiRequest("PATCH", `/api/prosthesis/labels/${id}`, data);
-      if (!res.ok) throw new Error("Falha ao atualizar etiqueta");
-      return res.json();
-    },
-    onSuccess: () => {
-      refetchLabels();
-      setEditingLabel(null);
-      toast({ title: "Etiqueta atualizada com sucesso" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Erro ao atualizar etiqueta", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const deleteLabelMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/prosthesis/labels/${id}`);
-      if (!res.ok) throw new Error("Falha ao deletar etiqueta");
-    },
-    onSuccess: () => {
-      refetchLabels();
-      toast({ title: "Etiqueta excluída com sucesso" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Erro ao excluir etiqueta", description: error.message, variant: "destructive" });
-    }
-  });
+  // Função para restaurar etiquetas padrão
+  const restoreDefaultLabels = () => {
+    setLabels(defaultLabels);
+    toast({
+      title: "Etiquetas restauradas",
+      description: "As etiquetas padrão foram restauradas com sucesso."
+    });
+  };
   const [filters, setFilters] = useState({
     delayedServices: false,
     returnedServices: false,
