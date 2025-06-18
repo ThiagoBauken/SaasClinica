@@ -194,6 +194,13 @@ The application is designed for deployment on Replit with the following configur
   - Fixed all mockProfessionals and mockPatients references
   - System now fully operates with authentic database records
   - **INTEGRATION: 100% real data connectivity achieved**
+- June 18, 2025: **Fixed Drag-and-Drop Behavior for User Control**
+  - Corrected automatic movement of prosthesis blocks between columns
+  - Enabled free reorganization within same column without status changes
+  - Added validation only for cross-column moves (status transitions)
+  - Removed conflicting local state updates that caused unwanted movements
+  - Users now have full control over block positioning and organization
+  - **UX IMPROVEMENT: Complete user control over prosthesis arrangement**
 
 ## User Preferences
 
