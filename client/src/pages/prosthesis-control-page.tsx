@@ -354,6 +354,7 @@ export default function ProsthesisControlPage() {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [showArchivedColumn, setShowArchivedColumn] = useState(false);
 
   // Função para restaurar etiquetas padrão
   const restoreDefaultLabels = () => {
@@ -426,6 +427,11 @@ export default function ProsthesisControlPage() {
           }
         };
         
+        // Auto-mostrar coluna arquivado se houver itens arquivados
+        if (updatedColumns.archived.items.length > 0 && !showArchivedColumn) {
+          setShowArchivedColumn(true);
+        }
+
         // Aplicar filtros
         if (filters.delayedServices) {
           // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
