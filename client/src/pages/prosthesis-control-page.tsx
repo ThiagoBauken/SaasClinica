@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -636,10 +636,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Só invalidar se não estiver em drag para evitar conflitos
-      if (!isDragging) {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -802,81 +799,59 @@ export default function ProsthesisControlPage() {
   // Ref para throttling de operações drag
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Handler para drag and drop com posicionamento preciso - sem teleportação
-  const onDragEnd = useCallback((result: any) => {
+  // Handler para drag and drop completamente livre de teleportação
+  const onDragEnd = (result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
+    
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
+    }
+    
+    // Finalizar drag imediatamente para liberar interface
+    setIsDragging(false);
     
     const { source, destination, draggableId } = result;
     
-    // Validar movimento
+    // Validar resultado do drag
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
       console.log('Drag cancelado - sem mudança de posição');
-      setIsDragging(false);
       return;
     }
     
+    // Extrair ID da prótese
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
     const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus}`);
     
-    // Encontrar item sendo movido
-    const draggedItem = prosthesis?.find(item => item.id === prosthesisId);
-    if (!draggedItem) {
-      setIsDragging(false);
-      return;
-    }
-    
-    // Cancelar todas as queries pendentes
-    queryClient.cancelQueries({ queryKey: ['/api/prosthesis'] });
-    
-    // Snapshot para rollback
-    const previousData = queryClient.getQueryData(['/api/prosthesis']);
-    
-    // Criar item atualizado
-    let updatedItem = { ...draggedItem, status: targetStatus };
-    let toastMessage = '';
-    
-    // Aplicar lógica específica
-    if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
-      toastMessage = 'Prótese enviada para o laboratório';
-    } 
-    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
-      toastMessage = 'Prótese retornada do laboratório';
-    }
-    else if (targetStatus === 'completed') {
-      toastMessage = 'Prótese concluída com sucesso';
-    }
-    else if (targetStatus === 'pending') {
-      toastMessage = 'Status atualizado para pendente';
-    }
-    
-    // Atualização otimística IMEDIATA - o item fica onde foi dropado
-    queryClient.setQueryData(['/api/prosthesis'], (oldData: any) => {
-      if (!oldData || !Array.isArray(oldData)) return oldData;
+    // Throttle a operação para evitar múltiplas requisições
+    dragThrottleRef.current = setTimeout(() => {
+      // Preparar dados para atualização
+      let updateData: any = { id: prosthesisId, status: targetStatus };
+      let toastMessage = '';
       
-      return oldData.map((item: any) => 
-        item.id === prosthesisId ? updatedItem : item
-      );
-    });
-    
-    // FINALIZAR drag DEPOIS da atualização otimística
-    setIsDragging(false);
-    
-    // API call sem invalidação automática
-    const updateData: any = { 
-      id: prosthesisId, 
-      status: targetStatus,
-      ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
-      ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
-    };
-    
-    // Executar API call após delay mínimo para garantir estabilidade visual
-    setTimeout(() => {
+      // Lógica específica por transição
+      if (targetStatus === 'sent' && source.droppableId === 'pending') {
+        const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
+        updateData.sentDate = sentDateFormatted;
+        toastMessage = 'Prótese enviada para o laboratório';
+      } 
+      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+        const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
+        updateData.returnDate = returnDateFormatted;
+        toastMessage = 'Prótese retornada do laboratório';
+      }
+      else if (targetStatus === 'completed') {
+        toastMessage = 'Prótese concluída com sucesso';
+      }
+      else if (targetStatus === 'pending') {
+        toastMessage = 'Status atualizado para pendente';
+      }
+      
+      // Executar atualização no backend
       updateStatusMutation.mutate(updateData, {
         onSuccess: () => {
           if (toastMessage) {
@@ -885,13 +860,8 @@ export default function ProsthesisControlPage() {
               description: toastMessage,
             });
           }
-          // Atualizar dados apenas após sucesso da API
-          queryClient.invalidateQueries({ queryKey: ['/api/prosthesis'] });
         },
         onError: () => {
-          // Rollback em caso de erro
-          queryClient.setQueryData(['/api/prosthesis'], previousData);
-          
           toast({
             title: "Erro",
             description: "Falha ao atualizar status da prótese",
@@ -899,8 +869,8 @@ export default function ProsthesisControlPage() {
           });
         }
       });
-    }, 100); // Delay mínimo para evitar conflito visual
-  }, [prosthesis, updateStatusMutation, queryClient, toast]);
+    }, 300); // Throttle de 300ms para garantir estabilidade
+  };
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
@@ -1225,8 +1195,7 @@ export default function ProsthesisControlPage() {
                         )}
                         style={{ 
                           minHeight: "calc(100vh - 300px)",
-                          height: "calc(100vh - 300px)",
-                          transform: "translateZ(0)" // Hardware acceleration
+                          height: "calc(100vh - 300px)"
                         }}
                       >
                         <div className="space-y-2 flex-shrink-0">
@@ -1245,9 +1214,8 @@ export default function ProsthesisControlPage() {
                                   style={{
                                     ...provided.draggableProps.style,
                                     transform: snapshot.isDragging 
-                                      ? `${provided.draggableProps.style?.transform} rotate(2deg) translateZ(0)`
-                                      : 'translateZ(0)',
-                                    transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease'
+                                      ? provided.draggableProps.style?.transform 
+                                      : 'none'
                                   }}
                                   className={cn(
                                     "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
