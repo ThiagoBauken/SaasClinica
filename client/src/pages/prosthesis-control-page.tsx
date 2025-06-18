@@ -366,11 +366,11 @@ export default function ProsthesisControlPage() {
     setSelectedPatient("");
     setSelectedLaboratory("");
     setSelectedLabels([]);
-    setSentDate(null);
-    setExpectedReturnDate(null);
+    setSentDate(undefined);
+    setExpectedReturnDate(undefined);
     setPatientSearchOpen(false);
     setLaboratorySearchOpen(false);
-    setIsDialogOpen(false);
+    setIsModalOpen(false);
     setEditingProsthesis(null);
   };
 
@@ -976,6 +976,10 @@ export default function ProsthesisControlPage() {
   const handleEditProsthesis = (prosthesis: Prosthesis) => {
     setEditingProsthesis(prosthesis);
     
+    // Inicializar estados dos Comboboxes
+    setSelectedPatient(prosthesis.patientId.toString());
+    setSelectedLaboratory(prosthesis.laboratory || "");
+    
     // Converter strings para objetos Date
     if (prosthesis.sentDate && isValid(parseISO(prosthesis.sentDate))) {
       setSentDate(parseISO(prosthesis.sentDate));
@@ -1382,22 +1386,53 @@ export default function ProsthesisControlPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="patient">Paciente</Label>
-                    <Select 
-                      defaultValue={editingProsthesis?.patientId.toString() || undefined}
-                      name="patient"
-                      required
-                    >
-                      <SelectTrigger id="patient">
-                        <SelectValue placeholder="Selecione o paciente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockPatients.map(patient => (
-                          <SelectItem key={patient.id} value={patient.id.toString()}>
-                            {patient.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={patientSearchOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedPatient
+                            ? mockPatients.find((patient) => patient.id.toString() === selectedPatient)?.fullName
+                            : editingProsthesis
+                            ? mockPatients.find((patient) => patient.id === editingProsthesis.patientId)?.fullName
+                            : "Selecione o paciente..."}
+                          <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar paciente..." />
+                          <CommandEmpty>Nenhum paciente encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {mockPatients.map((patient) => (
+                              <CommandItem
+                                key={patient.id}
+                                value={patient.fullName}
+                                onSelect={() => {
+                                  setSelectedPatient(patient.id.toString());
+                                  setPatientSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedPatient === patient.id.toString() ||
+                                    (editingProsthesis && editingProsthesis.patientId === patient.id)
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {patient.fullName}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <input type="hidden" name="patient" value={selectedPatient || editingProsthesis?.patientId?.toString() || ""} required />
                   </div>
                   
                   <div className="grid gap-2">
@@ -1460,22 +1495,71 @@ export default function ProsthesisControlPage() {
                         </Button>
                       </div>
                       
-                      <div className="relative">
-                        <Input
-                          id="laboratory"
-                          name="laboratory"
-                          defaultValue={editingProsthesis?.laboratory || ""}
-                          placeholder="Selecionar laboratório"
-                          list="laboratorios-list"
-                          required
-                          className="w-full"
-                        />
-                        <datalist id="laboratorios-list">
-                          {laboratories.map((lab: any) => (
-                            <option key={lab.id} value={lab.name} />
-                          ))}
-                        </datalist>
-                      </div>
+                      <Popover open={laboratorySearchOpen} onOpenChange={setLaboratorySearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={laboratorySearchOpen}
+                            className="w-full justify-between"
+                          >
+                            {selectedLaboratory
+                              ? selectedLaboratory
+                              : editingProsthesis?.laboratory
+                              ? editingProsthesis.laboratory
+                              : "Selecione ou digite novo laboratório..."}
+                            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Buscar ou criar laboratório..." 
+                              value={selectedLaboratory}
+                              onValueChange={setSelectedLaboratory}
+                            />
+                            <CommandEmpty>
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum laboratório encontrado.
+                                {selectedLaboratory && (
+                                  <div className="mt-1">
+                                    Pressione Enter para criar "{selectedLaboratory}"
+                                  </div>
+                                )}
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {laboratories.map((lab: any) => (
+                                <CommandItem
+                                  key={lab.id}
+                                  value={lab.name}
+                                  onSelect={() => {
+                                    setSelectedLaboratory(lab.name);
+                                    setLaboratorySearchOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedLaboratory === lab.name ||
+                                      (editingProsthesis && editingProsthesis.laboratory === lab.name)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {lab.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <input 
+                        type="hidden" 
+                        name="laboratory" 
+                        value={selectedLaboratory || editingProsthesis?.laboratory || ""} 
+                        required 
+                      />
                     </div>
                     
                     {/* Modal para gerenciar laboratórios */}
