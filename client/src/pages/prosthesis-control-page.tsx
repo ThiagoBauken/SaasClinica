@@ -59,7 +59,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2 } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -977,7 +977,7 @@ export default function ProsthesisControlPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os laboratórios</SelectItem>
-                        {mockLaboratories.map(lab => (
+                        {laboratories?.map(lab => (
                           <SelectItem key={lab.id} value={lab.name}>
                             {lab.name}
                           </SelectItem>
@@ -1749,7 +1749,16 @@ export default function ProsthesisControlPage() {
               </div>
             </div>
             
-            <DialogFooter className="sm:justify-end">
+            <DialogFooter className="sm:justify-between">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={restoreDefaultLabels}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restaurar Padrão
+              </Button>
               <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
                 Fechar
               </Button>
