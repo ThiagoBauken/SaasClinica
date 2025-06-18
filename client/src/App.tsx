@@ -33,9 +33,9 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<div className="flex items-center justify-center h-screen">Carregando...</div>}>
           <Switch>
-            {/* Redirecionamento da raiz para a página de autenticação */}
+            {/* Redirecionamento da raiz para o dashboard */}
             <Route path="/">
-              <Redirect to="/auth" />
+              <Redirect to="/dashboard" />
             </Route>
             
             {/* Rotas públicas */}

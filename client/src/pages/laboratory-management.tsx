@@ -41,12 +41,16 @@ import { useAuth } from "@/hooks/use-auth";
 interface Laboratory {
   id: number;
   name: string;
-  contact: string;
-  address: string;
-  email?: string;
+  contactName?: string;
   phone?: string;
+  email?: string;
+  address?: string;
+  companyId?: number;
+  active?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // Campos antigos para compatibilidade
+  contact?: string;
 }
 
 export default function LaboratoryManagementPage() {
@@ -68,13 +72,18 @@ export default function LaboratoryManagementPage() {
   const { data: laboratories, isLoading, error } = useQuery<Laboratory[]>({
     queryKey: ["/api/laboratories"],
     queryFn: async () => {
+      console.log("Buscando laboratórios...");
       const res = await apiRequest("GET", "/api/laboratories");
       if (!res.ok) {
         throw new Error(`Erro ao carregar laboratórios: ${res.status}`);
       }
-      return await res.json();
+      const data = await res.json();
+      console.log("Laboratórios carregados:", data);
+      return data;
     },
-    retry: false
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 0 // Sempre buscar dados frescos
   });
   
   // Mutation para criar/atualizar laboratório
@@ -101,14 +110,17 @@ export default function LaboratoryManagementPage() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Mutation success, data received:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+      queryClient.refetchQueries({ queryKey: ["/api/laboratories"] });
       setIsDialogOpen(false);
       setEditingLaboratory(null);
       toast({
         title: "Sucesso",
         description: "Laboratório salvo com sucesso!",
       });
+      console.log("Cache invalidated and dialog closed");
     },
     onError: (error: Error) => {
       console.error("Erro ao salvar laboratório:", error);
@@ -135,13 +147,16 @@ export default function LaboratoryManagementPage() {
       }
     },
     onSuccess: () => {
+      console.log("Delete mutation success");
       queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+      queryClient.refetchQueries({ queryKey: ["/api/laboratories"] });
       setIsDeleteDialogOpen(false);
       setLaboratoryToDelete(null);
       toast({
         title: "Sucesso",
         description: "Laboratório removido com sucesso!",
       });
+      console.log("Cache invalidated after delete");
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao deletar laboratório:", error);
@@ -168,7 +183,7 @@ export default function LaboratoryManagementPage() {
       // Preparar dados
       const laboratoryData: Partial<Laboratory> = {
         name: name.trim(),
-        contact: (formData.get("contact") as string || "").trim(),
+        contactName: (formData.get("contactName") as string || "").trim(),
         address: (formData.get("address") as string || "").trim(),
         email: (formData.get("email") as string || "").trim(),
         phone: (formData.get("phone") as string || "").trim(),
@@ -245,8 +260,9 @@ export default function LaboratoryManagementPage() {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Contato</TableHead>
-                      <TableHead>Endereço</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Telefone</TableHead>
+                      <TableHead>Endereço</TableHead>
                       <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -254,9 +270,10 @@ export default function LaboratoryManagementPage() {
                     {laboratories.map((lab) => (
                       <TableRow key={lab.id}>
                         <TableCell className="font-medium">{lab.name}</TableCell>
-                        <TableCell>{lab.contact || "-"}</TableCell>
-                        <TableCell>{lab.address || "-"}</TableCell>
+                        <TableCell>{lab.contactName || lab.contact || "-"}</TableCell>
+                        <TableCell>{lab.email || "-"}</TableCell>
                         <TableCell>{lab.phone || "-"}</TableCell>
+                        <TableCell>{lab.address || "-"}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
@@ -317,11 +334,11 @@ export default function LaboratoryManagementPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="contact">Contato</Label>
+                  <Label htmlFor="contactName">Contato</Label>
                   <Input
-                    id="contact"
-                    name="contact"
-                    defaultValue={editingLaboratory?.contact || ""}
+                    id="contactName"
+                    name="contactName"
+                    defaultValue={editingLaboratory?.contactName || editingLaboratory?.contact || ""}
                     placeholder="Nome do contato"
                   />
                 </div>
