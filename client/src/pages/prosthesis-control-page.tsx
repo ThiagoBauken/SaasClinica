@@ -611,6 +611,8 @@ export default function ProsthesisControlPage() {
       console.log('Selected labels:', selectedLabels);
       console.log('Sent date:', sentDateFormatted);
       console.log('Expected return date:', expectedReturnDateFormatted);
+      console.log('Editing prosthesis:', editingProsthesis);
+      console.log('Original status:', editingProsthesis?.status);
       
       // Validar dados básicos
       if (!formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
