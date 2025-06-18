@@ -1,12 +1,6 @@
 import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure } from "@shared/schema";
-import session from "express-session";
-import createMemoryStore from "memorystore";
-import connectPg from "connect-pg-simple";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql } from "drizzle-orm";
-
-const MemoryStore = createMemoryStore(session);
-const PostgresSessionStore = connectPg(session);
 
 // Data structure for transaction objects
 interface Transaction {
@@ -617,13 +611,8 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: any;
-
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool,
-      createTableIfMissing: true 
-    });
+    // Removido sessionStore problemático
   }
 
   // User methods
