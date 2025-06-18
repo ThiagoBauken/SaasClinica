@@ -612,10 +612,7 @@ export default function ProsthesisControlPage() {
   
   // Estado para controle de posicionamento no drop
   const [showPositionOptions, setShowPositionOptions] = useState(false);
-  const [pendingDrop, setPendingDrop] = useState<{
-    result: any;
-    targetColumn: any[];
-  } | null>(null);
+  const [defaultDropPosition, setDefaultDropPosition] = useState<'start' | 'exact' | 'end'>('exact');
   
   // Mutation simplificada para atualizar status
   const updateStatusMutation = useMutation({
@@ -867,9 +864,7 @@ export default function ProsthesisControlPage() {
       }
     });
     
-    // Limpar estado de posicionamento
-    setShowPositionOptions(false);
-    setPendingDrop(null);
+    // Configuração salva automaticamente
   };
 
   // Handler para drag and drop com opções de posicionamento
@@ -900,9 +895,8 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Para mudanças de coluna, mostrar sempre as opções de posicionamento
-    setPendingDrop({ result, targetColumn: [] });
-    setShowPositionOptions(true);
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
   };
   
   // Handlers para os filtros
@@ -1166,6 +1160,13 @@ export default function ProsthesisControlPage() {
             
             <Button onClick={handleOpenNewProsthesisModal}>
               <Plus className="h-4 w-4 mr-2" /> Nova Prótese
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPositionOptions(true)}
+            >
+              <ArrowUpDown className="h-4 w-4 mr-2" /> Posicionamento
             </Button>
           </div>
         </div>
@@ -2067,21 +2068,21 @@ export default function ProsthesisControlPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal para opções de posicionamento no Kanban */}
+        {/* Modal para configurações de posicionamento no Kanban */}
         <Dialog open={showPositionOptions} onOpenChange={setShowPositionOptions}>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Onde posicionar a prótese?</DialogTitle>
+              <DialogTitle>Configurações de Posicionamento</DialogTitle>
               <p className="text-sm text-muted-foreground">
-                Escolha onde você deseja inserir a prótese na nova coluna:
+                Escolha onde as próteses devem ser inseridas por padrão ao mover entre colunas:
               </p>
             </DialogHeader>
             
             <div className="space-y-3 py-4">
               <Button
-                variant="outline"
+                variant={defaultDropPosition === 'start' ? 'default' : 'outline'}
                 className="w-full h-auto p-4 flex items-center justify-start gap-3"
-                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'start')}
+                onClick={() => setDefaultDropPosition('start')}
               >
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
                   <ArrowUpDown className="h-4 w-4 text-primary" />
@@ -2095,9 +2096,9 @@ export default function ProsthesisControlPage() {
               </Button>
 
               <Button
-                variant="outline"
+                variant={defaultDropPosition === 'exact' ? 'default' : 'outline'}
                 className="w-full h-auto p-4 flex items-center justify-start gap-3"
-                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'exact')}
+                onClick={() => setDefaultDropPosition('exact')}
               >
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
                   <Package className="h-4 w-4 text-primary" />
@@ -2111,9 +2112,9 @@ export default function ProsthesisControlPage() {
               </Button>
 
               <Button
-                variant="outline"
+                variant={defaultDropPosition === 'end' ? 'default' : 'outline'}
                 className="w-full h-auto p-4 flex items-center justify-start gap-3"
-                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'end')}
+                onClick={() => setDefaultDropPosition('end')}
               >
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
                   <ArrowLeftRight className="h-4 w-4 text-primary" />
@@ -2130,13 +2131,20 @@ export default function ProsthesisControlPage() {
             <DialogFooter>
               <Button 
                 type="button" 
-                variant="secondary" 
+                variant="default"
                 onClick={() => {
                   setShowPositionOptions(false);
-                  setPendingDrop(null);
+                  toast({
+                    title: "Configuração salva",
+                    description: `Posicionamento padrão definido como: ${
+                      defaultDropPosition === 'start' ? 'início da fila' :
+                      defaultDropPosition === 'end' ? 'final da fila' :
+                      'posição escolhida'
+                    }`,
+                  });
                 }}
               >
-                Cancelar
+                Salvar Configuração
               </Button>
             </DialogFooter>
           </DialogContent>
