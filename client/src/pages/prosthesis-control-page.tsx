@@ -783,7 +783,7 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag and drop com melhor desempenho
+  // Handler para drag and drop otimizado - sem invalidações desnecessárias
   const onDragEnd = (result: any) => {
     const { source, destination, draggableId } = result;
     
@@ -801,107 +801,90 @@ export default function ProsthesisControlPage() {
     
     if (!draggedItem) return;
     
-    // Criar uma cópia das colunas atuais
+    // Atualizar estado local imediatamente para UI responsiva
     const newColumns = { ...columns };
     
-    // Remover da coluna de origem
-    newColumns[source.droppableId as keyof typeof newColumns].items = 
-      newColumns[source.droppableId as keyof typeof newColumns].items.filter(
+    // Remover da coluna de origem (cópia imutável)
+    newColumns[source.droppableId as keyof typeof newColumns] = {
+      ...newColumns[source.droppableId as keyof typeof newColumns],
+      items: newColumns[source.droppableId as keyof typeof newColumns].items.filter(
         item => item.id !== prosthesisId
-      );
+      )
+    };
     
-    // Adicionar na coluna de destino com o status atualizado
-    // e outros campos dependendo do status
+    // Preparar item atualizado
     const updatedItem = { 
       ...draggedItem,
       status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled'
     };
     
+    // Preparar dados para atualização no backend
+    let updateData: any = { status: destination.droppableId };
+    
     // Lógica específica por transição de status
     if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
-      // Quando enviamos ao laboratório
       const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
       updatedItem.sentDate = sentDateFormatted;
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'sent',
-        sentDate: sentDateFormatted
-      });
+      updateData.sentDate = sentDateFormatted;
       
       toast({
         title: "Prótese enviada",
-        description: `Prótese de ${updatedItem.patientName} enviada para o laboratório ${updatedItem.laboratory}`,
+        description: `Prótese enviada para o laboratório`,
       });
     } 
     else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
-      // Quando retorna do laboratório
       const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
       updatedItem.returnDate = returnDateFormatted;
+      updateData.returnDate = returnDateFormatted;
       
-      // Verificar se está atrasado
       if (updatedItem.expectedReturnDate && isAfter(new Date(), parseISO(updatedItem.expectedReturnDate))) {
         const daysLate = differenceInDays(new Date(), parseISO(updatedItem.expectedReturnDate));
-        
         toast({
           title: "Prótese retornada com atraso",
-          description: `A prótese retornou com ${daysLate} dias de atraso`,
+          description: `Retornou com ${daysLate} dias de atraso`,
           variant: "destructive"
         });
       } else {
         toast({
           title: "Prótese retornada",
-          description: `Prótese de ${updatedItem.patientName} retornou do laboratório`,
+          description: "Prótese retornou do laboratório",
         });
       }
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'returned',
-        returnDate: returnDateFormatted
-      });
     }
     else if (destination.droppableId === 'completed') {
-      // Quando concluímos o caso
       toast({
         title: "Prótese concluída",
-        description: `Tratamento de ${updatedItem.patientName} concluído com sucesso`,
-      });
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'completed'
+        description: "Tratamento concluído com sucesso",
       });
     }
     else if (destination.droppableId === 'pending') {
-      // Quando voltamos para pendente (cancelar envio)
       updatedItem.sentDate = null;
       updatedItem.returnDate = null;
-      
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'pending'
-      });
+      updateData.sentDate = null;
+      updateData.returnDate = null;
       
       toast({
         title: "Status atualizado",
-        description: `Prótese de ${updatedItem.patientName} retornou para pendente`,
+        description: "Prótese retornou para pendente",
       });
     }
     
-    // Adicionar o item atualizado à coluna de destino
-    newColumns[destination.droppableId as keyof typeof newColumns].items.splice(
-      destination.index,
-      0,
-      updatedItem
-    );
+    // Adicionar à coluna de destino na posição correta
+    const destItems = [...newColumns[destination.droppableId as keyof typeof newColumns].items];
+    destItems.splice(destination.index, 0, updatedItem);
     
-    // Atualizar o estado imediatamente para evitar lag na interface
-    window.requestAnimationFrame(() => {
-      setColumns(newColumns);
+    newColumns[destination.droppableId as keyof typeof newColumns] = {
+      ...newColumns[destination.droppableId as keyof typeof newColumns],
+      items: destItems
+    };
+    
+    // Atualizar estado local imediatamente (UI responsiva)
+    setColumns(newColumns);
+    
+    // Atualizar backend de forma otimizada
+    updateStatusMutation.mutate({ 
+      id: prosthesisId, 
+      ...updateData
     });
   };
   
