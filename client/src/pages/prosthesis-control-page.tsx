@@ -476,23 +476,36 @@ export default function ProsthesisControlPage() {
   
   // Mutation para atualizar status
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, returnDate }: { id: number; status: string; returnDate?: string }) => {
+    mutationFn: async ({ id, status, returnDate, sentDate }: { 
+      id: number; 
+      status: string; 
+      returnDate?: string;
+      sentDate?: string;
+    }) => {
       try {
-        const data: any = { status };
-        if (returnDate) {
-          data.returnDate = returnDate;
+        const updateData: any = { 
+          status,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Adicionar campos específicos dependendo do status
+        if (status === 'sent' && sentDate) {
+          updateData.sentDate = sentDate;
+        }
+        if (status === 'returned' && returnDate) {
+          updateData.returnDate = returnDate;
         }
         
-        const response = await fetch(`/api/prosthesis/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
+        const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, updateData);
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { message: errorText || 'Erro desconhecido' };
+          }
           throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
         }
         
@@ -504,17 +517,19 @@ export default function ProsthesisControlPage() {
       }
     },
     onSuccess: (data) => {
+      // Invalidar queries para recarregar dados
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      
       toast({
-        title: "Sucesso",
-        description: data.message || "Status atualizado com sucesso!",
+        title: "Status atualizado",
+        description: data?.message || "Status da prótese atualizado com sucesso!",
       });
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao atualizar status:", error);
       toast({
-        title: "Erro",
-        description: error.message || "Falha ao atualizar status",
+        title: "Erro ao atualizar",
+        description: error.message || "Falha ao atualizar status da prótese",
         variant: "destructive",
       });
     }
@@ -616,13 +631,14 @@ export default function ProsthesisControlPage() {
     // Lógica específica por transição de status
     if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
       // Quando enviamos ao laboratório
-      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+      const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updatedItem.sentDate = sentDateFormatted;
       
-      // Atualizar no backend (mockado aqui)
+      // Atualizar no backend
       updateStatusMutation.mutate({ 
         id: prosthesisId, 
         status: 'sent',
-        returnDate: undefined
+        sentDate: sentDateFormatted
       });
       
       toast({
@@ -632,7 +648,8 @@ export default function ProsthesisControlPage() {
     } 
     else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
       // Quando retorna do laboratório
-      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
+      const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updatedItem.returnDate = returnDateFormatted;
       
       // Verificar se está atrasado
       if (updatedItem.expectedReturnDate && isAfter(new Date(), parseISO(updatedItem.expectedReturnDate))) {
@@ -650,11 +667,11 @@ export default function ProsthesisControlPage() {
         });
       }
       
-      // Atualizar no backend (mockado aqui)
+      // Atualizar no backend
       updateStatusMutation.mutate({ 
         id: prosthesisId, 
         status: 'returned',
-        returnDate: format(new Date(), "yyyy-MM-dd")
+        returnDate: returnDateFormatted
       });
     }
     else if (destination.droppableId === 'completed') {
@@ -664,10 +681,25 @@ export default function ProsthesisControlPage() {
         description: `Tratamento de ${updatedItem.patientName} concluído com sucesso`,
       });
       
-      // Atualizar no backend (mockado aqui)
+      // Atualizar no backend
       updateStatusMutation.mutate({ 
         id: prosthesisId, 
         status: 'completed'
+      });
+    }
+    else if (destination.droppableId === 'pending') {
+      // Quando voltamos para pendente (cancelar envio)
+      updatedItem.sentDate = null;
+      updatedItem.returnDate = null;
+      
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        status: 'pending'
+      });
+      
+      toast({
+        title: "Status atualizado",
+        description: `Prótese de ${updatedItem.patientName} retornou para pendente`,
       });
     }
     
@@ -809,8 +841,6 @@ export default function ProsthesisControlPage() {
     <DashboardLayout title="Controle de Próteses" currentPath="/prosthesis">
       <div className="container mx-auto py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Controle de Próteses</h1>
-          
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowLabelManager(true)} className="gap-2">
               <Settings className="h-4 w-4" />
