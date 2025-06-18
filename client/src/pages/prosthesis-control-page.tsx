@@ -539,10 +539,13 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: (data) => {
       console.log('Sucesso na mutation:', data);
+      // Invalidar cache apenas para criar/editar, não para drag-and-drop
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
       setSelectedLabels([]);
+      setSelectedPatient("");
+      setSelectedLaboratory("");
       setSentDate(undefined);
       setExpectedReturnDate(undefined);
       toast({
@@ -624,8 +627,8 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Recarregar dados após sucesso
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // NÃO invalidar cache automaticamente para evitar movimentações indesejadas
+      // O estado local já foi atualizado no onDragEnd para UI responsiva
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
