@@ -89,24 +89,38 @@ export default function LaboratoryManagementPage() {
   // Mutation para criar/atualizar laboratório
   const laboratoryMutation = useMutation({
     mutationFn: async (laboratoryData: Partial<Laboratory>) => {
+      console.log("🚀 Iniciando mutation com dados:", laboratoryData);
+      
       try {
         if (laboratoryData.id) {
           // Atualização
+          console.log("📝 Atualizando laboratório ID:", laboratoryData.id);
           const res = await apiRequest("PATCH", `/api/laboratories/${laboratoryData.id}`, laboratoryData);
+          console.log("📊 Resposta PATCH:", res.status, res.statusText);
           if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+            const errorText = await res.text();
+            console.error("❌ Erro PATCH:", errorText);
+            throw new Error(`Erro HTTP: ${res.status} ${res.statusText} - ${errorText}`);
           }
-          return await res.json();
+          const result = await res.json();
+          console.log("✅ Sucesso PATCH:", result);
+          return result;
         } else {
           // Criação
+          console.log("🆕 Criando novo laboratório");
           const res = await apiRequest("POST", "/api/laboratories", laboratoryData);
+          console.log("📊 Resposta POST:", res.status, res.statusText);
           if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
+            const errorText = await res.text();
+            console.error("❌ Erro POST:", errorText);
+            throw new Error(`Erro HTTP: ${res.status} ${res.statusText} - ${errorText}`);
           }
-          return await res.json();
+          const result = await res.json();
+          console.log("✅ Sucesso POST:", result);
+          return result;
         }
       } catch (error) {
-        console.error("Erro na mutação:", error);
+        console.error("💥 Erro na mutação:", error);
         throw error;
       }
     },
@@ -173,10 +187,15 @@ export default function LaboratoryManagementPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     
+    console.log("Form submitted, processing data...");
+    
     try {
       // Validação básica
       const name = formData.get("name") as string;
+      console.log("Nome extraído do form:", name);
+      
       if (!name || name.trim() === "") {
+        console.error("Nome do laboratório está vazio!");
         throw new Error("O nome do laboratório é obrigatório");
       }
       
@@ -189,12 +208,18 @@ export default function LaboratoryManagementPage() {
         phone: (formData.get("phone") as string || "").trim(),
       };
       
+      console.log("Dados preparados para envio:", laboratoryData);
+      
       // Se estiver editando, incluir o ID
       if (editingLaboratory) {
         laboratoryData.id = editingLaboratory.id;
+        console.log("Editando laboratório com ID:", editingLaboratory.id);
+      } else {
+        console.log("Criando novo laboratório");
       }
       
       // Enviar mutação
+      console.log("Enviando mutação...");
       laboratoryMutation.mutate(laboratoryData);
     } catch (error) {
       // Tratar erros de validação
