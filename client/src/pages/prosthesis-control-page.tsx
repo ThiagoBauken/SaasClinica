@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -324,6 +324,10 @@ export default function ProsthesisControlPage() {
       toast({ title: "Erro ao remover laboratório", description: error.message, variant: "destructive" });
     }
   });
+  // Estado de controle para drag & drop
+  const [isDragging, setIsDragging] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState<Array<{id: number, data: any}>>([]);
+
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
       id: "pending",
