@@ -373,10 +373,6 @@ export default function ProsthesisControlPage() {
   
   // Estados para controle robusto do drag-and-drop
   const [isDragging, setIsDragging] = useState(false);
-  const [dragSnapshot, setDragSnapshot] = useState<Prosthesis[] | null>(null);
-  const [deferredOperations, setDeferredOperations] = useState<(() => void)[]>([]);
-  const [optimisticUpdates, setOptimisticUpdates] = useState<Record<number, string>>({});
-  const [dragDebounceTimeout, setDragDebounceTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Função para limpar os estados após salvar
   const clearFormStates = () => {
@@ -445,34 +441,26 @@ export default function ProsthesisControlPage() {
     
     if (prosthesis) {
       try {
-        // Aplicar atualizações otimistas antes de organizar em colunas
-        const prosthesisWithOptimisticUpdates = prosthesis.map(p => {
-          if (optimisticUpdates[p.id]) {
-            return { ...p, status: optimisticUpdates[p.id] as any };
-          }
-          return p;
-        });
-        
         const updatedColumns = {
           pending: {
             ...columns.pending,
-            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'pending')
+            items: prosthesis.filter(p => p.status === 'pending')
           },
           sent: {
             ...columns.sent,
-            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'sent')
+            items: prosthesis.filter(p => p.status === 'sent')
           },
           returned: {
             ...columns.returned,
-            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'returned')
+            items: prosthesis.filter(p => p.status === 'returned')
           },
           completed: {
             ...columns.completed,
-            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'completed')
+            items: prosthesis.filter(p => p.status === 'completed')
           },
           archived: {
             ...columns.archived,
-            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'archived')
+            items: prosthesis.filter(p => p.status === 'archived')
           }
         };
         
@@ -843,22 +831,24 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag and drop robusto e sem teleportação
+  // Ref para throttling de operações drag
+  const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Handler para drag and drop completamente livre de teleportação
   const onDragEnd = (result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
     
-    // Executar operações adiadas primeiro
-    if (deferredOperations.length > 0) {
-      console.log('Executando operações adiadas:', deferredOperations.length);
-      deferredOperations.forEach(operation => operation());
-      setDeferredOperations([]);
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
     }
     
+    // Finalizar drag imediatamente para liberar interface
     setIsDragging(false);
     
     const { source, destination, draggableId } = result;
     
-    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
+    // Validar resultado do drag
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
@@ -866,70 +856,55 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Encontrar o item arrastado
+    // Extrair ID da prótese
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
     const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
-    // Aplicar atualização otimista IMEDIATAMENTE
-    setOptimisticUpdates(prev => ({
-      ...prev,
-      [prosthesisId]: targetStatus
-    }));
+    console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus}`);
     
-    // Preparar dados para atualização no backend
-    let updateData: any = { id: prosthesisId, status: targetStatus };
-    let toastMessage = '';
-    
-    // Lógica específica por transição de status
-    if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updateData.sentDate = sentDateFormatted;
-      toastMessage = 'Prótese enviada para o laboratório';
-    } 
-    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updateData.returnDate = returnDateFormatted;
-      toastMessage = 'Prótese retornada do laboratório';
-    }
-    else if (targetStatus === 'completed') {
-      toastMessage = 'Prótese concluída com sucesso';
-    }
-    else if (targetStatus === 'pending') {
-      toastMessage = 'Status atualizado para pendente';
-    }
-    
-    // Executar atualização no backend
-    updateStatusMutation.mutate(updateData, {
-      onSuccess: () => {
-        // Remover atualização otimista após sucesso
-        setOptimisticUpdates(prev => {
-          const newUpdates = { ...prev };
-          delete newUpdates[prosthesisId];
-          return newUpdates;
-        });
-        
-        if (toastMessage) {
+    // Throttle a operação para evitar múltiplas requisições
+    dragThrottleRef.current = setTimeout(() => {
+      // Preparar dados para atualização
+      let updateData: any = { id: prosthesisId, status: targetStatus };
+      let toastMessage = '';
+      
+      // Lógica específica por transição
+      if (targetStatus === 'sent' && source.droppableId === 'pending') {
+        const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
+        updateData.sentDate = sentDateFormatted;
+        toastMessage = 'Prótese enviada para o laboratório';
+      } 
+      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+        const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
+        updateData.returnDate = returnDateFormatted;
+        toastMessage = 'Prótese retornada do laboratório';
+      }
+      else if (targetStatus === 'completed') {
+        toastMessage = 'Prótese concluída com sucesso';
+      }
+      else if (targetStatus === 'pending') {
+        toastMessage = 'Status atualizado para pendente';
+      }
+      
+      // Executar atualização no backend
+      updateStatusMutation.mutate(updateData, {
+        onSuccess: () => {
+          if (toastMessage) {
+            toast({
+              title: "Status atualizado",
+              description: toastMessage,
+            });
+          }
+        },
+        onError: () => {
           toast({
-            title: "Status atualizado",
-            description: toastMessage,
+            title: "Erro",
+            description: "Falha ao atualizar status da prótese",
+            variant: "destructive",
           });
         }
-      },
-      onError: () => {
-        // Reverter atualização otimista em caso de erro
-        setOptimisticUpdates(prev => {
-          const newUpdates = { ...prev };
-          delete newUpdates[prosthesisId];
-          return newUpdates;
-        });
-        
-        toast({
-          title: "Erro",
-          description: "Falha ao atualizar status da prótese",
-          variant: "destructive",
-        });
-      }
-    });
+      });
+    }, 300); // Throttle de 300ms para garantir estabilidade
   };
   
   // Handlers para os filtros
@@ -1206,7 +1181,7 @@ export default function ProsthesisControlPage() {
           </div>
         ) : (
           <DragDropContext 
-            onDragStart={() => {
+            onDragStart={(start) => {
               console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
             }}
