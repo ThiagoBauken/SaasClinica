@@ -1191,7 +1191,13 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext onDragEnd={onDragEnd}>
+          <DragDropContext 
+            onDragEnd={onDragEnd}
+            onDragStart={() => {
+              // Melhorar responsividade para touch e movimentos rápidos
+              document.body.style.userSelect = 'none';
+            }}
+          >
             <div className={cn(
               "grid grid-cols-1 gap-4",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1255,11 +1261,14 @@ export default function ProsthesisControlPage() {
                                   {...provided.dragHandleProps}
                                   onClick={() => handleEditProsthesis(item)}
                                   style={{
-                                    ...provided.draggableProps.style
+                                    ...provided.draggableProps.style,
+                                    // Otimizações para movimentos rápidos
+                                    transform: provided.draggableProps.style?.transform,
+                                    transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease',
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
-                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab hover:bg-muted select-none",
+                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2 cursor-grabbing",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >

@@ -41,6 +41,41 @@
   --chart-5: 4 90% 58%;
 }
 
+/* Drag and Drop Optimizations */
+[data-rbd-draggable-context-id] {
+  /* Otimizações para movimentos rápidos */
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+[data-rbd-drag-handle-context-id] {
+  /* Melhorar responsividade do handle */
+  touch-action: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Durante o arraste */
+[data-rbd-draggable-context-id][data-rbd-draggable-dragging="true"] {
+  /* Desabilitar transições durante arraste para máxima responsividade */
+  transition: none !important;
+  animation: none !important;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Cursor states para drag and drop */
+.cursor-grabbing {
+  cursor: grabbing !important;
+}
+
+.cursor-grab {
+  cursor: grab !important;
+}
+
 .dark {
   --background: 220 14% 10%;
   --foreground: 220 10% 90%;
