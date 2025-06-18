@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -813,36 +813,39 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag and drop otimizado - sem invalidações desnecessárias
-  const onDragEnd = (result: any) => {
+  // Handler super otimizado para drag and drop - máxima fluidez
+  const onDragEnd = useCallback((result: any) => {
     const { source, destination, draggableId } = result;
     
-    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
+    // Prevenir ações desnecessárias
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
       return;
     }
     
-    // Encontrar o item arrastado
+    // Extrair ID do item de forma mais eficiente
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const allItems = Object.values(columns).flatMap(column => column.items);
-    const draggedItem = allItems.find(item => item.id === prosthesisId);
     
+    // Usar referência direta ao invés de spread para melhor performance
+    const sourceItems = columns[source.droppableId as keyof typeof columns]?.items;
+    const destItems = columns[destination.droppableId as keyof typeof columns]?.items;
+    
+    if (!sourceItems || !destItems) return;
+    
+    // Encontrar item de forma otimizada
+    const draggedItem = sourceItems.find(item => item.id === prosthesisId);
     if (!draggedItem) return;
     
-    // Atualizar estado local imediatamente para UI responsiva
+    // Criar novo estado usando referências otimizadas
     const newColumns = { ...columns };
     
-    // Remover da coluna de origem (cópia imutável)
-    newColumns[source.droppableId as keyof typeof newColumns] = {
-      ...newColumns[source.droppableId as keyof typeof newColumns],
-      items: newColumns[source.droppableId as keyof typeof newColumns].items.filter(
-        item => item.id !== prosthesisId
-      )
-    };
+    // Remover da origem
+    newColumns[source.droppableId].items = sourceItems.filter(
+      item => item.id !== prosthesisId
+    );
     
-    // Preparar item atualizado
+    // Preparar item com novo status
     const updatedItem = { 
       ...draggedItem,
       status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled'
@@ -900,8 +903,8 @@ export default function ProsthesisControlPage() {
     }
     
     // Adicionar à coluna de destino na posição correta
-    const destItems = [...newColumns[destination.droppableId as keyof typeof newColumns].items];
-    destItems.splice(destination.index, 0, updatedItem);
+    const destinationItems = [...newColumns[destination.droppableId as keyof typeof newColumns].items];
+    destinationItems.splice(destination.index, 0, updatedItem);
     
     newColumns[destination.droppableId as keyof typeof newColumns] = {
       ...newColumns[destination.droppableId as keyof typeof newColumns],
@@ -916,7 +919,7 @@ export default function ProsthesisControlPage() {
       id: prosthesisId, 
       ...updateData
     });
-  };
+  }, [columns, updateStatusMutation]);
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
