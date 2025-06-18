@@ -1359,18 +1359,24 @@ export default function ProsthesisControlPage() {
                                   const nameInput = document.getElementById("editLaboratoryName") as HTMLInputElement;
                                   const phoneInput = document.getElementById("editLaboratoryPhone") as HTMLInputElement;
                                   
-                                  if (nameInput?.value) {
-                                    // Simular edição de laboratório
-                                    toast({
-                                      title: "Laboratório atualizado",
-                                      description: `${nameInput.value} foi atualizado com sucesso.`
+                                  if (nameInput?.value.trim() && editingLaboratory) {
+                                    updateLabMutation.mutate({
+                                      id: editingLaboratory.id,
+                                      data: {
+                                        name: nameInput.value.trim(),
+                                        email: phoneInput?.value.trim() || "",
+                                        phone: phoneInput?.value.trim() || ""
+                                      }
                                     });
-                                    
-                                    // Em um cenário real, aqui atualizaríamos o laboratório no banco de dados
-                                    // e atualizaríamos a lista de laboratórios na tela
-                                    setEditingLaboratory(null);
+                                  } else {
+                                    toast({
+                                      title: "Erro",
+                                      description: "Nome do laboratório é obrigatório",
+                                      variant: "destructive"
+                                    });
                                   }
                                 }}
+                                disabled={updateLabMutation.isPending}
                                 className="px-4"
                               >
                                 Salvar
@@ -1403,19 +1409,23 @@ export default function ProsthesisControlPage() {
                                   const nameInput = document.getElementById("newLaboratoryName") as HTMLInputElement;
                                   const phoneInput = document.getElementById("newLaboratoryPhone") as HTMLInputElement;
                                   
-                                  if (nameInput?.value) {
-                                    // Simular adição de novo laboratório
-                                    toast({
-                                      title: "Laboratório adicionado",
-                                      description: `${nameInput.value} foi adicionado com sucesso.`
+                                  if (nameInput?.value.trim()) {
+                                    createLabMutation.mutate({
+                                      name: nameInput.value.trim(),
+                                      email: phoneInput?.value.trim() || "",
+                                      phone: phoneInput?.value.trim() || ""
                                     });
                                     nameInput.value = "";
                                     if (phoneInput) phoneInput.value = "";
-                                    
-                                    // Em um cenário real, aqui adicionaríamos o laboratório ao banco de dados
-                                    // e atualizaríamos a lista de laboratórios na tela
+                                  } else {
+                                    toast({
+                                      title: "Erro",
+                                      description: "Nome do laboratório é obrigatório",
+                                      variant: "destructive"
+                                    });
                                   }
                                 }}
+                                disabled={createLabMutation.isPending}
                                 className="px-4"
                               >
                                 <Plus className="h-4 w-4 mr-2" />
@@ -1450,7 +1460,11 @@ export default function ProsthesisControlPage() {
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => {
-                                            setEditingLab(lab);
+                                            setEditingLaboratory({
+                                              id: lab.id,
+                                              name: lab.name,
+                                              contact: lab.phone || lab.email || ""
+                                            });
                                           }}
                                         >
                                           <Edit className="h-4 w-4 text-muted-foreground" />
