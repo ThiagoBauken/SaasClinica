@@ -16,6 +16,7 @@ import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMid
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
 import { moduleRegistry } from "../modules/index";
+import { registerProtesesRoutes } from "./modules/clinica/proteses";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -1029,6 +1030,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Upload de imagens para galeria
   app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
+
+  // Registrar rotas dos módulos da clínica
+  registerProtesesRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
