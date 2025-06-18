@@ -1162,7 +1162,7 @@ export default function ProsthesisControlPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os laboratórios</SelectItem>
-                        {laboratories?.map(lab => (
+                        {laboratories?.map((lab: Laboratory) => (
                           <SelectItem key={lab.id} value={lab.name}>
                             {lab.name}
                           </SelectItem>
