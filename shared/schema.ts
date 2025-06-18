@@ -198,6 +198,19 @@ export const insertAppointmentProcedureSchema = createInsertSchema(appointmentPr
   notes: true,
 });
 
+// Etiquetas de Próteses - Customizáveis por empresa
+export const prosthesisLabels = pgTable("prosthesis_labels", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(),
+  color: text("color").notNull(), // Cor em formato hex (#ffffff)
+  description: text("description"),
+  isDefault: boolean("is_default").default(false), // Etiquetas padrão do sistema
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Prosthesis/Próteses - Sistema de Controle de Próteses
 export const prosthesis = pgTable("prosthesis", {
   id: serial("id").primaryKey(),
@@ -212,7 +225,7 @@ export const prosthesis = pgTable("prosthesis", {
   expectedReturnDate: date("expected_return_date"),
   returnDate: date("return_date"),
   observations: text("observations"),
-  labels: jsonb("labels").$type<string[]>().default([]),
+  labels: jsonb("labels").$type<number[]>().default([]), // Array de IDs das etiquetas
   cost: integer("cost").default(0), // in cents
   price: integer("price").default(0), // in cents
   createdAt: timestamp("created_at").defaultNow(),
@@ -220,6 +233,15 @@ export const prosthesis = pgTable("prosthesis", {
 });
 
 
+
+export const insertProsthesisLabelSchema = createInsertSchema(prosthesisLabels).pick({
+  companyId: true,
+  name: true,
+  color: true,
+  description: true,
+  isDefault: true,
+  active: true,
+});
 
 export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
   companyId: true,
@@ -237,6 +259,9 @@ export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
   cost: true,
   price: true,
 });
+
+export type ProsthesisLabel = typeof prosthesisLabels.$inferSelect;
+export type InsertProsthesisLabel = typeof prosthesisLabels.$inferInsert;
 
 export type Prosthesis = typeof prosthesis.$inferSelect;
 export type InsertProsthesis = z.infer<typeof insertProsthesisSchema>;
