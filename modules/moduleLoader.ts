@@ -45,8 +45,7 @@ export class ModuleLoader {
       'configuracoes',
       'cadastros',
       'laboratorio',
-      'relatorios',
-      'digitalizar'
+      'relatorios'
     ];
     
     clinicaModules.forEach(moduleId => {

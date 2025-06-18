@@ -1030,14 +1030,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload de imagens para galeria
   app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
 
-  // === ROTAS DE DIGITALIZAÇÃO ===
-  const digitalizacaoHandlers = await import('./digitalizacao-apis');
-  
-  app.post("/api/digitalizacao/process", authCheck, digitalizacaoHandlers.uploadMiddleware, asyncHandler(digitalizacaoHandlers.processFiles));
-  app.get("/api/digitalizacao/history", authCheck, asyncHandler(digitalizacaoHandlers.getHistory));
-  app.get("/api/digitalizacao/download/:id", authCheck, asyncHandler(digitalizacaoHandlers.downloadFile));
-  app.delete("/api/digitalizacao/delete/:id", authCheck, asyncHandler(digitalizacaoHandlers.deleteFile));
-
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -21,7 +21,6 @@ const AutomacoesPage = lazy(() => import("../../../modules/clinica/automacoes/Au
 const ProtesesPage = lazy(() => import("../../../modules/clinica/proteses/ProtesesPage"));
 const EstoquePage = lazy(() => import("../../../modules/clinica/estoque/EstoquePage"));
 const OdontogramaPage = lazy(() => import("../../../modules/clinica/odontograma/OdontogramaPage"));
-const DigitalizarPage = lazy(() => import("@/pages/digitalizar-page"));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen">
@@ -94,12 +93,6 @@ export function DynamicRouter() {
           <OdontogramaPage />
         </Suspense>
       </Route>
-
-      <ProtectedRoute path="/digitalizar" component={() => (
-        <Suspense fallback={<LoadingFallback />}>
-          <DigitalizarPage />
-        </Suspense>
-      )} />
       
       {/* Rotas estáticas temporárias (a serem modularizadas) */}
       

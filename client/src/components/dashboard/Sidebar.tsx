@@ -22,11 +22,7 @@ import {
   BoxSelect,
   Shield,
   Building2,
-  CalendarDays,
-  ScanText,
-  UserPlus,
-  Beaker,
-  BarChart3
+  CalendarDays
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,8 +43,7 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
     { label: 'Automações', path: '/automation', icon: 'Bot' },
     { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
     { label: 'Estoque', path: '/inventory', icon: 'Package' },
-    { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
-    { label: 'Digitalizar Fichas', path: '/digitalizar', icon: 'ScanText' }
+    { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
   ];
   
   // Usar menu dinâmico se disponível, caso contrário usar fallback
