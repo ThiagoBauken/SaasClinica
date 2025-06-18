@@ -157,4 +157,111 @@ export function registerProtesesRoutes(app: Express) {
       res.json(patientProsthesis);
     })
   );
+
+  // ============= LABORATÓRIOS APIs =============
+
+  // Listar laboratórios
+  app.get("/api/laboratories",
+    authCheck,
+    tenantIsolationMiddleware,
+    requireModulePermission('proteses', 'read'),
+    asyncHandler(async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      try {
+        const laboratories = await storage.getLaboratories(companyId);
+        res.json(laboratories);
+      } catch (error) {
+        console.error('Erro ao buscar laboratórios:', error);
+        res.status(500).json({ error: 'Erro ao buscar laboratórios' });
+      }
+    })
+  );
+
+  // Criar laboratório
+  app.post("/api/laboratories",
+    authCheck,
+    tenantIsolationMiddleware,
+    requireModulePermission('proteses', 'write'),
+    asyncHandler(async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      try {
+        const laboratoryData = {
+          ...req.body,
+          companyId
+        };
+        
+        const newLaboratory = await storage.createLaboratory(laboratoryData);
+        res.status(201).json(newLaboratory);
+      } catch (error) {
+        console.error('Erro ao criar laboratório:', error);
+        res.status(500).json({ 
+          error: 'Erro ao criar laboratório',
+          details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+      }
+    })
+  );
+
+  // Atualizar laboratório
+  app.patch("/api/laboratories/:id",
+    authCheck,
+    tenantIsolationMiddleware,
+    requireModulePermission('proteses', 'write'),
+    asyncHandler(async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const laboratoryId = parseInt(req.params.id);
+      
+      try {
+        if (!laboratoryId || isNaN(laboratoryId)) {
+          return res.status(400).json({ error: 'ID de laboratório inválido' });
+        }
+        
+        const updatedLaboratory = await storage.updateLaboratory(laboratoryId, req.body, companyId);
+        
+        if (!updatedLaboratory) {
+          return res.status(404).json({ error: 'Laboratório não encontrado' });
+        }
+        
+        res.json(updatedLaboratory);
+      } catch (error) {
+        console.error('Erro ao atualizar laboratório:', error);
+        res.status(500).json({ 
+          error: 'Erro interno do servidor',
+          message: 'Falha ao atualizar laboratório'
+        });
+      }
+    })
+  );
+
+  // Excluir laboratório (soft delete)
+  app.delete("/api/laboratories/:id",
+    authCheck,
+    tenantIsolationMiddleware,
+    requireModulePermission('proteses', 'write'),
+    asyncHandler(async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const laboratoryId = parseInt(req.params.id);
+      
+      try {
+        if (!laboratoryId || isNaN(laboratoryId)) {
+          return res.status(400).json({ error: 'ID de laboratório inválido' });
+        }
+        
+        await storage.deleteLaboratory(laboratoryId, companyId);
+        res.status(204).send();
+      } catch (error) {
+        console.error('Erro ao excluir laboratório:', error);
+        res.status(500).json({ 
+          error: 'Erro interno do servidor',
+          message: 'Falha ao excluir laboratório'
+        });
+      }
+    })
+  );
 }

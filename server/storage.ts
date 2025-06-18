@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
 
@@ -692,6 +692,52 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(prosthesis)
       .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)));
+  }
+
+  // Laboratory methods
+  async getLaboratories(companyId: number): Promise<Laboratory[]> {
+    return db
+      .select()
+      .from(laboratories)
+      .where(and(eq(laboratories.companyId, companyId), eq(laboratories.active, true)))
+      .orderBy(laboratories.name);
+  }
+
+  async createLaboratory(data: any): Promise<Laboratory> {
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    
+    const [result] = await db
+      .insert(laboratories)
+      .values(cleanData)
+      .returning();
+    
+    return result;
+  }
+
+  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory | null> {
+    const cleanData = { ...data };
+    delete cleanData.id;
+    delete cleanData.companyId;
+    delete cleanData.createdAt;
+    cleanData.updatedAt = new Date();
+    
+    const [result] = await db
+      .update(laboratories)
+      .set(cleanData)
+      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)))
+      .returning();
+    
+    return result || null;
+  }
+
+  async deleteLaboratory(id: number, companyId: number): Promise<void> {
+    await db
+      .update(laboratories)
+      .set({ active: false, updatedAt: new Date() })
+      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
