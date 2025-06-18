@@ -658,10 +658,13 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // NÃO invalidar cache automaticamente para evitar movimentações indesejadas
-      // O estado local já foi atualizado no onDragEnd para UI responsiva
+      setIsUpdating(false);
+      // ✅ Estado local já atualizado - sem invalidação para manter fluidez
     },
     onError: (error: Error) => {
+      setIsUpdating(false);
+      // ⚠️ Em caso de erro, recarregar dados para sincronizar
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       console.error("Erro ao atualizar status:", error);
       toast({
         title: "Erro",
@@ -917,6 +920,9 @@ export default function ProsthesisControlPage() {
     
     // ✅ ATUALIZAÇÃO INSTANTÂNEA - Bloco se move imediatamente na tela
     setColumns(newColumns);
+    
+    // ⚡ Controlar estado de atualização para evitar conflitos
+    setIsUpdating(true);
     
     // ⚡ Backend processa em paralelo - não interfere na fluidez visual
     updateStatusMutation.mutate({ 
