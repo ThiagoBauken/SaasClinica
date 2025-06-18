@@ -50,7 +50,6 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "dental-management-system-secret",
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       secure: false, // Set to true in production with HTTPS

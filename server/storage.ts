@@ -136,9 +136,10 @@ export class MemStorage implements IStorage {
     this.appointmentProcedureIdCounter = 1;
     this.transactionIdCounter = 1;
     
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // 24 hours
-    });
+    // Remover sessionStore que está causando problemas
+    // this.sessionStore = new MemoryStore({
+    //   checkPeriod: 86400000, // 24 hours
+    // });
     
     // Seed initial data
     this.seedData();

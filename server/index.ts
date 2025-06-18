@@ -55,8 +55,18 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
   }));
   
-  // Configuração de sessões distribuídas
-  app.use(session(sessionManager.getSessionConfig()));
+  // Configuração de sessões (usando configuração original para evitar conflitos)
+  const sessionConfig = {
+    secret: process.env.SESSION_SECRET || "dental-management-system-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 // 24 horas
+    }
+  };
+  app.use(session(sessionConfig));
   
   // Limitador de requisições para evitar abuso
   const apiLimiter = rateLimit({
