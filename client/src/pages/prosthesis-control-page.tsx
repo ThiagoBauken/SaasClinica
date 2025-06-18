@@ -1190,25 +1190,16 @@ export default function ProsthesisControlPage() {
                         {...provided.droppableProps}
                         ref={provided.innerRef}
                         className={cn(
-                          "p-2 flex-1 transition-all duration-200 overflow-y-auto",
+                          "p-2 flex-1 transition-all duration-200 flex flex-col",
                           snapshot.isDraggingOver && "bg-primary/5 border-2 border-primary/20 rounded-lg"
                         )}
                         style={{ 
-                          minHeight: "500px",
-                          maxHeight: "calc(100vh - 300px)"
+                          minHeight: "calc(100vh - 300px)",
+                          height: "calc(100vh - 300px)"
                         }}
                       >
-                        {column.items.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
-                            {column.id === "pending" && <Package className="h-10 w-10 mb-2 opacity-20" />}
-                            {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
-                            {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
-                            {column.id === "completed" && <Check className="h-10 w-10 mb-2 opacity-20" />}
-                            {column.id === "archived" && <Archive className="h-10 w-10 mb-2 opacity-20" />}
-                            <span className="select-none">Nenhuma prótese</span>
-                          </div>
-                        ) : (
-                          column.items.map((item, index) => (
+                        <div className="space-y-2 flex-shrink-0">
+                          {column.items.map((item, index) => (
                             <Draggable 
                               key={`prosthesis-${item.id}`} 
                               draggableId={`prosthesis-${item.id}`} 
@@ -1349,8 +1340,24 @@ export default function ProsthesisControlPage() {
                                 </div>
                               )}
                             </Draggable>
-                          ))
+                          ))}
+                        </div>
+                        
+                        {/* Empty state when no items */}
+                        {column.items.length === 0 && (
+                          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
+                            {column.id === "pending" && <Package className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "completed" && <Check className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "archived" && <Archive className="h-10 w-10 mb-2 opacity-20" />}
+                            <span className="select-none">Nenhuma prótese</span>
+                          </div>
                         )}
+                        
+                        {/* Flex spacer to fill remaining height */}
+                        <div className="flex-1" />
+                        
                         {provided.placeholder}
                       </div>
                     )}
