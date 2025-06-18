@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userRole === 'superadmin') {
         setLocation('/superadmin');
       } else if (userRole === 'admin') {
-        setLocation('/admin');
+        setLocation('/saas-admin');
       } else {
         setLocation('/dashboard');
       }
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const result = await response.json();
       setUser(result.user || result);
-      setLocation('/dashboard');
+      setLocation('/saas-admin');
     } catch (error) {
       console.error('Erro no registro:', error);
       throw error;

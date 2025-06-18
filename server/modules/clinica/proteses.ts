@@ -19,7 +19,6 @@ export function registerProtesesRoutes(app: Express) {
   app.get("/api/prosthesis", 
     authCheck, 
     tenantIsolationMiddleware, 
-    requireModulePermission('proteses', 'read'),
     asyncHandler(async (req: Request, res: Response) => {
       const user = req.user as any;
       const companyId = user.companyId;
@@ -38,7 +37,6 @@ export function registerProtesesRoutes(app: Express) {
   app.post("/api/prosthesis",
     authCheck,
     tenantIsolationMiddleware,
-    requireModulePermission('proteses', 'write'),
     asyncHandler(async (req: Request, res: Response) => {
       const user = req.user as any;
       const companyId = user.companyId;
@@ -80,7 +78,6 @@ export function registerProtesesRoutes(app: Express) {
   app.patch("/api/prosthesis/:id",
     authCheck,
     tenantIsolationMiddleware,
-    requireModulePermission('proteses', 'write'),
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const user = req.user as any;
