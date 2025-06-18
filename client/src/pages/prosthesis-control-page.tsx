@@ -409,7 +409,7 @@ export default function ProsthesisControlPage() {
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | undefined>(undefined);
   
   // Query otimizada para dados de próteses
-  const { data: prosthesis, isLoading, isError, error } = useQuery<Prosthesis[]>({
+  const prosthesisQuery = useQuery<Prosthesis[]>({
     queryKey: ["/api/prosthesis"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/prosthesis");
@@ -439,28 +439,28 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    if (prosthesis) {
+    if (prosthesisQuery.data) {
       try {
         const updatedColumns = {
           pending: {
             ...columns.pending,
-            items: prosthesis.filter(p => p.status === 'pending')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           sent: {
             ...columns.sent,
-            items: prosthesis.filter(p => p.status === 'sent')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           returned: {
             ...columns.returned,
-            items: prosthesis.filter(p => p.status === 'returned')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           completed: {
             ...columns.completed,
-            items: prosthesis.filter(p => p.status === 'completed')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           archived: {
             ...columns.archived,
-            items: prosthesis.filter(p => p.status === 'archived')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           }
         };
         
@@ -470,7 +470,7 @@ export default function ProsthesisControlPage() {
         if (filters.delayedServices) {
           // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
           const now = new Date();
-          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
+          updatedColumns.sent.items = updatedColumns.sent.items.filter((p: any) => 
             p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
           );
         }
@@ -487,7 +487,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.professionalId === professionalId
+                (p: any) => p.professionalId === professionalId
               );
           });
         }
@@ -497,7 +497,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.laboratory === filters.laboratory
+                (p: any) => p.laboratory === filters.laboratory
               );
           });
         }
@@ -815,8 +815,8 @@ export default function ProsthesisControlPage() {
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus} na posição: ${position}`);
     
-    // Obter próteses para calcular posição baseado no status de destino
-    const allProsthesis = prosthesisData || [];
+    // Obter próteses da query para calcular posição baseado no status de destino
+    const allProsthesis = prosthesisQuery.data || [];
     const targetColumnItems = allProsthesis.filter((item: any) => item.status === targetStatus);
     let sortOrder = 0;
     
