@@ -232,6 +232,9 @@ interface StatusColumn {
 export default function ProsthesisControlPage() {
   const { toast } = useToast();
   
+  // Estado para controlar drag-and-drop
+  const [isDragging, setIsDragging] = useState(false);
+  
   // Query para buscar laboratórios do banco
   const { data: laboratories = [], isLoading: isLoadingLabs, refetch: refetchLabs } = useQuery({
     queryKey: ["/api/laboratories"],
@@ -435,10 +438,10 @@ export default function ProsthesisControlPage() {
     
     try {
       const updatedColumns = {
-          pending: {
-            ...columns.pending,
-            items: prosthesis.filter(p => p.status === 'pending')
-          },
+        pending: {
+          ...columns.pending,
+          items: prosthesis.filter(p => p.status === 'pending')
+        },
           sent: {
             ...columns.sent,
             items: prosthesis.filter(p => p.status === 'sent')
