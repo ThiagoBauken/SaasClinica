@@ -1195,7 +1195,8 @@ export default function ProsthesisControlPage() {
                         )}
                         style={{ 
                           minHeight: "calc(100vh - 300px)",
-                          height: "calc(100vh - 300px)"
+                          height: "calc(100vh - 300px)",
+                          overflow: "hidden"
                         }}
                       >
                         <div className="space-y-2 flex-shrink-0">
