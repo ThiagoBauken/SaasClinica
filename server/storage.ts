@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
 
@@ -78,6 +78,13 @@ export interface IStorage {
   createLaboratory(laboratory: any): Promise<Laboratory>;
   updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory>;
   deleteLaboratory(id: number, companyId: number): Promise<boolean>;
+
+  // Prosthesis Labels - tenant-aware
+  getProsthesisLabels(companyId: number): Promise<ProsthesisLabel[]>;
+  getProsthesisLabel(id: number, companyId: number): Promise<ProsthesisLabel | undefined>;
+  createProsthesisLabel(label: InsertProsthesisLabel): Promise<ProsthesisLabel>;
+  updateProsthesisLabel(id: number, data: Partial<InsertProsthesisLabel>, companyId: number): Promise<ProsthesisLabel>;
+  deleteProsthesisLabel(id: number, companyId: number): Promise<boolean>;
   
   sessionStore: any;
 }
@@ -1249,6 +1256,48 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
     
     console.log('Storage: Delete result:', result);
+    return result.rowCount > 0;
+  }
+
+  // Prosthesis Labels operations
+  async getProsthesisLabels(companyId: number): Promise<ProsthesisLabel[]> {
+    return await db
+      .select()
+      .from(prosthesisLabels)
+      .where(and(eq(prosthesisLabels.companyId, companyId), eq(prosthesisLabels.active, true)))
+      .orderBy(prosthesisLabels.name);
+  }
+
+  async getProsthesisLabel(id: number, companyId: number): Promise<ProsthesisLabel | undefined> {
+    const [label] = await db
+      .select()
+      .from(prosthesisLabels)
+      .where(and(eq(prosthesisLabels.id, id), eq(prosthesisLabels.companyId, companyId)));
+    return label;
+  }
+
+  async createProsthesisLabel(label: InsertProsthesisLabel): Promise<ProsthesisLabel> {
+    const [newLabel] = await db
+      .insert(prosthesisLabels)
+      .values(label)
+      .returning();
+    return newLabel;
+  }
+
+  async updateProsthesisLabel(id: number, data: Partial<InsertProsthesisLabel>, companyId: number): Promise<ProsthesisLabel> {
+    const [updatedLabel] = await db
+      .update(prosthesisLabels)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(prosthesisLabels.id, id), eq(prosthesisLabels.companyId, companyId)))
+      .returning();
+    return updatedLabel;
+  }
+
+  async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
+    const result = await db
+      .update(prosthesisLabels)
+      .set({ active: false, updatedAt: new Date() })
+      .where(and(eq(prosthesisLabels.id, id), eq(prosthesisLabels.companyId, companyId)));
     return result.rowCount > 0;
   }
 
