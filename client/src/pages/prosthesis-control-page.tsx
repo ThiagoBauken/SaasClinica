@@ -375,6 +375,8 @@ export default function ProsthesisControlPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragSnapshot, setDragSnapshot] = useState<Prosthesis[] | null>(null);
   const [deferredOperations, setDeferredOperations] = useState<(() => void)[]>([]);
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Record<number, string>>({});
+  const [dragDebounceTimeout, setDragDebounceTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Função para limpar os estados após salvar
   const clearFormStates = () => {
@@ -443,26 +445,34 @@ export default function ProsthesisControlPage() {
     
     if (prosthesis) {
       try {
+        // Aplicar atualizações otimistas antes de organizar em colunas
+        const prosthesisWithOptimisticUpdates = prosthesis.map(p => {
+          if (optimisticUpdates[p.id]) {
+            return { ...p, status: optimisticUpdates[p.id] as any };
+          }
+          return p;
+        });
+        
         const updatedColumns = {
           pending: {
             ...columns.pending,
-            items: prosthesis.filter(p => p.status === 'pending')
+            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'pending')
           },
           sent: {
             ...columns.sent,
-            items: prosthesis.filter(p => p.status === 'sent')
+            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'sent')
           },
           returned: {
             ...columns.returned,
-            items: prosthesis.filter(p => p.status === 'returned')
+            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'returned')
           },
           completed: {
             ...columns.completed,
-            items: prosthesis.filter(p => p.status === 'completed')
+            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'completed')
           },
           archived: {
             ...columns.archived,
-            items: prosthesis.filter(p => p.status === 'archived')
+            items: prosthesisWithOptimisticUpdates.filter(p => p.status === 'archived')
           }
         };
         
@@ -833,9 +843,17 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag and drop com melhor desempenho
+  // Handler para drag and drop robusto e sem teleportação
   const onDragEnd = (result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
+    
+    // Executar operações adiadas primeiro
+    if (deferredOperations.length > 0) {
+      console.log('Executando operações adiadas:', deferredOperations.length);
+      deferredOperations.forEach(operation => operation());
+      setDeferredOperations([]);
+    }
+    
     setIsDragging(false);
     
     const { source, destination, draggableId } = result;
@@ -850,112 +868,67 @@ export default function ProsthesisControlPage() {
     
     // Encontrar o item arrastado
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const allItems = Object.values(columns).flatMap(column => column.items);
-    const draggedItem = allItems.find(item => item.id === prosthesisId);
+    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
-    if (!draggedItem) return;
+    // Aplicar atualização otimista IMEDIATAMENTE
+    setOptimisticUpdates(prev => ({
+      ...prev,
+      [prosthesisId]: targetStatus
+    }));
     
-    // Criar uma cópia das colunas atuais
-    const newColumns = { ...columns };
-    
-    // Remover da coluna de origem
-    newColumns[source.droppableId as keyof typeof newColumns].items = 
-      newColumns[source.droppableId as keyof typeof newColumns].items.filter(
-        item => item.id !== prosthesisId
-      );
-    
-    // Adicionar na coluna de destino com o status atualizado
-    // e outros campos dependendo do status
-    const updatedItem = { 
-      ...draggedItem,
-      status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled'
-    };
+    // Preparar dados para atualização no backend
+    let updateData: any = { id: prosthesisId, status: targetStatus };
+    let toastMessage = '';
     
     // Lógica específica por transição de status
-    if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
-      // Quando enviamos ao laboratório
+    if (targetStatus === 'sent' && source.droppableId === 'pending') {
       const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updatedItem.sentDate = sentDateFormatted;
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'sent',
-        sentDate: sentDateFormatted
-      });
-      
-      toast({
-        title: "Prótese enviada",
-        description: `Prótese de ${updatedItem.patientName} enviada para o laboratório ${updatedItem.laboratory}`,
-      });
+      updateData.sentDate = sentDateFormatted;
+      toastMessage = 'Prótese enviada para o laboratório';
     } 
-    else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
-      // Quando retorna do laboratório
+    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
       const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
-      updatedItem.returnDate = returnDateFormatted;
-      
-      // Verificar se está atrasado
-      if (updatedItem.expectedReturnDate && isAfter(new Date(), parseISO(updatedItem.expectedReturnDate))) {
-        const daysLate = differenceInDays(new Date(), parseISO(updatedItem.expectedReturnDate));
+      updateData.returnDate = returnDateFormatted;
+      toastMessage = 'Prótese retornada do laboratório';
+    }
+    else if (targetStatus === 'completed') {
+      toastMessage = 'Prótese concluída com sucesso';
+    }
+    else if (targetStatus === 'pending') {
+      toastMessage = 'Status atualizado para pendente';
+    }
+    
+    // Executar atualização no backend
+    updateStatusMutation.mutate(updateData, {
+      onSuccess: () => {
+        // Remover atualização otimista após sucesso
+        setOptimisticUpdates(prev => {
+          const newUpdates = { ...prev };
+          delete newUpdates[prosthesisId];
+          return newUpdates;
+        });
+        
+        if (toastMessage) {
+          toast({
+            title: "Status atualizado",
+            description: toastMessage,
+          });
+        }
+      },
+      onError: () => {
+        // Reverter atualização otimista em caso de erro
+        setOptimisticUpdates(prev => {
+          const newUpdates = { ...prev };
+          delete newUpdates[prosthesisId];
+          return newUpdates;
+        });
         
         toast({
-          title: "Prótese retornada com atraso",
-          description: `A prótese retornou com ${daysLate} dias de atraso`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Prótese retornada",
-          description: `Prótese de ${updatedItem.patientName} retornou do laboratório`,
+          title: "Erro",
+          description: "Falha ao atualizar status da prótese",
+          variant: "destructive",
         });
       }
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'returned',
-        returnDate: returnDateFormatted
-      });
-    }
-    else if (destination.droppableId === 'completed') {
-      // Quando concluímos o caso
-      toast({
-        title: "Prótese concluída",
-        description: `Tratamento de ${updatedItem.patientName} concluído com sucesso`,
-      });
-      
-      // Atualizar no backend
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'completed'
-      });
-    }
-    else if (destination.droppableId === 'pending') {
-      // Quando voltamos para pendente (cancelar envio)
-      updatedItem.sentDate = null;
-      updatedItem.returnDate = null;
-      
-      updateStatusMutation.mutate({ 
-        id: prosthesisId, 
-        status: 'pending'
-      });
-      
-      toast({
-        title: "Status atualizado",
-        description: `Prótese de ${updatedItem.patientName} retornou para pendente`,
-      });
-    }
-    
-    // Adicionar o item atualizado à coluna de destino
-    newColumns[destination.droppableId as keyof typeof newColumns].items.splice(
-      destination.index,
-      0,
-      updatedItem
-    );
-    
-    // Atualizar o estado imediatamente para evitar lag na interface
-    window.requestAnimationFrame(() => {
-      setColumns(newColumns);
     });
   };
   
@@ -1190,7 +1163,7 @@ export default function ProsthesisControlPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os laboratórios</SelectItem>
-                        {laboratories?.map(lab => (
+                        {laboratories?.map((lab: Laboratory) => (
                           <SelectItem key={lab.id} value={lab.name}>
                             {lab.name}
                           </SelectItem>
