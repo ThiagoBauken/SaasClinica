@@ -567,8 +567,14 @@ export default function ProsthesisControlPage() {
           return newColumns;
         });
       } else {
-        // Para criação nova, invalidar cache normalmente
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        // Para criação nova, adiar invalidação se estiver arrastando
+        if (isDragging) {
+          setDeferredOperations(prev => [...prev, () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+          }]);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }
       }
       
       setIsModalOpen(false);
@@ -750,7 +756,14 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+      }
     },
     onError: (error: Error) => {
       console.error("Erro ao criar laboratório:", error);
@@ -842,6 +855,14 @@ export default function ProsthesisControlPage() {
   const onDragEnd = (result: any) => {
     setIsDragging(false);
     document.body.style.userSelect = '';
+    
+    // Executar todas as operações adiadas após drag terminar
+    if (deferredOperations.length > 0) {
+      setTimeout(() => {
+        deferredOperations.forEach(operation => operation());
+        setDeferredOperations([]);
+      }, 100);
+    }
     
     const { source, destination, draggableId } = result;
     
