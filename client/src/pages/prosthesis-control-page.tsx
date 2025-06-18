@@ -433,11 +433,6 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
-    if (isDragging) {
-      console.log('Bloqueando atualização das colunas - drag em andamento');
-      return;
-    }
     
     if (prosthesisQuery.data) {
       try {
