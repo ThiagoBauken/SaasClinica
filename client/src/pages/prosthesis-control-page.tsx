@@ -1301,6 +1301,10 @@ export default function ProsthesisControlPage() {
               console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
             }}
+            onDragUpdate={(update) => {
+              // Atualizar posição em tempo real durante o drag
+              console.log('Drag update:', update);
+            }}
             onDragEnd={onDragEnd}>
             <div className={cn(
               "grid grid-cols-1 gap-4 min-h-[600px]",
@@ -1351,7 +1355,7 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
+                          <div className="flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
                               key={`prosthesis-${item.id}`} 
@@ -1371,8 +1375,8 @@ export default function ProsthesisControlPage() {
                                       : 'none'
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-200",
-                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
+                                    "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-200 mb-2",
+                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90 mb-0",
                                     !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
                                     isDelayed(item) && "border-red-400"
                                   )}
@@ -1508,11 +1512,11 @@ export default function ProsthesisControlPage() {
                           </div>
                         )}
                         
+                        {provided.placeholder}
+                        
                         {/* Flex spacer to fill remaining height */}
                         <div className="flex-1" />
                         </div>
-                        
-                        {provided.placeholder}
                       </div>
                     )}
                   </Droppable>
