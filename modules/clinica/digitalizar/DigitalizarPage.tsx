@@ -203,6 +203,8 @@ export default function DigitalizarPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Prompt Personalizado (Opcional)</label>
                 <textarea
                   rows={3}
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Instruções específicas para extração de dados..."
                 />
@@ -244,15 +246,65 @@ export default function DigitalizarPage() {
             <h2 className="text-xl font-semibold text-gray-900">Histórico de Processamentos</h2>
           </div>
 
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum processamento realizado</h3>
-            <p className="text-gray-500">
-              Quando você processar fichas, o histórico aparecerá aqui com opções de download
-            </p>
-          </div>
+          {historyLoading ? (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <p className="text-gray-500">Carregando histórico...</p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum processamento realizado</h3>
+              <p className="text-gray-500">
+                Quando você processar fichas, o histórico aparecerá aqui com opções de download
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {history.map((record: ProcessingHistory) => (
+                <div key={record.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        record.status === 'completed' ? 'bg-green-500' :
+                        record.status === 'processing' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <h4 className="font-medium text-gray-900">{record.filename}</h4>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        record.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        record.status === 'processing' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {record.status === 'completed' ? 'Concluído' :
+                         record.status === 'processing' ? 'Processando' : 'Erro'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm text-gray-500">
+                      {new Date(record.createdAt).toLocaleDateString('pt-BR')} • {record.recordCount} registros • {record.format.toUpperCase()}
+                    </div>
+                  </div>
+                  
+                  {record.status === 'completed' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => downloadMutation.mutate(record.id)}
+                        disabled={downloadMutation.isPending}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Download
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
