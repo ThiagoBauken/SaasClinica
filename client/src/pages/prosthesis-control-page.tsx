@@ -803,14 +803,14 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Para mudanças de coluna (status), validar transições permitidas
+    // Para mudanças de coluna (status), permitir transições mais flexíveis
     const validTransitions: Record<string, string[]> = {
-      'pending': ['sent', 'canceled'],
-      'sent': ['returned', 'pending'], 
-      'returned': ['completed', 'sent'],
-      'completed': ['archived'],
-      'canceled': ['pending'],
-      'archived': ['completed']
+      'pending': ['sent', 'canceled', 'completed', 'archived'],
+      'sent': ['returned', 'pending', 'completed', 'canceled', 'archived'], 
+      'returned': ['completed', 'sent', 'pending', 'archived'],
+      'completed': ['archived', 'pending', 'sent', 'returned'],
+      'canceled': ['pending', 'sent', 'archived'],
+      'archived': ['completed', 'pending', 'sent', 'returned']
     };
     
     if (!validTransitions[source.droppableId]?.includes(destination.droppableId)) {
