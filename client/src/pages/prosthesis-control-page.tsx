@@ -435,6 +435,12 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
+    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
+    if (isDragging) {
+      console.log('Bloqueando atualização das colunas - drag em andamento');
+      return;
+    }
+    
     if (prosthesis) {
       try {
         const updatedColumns = {
@@ -518,7 +524,16 @@ export default function ProsthesisControlPage() {
         });
       }
     }
-  }, [prosthesis, filters]);
+  }, [prosthesis, filters, isDragging]);
+
+  // Executar operações adiadas após finalizar o drag
+  useEffect(() => {
+    if (!isDragging && deferredOperations.length > 0) {
+      console.log('Executando operações adiadas:', deferredOperations.length);
+      deferredOperations.forEach(operation => operation());
+      setDeferredOperations([]);
+    }
+  }, [isDragging, deferredOperations]);
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
@@ -584,7 +599,15 @@ export default function ProsthesisControlPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
+      
       toast({
         title: "Sucesso",
         description: "Prótese excluída com sucesso!",
@@ -629,8 +652,14 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Recarregar dados após sucesso
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -652,7 +681,15 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
+      
       toast({
         title: "Prótese arquivada",
         description: "A prótese foi arquivada com sucesso",
@@ -790,12 +827,16 @@ export default function ProsthesisControlPage() {
   
   // Handler para drag and drop com melhor desempenho
   const onDragEnd = (result: any) => {
+    console.log('onDragEnd iniciado - finalizando drag');
+    setIsDragging(false);
+    
     const { source, destination, draggableId } = result;
     
     // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
+      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
@@ -1183,7 +1224,12 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext onDragEnd={onDragEnd}>
+          <DragDropContext 
+            onDragStart={() => {
+              console.log('Drag iniciado - bloqueando operações');
+              setIsDragging(true);
+            }}
+            onDragEnd={onDragEnd}>
             <div className={cn(
               "grid grid-cols-1 gap-4",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
