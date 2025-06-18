@@ -980,73 +980,31 @@ export default function ProsthesisControlPage() {
   };
 
   // Handler para drag and drop com opções de posicionamento
-  const onDragEnd = useCallback((result: any) => {
+  const onDragEnd = (result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
-    
-    const { source, destination, draggableId } = result;
     
     // Finalizar drag imediatamente
     setIsDragging(false);
     
-    // Validação rápida
-    if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
+    const { source, destination, draggableId } = result;
+    
+    // Validar resultado do drag
+    if (!destination || 
+        (source.droppableId === destination.droppableId && 
+         source.index === destination.index)) {
       console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    // Encontrar item arrastado
-    const itemId = parseInt(draggableId.replace('prosthesis-', ''));
-    const allProsthesis = prosthesisQuery.data || [];
-    const draggedItem = allProsthesis.find((item: any) => item.id === itemId);
-    if (!draggedItem) return;
-    
-    // PASSO 1: Clonar estrutura para evitar mutação
-    const newColumns = { ...columns };
-    
-    // Clonar arrays das colunas afetadas
-    const sourceItems = [...newColumns[source.droppableId].items];
-    const destItems = source.droppableId === destination.droppableId 
-      ? sourceItems 
-      : [...newColumns[destination.droppableId].items];
-    
-    // PASSO 2: Remover da origem
-    const draggedIndex = sourceItems.findIndex((item: any) => item.id === itemId);
-    const [movedItem] = sourceItems.splice(draggedIndex, 1);
-    
-    // PASSO 3: Criar item atualizado
-    const updatedItem = {
-      ...movedItem,
-      status: destination.droppableId
-    };
-    
-    // PASSO 4: Adicionar no destino
-    destItems.splice(destination.index, 0, updatedItem);
-    
-    // PASSO 5: Atualizar colunas
-    newColumns[source.droppableId] = {
-      ...newColumns[source.droppableId],
-      items: sourceItems
-    };
-    
-    if (source.droppableId !== destination.droppableId) {
-      newColumns[destination.droppableId] = {
-        ...newColumns[destination.droppableId],
-        items: destItems
-      };
+    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
+    if (source.droppableId === destination.droppableId) {
+      executeDropSameColumn(result);
+      return;
     }
     
-    // PASSO 6: Atualizar estado IMEDIATAMENTE (sem delay)
-    setColumns(newColumns);
-    
-    // PASSO 7: API call assíncrono DEPOIS da UI atualizada
-    setTimeout(() => {
-      if (source.droppableId === destination.droppableId) {
-        executeDropSameColumn(result);
-      } else {
-        executeDrop(result, defaultDropPosition);
-      }
-    }, 0);
-  }, [columns, prosthesisQuery.data, defaultDropPosition]);
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
+  };
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
