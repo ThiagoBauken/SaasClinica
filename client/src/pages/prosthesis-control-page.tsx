@@ -761,6 +761,10 @@ export default function ProsthesisControlPage() {
         }
       }
       
+      // Processar preço (converter para centavos)
+      const priceValue = formData.get("price") as string;
+      const priceInCents = priceValue ? Math.round(parseFloat(priceValue) * 100) : 0;
+      
       // Preparar dados da prótese
       const prosthesisData: any = {
         patientId: parseInt(selectedPatient || formData.get("patient") as string),
@@ -771,6 +775,7 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
+        price: priceInCents,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -979,32 +984,136 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop com opções de posicionamento
-  const onDragEnd = (result: any) => {
-    console.log('onDragEnd iniciado - finalizando drag');
+  // Handler para drag and drop otimizado
+  const onDragEnd = useCallback((result: any) => {
+    const { source, destination, draggableId } = result;
     
     // Finalizar drag imediatamente
     setIsDragging(false);
     
-    const { source, destination, draggableId } = result;
-    
-    // Validar resultado do drag
+    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
-      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    // Encontrar o item arrastado
+    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const allItems = Object.values(columns).flatMap(column => column.items);
+    const draggedItem = allItems.find((item: any) => item.id === prosthesisId);
+    
+    if (!draggedItem) return;
+    
+    // PASSO 1: Atualizar estado local IMEDIATAMENTE (sem requestAnimationFrame)
+    const newColumns = { ...columns };
+    
+    // Clonar arrays das colunas afetadas para evitar mutação
+    const sourceColumnItems = [...newColumns[source.droppableId].items];
+    const destColumnItems = source.droppableId === destination.droppableId 
+      ? sourceColumnItems 
+      : [...newColumns[destination.droppableId].items];
+    
+    // Remover da origem
+    const draggedItemIndex = sourceColumnItems.findIndex((item: any) => item.id === prosthesisId);
+    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
+    
+    // Criar item atualizado com novo status
+    const updatedItem = { 
+      ...movedItem,
+      status: destination.droppableId
+    };
+    
+    // Aplicar lógica específica de transição
+    if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+    } 
+    else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // Executar drop usando a configuração padrão de posicionamento
-    executeDrop(result, defaultDropPosition);
-  };
+    // Adicionar no destino
+    destColumnItems.splice(destination.index, 0, updatedItem);
+    
+    // Atualizar as colunas com os novos arrays
+    newColumns[source.droppableId] = {
+      ...newColumns[source.droppableId],
+      items: sourceColumnItems
+    };
+    
+    if (source.droppableId !== destination.droppableId) {
+      newColumns[destination.droppableId] = {
+        ...newColumns[destination.droppableId],
+        items: destColumnItems
+      };
+    }
+    
+    // PASSO 2: Atualizar estado SÍNCRONAMENTE
+    setColumns(newColumns);
+    
+    // PASSO 3: Fazer chamada para API de forma assíncrona (após UI atualizada)
+    setTimeout(() => {
+      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'sent',
+          sentDate: format(new Date(), "yyyy-MM-dd")
+        });
+        
+        toast({
+          title: "Prótese enviada",
+          description: `Prótese de ${updatedItem.patientName} enviada para o laboratório ${updatedItem.laboratory}`,
+        });
+      } 
+      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'returned',
+          returnDate: format(new Date(), "yyyy-MM-dd")
+        });
+        
+        // Verificar se está atrasado
+        if (updatedItem.expectedReturnDate && isAfter(new Date(), parseISO(updatedItem.expectedReturnDate))) {
+          const daysLate = differenceInDays(new Date(), parseISO(updatedItem.expectedReturnDate));
+          
+          toast({
+            title: "Prótese retornada com atraso",
+            description: `A prótese retornou com ${daysLate} dias de atraso`,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Prótese retornada",
+            description: `Prótese de ${updatedItem.patientName} retornou do laboratório`,
+          });
+        }
+      }
+      else if (destination.droppableId === 'completed') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'completed'
+        });
+        
+        toast({
+          title: "Prótese concluída",
+          description: `Tratamento de ${updatedItem.patientName} concluído com sucesso`,
+        });
+      }
+      else {
+        // Para outras transições (incluindo reordenação)
+        if (source.droppableId === destination.droppableId) {
+          // Reordenação na mesma coluna
+          executeDropSameColumn(result);
+        } else {
+          // Movimento entre colunas diferentes
+          updateStatusMutation.mutate({ 
+            id: prosthesisId, 
+            status: destination.droppableId
+          });
+        }
+      }
+    }, 0);
+  }, [columns, updateStatusMutation, toast]);
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
@@ -1989,6 +2098,19 @@ export default function ProsthesisControlPage() {
                     name="observations"
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Preço (opcional)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={editingProsthesis?.price ? (editingProsthesis.price / 100).toFixed(2) : ""}
+                    placeholder="0.00"
                   />
                 </div>
 
