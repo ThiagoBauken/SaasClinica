@@ -109,7 +109,6 @@ export function registerProtesesRoutes(app: Express) {
   app.get("/api/prosthesis/stats",
     authCheck,
     tenantIsolationMiddleware,
-    requireModulePermission('proteses', 'read'),
     asyncHandler(async (req: Request, res: Response) => {
       const user = req.user as any;
       const companyId = user.companyId;

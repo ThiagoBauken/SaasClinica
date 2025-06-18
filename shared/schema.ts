@@ -219,6 +219,8 @@ export const prosthesis = pgTable("prosthesis", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+
+
 export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
   companyId: true,
   patientId: true,

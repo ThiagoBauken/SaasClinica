@@ -72,6 +72,13 @@ export interface IStorage {
   updateAutomation(id: number, data: any, companyId: number): Promise<Automation>;
   deleteAutomation(id: number, companyId: number): Promise<void>;
   
+  // Laboratories - tenant-aware
+  getLaboratories(companyId: number): Promise<Laboratory[]>;
+  getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined>;
+  createLaboratory(laboratory: any): Promise<Laboratory>;
+  updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory>;
+  deleteLaboratory(id: number, companyId: number): Promise<boolean>;
+  
   sessionStore: any;
 }
 
