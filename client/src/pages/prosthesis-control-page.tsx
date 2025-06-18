@@ -1152,18 +1152,18 @@ export default function ProsthesisControlPage() {
             }}
             onDragEnd={onDragEnd}>
             <div className={cn(
-              "grid grid-cols-1 gap-4",
+              "grid grid-cols-1 gap-4 min-h-[600px]",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
             )}>
               {Object.values(columns)
                 .filter(column => column.id !== 'archived' || showArchivedColumn)
                 .map(column => (
                 <div key={column.id} className={cn(
-                  "bg-card rounded-lg border shadow-sm",
+                  "bg-card rounded-lg border shadow-sm flex flex-col h-full",
                   (column.id === 'sent' && delayedSent > 0) && "border-red-400",
                   (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
                 )}>
-                  <div className="p-4 font-semibold border-b flex justify-between items-center select-none">
+                  <div className="p-4 font-semibold border-b flex justify-between items-center select-none flex-shrink-0">
                     <span className={cn(
                       "",
                       (column.id === 'sent' && delayedSent > 0) && "text-red-500",
@@ -1185,14 +1185,21 @@ export default function ProsthesisControlPage() {
                     </div>
                   </div>
                   <Droppable droppableId={column.id}>
-                    {(provided) => (
+                    {(provided, snapshot) => (
                       <div 
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="p-2 min-h-[300px]"
+                        className={cn(
+                          "p-2 flex-1 transition-all duration-200 overflow-y-auto",
+                          snapshot.isDraggingOver && "bg-primary/5 border-2 border-primary/20 rounded-lg"
+                        )}
+                        style={{ 
+                          minHeight: "500px",
+                          maxHeight: "calc(100vh - 300px)"
+                        }}
                       >
                         {column.items.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
                             {column.id === "pending" && <Package className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
@@ -1214,11 +1221,15 @@ export default function ProsthesisControlPage() {
                                   {...provided.dragHandleProps}
                                   onClick={() => handleEditProsthesis(item)}
                                   style={{
-                                    ...provided.draggableProps.style
+                                    ...provided.draggableProps.style,
+                                    transform: snapshot.isDragging 
+                                      ? provided.draggableProps.style?.transform 
+                                      : 'none'
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
-                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
+                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-2",
+                                    !snapshot.isDragging && "transition-all duration-200 hover:bg-muted hover:shadow-md",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
