@@ -1199,9 +1199,10 @@ export default function ProsthesisControlPage() {
                           overflow: "hidden"
                         }}
                       >
-                        <div className="space-y-2 flex-shrink-0">
-                          {column.items.map((item, index) => (
-                            <Draggable 
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full">
+                            {column.items.map((item, index) => (
+                              <Draggable 
                               key={`prosthesis-${item.id}`} 
                               draggableId={`prosthesis-${item.id}`} 
                               index={index}
@@ -1358,6 +1359,7 @@ export default function ProsthesisControlPage() {
                         
                         {/* Flex spacer to fill remaining height */}
                         <div className="flex-1" />
+                        </div>
                         
                         {provided.placeholder}
                       </div>
