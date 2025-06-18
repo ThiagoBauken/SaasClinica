@@ -614,7 +614,8 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
-        status: (sentDateFormatted ? 'sent' : 'pending'),
+        // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
+        status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
       };
       
