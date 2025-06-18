@@ -714,7 +714,15 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
+      
       toast({
         title: "Prótese desarquivada",
         description: "A prótese foi retornada para concluído",
