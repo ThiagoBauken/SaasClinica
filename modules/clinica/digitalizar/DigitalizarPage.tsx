@@ -1,27 +1,94 @@
 import React, { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
+
+interface ProcessingHistory {
+  id: string;
+  filename: string;
+  createdAt: string;
+  recordCount: number;
+  format: string;
+  status: 'completed' | 'processing' | 'error';
+  downloadUrl?: string;
+}
 
 export default function DigitalizarPage() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [aiModel, setAiModel] = useState('gpt-4o-mini');
   const [outputFormat, setOutputFormat] = useState('xlsx');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Buscar histórico de processamentos
+  const { data: history = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['/api/digitalizacao/history'],
+    staleTime: 30000
+  });
+
+  // Mutation para processar arquivos
+  const processMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/digitalizacao/process', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro no processamento');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/digitalizacao/history'] });
+      setSelectedFiles([]);
+      setIsProcessing(false);
+      alert('Processamento iniciado com sucesso!');
+    },
+    onError: (error) => {
+      setIsProcessing(false);
+      alert('Erro no processamento: ' + error.message);
+    }
+  });
+
+  // Mutation para download
+  const downloadMutation = useMutation({
+    mutationFn: async (recordId: string) => {
+      const response = await fetch(`/api/digitalizacao/download/${recordId}`);
+      if (!response.ok) throw new Error('Erro no download');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `digitalizacao_${recordId}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setSelectedFiles(files as any);
   };
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (selectedFiles.length === 0) {
       alert('Selecione pelo menos um arquivo para processar');
       return;
     }
+
     setIsProcessing(true);
-    // Simular processamento
-    setTimeout(() => {
-      setIsProcessing(false);
-      alert('Processamento concluído! (Esta é uma demonstração)');
-    }, 3000);
+    
+    const formData = new FormData();
+    selectedFiles.forEach((file: any) => {
+      formData.append('files', file);
+    });
+    formData.append('aiModel', aiModel);
+    formData.append('outputFormat', outputFormat);
+    formData.append('customPrompt', customPrompt);
+
+    processMutation.mutate(formData);
   };
 
   return (
