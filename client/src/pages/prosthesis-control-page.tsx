@@ -255,6 +255,8 @@ export default function ProsthesisControlPage() {
   const [newLabName, setNewLabName] = useState("");
   const [newLabWhatsapp, setNewLabWhatsapp] = useState("");
   const [editingLab, setEditingLab] = useState<any>(null);
+  const [editLabName, setEditLabName] = useState("");
+  const [editLabPhone, setEditLabPhone] = useState("");
 
   // Mutations para laboratórios
   const createLabMutation = useMutation({
@@ -283,6 +285,9 @@ export default function ProsthesisControlPage() {
     onSuccess: () => {
       refetchLabs();
       setEditingLab(null);
+      setEditingLaboratory(null);
+      setEditLabName("");
+      setEditLabPhone("");
       toast({ title: "Laboratório atualizado com sucesso" });
     },
     onError: (error: any) => {
@@ -1331,17 +1336,17 @@ export default function ProsthesisControlPage() {
                               <div className="md:col-span-2">
                                 <Input 
                                   placeholder="Nome do laboratório" 
-                                  id="editLaboratoryName" 
                                   className="w-full"
-                                  defaultValue={editingLaboratory.name}
+                                  value={editLabName}
+                                  onChange={(e) => setEditLabName(e.target.value)}
                                 />
                               </div>
                               <div>
                                 <Input 
                                   placeholder="WhatsApp" 
-                                  id="editLaboratoryPhone" 
                                   className="w-full"
-                                  defaultValue={editingLaboratory.contact}
+                                  value={editLabPhone}
+                                  onChange={(e) => setEditLabPhone(e.target.value)}
                                 />
                               </div>
                             </div>
@@ -1350,22 +1355,21 @@ export default function ProsthesisControlPage() {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingLaboratory(null);
+                                  setEditLabName("");
+                                  setEditLabPhone("");
                                 }}
                               >
                                 Cancelar
                               </Button>
                               <Button
                                 onClick={() => {
-                                  const nameInput = document.getElementById("editLaboratoryName") as HTMLInputElement;
-                                  const phoneInput = document.getElementById("editLaboratoryPhone") as HTMLInputElement;
-                                  
-                                  if (nameInput?.value.trim() && editingLaboratory) {
+                                  if (editLabName.trim() && editingLaboratory) {
                                     updateLabMutation.mutate({
                                       id: editingLaboratory.id,
                                       data: {
-                                        name: nameInput.value.trim(),
-                                        email: phoneInput?.value.trim() || "",
-                                        phone: phoneInput?.value.trim() || ""
+                                        name: editLabName.trim(),
+                                        email: editLabPhone.trim() || "",
+                                        phone: editLabPhone.trim() || ""
                                       }
                                     });
                                   } else {
@@ -1465,6 +1469,8 @@ export default function ProsthesisControlPage() {
                                               name: lab.name,
                                               contact: lab.phone || lab.email || ""
                                             });
+                                            setEditLabName(lab.name);
+                                            setEditLabPhone(lab.phone || lab.email || "");
                                           }}
                                         >
                                           <Edit className="h-4 w-4 text-muted-foreground" />
