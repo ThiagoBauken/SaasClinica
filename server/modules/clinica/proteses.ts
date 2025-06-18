@@ -56,7 +56,7 @@ export function registerProtesesRoutes(app: Express) {
         const newProsthesis = await storage.createProsthesis(prosthesisData);
         console.log('Prótese criada com sucesso:', newProsthesis);
         
-        res.status(201).json(newProsthesis);
+        res.status(200).json(newProsthesis);
       } catch (error) {
         console.error('Erro detalhado ao criar prótese:', error);
         res.status(500).json({ 
