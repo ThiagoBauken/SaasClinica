@@ -438,24 +438,29 @@ export default function ProsthesisControlPage() {
       try {
         const updatedColumns = {
           pending: {
-            ...columns.pending,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            id: "pending",
+            title: "Pré-laboratório",
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending')
           },
           sent: {
-            ...columns.sent,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            id: "sent",
+            title: "Envio",
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent')
           },
           returned: {
-            ...columns.returned,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            id: "returned",
+            title: "Laboratório",
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned')
           },
           completed: {
-            ...columns.completed,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            id: "completed",
+            title: "Realizado",
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed')
           },
           archived: {
-            ...columns.archived,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            id: "archived",
+            title: "Arquivado",
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived')
           }
         };
         
@@ -984,7 +989,7 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop simplificado e eficiente
+  // Handler para drag and drop otimizado
   const onDragEnd = (result: any) => {
     const { source, destination, draggableId } = result;
     
@@ -999,60 +1004,100 @@ export default function ProsthesisControlPage() {
     
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
     
-    // Movimento dentro da mesma coluna - reordenação
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    // Encontrar o item que está sendo movido
+    const sourceColumn = columns[source.droppableId];
+    const destColumn = columns[destination.droppableId];
+    const sourceItems = Array.from(sourceColumn.items);
+    const destItems = source.droppableId === destination.droppableId ? sourceItems : Array.from(destColumn.items);
+    
+    // Remover o item da posição original
+    const [movedItem] = sourceItems.splice(source.index, 1);
+    
+    // Se movendo para coluna diferente, atualizar status
+    if (source.droppableId !== destination.droppableId) {
+      movedItem.status = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+      
+      // Aplicar lógica específica por transição
+      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+        movedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+      } 
+      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+        movedItem.returnDate = format(new Date(), "yyyy-MM-dd");
+      }
     }
     
-    // Movimento entre colunas diferentes
-    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+    // Inserir o item na nova posição
+    destItems.splice(destination.index, 0, movedItem);
     
-    // Dados de atualização baseados na transição
-    let updateData: any = {
-      id: prosthesisId,
-      status: targetStatus
+    // Atualizar o estado das colunas imediatamente
+    const newColumns = {
+      ...columns,
+      [source.droppableId]: {
+        ...sourceColumn,
+        items: sourceItems
+      }
     };
     
-    let toastMessage = '';
-    
-    // Aplicar lógica específica por transição
-    if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-      toastMessage = 'Prótese enviada para o laboratório';
-    } 
-    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
-      toastMessage = 'Prótese retornada do laboratório';
-    }
-    else if (targetStatus === 'completed') {
-      toastMessage = 'Prótese concluída com sucesso';
-    }
-    else if (targetStatus === 'archived') {
-      toastMessage = 'Prótese arquivada';
-    }
-    else {
-      toastMessage = 'Status atualizado';
+    if (source.droppableId !== destination.droppableId) {
+      newColumns[destination.droppableId] = {
+        ...destColumn,
+        items: destItems
+      };
     }
     
-    // Executar atualização
-    updateStatusMutation.mutate(updateData, {
-      onSuccess: () => {
-        if (toastMessage) {
+    setColumns(newColumns);
+    
+    // Fazer chamada para API de forma assíncrona
+    if (source.droppableId === destination.droppableId) {
+      // Reordenação na mesma coluna
+      executeDropSameColumn(result);
+    } else {
+      // Movimento entre colunas diferentes
+      const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+      
+      let updateData: any = {
+        id: prosthesisId,
+        status: targetStatus
+      };
+      
+      let toastMessage = '';
+      
+      if (targetStatus === 'sent' && source.droppableId === 'pending') {
+        updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+        toastMessage = 'Prótese enviada para o laboratório';
+      } 
+      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+        updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+        toastMessage = 'Prótese retornada do laboratório';
+      }
+      else if (targetStatus === 'completed') {
+        toastMessage = 'Prótese concluída com sucesso';
+      }
+      else if (targetStatus === 'archived') {
+        toastMessage = 'Prótese arquivada';
+      }
+      else {
+        toastMessage = 'Status atualizado';
+      }
+      
+      updateStatusMutation.mutate(updateData, {
+        onSuccess: () => {
+          if (toastMessage) {
+            toast({
+              title: "Sucesso",
+              description: toastMessage,
+            });
+          }
+        },
+        onError: () => {
           toast({
-            title: "Sucesso",
-            description: toastMessage,
+            title: "Erro",
+            description: "Falha ao atualizar status da prótese",
+            variant: "destructive",
           });
         }
-      },
-      onError: () => {
-        toast({
-          title: "Erro",
-          description: "Falha ao atualizar status da prótese",
-          variant: "destructive",
-        });
-      }
-    });
+      });
+    }
   };
   
   // Handlers para os filtros
