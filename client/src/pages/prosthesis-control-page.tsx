@@ -900,17 +900,7 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Para mudanças de coluna, verificar se há itens na coluna de destino
-    const statusCounts = getStatusCounts();
-    const targetColumnItems = statusCounts[destination.droppableId as keyof typeof statusCounts] || 0;
-    
-    // Se a coluna de destino está vazia, executa diretamente
-    if (targetColumnItems === 0) {
-      executeDrop(result, 'exact');
-      return;
-    }
-    
-    // Mostrar opções de posicionamento para colunas com itens
+    // Para mudanças de coluna, mostrar sempre as opções de posicionamento
     setPendingDrop({ result, targetColumn: [] });
     setShowPositionOptions(true);
   };
@@ -2072,6 +2062,81 @@ export default function ProsthesisControlPage() {
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
                 Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal para opções de posicionamento no Kanban */}
+        <Dialog open={showPositionOptions} onOpenChange={setShowPositionOptions}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Onde posicionar a prótese?</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Escolha onde você deseja inserir a prótese na nova coluna:
+              </p>
+            </DialogHeader>
+            
+            <div className="space-y-3 py-4">
+              <Button
+                variant="outline"
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'start')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <ArrowUpDown className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">No início da fila</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir como primeiro item da coluna
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'exact')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Na posição escolhida</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir exatamente onde foi arrastado
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => pendingDrop && executeDrop(pendingDrop.result, 'end')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <ArrowLeftRight className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">No final da fila</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir como último item da coluna
+                  </div>
+                </div>
+              </Button>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={() => {
+                  setShowPositionOptions(false);
+                  setPendingDrop(null);
+                }}
+              >
+                Cancelar
               </Button>
             </DialogFooter>
           </DialogContent>
