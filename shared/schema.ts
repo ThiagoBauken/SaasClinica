@@ -215,6 +215,7 @@ export const prosthesis = pgTable("prosthesis", {
   labels: jsonb("labels").$type<string[]>().default([]),
   cost: integer("cost").default(0), // in cents
   price: integer("price").default(0), // in cents
+  sortOrder: integer("sort_order").default(0), // Para ordenação no Kanban
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

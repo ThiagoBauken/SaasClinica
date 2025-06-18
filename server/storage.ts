@@ -646,6 +646,7 @@ export class DatabaseStorage implements IStorage {
         returnDate: prosthesis.returnDate,
         observations: prosthesis.observations,
         labels: prosthesis.labels,
+        sortOrder: prosthesis.sortOrder,
         createdAt: prosthesis.createdAt,
         updatedAt: prosthesis.updatedAt,
       })
@@ -653,7 +654,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(patients, eq(prosthesis.patientId, patients.id))
       .leftJoin(users, eq(prosthesis.professionalId, users.id))
       .where(eq(prosthesis.companyId, companyId))
-      .orderBy(desc(prosthesis.createdAt));
+      .orderBy(prosthesis.sortOrder, desc(prosthesis.createdAt));
     
     return results;
   }

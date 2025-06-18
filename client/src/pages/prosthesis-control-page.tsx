@@ -614,13 +614,14 @@ export default function ProsthesisControlPage() {
   const [showPositionOptions, setShowPositionOptions] = useState(false);
   const [defaultDropPosition, setDefaultDropPosition] = useState<'start' | 'exact' | 'end'>('exact');
   
-  // Mutation simplificada para atualizar status
+  // Mutation para atualizar status com posicionamento
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, returnDate, sentDate }: { 
+    mutationFn: async ({ id, status, returnDate, sentDate, sortOrder }: { 
       id: number; 
       status: string; 
       returnDate?: string;
       sentDate?: string;
+      sortOrder?: number;
     }) => {
       const updateData: any = { status };
       
@@ -629,6 +630,9 @@ export default function ProsthesisControlPage() {
       }
       if (status === 'returned' && returnDate) {
         updateData.returnDate = returnDate;
+      }
+      if (sortOrder !== undefined) {
+        updateData.sortOrder = sortOrder;
       }
       
       const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, updateData);
@@ -811,8 +815,43 @@ export default function ProsthesisControlPage() {
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus} na posição: ${position}`);
     
+    // Obter itens da coluna de destino para calcular posição
+    const targetColumnItems = columns.find(col => col.id === targetStatus)?.items || [];
+    let sortOrder = 0;
+    
+    // Calcular sortOrder baseado na posição desejada
+    if (position === 'start') {
+      // Inserir no início - usar sortOrder menor que o primeiro item
+      if (targetColumnItems.length > 0) {
+        const minOrder = Math.min(...targetColumnItems.map(item => item.sortOrder || 0));
+        sortOrder = minOrder - 1;
+      } else {
+        sortOrder = 0;
+      }
+    } else if (position === 'end') {
+      // Inserir no final - usar sortOrder maior que o último item
+      if (targetColumnItems.length > 0) {
+        const maxOrder = Math.max(...targetColumnItems.map(item => item.sortOrder || 0));
+        sortOrder = maxOrder + 1;
+      } else {
+        sortOrder = 0;
+      }
+    } else {
+      // Posição exata - usar o índice de destino
+      if (destination.index < targetColumnItems.length) {
+        const targetItem = targetColumnItems[destination.index];
+        sortOrder = targetItem?.sortOrder || destination.index;
+      } else {
+        sortOrder = targetColumnItems.length;
+      }
+    }
+    
     // Preparar dados para atualização
-    let updateData: any = { id: prosthesisId, status: targetStatus };
+    let updateData: any = { 
+      id: prosthesisId, 
+      status: targetStatus,
+      sortOrder: sortOrder 
+    };
     let toastMessage = '';
     
     // Lógica específica por transição
@@ -863,8 +902,6 @@ export default function ProsthesisControlPage() {
         });
       }
     });
-    
-    // Configuração salva automaticamente
   };
 
   // Handler para drag and drop com opções de posicionamento
