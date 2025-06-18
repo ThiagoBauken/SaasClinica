@@ -59,7 +59,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -78,7 +78,7 @@ interface Prosthesis {
   sentDate: string | null;
   expectedReturnDate: string | null;
   returnDate: string | null;
-  status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled';
+  status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
   createdAt: string;
@@ -414,6 +414,10 @@ export default function ProsthesisControlPage() {
           completed: {
             ...columns.completed,
             items: prosthesis.filter(p => p.status === 'completed')
+          },
+          archived: {
+            ...columns.archived,
+            items: prosthesis.filter(p => p.status === 'archived')
           }
         };
         

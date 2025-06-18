@@ -207,7 +207,7 @@ export const prosthesis = pgTable("prosthesis", {
   type: text("type").notNull(), // Coroa, Ponte, Prótese Total, Faceta, Inlay, etc.
   description: text("description").notNull(),
   laboratory: text("laboratory").notNull(),
-  status: text("status").notNull().default("pending"), // pending, sent, returned, completed, canceled
+  status: text("status").notNull().default("pending"), // pending, sent, returned, completed, canceled, archived
   sentDate: date("sent_date"),
   expectedReturnDate: date("expected_return_date"),
   returnDate: date("return_date"),
