@@ -899,10 +899,8 @@ export default function ProsthesisControlPage() {
       updatedItem
     );
     
-    // Atualizar o estado imediatamente para evitar lag na interface
-    window.requestAnimationFrame(() => {
-      setColumns(newColumns);
-    });
+    // Não atualizar estado local - deixar o refetch do backend organizar as colunas corretamente
+    // Isso evita inconsistências e movimentos automáticos incorretos
   };
   
   // Handlers para os filtros
