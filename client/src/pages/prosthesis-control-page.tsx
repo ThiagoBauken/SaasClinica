@@ -162,7 +162,10 @@ export default function ProsthesisControlPage() {
     }
   }, [prosthesis, filters]);
 
-  // Mutation para atualizar status
+  // Estado para prevenir múltiplas atualizações simultâneas
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Mutation para atualizar status com controle de debounce
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, sentDate, returnDate }: { 
       id: number; 
@@ -170,8 +173,14 @@ export default function ProsthesisControlPage() {
       sentDate?: string;
       returnDate?: string;
     }) => {
-      const updateData: any = { status };
+      // Prevenir múltiplas atualizações simultâneas
+      if (isUpdatingStatus) {
+        throw new Error("Aguarde a atualização anterior ser concluída");
+      }
       
+      setIsUpdatingStatus(true);
+      
+      const updateData: any = { status };
       if (sentDate) updateData.sentDate = sentDate;
       if (returnDate) updateData.returnDate = returnDate;
       
@@ -180,12 +189,17 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Usar timeout para evitar múltiplas atualizações em sequência
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        setIsUpdatingStatus(false);
+      }, 300);
     },
     onError: (error: Error) => {
+      setIsUpdatingStatus(false);
       toast({
         title: "Erro",
-        description: "Falha ao atualizar status da prótese",
+        description: error.message.includes("Aguarde") ? error.message : "Falha ao atualizar status da prótese",
         variant: "destructive",
       });
     }
