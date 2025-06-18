@@ -170,6 +170,15 @@ The application is designed for deployment on Replit with the following configur
   - Laboratory management: create, edit, delete fully functional
   - Prosthesis control: complete workflow from creation to laboratory tracking
   - **SYSTEM STATUS: 100% functional for prosthesis and laboratory management**
+- June 18, 2025: **Advanced Archive System for Prosthesis Management**
+  - Implemented complete archive/unarchive functionality for prosthesis control
+  - Added "Arquivados" column with toggle button to show/hide archived items
+  - Archive serves as alternative to deletion for maintaining historical records
+  - Column remains hidden by default to keep interface clean
+  - Archive/unarchive buttons in dropdown menu with proper error handling
+  - Archived prostheses can be restored to "completed" status
+  - Enhanced grid layout adapts from 4 to 5 columns when archive is visible
+  - **ARCHIVE FEATURE: Complete workflow for historical record management**
 
 ## User Preferences
 

@@ -427,10 +427,7 @@ export default function ProsthesisControlPage() {
           }
         };
         
-        // Auto-mostrar coluna arquivado se houver itens arquivados
-        if (updatedColumns.archived.items.length > 0 && !showArchivedColumn) {
-          setShowArchivedColumn(true);
-        }
+        // Manter coluna arquivado oculta por padrão (alternativa antes de excluir)
 
         // Aplicar filtros
         if (filters.delayedServices) {
@@ -974,6 +971,19 @@ export default function ProsthesisControlPage() {
               <Settings className="h-4 w-4" />
               Etiquetas
             </Button>
+            <Button 
+              variant={showArchivedColumn ? "default" : "outline"} 
+              onClick={() => setShowArchivedColumn(!showArchivedColumn)} 
+              className="gap-2"
+            >
+              <Archive className="h-4 w-4" />
+              Arquivados
+              {columns.archived.items.length > 0 && (
+                <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center rounded-full ml-1">
+                  {columns.archived.items.length}
+                </Badge>
+              )}
+            </Button>
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -1101,8 +1111,13 @@ export default function ProsthesisControlPage() {
           </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {Object.values(columns).map(column => (
+            <div className={cn(
+              "grid grid-cols-1 gap-4",
+              showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
+            )}>
+              {Object.values(columns)
+                .filter(column => column.id !== 'archived' || showArchivedColumn)
+                .map(column => (
                 <div key={column.id} className={cn(
                   "bg-card rounded-lg border shadow-sm",
                   (column.id === 'sent' && delayedSent > 0) && "border-red-400",
@@ -1142,6 +1157,7 @@ export default function ProsthesisControlPage() {
                             {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "completed" && <Check className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "archived" && <Archive className="h-10 w-10 mb-2 opacity-20" />}
                             <span className="select-none">Nenhuma prótese</span>
                           </div>
                         ) : (
