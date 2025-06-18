@@ -92,13 +92,6 @@ interface Laboratory {
   address: string;
 }
 
-// Mock data
-const mockLaboratories: Laboratory[] = [
-  { id: 1, name: "Lab Dental", contact: "contato@labdental.com.br", address: "Rua das Flores, 123" },
-  { id: 2, name: "Odonto Tech", contact: "contato@odontotech.com.br", address: "Av. Paulista, 1000" },
-  { id: 3, name: "Prótese Premium", contact: "contato@protesepremium.com.br", address: "Rua Augusta, 500" }
-];
-
 const mockPatients = [
   { id: 1, fullName: "Maria Silva", email: "maria@exemplo.com", phone: "(11) 98765-4321" },
   { id: 2, fullName: "João Pereira", email: "joao@exemplo.com", phone: "(11) 91234-5678" },
@@ -247,6 +240,70 @@ interface StatusColumn {
 
 export default function ProsthesisControlPage() {
   const { toast } = useToast();
+  
+  // Query para buscar laboratórios do banco
+  const { data: laboratories = [], isLoading: isLoadingLabs, refetch: refetchLabs } = useQuery({
+    queryKey: ["/api/laboratories"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/laboratories");
+      if (!res.ok) throw new Error("Falha ao carregar laboratórios");
+      return res.json();
+    }
+  });
+
+  // Estados para laboratórios
+  const [newLabName, setNewLabName] = useState("");
+  const [newLabWhatsapp, setNewLabWhatsapp] = useState("");
+  const [editingLab, setEditingLab] = useState<any>(null);
+
+  // Mutations para laboratórios
+  const createLabMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone?: string }) => {
+      const res = await apiRequest("POST", "/api/laboratories", data);
+      if (!res.ok) throw new Error("Falha ao criar laboratório");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      setNewLabName("");
+      setNewLabWhatsapp("");
+      toast({ title: "Laboratório criado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar laboratório", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const updateLabMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/laboratories/${id}`, data);
+      if (!res.ok) throw new Error("Falha ao atualizar laboratório");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      setEditingLab(null);
+      toast({ title: "Laboratório atualizado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar laboratório", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteLabMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/laboratories/${id}`);
+      if (!res.ok) throw new Error("Falha ao deletar laboratório");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      toast({ title: "Laboratório removido com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover laboratório", description: error.message, variant: "destructive" });
+    }
+  });
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
       id: "pending",
