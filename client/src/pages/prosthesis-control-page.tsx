@@ -406,19 +406,28 @@ export default function ProsthesisControlPage() {
       const method = prosthesisData.id ? "PATCH" : "POST";
       const url = prosthesisData.id ? `/api/prosthesis/${prosthesisData.id}` : "/api/prosthesis";
       
+      console.log('Enviando requisição:', { method, url, data: prosthesisData });
+      
       const res = await apiRequest(method, url, prosthesisData);
+      
+      console.log('Resposta da requisição:', { status: res.status, ok: res.ok });
       
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Falha ao salvar: ${res.status}`);
+        console.error('Erro na resposta:', errorText);
+        throw new Error(`Falha ao salvar: ${res.status} - ${errorText}`);
       }
       
-      return res.json();
+      const result = await res.json();
+      console.log('Dados retornados:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Sucesso na mutation:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
+      setSelectedLabels([]);
       setSentDate(undefined);
       setExpectedReturnDate(undefined);
       toast({
@@ -427,6 +436,7 @@ export default function ProsthesisControlPage() {
       });
     },
     onError: (error: Error) => {
+      console.error('Erro na mutation:', error);
       toast({
         title: "Erro ao salvar",
         description: error.message,
@@ -985,7 +995,7 @@ export default function ProsthesisControlPage() {
                             {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
                             {column.id === "completed" && <Check className="h-10 w-10 mb-2 opacity-20" />}
-                            <span>Nenhuma prótese</span>
+                            <span className="select-none">Nenhuma prótese</span>
                           </div>
                         ) : (
                           column.items.map((item, index) => (
