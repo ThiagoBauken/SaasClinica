@@ -813,7 +813,7 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler super otimizado para drag and drop - máxima fluidez
+  // Handler otimizado para drag and drop com máxima fluidez
   const onDragEnd = useCallback((result: any) => {
     const { source, destination, draggableId } = result;
     
@@ -824,20 +824,15 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Extrair ID do item de forma mais eficiente
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    
-    // Usar referência direta ao invés de spread para melhor performance
     const sourceItems = columns[source.droppableId as keyof typeof columns]?.items;
-    const destItems = columns[destination.droppableId as keyof typeof columns]?.items;
     
-    if (!sourceItems || !destItems) return;
+    if (!sourceItems) return;
     
-    // Encontrar item de forma otimizada
     const draggedItem = sourceItems.find(item => item.id === prosthesisId);
     if (!draggedItem) return;
     
-    // Criar novo estado usando referências otimizadas
+    // Criar novo estado de forma otimizada
     const newColumns = { ...columns };
     
     // Remover da origem
@@ -908,7 +903,7 @@ export default function ProsthesisControlPage() {
     
     newColumns[destination.droppableId as keyof typeof newColumns] = {
       ...newColumns[destination.droppableId as keyof typeof newColumns],
-      items: destItems
+      items: destinationItems
     };
     
     // Atualizar estado local imediatamente (UI responsiva)
