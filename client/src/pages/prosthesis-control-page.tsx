@@ -299,6 +299,10 @@ export default function ProsthesisControlPage() {
     mutationFn: async (id: number) => {
       const res = await apiRequest("DELETE", `/api/laboratories/${id}`);
       if (!res.ok) throw new Error("Falha ao deletar laboratório");
+      // 204 No Content responses don't have a body, so don't try to parse JSON
+      if (res.status === 204) {
+        return { success: true };
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -1341,7 +1345,7 @@ export default function ProsthesisControlPage() {
                                 <Input 
                                   placeholder="Nome do laboratório" 
                                   className="w-full"
-                                  value={editLabName}
+                                  value={editLabName || ""}
                                   onChange={(e) => setEditLabName(e.target.value)}
                                 />
                               </div>
@@ -1349,7 +1353,7 @@ export default function ProsthesisControlPage() {
                                 <Input 
                                   placeholder="WhatsApp" 
                                   className="w-full"
-                                  value={editLabPhone}
+                                  value={editLabPhone || ""}
                                   onChange={(e) => setEditLabPhone(e.target.value)}
                                 />
                               </div>
