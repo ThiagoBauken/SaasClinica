@@ -43,21 +43,18 @@ export function registerProtesesRoutes(app: Express) {
       const user = req.user as any;
       const companyId = user.companyId;
       
-      const prosthesisData = {
-        ...req.body,
-        companyId,
-        createdBy: user.id,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      // For now, return the created data with an ID
-      const newProsthesis = {
-        id: Date.now(),
-        ...prosthesisData
-      };
-      
-      res.status(201).json(newProsthesis);
+      try {
+        const prosthesisData = {
+          ...req.body,
+          companyId
+        };
+        
+        const newProsthesis = await storage.createProsthesis(prosthesisData);
+        res.status(201).json(newProsthesis);
+      } catch (error) {
+        console.error('Erro ao criar prótese:', error);
+        res.status(500).json({ error: 'Erro ao criar prótese' });
+      }
     })
   );
 
@@ -76,40 +73,13 @@ export function registerProtesesRoutes(app: Express) {
           return res.status(400).json({ error: 'ID de prótese inválido' });
         }
         
-        const updateData = {
-          ...req.body,
-          updatedAt: new Date().toISOString(),
-          updatedBy: user.id
-        };
+        const updatedProsthesis = await storage.updateProsthesis(prosthesisId, req.body, companyId);
         
-        // Simular busca e atualização no banco
-        const updatedProsthesis = {
-          id: prosthesisId,
-          patientId: updateData.patientId || 1,
-          patientName: updateData.patientName || "Maria Silva",
-          professionalId: updateData.professionalId || 1,
-          professionalName: updateData.professionalName || "Dr. João",
-          type: updateData.type || "Crown",
-          description: updateData.description || "Coroa de porcelana",
-          laboratory: updateData.laboratory || "DentLab",
-          status: updateData.status || "in_progress",
-          sentDate: updateData.sentDate || null,
-          expectedReturnDate: updateData.expectedReturnDate || null,
-          returnDate: updateData.returnDate || null,
-          observations: updateData.observations || null,
-          labels: updateData.labels || [],
-          cost: updateData.cost || 350.00,
-          notes: updateData.notes || "",
-          companyId,
-          createdAt: "2024-01-15T10:00:00.000Z",
-          updatedAt: updateData.updatedAt
-        };
+        if (!updatedProsthesis) {
+          return res.status(404).json({ error: 'Prótese não encontrada' });
+        }
         
-        res.json({
-          success: true,
-          data: updatedProsthesis,
-          message: 'Status atualizado com sucesso'
-        });
+        res.json(updatedProsthesis);
       } catch (error) {
         console.error('Erro ao atualizar prótese:', error);
         res.status(500).json({ 
