@@ -9,13 +9,19 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { moduleLoader } from "../modules/moduleLoader";
 
+// Importações das melhorias arquiteturais
+import { initializeClusterCache } from './clusterCache';
+import { distributedCache } from './distributedCache';
+import { distributedDb } from './distributedDb';
+import { sessionManager } from './sessionManager';
+import { cdnManager } from './cdnManager';
+import { queueSystem } from './queueSystem';
+import session from 'express-session';
+
 // Determina quantos workers serão usados (no máximo)
 const WORKERS = process.env.NODE_ENV === "production" 
   ? Math.min(os.cpus().length, 16) // Limita a 16 workers no máximo para evitar overhead de context switching
   : 1; // Em desenvolvimento, usamos apenas 1 worker
-
-// Importação do sistema de cache distribuído
-import { initializeClusterCache } from './clusterCache';
 
 // Implementação com clusters para aproveitar múltiplos cores
 if (cluster.isPrimary && process.env.NODE_ENV === "production") {
@@ -49,6 +55,9 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
   }));
   
+  // Configuração de sessões distribuídas
+  app.use(session(sessionManager.getSessionConfig()));
+  
   // Limitador de requisições para evitar abuso
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
@@ -64,6 +73,19 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   // Aumenta o limite do bodyParser para lidar com uploads maiores de forma eficiente
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+  
+  // Middleware para CDN e assets otimizados
+  app.use('/assets', express.static('uploads', {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, path) => {
+      const headers = cdnManager.getCacheHeaders(path);
+      Object.entries(headers).forEach(([key, value]) => {
+        res.setHeader(key, value);
+      });
+    }
+  }));
 
   // Middleware para logging e monitoramento de performance
   app.use((req, res, next) => {
