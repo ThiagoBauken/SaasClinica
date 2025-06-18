@@ -333,6 +333,11 @@ export default function ProsthesisControlPage() {
       id: "completed",
       title: "Realizado",
       items: []
+    },
+    archived: {
+      id: "archived",
+      title: "Arquivado",
+      items: []
     }
   });
   
@@ -596,6 +601,56 @@ export default function ProsthesisControlPage() {
       toast({
         title: "Erro",
         description: "Falha ao atualizar status da prótese",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation para arquivar prótese
+  const archiveProsthesisMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, { status: 'archived' });
+      if (!response.ok) {
+        throw new Error(`Erro ao arquivar: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      toast({
+        title: "Prótese arquivada",
+        description: "A prótese foi arquivada com sucesso",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: "Falha ao arquivar prótese",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation para desarquivar prótese
+  const unarchiveProsthesisMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, { status: 'completed' });
+      if (!response.ok) {
+        throw new Error(`Erro ao desarquivar: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      toast({
+        title: "Prótese desarquivada",
+        description: "A prótese foi retornada para concluído",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: "Falha ao desarquivar prótese",
         variant: "destructive",
       });
     }
@@ -1149,6 +1204,21 @@ export default function ProsthesisControlPage() {
                                         }}>
                                           <Edit className="h-4 w-4 mr-2" /> Editar
                                         </DropdownMenuItem>
+                                        {item.status !== 'archived' ? (
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            archiveProsthesisMutation.mutate(item.id);
+                                          }}>
+                                            <Archive className="h-4 w-4 mr-2" /> Arquivar
+                                          </DropdownMenuItem>
+                                        ) : (
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            unarchiveProsthesisMutation.mutate(item.id);
+                                          }}>
+                                            <ArchiveRestore className="h-4 w-4 mr-2" /> Desarquivar
+                                          </DropdownMenuItem>
+                                        )}
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                           className="text-destructive"
