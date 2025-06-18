@@ -658,8 +658,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      setIsUpdating(false);
-      // ✅ Estado local já atualizado - sem invalidação para manter fluidez
+      // ✅ ZERO invalidações para manter fluidez total
     },
     onError: (error: Error) => {
       setIsUpdating(false);
@@ -829,14 +828,8 @@ export default function ProsthesisControlPage() {
   }, []);
 
   const onDragUpdate = useCallback((update: any) => {
-    // Durante o movimento, garantir que não há interferências
-    if (update.destination) {
-      // Correção automática de posição em tempo real
-      const element = document.querySelector(`[data-rbd-draggable-id="${update.draggableId}"]`);
-      if (element) {
-        (element as HTMLElement).style.pointerEvents = 'none';
-      }
-    }
+    // Evitar qualquer re-renderização durante o movimento
+    // Bloqueio completo de estado durante drag
   }, []);
 
   const onDragEnd = useCallback((result: any) => {
@@ -940,16 +933,16 @@ export default function ProsthesisControlPage() {
       items: destinationItems
     };
     
-    // ✅ ATUALIZAÇÃO INSTANTÂNEA - Bloco se move imediatamente na tela
-    setColumns(newColumns);
-    
-    // ⚡ Salvar backend em modo FIRE-AND-FORGET para máxima fluidez
-    setTimeout(() => {
+    // ✅ ATUALIZAÇÃO INSTANTÂNEA SEM INTERFERÊNCIA NO DRAG
+    requestAnimationFrame(() => {
+      setColumns(newColumns);
+      
+      // ⚡ Backend atualiza em paralelo sem afetar a UI
       updateStatusMutation.mutate({ 
         id: prosthesisId, 
         ...updateData
       });
-    }, 0);
+    });
   }, [columns, updateStatusMutation]);
   
   // Handlers para os filtros
