@@ -88,10 +88,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (currentUser && !error) {
       setUser(currentUser);
-    } else if (error) {
+    } else if (error || currentUser === null) {
       setUser(null);
+      // Auto-login para desenvolvimento
+      if (!isLoading && !currentUser) {
+        console.log("Tentando auto-login...");
+        login({ username: "admin", password: "admin123" }).catch(console.error);
+      }
     }
-  }, [currentUser, error]);
+  }, [currentUser, error, isLoading]);
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoginPending(true);
