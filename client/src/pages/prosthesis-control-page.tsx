@@ -232,10 +232,6 @@ interface StatusColumn {
 export default function ProsthesisControlPage() {
   const { toast } = useToast();
   
-  // Estado para controlar drag-and-drop e operações pendentes
-  const [isDragging, setIsDragging] = useState(false);
-  const [deferredOperations, setDeferredOperations] = useState<Array<() => void>>([]);
-  
   // Query para buscar laboratórios do banco
   const { data: laboratories = [], isLoading: isLoadingLabs, refetch: refetchLabs } = useQuery({
     queryKey: ["/api/laboratories"],
@@ -434,89 +430,90 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    // CRÍTICO: Não atualizar durante arraste para evitar conflitos
-    if (isDragging || !prosthesis) return;
-    
-    try {
-      const updatedColumns = {
-        pending: {
-          ...columns.pending,
-          items: prosthesis.filter(p => p.status === 'pending')
-        },
-        sent: {
-          ...columns.sent,
-          items: prosthesis.filter(p => p.status === 'sent')
-        },
-        returned: {
-          ...columns.returned,
-          items: prosthesis.filter(p => p.status === 'returned')
-        },
-        completed: {
-          ...columns.completed,
-          items: prosthesis.filter(p => p.status === 'completed')
-        },
-        archived: {
-          ...columns.archived,
-          items: prosthesis.filter(p => p.status === 'archived')
-        }
-      };
+    if (prosthesis) {
+      try {
+        const updatedColumns = {
+          pending: {
+            ...columns.pending,
+            items: prosthesis.filter(p => p.status === 'pending')
+          },
+          sent: {
+            ...columns.sent,
+            items: prosthesis.filter(p => p.status === 'sent')
+          },
+          returned: {
+            ...columns.returned,
+            items: prosthesis.filter(p => p.status === 'returned')
+          },
+          completed: {
+            ...columns.completed,
+            items: prosthesis.filter(p => p.status === 'completed')
+          },
+          archived: {
+            ...columns.archived,
+            items: prosthesis.filter(p => p.status === 'archived')
+          }
+        };
         
-      // Aplicar filtros
-      if (filters.delayedServices) {
-        // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
-        const now = new Date();
-        updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
-          p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
-        );
-      }
-      
-      if (filters.returnedServices) {
-        // Manter apenas serviços que já retornaram
-        updatedColumns.sent.items = [];
-        updatedColumns.pending.items = [];
-      }
-      
-      if (filters.professional !== "all") {
-        // Filtrar por profissional
-        const professionalId = parseInt(filters.professional);
-        Object.keys(updatedColumns).forEach(key => {
-          updatedColumns[key as keyof typeof updatedColumns].items = 
-            updatedColumns[key as keyof typeof updatedColumns].items.filter(
-              p => p.professionalId === professionalId
-            );
+        // Manter coluna arquivado oculta por padrão (alternativa antes de excluir)
+
+        // Aplicar filtros
+        if (filters.delayedServices) {
+          // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
+          const now = new Date();
+          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
+            p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
+          );
+        }
+        
+        if (filters.returnedServices) {
+          // Manter apenas serviços que já retornaram
+          updatedColumns.sent.items = [];
+          updatedColumns.pending.items = [];
+        }
+        
+        if (filters.professional !== "all") {
+          // Filtrar por profissional
+          const professionalId = parseInt(filters.professional);
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.professionalId === professionalId
+              );
+          });
+        }
+        
+        if (filters.laboratory !== "all") {
+          // Filtrar por laboratório
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.laboratory === filters.laboratory
+              );
+          });
+        }
+        
+        if (filters.label !== "all") {
+          // Filtrar por etiqueta
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter(
+                p => p.labels && p.labels.includes(filters.label)
+              );
+          });
+        }
+        
+        setColumns(updatedColumns);
+      } catch (error) {
+        console.error("Erro ao organizar próteses em colunas:", error);
+        toast({
+          title: "Erro",
+          description: "Ocorreu um erro ao processar as próteses.",
+          variant: "destructive",
         });
       }
-      
-      if (filters.laboratory !== "all") {
-        // Filtrar por laboratório
-        Object.keys(updatedColumns).forEach(key => {
-          updatedColumns[key as keyof typeof updatedColumns].items = 
-            updatedColumns[key as keyof typeof updatedColumns].items.filter(
-              p => p.laboratory === filters.laboratory
-            );
-        });
-      }
-      
-      if (filters.label !== "all") {
-        // Filtrar por etiqueta
-        Object.keys(updatedColumns).forEach(key => {
-          updatedColumns[key as keyof typeof updatedColumns].items = 
-            updatedColumns[key as keyof typeof updatedColumns].items.filter(
-              p => p.labels && p.labels.includes(filters.label)
-            );
-        });
-      }
-      
-      setColumns(updatedColumns);
-    } catch (error) {
-      console.error("Erro ao organizar próteses em colunas:", error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao processar as próteses.",
-        variant: "destructive",
-      });
     }
-  }, [prosthesis, filters, isDragging]);
+  }, [prosthesis, filters]);
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
@@ -542,46 +539,10 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: (data) => {
       console.log('Sucesso na mutation:', data);
-      
-      // Para edição, atualizar localmente sem invalidar cache para manter posição
-      if (editingProsthesis) {
-        setColumns(prevColumns => {
-          const newColumns = { ...prevColumns };
-          
-          // Encontrar o item nas colunas e atualizar no local
-          Object.keys(newColumns).forEach(columnKey => {
-            const columnItems = newColumns[columnKey as keyof typeof newColumns].items;
-            const itemIndex = columnItems.findIndex(item => item.id === data.id);
-            
-            if (itemIndex !== -1) {
-              // Atualizar item na mesma posição
-              newColumns[columnKey as keyof typeof newColumns] = {
-                ...newColumns[columnKey as keyof typeof newColumns],
-                items: columnItems.map((item, index) => 
-                  index === itemIndex ? { ...data, patientName: item.patientName, professionalName: item.professionalName } : item
-                )
-              };
-            }
-          });
-          
-          return newColumns;
-        });
-      } else {
-        // Para criação nova, adiar invalidação se estiver arrastando
-        if (isDragging) {
-          setDeferredOperations(prev => [...prev, () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-          }]);
-        } else {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }
-      }
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
       setSelectedLabels([]);
-      setSelectedPatient("");
-      setSelectedLaboratory("");
       setSentDate(undefined);
       setExpectedReturnDate(undefined);
       toast({
@@ -637,7 +598,7 @@ export default function ProsthesisControlPage() {
   // Estado para controle de debouncing
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Mutation simplificada para atualizar status com debounce
+  // Mutation simplificada para atualizar status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, returnDate, sentDate }: { 
       id: number; 
@@ -645,9 +606,6 @@ export default function ProsthesisControlPage() {
       returnDate?: string;
       sentDate?: string;
     }) => {
-      // Aguardar um pouco para garantir que o arraste terminou
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const updateData: any = { status };
       
       if (status === 'sent' && sentDate) {
@@ -666,7 +624,8 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Estado local já atualizado - sem invalidações para manter fluidez
+      // Recarregar dados após sucesso
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -688,14 +647,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       toast({
         title: "Prótese arquivada",
         description: "A prótese foi arquivada com sucesso",
@@ -720,14 +672,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       toast({
         title: "Prótese desarquivada",
         description: "A prótese foi retornada para concluído",
@@ -756,14 +701,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Se estiver arrastando, adiar a invalidação
-      if (isDragging) {
-        setDeferredOperations(prev => [...prev, () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
-        }]);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao criar laboratório:", error);
@@ -845,25 +783,8 @@ export default function ProsthesisControlPage() {
     }
   };
   
-  // Handler para drag start - prevenir mudanças de estado durante arraste
-  const onDragStart = () => {
-    setIsDragging(true);
-    document.body.style.userSelect = 'none';
-  };
-
-  // Handler para drag and drop otimizado - sem invalidações desnecessárias
+  // Handler para drag and drop com melhor desempenho
   const onDragEnd = (result: any) => {
-    setIsDragging(false);
-    document.body.style.userSelect = '';
-    
-    // Executar todas as operações adiadas após drag terminar
-    if (deferredOperations.length > 0) {
-      setTimeout(() => {
-        deferredOperations.forEach(operation => operation());
-        setDeferredOperations([]);
-      }, 100);
-    }
-    
     const { source, destination, draggableId } = result;
     
     // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
@@ -880,90 +801,107 @@ export default function ProsthesisControlPage() {
     
     if (!draggedItem) return;
     
-    // Atualizar estado local imediatamente para UI responsiva
+    // Criar uma cópia das colunas atuais
     const newColumns = { ...columns };
     
-    // Remover da coluna de origem (cópia imutável)
-    newColumns[source.droppableId as keyof typeof newColumns] = {
-      ...newColumns[source.droppableId as keyof typeof newColumns],
-      items: newColumns[source.droppableId as keyof typeof newColumns].items.filter(
+    // Remover da coluna de origem
+    newColumns[source.droppableId as keyof typeof newColumns].items = 
+      newColumns[source.droppableId as keyof typeof newColumns].items.filter(
         item => item.id !== prosthesisId
-      )
-    };
+      );
     
-    // Preparar item atualizado
+    // Adicionar na coluna de destino com o status atualizado
+    // e outros campos dependendo do status
     const updatedItem = { 
       ...draggedItem,
       status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled'
     };
     
-    // Preparar dados para atualização no backend
-    let updateData: any = { status: destination.droppableId };
-    
     // Lógica específica por transição de status
     if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+      // Quando enviamos ao laboratório
       const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
       updatedItem.sentDate = sentDateFormatted;
-      updateData.sentDate = sentDateFormatted;
+      
+      // Atualizar no backend
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        status: 'sent',
+        sentDate: sentDateFormatted
+      });
       
       toast({
         title: "Prótese enviada",
-        description: `Prótese enviada para o laboratório`,
+        description: `Prótese de ${updatedItem.patientName} enviada para o laboratório ${updatedItem.laboratory}`,
       });
     } 
     else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+      // Quando retorna do laboratório
       const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
       updatedItem.returnDate = returnDateFormatted;
-      updateData.returnDate = returnDateFormatted;
       
+      // Verificar se está atrasado
       if (updatedItem.expectedReturnDate && isAfter(new Date(), parseISO(updatedItem.expectedReturnDate))) {
         const daysLate = differenceInDays(new Date(), parseISO(updatedItem.expectedReturnDate));
+        
         toast({
           title: "Prótese retornada com atraso",
-          description: `Retornou com ${daysLate} dias de atraso`,
+          description: `A prótese retornou com ${daysLate} dias de atraso`,
           variant: "destructive"
         });
       } else {
         toast({
           title: "Prótese retornada",
-          description: "Prótese retornou do laboratório",
+          description: `Prótese de ${updatedItem.patientName} retornou do laboratório`,
         });
       }
+      
+      // Atualizar no backend
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        status: 'returned',
+        returnDate: returnDateFormatted
+      });
     }
     else if (destination.droppableId === 'completed') {
+      // Quando concluímos o caso
       toast({
         title: "Prótese concluída",
-        description: "Tratamento concluído com sucesso",
+        description: `Tratamento de ${updatedItem.patientName} concluído com sucesso`,
+      });
+      
+      // Atualizar no backend
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        status: 'completed'
       });
     }
     else if (destination.droppableId === 'pending') {
+      // Quando voltamos para pendente (cancelar envio)
       updatedItem.sentDate = null;
       updatedItem.returnDate = null;
-      updateData.sentDate = null;
-      updateData.returnDate = null;
+      
+      updateStatusMutation.mutate({ 
+        id: prosthesisId, 
+        status: 'pending'
+      });
       
       toast({
         title: "Status atualizado",
-        description: "Prótese retornou para pendente",
+        description: `Prótese de ${updatedItem.patientName} retornou para pendente`,
       });
     }
     
-    // Adicionar à coluna de destino na posição correta
-    const destItems = [...newColumns[destination.droppableId as keyof typeof newColumns].items];
-    destItems.splice(destination.index, 0, updatedItem);
+    // Adicionar o item atualizado à coluna de destino
+    newColumns[destination.droppableId as keyof typeof newColumns].items.splice(
+      destination.index,
+      0,
+      updatedItem
+    );
     
-    newColumns[destination.droppableId as keyof typeof newColumns] = {
-      ...newColumns[destination.droppableId as keyof typeof newColumns],
-      items: destItems
-    };
-    
-    // Atualizar estado local imediatamente (UI responsiva)
-    setColumns(newColumns);
-    
-    // Atualizar backend de forma otimizada
-    updateStatusMutation.mutate({ 
-      id: prosthesisId, 
-      ...updateData
+    // Atualizar o estado imediatamente para evitar lag na interface
+    window.requestAnimationFrame(() => {
+      setColumns(newColumns);
     });
   };
   
@@ -1198,7 +1136,7 @@ export default function ProsthesisControlPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os laboratórios</SelectItem>
-                        {laboratories?.map((lab: Laboratory) => (
+                        {laboratories?.map(lab => (
                           <SelectItem key={lab.id} value={lab.name}>
                             {lab.name}
                           </SelectItem>
@@ -1240,10 +1178,7 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext 
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-          >
+          <DragDropContext onDragEnd={onDragEnd}>
             <div className={cn(
               "grid grid-cols-1 gap-4",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1307,14 +1242,11 @@ export default function ProsthesisControlPage() {
                                   {...provided.dragHandleProps}
                                   onClick={() => handleEditProsthesis(item)}
                                   style={{
-                                    ...provided.draggableProps.style,
-                                    // Otimizações para movimentos rápidos
-                                    transform: provided.draggableProps.style?.transform,
-                                    transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease',
+                                    ...provided.draggableProps.style
                                   }}
                                   className={cn(
-                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab hover:bg-muted select-none",
-                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2 cursor-grabbing",
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab transition-all duration-200 hover:bg-muted select-none",
+                                    snapshot.isDragging && "shadow-lg border-primary scale-[1.02] border-2",
                                     isDelayed(item) && "border-red-400"
                                   )}
                                 >
