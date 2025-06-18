@@ -232,8 +232,9 @@ interface StatusColumn {
 export default function ProsthesisControlPage() {
   const { toast } = useToast();
   
-  // Estado para controlar drag-and-drop
+  // Estado para controlar drag-and-drop e operações pendentes
   const [isDragging, setIsDragging] = useState(false);
+  const [deferredOperations, setDeferredOperations] = useState<Array<() => void>>([]);
   
   // Query para buscar laboratórios do banco
   const { data: laboratories = [], isLoading: isLoadingLabs, refetch: refetchLabs } = useQuery({
@@ -681,7 +682,14 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
       toast({
         title: "Prótese arquivada",
         description: "A prótese foi arquivada com sucesso",
@@ -706,7 +714,14 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Se estiver arrastando, adiar a invalidação
+      if (isDragging) {
+        setDeferredOperations(prev => [...prev, () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      }
       toast({
         title: "Prótese desarquivada",
         description: "A prótese foi retornada para concluído",
