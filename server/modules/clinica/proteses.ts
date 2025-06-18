@@ -24,106 +24,13 @@ export function registerProtesesRoutes(app: Express) {
       const user = req.user as any;
       const companyId = user.companyId;
       
-      // Dados de próteses compatíveis com o frontend
-      const prosthesis = [
-        {
-          id: 1,
-          patientId: 1,
-          patientName: "Maria Silva",
-          professionalId: 1,
-          professionalName: "Dr. Ana Silva",
-          type: "Coroa",
-          description: "Coroa de cerâmica no dente 36",
-          laboratory: "Lab Dental",
-          sentDate: "2024-12-10",
-          expectedReturnDate: "2024-12-20",
-          returnDate: null,
-          status: "sent",
-          observations: "Paciente com sensibilidade",
-          labels: ["urgente", "premium"],
-          createdAt: "2024-12-01",
-          updatedAt: "2024-12-10",
-          companyId
-        },
-        {
-          id: 2,
-          patientId: 2,
-          patientName: "João Pereira",
-          professionalId: 2,
-          professionalName: "Dr. Carlos Mendes",
-          type: "Ponte",
-          description: "Ponte fixa nos dentes 11, 12 e 13",
-          laboratory: "Odonto Tech",
-          sentDate: "2024-12-15",
-          expectedReturnDate: "2024-12-25",
-          returnDate: null,
-          status: "sent",
-          observations: "Usar material resistente",
-          labels: ["prioridade"],
-          createdAt: "2024-12-05",
-          updatedAt: "2024-12-15",
-          companyId
-        },
-        {
-          id: 3,
-          patientId: 3,
-          patientName: "Ana Oliveira",
-          professionalId: 3,
-          professionalName: "Dr. Juliana Costa",
-          type: "Prótese Total",
-          description: "Prótese total superior",
-          laboratory: "Prótese Premium",
-          sentDate: null,
-          expectedReturnDate: null,
-          returnDate: null,
-          status: "pending",
-          observations: "Paciente alérgico a metal",
-          labels: ["provisorio"],
-          createdAt: "2024-12-18",
-          updatedAt: null,
-          companyId
-        },
-        {
-          id: 4,
-          patientId: 1,
-          patientName: "Maria Silva",
-          professionalId: 1,
-          professionalName: "Dr. Ana Silva",
-          type: "Faceta",
-          description: "Facetas nos dentes 21 e 22",
-          laboratory: "Lab Dental",
-          sentDate: "2024-12-05",
-          expectedReturnDate: "2024-12-15",
-          returnDate: "2024-12-17",
-          status: "returned",
-          observations: "Cor A2",
-          labels: ["premium", "definitivo"],
-          createdAt: "2024-11-28",
-          updatedAt: "2024-12-17",
-          companyId
-        },
-        {
-          id: 5,
-          patientId: 2,
-          patientName: "João Pereira",
-          professionalId: 3,
-          professionalName: "Dr. Juliana Costa",
-          type: "Inlay",
-          description: "Inlay no dente 46",
-          laboratory: "Odonto Tech",
-          sentDate: "2024-12-01",
-          expectedReturnDate: "2024-12-10",
-          returnDate: "2024-12-12",
-          status: "completed",
-          observations: "Prioridade alta",
-          labels: ["retrabalho", "urgente"],
-          createdAt: "2024-11-25",
-          updatedAt: "2024-12-18",
-          companyId
-        }
-      ];
-      
-      res.json(prosthesis);
+      try {
+        const prosthesis = await storage.getProsthesis(companyId);
+        res.json(prosthesis);
+      } catch (error) {
+        console.error('Erro ao buscar próteses:', error);
+        res.status(500).json({ error: 'Erro ao buscar próteses' });
+      }
     })
   );
 

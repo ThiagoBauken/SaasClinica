@@ -1,6 +1,6 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, gte, lt, count, sql } from "drizzle-orm";
+import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
 
 // Data structure for transaction objects
 interface Transaction {
@@ -619,6 +619,68 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
+  }
+
+  // Prosthesis methods
+  async getProsthesis(companyId: number): Promise<any[]> {
+    const results = await db
+      .select({
+        id: prosthesis.id,
+        patientId: prosthesis.patientId,
+        patientName: patients.fullName,
+        professionalId: prosthesis.professionalId,
+        professionalName: users.fullName,
+        type: prosthesis.type,
+        description: prosthesis.description,
+        laboratory: prosthesis.laboratory,
+        status: prosthesis.status,
+        sentDate: prosthesis.sentDate,
+        expectedReturnDate: prosthesis.expectedReturnDate,
+        returnDate: prosthesis.returnDate,
+        observations: prosthesis.observations,
+        labels: prosthesis.labels,
+        createdAt: prosthesis.createdAt,
+        updatedAt: prosthesis.updatedAt,
+      })
+      .from(prosthesis)
+      .leftJoin(patients, eq(prosthesis.patientId, patients.id))
+      .leftJoin(users, eq(prosthesis.professionalId, users.id))
+      .where(eq(prosthesis.companyId, companyId))
+      .orderBy(desc(prosthesis.createdAt));
+    
+    return results;
+  }
+
+  async createProsthesis(data: any): Promise<any> {
+    const [result] = await db
+      .insert(prosthesis)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    
+    return result;
+  }
+
+  async updateProsthesis(id: number, data: any, companyId: number): Promise<any> {
+    const [result] = await db
+      .update(prosthesis)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)))
+      .returning();
+    
+    return result;
+  }
+
+  async deleteProsthesis(id: number, companyId: number): Promise<void> {
+    await db
+      .delete(prosthesis)
+      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)));
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

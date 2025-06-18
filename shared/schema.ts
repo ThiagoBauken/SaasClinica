@@ -198,6 +198,47 @@ export const insertAppointmentProcedureSchema = createInsertSchema(appointmentPr
   notes: true,
 });
 
+// Prosthesis/Próteses - Sistema de Controle de Próteses
+export const prosthesis = pgTable("prosthesis", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  professionalId: integer("professional_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // Coroa, Ponte, Prótese Total, Faceta, Inlay, etc.
+  description: text("description").notNull(),
+  laboratory: text("laboratory").notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, returned, completed, canceled
+  sentDate: date("sent_date"),
+  expectedReturnDate: date("expected_return_date"),
+  returnDate: date("return_date"),
+  observations: text("observations"),
+  labels: jsonb("labels").$type<string[]>().default([]),
+  cost: integer("cost").default(0), // in cents
+  price: integer("price").default(0), // in cents
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
+  companyId: true,
+  patientId: true,
+  professionalId: true,
+  type: true,
+  description: true,
+  laboratory: true,
+  status: true,
+  sentDate: true,
+  expectedReturnDate: true,
+  returnDate: true,
+  observations: true,
+  labels: true,
+  cost: true,
+  price: true,
+});
+
+export type Prosthesis = typeof prosthesis.$inferSelect;
+export type InsertProsthesis = z.infer<typeof insertProsthesisSchema>;
+
 // Rooms
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
