@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -296,25 +296,25 @@ export default function ProsthesisControlPage() {
   const [sentDate, setSentDate] = useState<Date | undefined>(undefined);
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | undefined>(undefined);
   
-  // Mock query para dados de próteses
+  // Query otimizada para dados de próteses
   const { data: prosthesis, isLoading, isError, error } = useQuery<Prosthesis[]>({
     queryKey: ["/api/prosthesis"],
     queryFn: async () => {
-      try {
-        // Tenta buscar do backend
-        const res = await apiRequest("GET", "/api/prosthesis");
-        if (!res.ok) {
-          console.warn("Usando dados mockados para próteses");
-          return generateMockProsthesis();
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar próteses:", error);
-        return generateMockProsthesis();
+      const res = await apiRequest("GET", "/api/prosthesis");
+      if (!res.ok) {
+        throw new Error(`Falha ao carregar: ${res.status}`);
       }
+      const data = await res.json();
+      
+      // Validar estrutura dos dados
+      if (!Array.isArray(data)) {
+        throw new Error("Dados inválidos do servidor");
+      }
+      
+      return data;
     },
-    retry: 2,
-    retryDelay: 1000,
+    retry: 1,
+    retryDelay: 2000,
     refetchOnWindowFocus: false,
     staleTime: 30000
   });
@@ -403,41 +403,33 @@ export default function ProsthesisControlPage() {
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
     mutationFn: async (prosthesisData: Partial<Prosthesis>) => {
-      try {
-        if (prosthesisData.id) {
-          // Atualização
-          const res = await apiRequest("PATCH", `/api/prosthesis/${prosthesisData.id}`, prosthesisData);
-          if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-          }
-          return await res.json();
-        } else {
-          // Criação
-          const res = await apiRequest("POST", "/api/prosthesis", prosthesisData);
-          if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-          }
-          return await res.json();
-        }
-      } catch (error) {
-        console.error("Erro na mutação:", error);
-        throw error;
+      const method = prosthesisData.id ? "PATCH" : "POST";
+      const url = prosthesisData.id ? `/api/prosthesis/${prosthesisData.id}` : "/api/prosthesis";
+      
+      const res = await apiRequest(method, url, prosthesisData);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Falha ao salvar: ${res.status}`);
       }
+      
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
+      setSentDate(undefined);
+      setExpectedReturnDate(undefined);
       toast({
-        title: "Sucesso",
-        description: "Prótese salva com sucesso!",
+        title: "Prótese salva",
+        description: "Dados salvos com sucesso!",
       });
     },
     onError: (error: Error) => {
-      console.error("Erro ao salvar prótese:", error);
       toast({
-        title: "Erro",
-        description: `Falha ao salvar prótese: ${error.message}`,
+        title: "Erro ao salvar",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -474,7 +466,10 @@ export default function ProsthesisControlPage() {
     }
   });
   
-  // Mutation para atualizar status
+  // Estado para controle de debouncing
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Mutation simplificada para atualizar status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, returnDate, sentDate }: { 
       id: number; 
@@ -482,54 +477,32 @@ export default function ProsthesisControlPage() {
       returnDate?: string;
       sentDate?: string;
     }) => {
-      try {
-        const updateData: any = { 
-          status,
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Adicionar campos específicos dependendo do status
-        if (status === 'sent' && sentDate) {
-          updateData.sentDate = sentDate;
-        }
-        if (status === 'returned' && returnDate) {
-          updateData.returnDate = returnDate;
-        }
-        
-        const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, updateData);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { message: errorText || 'Erro desconhecido' };
-          }
-          throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        return result;
-      } catch (error) {
-        console.error("Erro ao atualizar status:", error);
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      // Invalidar queries para recarregar dados
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      const updateData: any = { status };
       
-      toast({
-        title: "Status atualizado",
-        description: data?.message || "Status da prótese atualizado com sucesso!",
-      });
+      if (status === 'sent' && sentDate) {
+        updateData.sentDate = sentDate;
+      }
+      if (status === 'returned' && returnDate) {
+        updateData.returnDate = returnDate;
+      }
+      
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, updateData);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao atualizar: ${response.status}`);
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Recarregar dados após sucesso
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
-      console.error("Erro detalhado ao atualizar status:", error);
+      console.error("Erro ao atualizar status:", error);
       toast({
-        title: "Erro ao atualizar",
-        description: error.message || "Falha ao atualizar status da prótese",
+        title: "Erro",
+        description: "Falha ao atualizar status da prótese",
         variant: "destructive",
       });
     }
