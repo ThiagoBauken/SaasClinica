@@ -842,6 +842,246 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/website/public/:domain", websiteHandlers.getPublicWebsite);
   app.get("/api/websites/published", authCheck, websiteHandlers.listPublishedWebsites);
 
+  // === API DE LABORATÓRIOS ===
+  // Listar laboratórios
+  app.get("/api/laboratories", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    
+    try {
+      const laboratories = await storage.getLaboratories(companyId);
+      res.json(laboratories);
+    } catch (error) {
+      console.error('Erro ao buscar laboratórios:', error);
+      res.status(500).json({ error: 'Erro ao buscar laboratórios' });
+    }
+  }));
+
+  // Criar laboratório
+  app.post("/api/laboratories", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    
+    try {
+      const laboratoryData = {
+        ...req.body,
+        companyId
+      };
+      
+      const newLaboratory = await storage.createLaboratory(laboratoryData);
+      res.status(201).json(newLaboratory);
+    } catch (error) {
+      console.error('Erro ao criar laboratório:', error);
+      res.status(500).json({ 
+        error: 'Erro ao criar laboratório',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  }));
+
+  // Obter laboratório específico
+  app.get("/api/laboratories/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const laboratoryId = parseInt(req.params.id);
+      
+      if (!laboratoryId || isNaN(laboratoryId)) {
+        return res.status(400).json({ error: 'ID de laboratório inválido' });
+      }
+      
+      const laboratory = await storage.getLaboratory(laboratoryId, companyId);
+      
+      if (!laboratory) {
+        return res.status(404).json({ error: 'Laboratório não encontrado' });
+      }
+      
+      res.json(laboratory);
+    } catch (error) {
+      console.error('Erro ao buscar laboratório:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao buscar laboratório'
+      });
+    }
+  }));
+
+  // Atualizar laboratório
+  app.patch("/api/laboratories/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const laboratoryId = parseInt(req.params.id);
+      
+      if (!laboratoryId || isNaN(laboratoryId)) {
+        return res.status(400).json({ error: 'ID de laboratório inválido' });
+      }
+      
+      const updatedLaboratory = await storage.updateLaboratory(laboratoryId, req.body, companyId);
+      
+      if (!updatedLaboratory) {
+        return res.status(404).json({ error: 'Laboratório não encontrado' });
+      }
+      
+      res.json(updatedLaboratory);
+    } catch (error) {
+      console.error('Erro ao atualizar laboratório:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao atualizar laboratório'
+      });
+    }
+  }));
+
+  // Excluir laboratório
+  app.delete("/api/laboratories/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    const laboratoryId = parseInt(req.params.id);
+    
+    try {
+      if (!laboratoryId || isNaN(laboratoryId)) {
+        return res.status(400).json({ error: 'ID de laboratório inválido' });
+      }
+      
+      await storage.deleteLaboratory(laboratoryId, companyId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Erro ao excluir laboratório:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao excluir laboratório'
+      });
+    }
+  }));
+
+  // === API DE PRÓTESES ===
+  // Listar próteses
+  app.get("/api/prosthesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    
+    try {
+      const prosthesis = await storage.getProsthesis(companyId);
+      res.json(prosthesis);
+    } catch (error) {
+      console.error('Erro ao buscar próteses:', error);
+      res.status(500).json({ error: 'Erro ao buscar próteses' });
+    }
+  }));
+
+  // Criar prótese
+  app.post("/api/prosthesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    
+    try {
+      console.log('Dados recebidos para criação:', req.body);
+      
+      const prosthesisData = {
+        ...req.body,
+        companyId
+      };
+      
+      console.log('Dados processados para inserção:', prosthesisData);
+      
+      const newProsthesis = await storage.createProsthesis(prosthesisData);
+      console.log('Prótese criada com sucesso:', newProsthesis);
+      
+      if (!newProsthesis || !newProsthesis.id) {
+        console.error('Prótese criada mas sem dados válidos:', newProsthesis);
+        return res.status(500).json({ 
+          error: 'Erro interno',
+          details: 'Prótese criada mas dados inválidos'
+        });
+      }
+      
+      res.status(200).json(newProsthesis);
+    } catch (error) {
+      console.error('Erro detalhado ao criar prótese:', error);
+      res.status(500).json({ 
+        error: 'Erro ao criar prótese',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  }));
+
+  // Obter prótese específica
+  app.get("/api/prosthesis/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const prosthesisId = parseInt(req.params.id);
+      
+      if (!prosthesisId || isNaN(prosthesisId)) {
+        return res.status(400).json({ error: 'ID de prótese inválido' });
+      }
+      
+      const prosthesis = await storage.getProsthesisById(prosthesisId, companyId);
+      
+      if (!prosthesis) {
+        return res.status(404).json({ error: 'Prótese não encontrada' });
+      }
+      
+      res.json(prosthesis);
+    } catch (error) {
+      console.error('Erro ao buscar prótese:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao buscar prótese'
+      });
+    }
+  }));
+
+  // Atualizar prótese
+  app.patch("/api/prosthesis/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const prosthesisId = parseInt(req.params.id);
+      
+      if (!prosthesisId || isNaN(prosthesisId)) {
+        return res.status(400).json({ error: 'ID de prótese inválido' });
+      }
+      
+      const updatedProsthesis = await storage.updateProsthesis(prosthesisId, req.body, companyId);
+      
+      if (!updatedProsthesis) {
+        return res.status(404).json({ error: 'Prótese não encontrada' });
+      }
+      
+      res.json(updatedProsthesis);
+    } catch (error) {
+      console.error('Erro ao atualizar prótese:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao atualizar prótese'
+      });
+    }
+  }));
+
+  // Excluir prótese
+  app.delete("/api/prosthesis/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    const prosthesisId = parseInt(req.params.id);
+    
+    try {
+      if (!prosthesisId || isNaN(prosthesisId)) {
+        return res.status(400).json({ error: 'ID de prótese inválido' });
+      }
+      
+      await storage.deleteProsthesis(prosthesisId, companyId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Erro ao excluir prótese:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        message: 'Falha ao excluir prótese'
+      });
+    }
+  }));
+
   // === API DE AUTENTICAÇÃO ===
   // Verificar usuário atual
   app.get("/api/user/me", asyncHandler(async (req: Request, res: Response) => {
