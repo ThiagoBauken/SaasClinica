@@ -60,7 +60,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore, ArrowUp, ArrowDown, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -82,6 +82,7 @@ interface Prosthesis {
   status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -1235,16 +1236,41 @@ export default function ProsthesisControlPage() {
                   (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
                 )}>
                   <div className="p-4 font-semibold border-b flex justify-between items-center select-none flex-shrink-0">
-                    <span className={cn(
-                      "",
-                      (column.id === 'sent' && delayedSent > 0) && "text-red-500",
-                      (column.id === 'returned' && delayedReturned > 0) && "text-red-500"
-                    )}>
-                      {column.title}
-                      {((column.id === 'sent' && delayedSent > 0) || 
-                       (column.id === 'returned' && delayedReturned > 0)) && 
-                       <AlertCircle className="h-4 w-4 inline ml-1" />}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "",
+                        (column.id === 'sent' && delayedSent > 0) && "text-red-500",
+                        (column.id === 'returned' && delayedReturned > 0) && "text-red-500"
+                      )}>
+                        {column.title}
+                        {((column.id === 'sent' && delayedSent > 0) || 
+                         (column.id === 'returned' && delayedReturned > 0)) && 
+                         <AlertCircle className="h-4 w-4 inline ml-1" />}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <ArrowUpDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Posição padrão do drop</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setDefaultDropPosition('start')}>
+                            <ArrowUp className="h-4 w-4 mr-2" />
+                            Início {defaultDropPosition === 'start' && '✓'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDefaultDropPosition('exact')}>
+                            <Target className="h-4 w-4 mr-2" />
+                            Posição exata {defaultDropPosition === 'exact' && '✓'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDefaultDropPosition('end')}>
+                            <ArrowDown className="h-4 w-4 mr-2" />
+                            Final {defaultDropPosition === 'end' && '✓'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                     <div className="flex items-center gap-1">
                       <Badge variant="outline">{column.items.length}</Badge>
                       {column.id === 'sent' && delayedSent > 0 && (
@@ -1267,7 +1293,9 @@ export default function ProsthesisControlPage() {
                         style={{ 
                           minHeight: "calc(100vh - 300px)",
                           height: "calc(100vh - 300px)",
-                          overflow: "hidden"
+                          overflow: "hidden",
+                          display: "flex",
+                          flexDirection: "column"
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
