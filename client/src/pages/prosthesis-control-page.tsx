@@ -1390,9 +1390,11 @@ export default function ProsthesisControlPage() {
                                     }}
                                     className={cn(
                                       "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1",
                                       !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
-                                      isDelayed(item) && "border-red-400"
+                                      isDelayed(item) && "border-red-400",
+                                      // Oculta o item original durante o drag para evitar flash visual
+                                      draggedItemId === `prosthesis-${item.id}` && !snapshot.isDragging && "opacity-0 pointer-events-none"
                                     )}
                                   >
                                   <div className="flex justify-between items-start mb-2">
