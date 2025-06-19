@@ -372,6 +372,8 @@ export default function ProsthesisControlPage() {
   const [selectedLaboratory, setSelectedLaboratory] = useState<string>("");
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [laboratorySearchOpen, setLaboratorySearchOpen] = useState(false);
+  const [patientSearchTerm, setPatientSearchTerm] = useState("");
+  const [priceValue, setPriceValue] = useState("");
   
   // Estados para configurações de posicionamento
   const [showPositionOptions, setShowPositionOptions] = useState(false);
@@ -389,6 +391,8 @@ export default function ProsthesisControlPage() {
     setExpectedReturnDate(undefined);
     setPatientSearchOpen(false);
     setLaboratorySearchOpen(false);
+    setPatientSearchTerm("");
+    setPriceValue("");
     setIsModalOpen(false);
     setEditingProsthesis(null);
   };
@@ -1640,11 +1644,32 @@ export default function ProsthesisControlPage() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-full p-0">
-                        <Command>
-                          <CommandInput placeholder="Buscar paciente..." />
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Buscar paciente..." 
+                            value={patientSearchTerm}
+                            onValueChange={setPatientSearchTerm}
+                          />
                           <CommandEmpty>Nenhum paciente encontrado.</CommandEmpty>
                           <CommandGroup>
-                            {patients.map((patient: any) => (
+                            {patients
+                              .filter((patient: any) => {
+                                if (!patientSearchTerm) return true;
+                                
+                                const searchTerm = patientSearchTerm.toLowerCase();
+                                const patientName = patient.fullName.toLowerCase();
+                                let searchIndex = 0;
+                                
+                                // Busca sequencial: verifica se as letras aparecem na ordem correta
+                                for (let i = 0; i < patientName.length && searchIndex < searchTerm.length; i++) {
+                                  if (patientName[i] === searchTerm[searchIndex]) {
+                                    searchIndex++;
+                                  }
+                                }
+                                
+                                return searchIndex === searchTerm.length;
+                              })
+                              .map((patient: any) => (
                               <CommandItem
                                 key={patient.id}
                                 value={patient.fullName}
