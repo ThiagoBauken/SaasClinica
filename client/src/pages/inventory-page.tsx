@@ -586,12 +586,12 @@ export default function InventoryPage() {
     
     return standardProducts.filter(product => {
       const matchesSearch = !productSearchTerm || 
-        product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-        product.brand.toLowerCase().includes(productSearchTerm.toLowerCase());
+        product.name?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.brand?.toLowerCase().includes(productSearchTerm.toLowerCase());
       
       const matchesCategory = selectedProductCategory === "all" || 
-        product.categoryId.toString() === selectedProductCategory;
+        product.category === selectedProductCategory;
       
       return matchesSearch && matchesCategory;
     });
@@ -1397,14 +1397,14 @@ export default function InventoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as categorias</SelectItem>
-                  <SelectItem value="1">Materiais Restauradores</SelectItem>
-                  <SelectItem value="2">Anestésicos</SelectItem>
-                  <SelectItem value="3">Produtos de Higiene</SelectItem>
-                  <SelectItem value="4">Instrumentos</SelectItem>
-                  <SelectItem value="5">Materiais Preventivos</SelectItem>
-                  <SelectItem value="6">Materiais Cirúrgicos</SelectItem>
-                  <SelectItem value="7">Materiais Protéticos</SelectItem>
-                  <SelectItem value="8">Equipamentos</SelectItem>
+                  <SelectItem value="Materiais Restauradores">Materiais Restauradores</SelectItem>
+                  <SelectItem value="Anestésicos">Anestésicos</SelectItem>
+                  <SelectItem value="Produtos de Higiene">Produtos de Higiene</SelectItem>
+                  <SelectItem value="Instrumentos">Instrumentos</SelectItem>
+                  <SelectItem value="Materiais Preventivos">Materiais Preventivos</SelectItem>
+                  <SelectItem value="Materiais Cirúrgicos">Materiais Cirúrgicos</SelectItem>
+                  <SelectItem value="Materiais Protéticos">Materiais Protéticos</SelectItem>
+                  <SelectItem value="Equipamentos">Equipamentos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1413,9 +1413,16 @@ export default function InventoryPage() {
             <div className="border rounded-lg max-h-96 overflow-y-auto">
               <div className="p-4 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {selectedProducts.length} produto(s) selecionado(s)
-                  </span>
+                  <div>
+                    <span className="text-sm font-medium">
+                      {selectedProducts.length} produto(s) selecionado(s)
+                    </span>
+                    {selectedProductCategory !== "all" && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Categoria: {selectedProductCategory} ({getFilteredStandardProducts().length} produtos)
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -1425,8 +1432,20 @@ export default function InventoryPage() {
                         setSelectedProducts(filteredProducts.map(p => p.id));
                       }}
                     >
-                      Selecionar Todos
+                      Selecionar Todos Filtrados
                     </Button>
+                    {selectedProductCategory !== "all" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const categoryProducts = standardProducts.filter(p => p.category === selectedProductCategory);
+                          setSelectedProducts(categoryProducts.map(p => p.id));
+                        }}
+                      >
+                        Selecionar Toda Categoria
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1439,45 +1458,131 @@ export default function InventoryPage() {
               </div>
               
               <div className="p-2 space-y-1">
-                {getFilteredStandardProducts().map((product) => (
-                  <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                    <Checkbox
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedProducts([...selectedProducts, product.id]);
-                        } else {
-                          setSelectedProducts(selectedProducts.filter(id => id !== product.id));
-                        }
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">
-                            {new Intl.NumberFormat('pt-BR', { 
-                              style: 'currency', 
-                              currency: 'BRL' 
-                            }).format(product.estimatedPrice / 100)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{product.unit}</p>
+                {selectedProductCategory === "all" ? (
+                  // Group products by category when showing all
+                  Object.entries(
+                    getFilteredStandardProducts().reduce((groups, product) => {
+                      const category = product.category;
+                      if (!groups[category]) groups[category] = [];
+                      groups[category].push(product);
+                      return groups;
+                    }, {} as Record<string, any[]>)
+                  ).map(([category, products]) => (
+                    <div key={category} className="mb-4">
+                      <div className="flex items-center justify-between p-2 bg-muted/30 rounded-t">
+                        <h4 className="font-medium text-sm">{category}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {products.length} produto(s)
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              const categoryProductIds = products.map(p => p.id);
+                              const allSelected = categoryProductIds.every(id => selectedProducts.includes(id));
+                              if (allSelected) {
+                                setSelectedProducts(selectedProducts.filter(id => !categoryProductIds.includes(id)));
+                              } else {
+                                setSelectedProducts([...new Set([...selectedProducts, ...categoryProductIds])]);
+                              }
+                            }}
+                          >
+                            {products.every(p => selectedProducts.includes(p.id)) ? "Desmarcar" : "Selecionar"} Categoria
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {product.category}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {product.brand}
-                        </Badge>
+                      {products.map((product) => (
+                        <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded border-l-2 border-muted">
+                          <Checkbox
+                            checked={selectedProducts.includes(product.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedProducts([...selectedProducts, product.id]);
+                              } else {
+                                setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                              }
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">{product.description}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-medium">
+                                  {new Intl.NumberFormat('pt-BR', { 
+                                    style: 'currency', 
+                                    currency: 'BRL' 
+                                  }).format(product.estimatedPrice / 100)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{product.unitOfMeasure}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {product.brand}
+                              </Badge>
+                              {product.isPopular && (
+                                <Badge variant="default" className="text-xs">
+                                  Popular
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  // Show products in simple list when filtered by category
+                  getFilteredStandardProducts().map((product) => (
+                    <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      <Checkbox
+                        checked={selectedProducts.includes(product.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedProducts([...selectedProducts, product.id]);
+                          } else {
+                            setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                          }
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">
+                              {new Intl.NumberFormat('pt-BR', { 
+                                style: 'currency', 
+                                currency: 'BRL' 
+                              }).format(product.estimatedPrice / 100)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{product.unitOfMeasure}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {product.category}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {product.brand}
+                          </Badge>
+                          {product.isPopular && (
+                            <Badge variant="default" className="text-xs">
+                              Popular
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
                 
                 {getFilteredStandardProducts().length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
