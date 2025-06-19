@@ -82,6 +82,9 @@ interface Prosthesis {
   status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
+  price?: number;
+  cost?: number;
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -984,36 +987,85 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop com opções de posicionamento
+  // Handler para drag and drop com atualização otimista
   const onDragEnd = (result: any) => {
-    console.log('onDragEnd iniciado - finalizando drag');
-    
-    // Limpar throttle anterior se existir
-    if (dragThrottleRef.current) {
-      clearTimeout(dragThrottleRef.current);
-    }
-    
-    // Finalizar drag imediatamente para liberar interface
-    setIsDragging(false);
-    
     const { source, destination, draggableId } = result;
+    
+    // Finalizar drag imediatamente
+    setIsDragging(false);
     
     // Validar resultado do drag
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
-      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const sourceColumn = source.droppableId as keyof typeof columns;
+    const destColumn = destination.droppableId as keyof typeof columns;
+    
+    // ATUALIZAÇÃO OTIMISTA - Atualizar UI imediatamente
+    const newColumns = { ...columns };
+    const sourceItems = [...newColumns[sourceColumn].items];
+    const destItems = sourceColumn === destColumn ? sourceItems : [...newColumns[destColumn].items];
+    
+    // Remover item da origem
+    const [movedItem] = sourceItems.splice(source.index, 1);
+    
+    // Atualizar status se mudou de coluna
+    if (sourceColumn !== destColumn) {
+      movedItem.status = destColumn as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
+      
+      // Atualizar datas baseado na transição
+      if (destColumn === 'sent' && sourceColumn === 'pending') {
+        movedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+      } else if (destColumn === 'returned' && sourceColumn === 'sent') {
+        movedItem.returnDate = format(new Date(), "yyyy-MM-dd");
+      }
     }
     
-    // Executar drop usando a configuração padrão de posicionamento
-    executeDrop(result, defaultDropPosition);
+    // Inserir na nova posição
+    destItems.splice(destination.index, 0, movedItem);
+    
+    // Atualizar estado imediatamente
+    newColumns[sourceColumn].items = sourceItems;
+    newColumns[destColumn].items = destItems;
+    setColumns(newColumns);
+    
+    // Chamar API de forma assíncrona sem bloquear UI
+    const updateData: any = { 
+      id: prosthesisId, 
+      status: destColumn
+    };
+    
+    if (destColumn === 'sent' && sourceColumn === 'pending') {
+      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+    } else if (destColumn === 'returned' && sourceColumn === 'sent') {
+      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+    }
+    
+    // Update API call - não aguardar resposta
+    updateStatusMutation.mutate(updateData, {
+      onError: () => {
+        // Em caso de erro, reverter estado
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        toast({
+          title: "Erro",
+          description: "Falha ao atualizar status da prótese",
+          variant: "destructive",
+          duration: 2000, // Reduzir tempo de notificação
+        });
+      },
+      onSuccess: () => {
+        // Notificação rápida de sucesso
+        toast({
+          title: "Status atualizado",
+          description: "Prótese movida com sucesso",
+          duration: 1500, // Notificação curta
+        });
+      }
+    });
   };
   
   // Handlers para os filtros
@@ -1355,7 +1407,7 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
+                          <div className="flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
                                 key={`prosthesis-${item.id}`} 
@@ -1370,13 +1422,17 @@ export default function ProsthesisControlPage() {
                                     onClick={() => handleEditProsthesis(item)}
                                     style={{
                                       ...provided.draggableProps.style,
-                                      margin: 0,
-                                      marginBottom: snapshot.isDragging ? 0 : '8px'
+                                      transform: snapshot.isDragging 
+                                        ? `${provided.draggableProps.style?.transform} rotate(3deg)` 
+                                        : 'none',
+                                      transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease',
+                                      zIndex: snapshot.isDragging ? 1000 : 'auto',
+                                      marginBottom: '8px'
                                     }}
                                     className={cn(
-                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
-                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm opacity-90",
+                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md transition-colors duration-200",
                                       isDelayed(item) && "border-red-400"
                                     )}
                                   >
@@ -1497,6 +1553,7 @@ export default function ProsthesisControlPage() {
                               )}
                             </Draggable>
                           ))}
+                          {provided.placeholder}
                         </div>
                         
                         {/* Empty state when no items */}
@@ -1510,8 +1567,6 @@ export default function ProsthesisControlPage() {
                             <span className="select-none">Nenhuma prótese</span>
                           </div>
                         )}
-                        
-                        {provided.placeholder}
                         
                         {/* Flex spacer to fill remaining height */}
                         <div className="flex-1" />
