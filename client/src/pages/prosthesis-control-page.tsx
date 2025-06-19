@@ -167,6 +167,8 @@ const generateMockProsthesis = (): Prosthesis[] => {
       status: 'sent',
       observations: "Usar material resistente",
       labels: ["prioridade"],
+      price: 1500.00,
+      sortOrder: 3,
       createdAt: format(addDays(now, -7), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -5), "yyyy-MM-dd")
     },
@@ -185,6 +187,8 @@ const generateMockProsthesis = (): Prosthesis[] => {
       status: 'pending',
       observations: "Paciente alérgico a metal",
       labels: ["provisorio"],
+      price: 2800.00,
+      sortOrder: 5,
       createdAt: format(addDays(now, -2), "yyyy-MM-dd"),
       updatedAt: null
     },
@@ -203,6 +207,8 @@ const generateMockProsthesis = (): Prosthesis[] => {
       status: 'returned',
       observations: "Cor A2",
       labels: ["premium", "definitivo"],
+      price: 950.00,
+      sortOrder: 6,
       createdAt: format(addDays(now, -22), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -8), "yyyy-MM-dd")
     },
@@ -221,6 +227,8 @@ const generateMockProsthesis = (): Prosthesis[] => {
       status: 'completed',
       observations: "Prioridade alta",
       labels: ["retrabalho", "urgente"],
+      price: 420.00,
+      sortOrder: 7,
       createdAt: format(addDays(now, -17), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -1), "yyyy-MM-dd")
     }
