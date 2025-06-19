@@ -1584,7 +1584,13 @@ export class DatabaseStorage implements IStorage {
 
   async getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]> {
     try {
-      let query = db
+      let whereConditions = [eq(inventoryItems.companyId, companyId)];
+      
+      if (itemId) {
+        whereConditions.push(eq(inventoryTransactions.itemId, itemId));
+      }
+
+      const result = await db
         .select({
           id: inventoryTransactions.id,
           itemId: inventoryTransactions.itemId,
@@ -1604,13 +1610,8 @@ export class DatabaseStorage implements IStorage {
         .from(inventoryTransactions)
         .leftJoin(inventoryItems, eq(inventoryTransactions.itemId, inventoryItems.id))
         .leftJoin(users, eq(inventoryTransactions.userId, users.id))
-        .where(eq(inventoryItems.companyId, companyId));
-
-      if (itemId) {
-        query = query.where(eq(inventoryTransactions.itemId, itemId));
-      }
-
-      const result = await query.orderBy(desc(inventoryTransactions.createdAt));
+        .where(and(...whereConditions))
+        .orderBy(desc(inventoryTransactions.createdAt));
       
       return result;
     } catch (error) {
@@ -1650,7 +1651,7 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(standardDentalProducts)
         .where(eq(standardDentalProducts.active, true))
-        .orderBy(standardDentalProducts.isPopular.desc(), standardDentalProducts.category, standardDentalProducts.name);
+        .orderBy(desc(standardDentalProducts.isPopular), standardDentalProducts.category, standardDentalProducts.name);
       
       return result;
     } catch (error) {
