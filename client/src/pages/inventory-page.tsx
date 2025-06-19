@@ -57,12 +57,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import React from "react";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter } from "lucide-react";
+import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter, Download } from "lucide-react";
 
 import type { InventoryItem, InventoryCategory, InventoryTransaction } from "@shared/schema";
 
@@ -250,11 +251,15 @@ export default function InventoryPage() {
       const res = await apiRequest("GET", "/api/inventory/standard-products");
       if (!res.ok) throw new Error("Falha ao carregar produtos padrão");
       return await res.json();
-    },
-    onSuccess: (data) => {
-      setStandardProducts(data);
     }
   });
+
+  // Atualizar produtos padrão quando os dados chegarem
+  React.useEffect(() => {
+    if (standardProductsData) {
+      setStandardProducts(standardProductsData);
+    }
+  }, [standardProductsData]);
 
   // Mutation para importar produtos padrão
   const importProductsMutation = useMutation({
@@ -1346,6 +1351,147 @@ export default function InventoryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Importação de Produtos Padrão */}
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Importar Produtos Odontológicos Padrão</DialogTitle>
+            <DialogDescription>
+              Selecione os produtos odontológicos padrão que deseja adicionar ao seu estoque.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Filtros de pesquisa */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar produtos..."
+                  className="pl-9"
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={selectedProductCategory} onValueChange={setSelectedProductCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Todas as categorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  <SelectItem value="1">Materiais Restauradores</SelectItem>
+                  <SelectItem value="2">Anestésicos</SelectItem>
+                  <SelectItem value="3">Produtos de Higiene</SelectItem>
+                  <SelectItem value="4">Instrumentos</SelectItem>
+                  <SelectItem value="5">Materiais Preventivos</SelectItem>
+                  <SelectItem value="6">Materiais Cirúrgicos</SelectItem>
+                  <SelectItem value="7">Materiais Protéticos</SelectItem>
+                  <SelectItem value="8">Equipamentos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lista de produtos */}
+            <div className="border rounded-lg max-h-96 overflow-y-auto">
+              <div className="p-4 border-b bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">
+                    {selectedProducts.length} produto(s) selecionado(s)
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const filteredProducts = getFilteredStandardProducts();
+                        setSelectedProducts(filteredProducts.map(p => p.id));
+                      }}
+                    >
+                      Selecionar Todos
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedProducts([])}
+                    >
+                      Limpar Seleção
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-2 space-y-1">
+                {getFilteredStandardProducts().map((product) => (
+                  <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                    <Checkbox
+                      checked={selectedProducts.includes(product.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedProducts([...selectedProducts, product.id]);
+                        } else {
+                          setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                        }
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">{product.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">
+                            {new Intl.NumberFormat('pt-BR', { 
+                              style: 'currency', 
+                              currency: 'BRL' 
+                            }).format(product.estimatedPrice / 100)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{product.unit}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {product.category}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {product.brand}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {getFilteredStandardProducts().length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                    <p>Nenhum produto encontrado</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedProducts.length > 0) {
+                  importProductsMutation.mutate(selectedProducts);
+                }
+              }}
+              disabled={selectedProducts.length === 0 || importProductsMutation.isPending}
+            >
+              {importProductsMutation.isPending && (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Importar {selectedProducts.length} Produto(s)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
