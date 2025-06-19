@@ -1325,6 +1325,72 @@ export class DatabaseStorage implements IStorage {
         .values({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336" });
     }
   }
+  // Prosthesis Labels Methods
+  async getProsthesisLabels(companyId: number): Promise<any[]> {
+    try {
+      // For development, return mock labels until table is created
+      return [
+        { id: 1, name: "urgente", color: "#ef4444", companyId },
+        { id: 2, name: "retrabalho", color: "#f97316", companyId },
+        { id: 3, name: "prioritário", color: "#eab308", companyId },
+        { id: 4, name: "complexo", color: "#8b5cf6", companyId }
+      ];
+    } catch (error) {
+      console.error('Erro ao buscar etiquetas:', error);
+      throw error;
+    }
+  }
+
+  async createProsthesisLabel(data: any): Promise<any> {
+    try {
+      // Mock implementation for development
+      const newLabel = {
+        id: Date.now(),
+        companyId: data.companyId,
+        name: data.name,
+        color: data.color,
+        active: data.active ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      return newLabel;
+    } catch (error) {
+      console.error('Erro ao criar etiqueta:', error);
+      throw error;
+    }
+  }
+
+  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> {
+    try {
+      // Mock implementation for development
+      const updatedLabel = {
+        id,
+        companyId,
+        name: data.name,
+        color: data.color,
+        active: data.active,
+        updatedAt: new Date()
+      };
+      
+      return updatedLabel;
+    } catch (error) {
+      console.error('Erro ao atualizar etiqueta:', error);
+      throw error;
+    }
+  }
+
+  async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
+    try {
+      // Mock implementation for development
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar etiqueta:', error);
+      throw error;
+    }
+  }
+
+  sessionStore: any = null;
 }
 
 // Use DatabaseStorage with PostgreSQL

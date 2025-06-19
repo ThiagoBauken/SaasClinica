@@ -761,7 +761,7 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
-        price: formData.get("price") ? parseFloat(formData.get("price") as string) : 0,
+        price: formData.get("price") ? Math.round(parseFloat(formData.get("price") as string) * 100) : 0,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -2083,7 +2083,7 @@ export default function ProsthesisControlPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                    defaultValue={editingProsthesis?.price || ""}
+                    defaultValue={editingProsthesis?.price ? (editingProsthesis.price / 100).toFixed(2) : ""}
                     placeholder="0,00"
                   />
                 </div>
