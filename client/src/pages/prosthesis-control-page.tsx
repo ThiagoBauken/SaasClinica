@@ -373,6 +373,7 @@ export default function ProsthesisControlPage() {
   
   // Estados para controle robusto do drag-and-drop
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
   // Função para limpar os estados após salvar
   const clearFormStates = () => {
@@ -1026,7 +1027,12 @@ export default function ProsthesisControlPage() {
   
   // Função auxiliar para verificar status atrasado
   const isDelayed = (item: Prosthesis) => {
-    if (item.expectedReturnDate && !item.returnDate) {
+    // Para status 'sent' - verifica atraso na data esperada de retorno
+    if (item.status === 'sent' && item.expectedReturnDate && !item.returnDate) {
+      return isAfter(new Date(), parseISO(item.expectedReturnDate));
+    }
+    // Para status 'returned' - verifica atraso na data esperada de retorno
+    if (item.status === 'returned' && item.expectedReturnDate && !item.returnDate) {
       return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
     return false;
@@ -1300,12 +1306,18 @@ export default function ProsthesisControlPage() {
             onDragStart={(start) => {
               console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
+              setDraggedItemId(start.draggableId);
             }}
             onDragUpdate={(update) => {
               // Atualizar posição em tempo real durante o drag
               console.log('Drag update:', update);
             }}
-            onDragEnd={onDragEnd}>
+            onDragEnd={(result) => {
+              // Limpar estados de drag imediatamente
+              setIsDragging(false);
+              setDraggedItemId(null);
+              onDragEnd(result);
+            }}>
             <div className={cn(
               "grid grid-cols-1 gap-4 min-h-[600px]",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1354,8 +1366,8 @@ export default function ProsthesisControlPage() {
                           overflow: "hidden"
                         }}
                       >
-                        <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
+                        <div className="flex-1 flex flex-col">
+                          <div className="flex-1 space-y-2 p-1" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
                                 key={`prosthesis-${item.id}`} 
@@ -1371,7 +1383,10 @@ export default function ProsthesisControlPage() {
                                     style={{
                                       ...provided.draggableProps.style,
                                       margin: 0,
-                                      marginBottom: snapshot.isDragging ? 0 : '8px'
+                                      marginBottom: snapshot.isDragging ? 0 : '8px',
+                                      // Evita o flash visual durante o drag
+                                      opacity: snapshot.isDragging ? 0.9 : 1,
+                                      transition: snapshot.isDragging ? 'none' : 'all 0.2s ease-in-out'
                                     }}
                                     className={cn(
                                       "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
