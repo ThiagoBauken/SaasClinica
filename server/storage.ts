@@ -1767,6 +1767,244 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Digital Patient Record Methods
+  async getPatientAnamnesis(patientId: number, companyId: number): Promise<Anamnesis | undefined> {
+    try {
+      const [result] = await db
+        .select()
+        .from(anamnesis)
+        .innerJoin(patients, eq(anamnesis.patientId, patients.id))
+        .where(and(
+          eq(anamnesis.patientId, patientId),
+          eq(patients.companyId, companyId)
+        ))
+        .limit(1);
+      
+      return result?.anamnesis;
+    } catch (error) {
+      console.error('Erro ao buscar anamnese:', error);
+      return undefined;
+    }
+  }
+
+  async createPatientAnamnesis(data: any): Promise<Anamnesis> {
+    try {
+      const [result] = await db
+        .insert(anamnesis)
+        .values(data)
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar anamnese:', error);
+      throw error;
+    }
+  }
+
+  async updatePatientAnamnesis(id: number, data: any, companyId: number): Promise<Anamnesis> {
+    try {
+      const [result] = await db
+        .update(anamnesis)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(
+          eq(anamnesis.id, id),
+          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${anamnesis.patientId} AND ${patients.companyId} = ${companyId})`
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar anamnese:', error);
+      throw error;
+    }
+  }
+
+  async getPatientExams(patientId: number, companyId: number): Promise<PatientExam[]> {
+    try {
+      const result = await db
+        .select()
+        .from(patientExams)
+        .innerJoin(patients, eq(patientExams.patientId, patients.id))
+        .where(and(
+          eq(patientExams.patientId, patientId),
+          eq(patients.companyId, companyId)
+        ))
+        .orderBy(desc(patientExams.examDate));
+      
+      return result.map(r => r.patient_exams);
+    } catch (error) {
+      console.error('Erro ao buscar exames:', error);
+      return [];
+    }
+  }
+
+  async createPatientExam(data: any): Promise<PatientExam> {
+    try {
+      const [result] = await db
+        .insert(patientExams)
+        .values(data)
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar exame:', error);
+      throw error;
+    }
+  }
+
+  async updatePatientExam(id: number, data: any, companyId: number): Promise<PatientExam> {
+    try {
+      const [result] = await db
+        .update(patientExams)
+        .set(data)
+        .where(and(
+          eq(patientExams.id, id),
+          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${patientExams.patientId} AND ${patients.companyId} = ${companyId})`
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar exame:', error);
+      throw error;
+    }
+  }
+
+  async getPatientTreatmentPlans(patientId: number, companyId: number): Promise<DetailedTreatmentPlan[]> {
+    try {
+      const result = await db
+        .select()
+        .from(detailedTreatmentPlans)
+        .innerJoin(patients, eq(detailedTreatmentPlans.patientId, patients.id))
+        .where(and(
+          eq(detailedTreatmentPlans.patientId, patientId),
+          eq(patients.companyId, companyId)
+        ))
+        .orderBy(desc(detailedTreatmentPlans.createdAt));
+      
+      return result.map(r => r.detailed_treatment_plans);
+    } catch (error) {
+      console.error('Erro ao buscar planos de tratamento:', error);
+      return [];
+    }
+  }
+
+  async createPatientTreatmentPlan(data: any): Promise<DetailedTreatmentPlan> {
+    try {
+      const [result] = await db
+        .insert(detailedTreatmentPlans)
+        .values(data)
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar plano de tratamento:', error);
+      throw error;
+    }
+  }
+
+  async updatePatientTreatmentPlan(id: number, data: any, companyId: number): Promise<DetailedTreatmentPlan> {
+    try {
+      const [result] = await db
+        .update(detailedTreatmentPlans)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(
+          eq(detailedTreatmentPlans.id, id),
+          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${detailedTreatmentPlans.patientId} AND ${patients.companyId} = ${companyId})`
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar plano de tratamento:', error);
+      throw error;
+    }
+  }
+
+  async getPatientEvolution(patientId: number, companyId: number): Promise<TreatmentEvolution[]> {
+    try {
+      const result = await db
+        .select()
+        .from(treatmentEvolution)
+        .innerJoin(patients, eq(treatmentEvolution.patientId, patients.id))
+        .where(and(
+          eq(treatmentEvolution.patientId, patientId),
+          eq(patients.companyId, companyId)
+        ))
+        .orderBy(desc(treatmentEvolution.sessionDate));
+      
+      return result.map(r => r.treatment_evolution);
+    } catch (error) {
+      console.error('Erro ao buscar evolução:', error);
+      return [];
+    }
+  }
+
+  async createPatientEvolution(data: any): Promise<TreatmentEvolution> {
+    try {
+      const [result] = await db
+        .insert(treatmentEvolution)
+        .values(data)
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar evolução:', error);
+      throw error;
+    }
+  }
+
+  async getPatientPrescriptions(patientId: number, companyId: number): Promise<Prescription[]> {
+    try {
+      const result = await db
+        .select()
+        .from(prescriptions)
+        .innerJoin(patients, eq(prescriptions.patientId, patients.id))
+        .where(and(
+          eq(prescriptions.patientId, patientId),
+          eq(patients.companyId, companyId)
+        ))
+        .orderBy(desc(prescriptions.createdAt));
+      
+      return result.map(r => r.prescriptions);
+    } catch (error) {
+      console.error('Erro ao buscar receitas:', error);
+      return [];
+    }
+  }
+
+  async createPatientPrescription(data: any): Promise<Prescription> {
+    try {
+      const [result] = await db
+        .insert(prescriptions)
+        .values(data)
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar receita:', error);
+      throw error;
+    }
+  }
+
+  async updatePatientPrescription(id: number, data: any, companyId: number): Promise<Prescription> {
+    try {
+      const [result] = await db
+        .update(prescriptions)
+        .set(data)
+        .where(and(
+          eq(prescriptions.id, id),
+          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${prescriptions.patientId} AND ${patients.companyId} = ${companyId})`
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar receita:', error);
+      throw error;
+    }
+  }
+
   sessionStore: any = null;
 }
 

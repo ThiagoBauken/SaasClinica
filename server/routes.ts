@@ -1757,6 +1757,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // Digital Patient Record APIs
+  
+  // Anamnesis
+  app.get("/api/patients/:id/anamnesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const anamnesis = await storage.getPatientAnamnesis(patientId, user.companyId);
+      res.json(anamnesis);
+    } catch (error) {
+      console.error('Erro ao buscar anamnese:', error);
+      res.status(500).json({ error: 'Falha ao buscar anamnese' });
+    }
+  }));
+
+  app.post("/api/patients/:id/anamnesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const anamnesisData = {
+        ...req.body,
+        patientId,
+        createdBy: user.id
+      };
+      
+      const anamnesis = await storage.createPatientAnamnesis(anamnesisData);
+      res.status(201).json(anamnesis);
+    } catch (error) {
+      console.error('Erro ao criar anamnese:', error);
+      res.status(500).json({ error: 'Falha ao criar anamnese' });
+    }
+  }));
+
+  app.put("/api/patients/:id/anamnesis/:anamnesisId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const anamnesisId = parseInt(req.params.anamnesisId);
+      
+      const anamnesis = await storage.updatePatientAnamnesis(anamnesisId, req.body, user.companyId);
+      res.json(anamnesis);
+    } catch (error) {
+      console.error('Erro ao atualizar anamnese:', error);
+      res.status(500).json({ error: 'Falha ao atualizar anamnese' });
+    }
+  }));
+
+  // Patient Exams
+  app.get("/api/patients/:id/exams", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const exams = await storage.getPatientExams(patientId, user.companyId);
+      res.json(exams);
+    } catch (error) {
+      console.error('Erro ao buscar exames:', error);
+      res.status(500).json({ error: 'Falha ao buscar exames' });
+    }
+  }));
+
+  app.post("/api/patients/:id/exams", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const examData = {
+        ...req.body,
+        patientId,
+        requestedBy: user.id
+      };
+      
+      const exam = await storage.createPatientExam(examData);
+      res.status(201).json(exam);
+    } catch (error) {
+      console.error('Erro ao criar exame:', error);
+      res.status(500).json({ error: 'Falha ao criar exame' });
+    }
+  }));
+
+  // Treatment Plans
+  app.get("/api/patients/:id/treatment-plans", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const plans = await storage.getPatientTreatmentPlans(patientId, user.companyId);
+      res.json(plans);
+    } catch (error) {
+      console.error('Erro ao buscar planos de tratamento:', error);
+      res.status(500).json({ error: 'Falha ao buscar planos de tratamento' });
+    }
+  }));
+
+  app.post("/api/patients/:id/treatment-plans", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const planData = {
+        ...req.body,
+        patientId,
+        professionalId: user.id
+      };
+      
+      const plan = await storage.createPatientTreatmentPlan(planData);
+      res.status(201).json(plan);
+    } catch (error) {
+      console.error('Erro ao criar plano de tratamento:', error);
+      res.status(500).json({ error: 'Falha ao criar plano de tratamento' });
+    }
+  }));
+
+  // Treatment Evolution
+  app.get("/api/patients/:id/evolution", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const evolution = await storage.getPatientEvolution(patientId, user.companyId);
+      res.json(evolution);
+    } catch (error) {
+      console.error('Erro ao buscar evolução:', error);
+      res.status(500).json({ error: 'Falha ao buscar evolução' });
+    }
+  }));
+
+  app.post("/api/patients/:id/evolution", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const evolutionData = {
+        ...req.body,
+        patientId,
+        performedBy: user.id
+      };
+      
+      const evolution = await storage.createPatientEvolution(evolutionData);
+      res.status(201).json(evolution);
+    } catch (error) {
+      console.error('Erro ao criar evolução:', error);
+      res.status(500).json({ error: 'Falha ao criar evolução' });
+    }
+  }));
+
+  // Prescriptions
+  app.get("/api/patients/:id/prescriptions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const prescriptions = await storage.getPatientPrescriptions(patientId, user.companyId);
+      res.json(prescriptions);
+    } catch (error) {
+      console.error('Erro ao buscar receitas:', error);
+      res.status(500).json({ error: 'Falha ao buscar receitas' });
+    }
+  }));
+
+  app.post("/api/patients/:id/prescriptions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.id);
+      
+      const prescriptionData = {
+        ...req.body,
+        patientId,
+        prescribedBy: user.id
+      };
+      
+      const prescription = await storage.createPatientPrescription(prescriptionData);
+      res.status(201).json(prescription);
+    } catch (error) {
+      console.error('Erro ao criar receita:', error);
+      res.status(500).json({ error: 'Falha ao criar receita' });
+    }
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }
