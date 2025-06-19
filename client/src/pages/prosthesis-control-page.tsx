@@ -688,11 +688,7 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      
-      toast({
-        title: "Prótese desarquivada",
-        description: "A prótese foi retornada para concluído",
-      });
+      // Removido toast automático - operação silenciosa
     },
     onError: (error: Error) => {
       toast({
@@ -991,89 +987,96 @@ export default function ProsthesisControlPage() {
     // Finalizar drag
     setIsDragging(false);
     
-    // Validação básica
+    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
     if (!destination || 
-        (source.droppableId === destination.droppableId && source.index === destination.index)) {
+        (source.droppableId === destination.droppableId && 
+         source.index === destination.index)) {
       return;
     }
     
+    // Encontrar o item arrastado
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const allItems = Object.values(columns).flatMap(column => column.items);
+    const draggedItem = allItems.find(item => item.id === prosthesisId);
     
-    // PRIMEIRO: Atualizar estado local imediatamente para evitar rollback
-    const sourceColumn = columns[source.droppableId];
-    const destColumn = columns[destination.droppableId];
-    const sourceItems = Array.from(sourceColumn.items);
-    const destItems = source.droppableId === destination.droppableId ? sourceItems : Array.from(destColumn.items);
+    if (!draggedItem) return;
     
-    // Encontrar e remover o item da origem
-    const [movedItem] = sourceItems.splice(source.index, 1);
+    // PASSO 1: Atualizar estado local IMEDIATAMENTE (sem requestAnimationFrame)
+    const newColumns = { ...columns };
     
-    // Atualizar status se for movimento entre colunas
-    if (source.droppableId !== destination.droppableId) {
-      movedItem.status = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
-      
-      // Aplicar lógica específica por transição
-      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
-        movedItem.sentDate = format(new Date(), "yyyy-MM-dd");
-      } 
-      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
-        movedItem.returnDate = format(new Date(), "yyyy-MM-dd");
-      }
+    // Clonar arrays das colunas afetadas para evitar mutação
+    const sourceColumnItems = [...newColumns[source.droppableId as keyof typeof newColumns].items];
+    const destColumnItems = source.droppableId === destination.droppableId 
+      ? sourceColumnItems 
+      : [...newColumns[destination.droppableId as keyof typeof newColumns].items];
+    
+    // Remover da origem
+    const draggedItemIndex = sourceColumnItems.findIndex(item => item.id === prosthesisId);
+    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
+    
+    // Criar item atualizado com novo status
+    const updatedItem = { 
+      ...movedItem,
+      status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived'
+    };
+    
+    // Aplicar lógica específica de transição
+    if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+    } 
+    else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // Inserir na nova posição
-    destItems.splice(destination.index, 0, movedItem);
+    // Adicionar no destino
+    destColumnItems.splice(destination.index, 0, updatedItem);
     
-    // Atualizar estado das colunas
-    const newColumns = {
-      ...columns,
-      [source.droppableId]: {
-        ...sourceColumn,
-        items: sourceItems
-      }
+    // Atualizar as colunas com os novos arrays
+    newColumns[source.droppableId as keyof typeof newColumns] = {
+      ...newColumns[source.droppableId as keyof typeof newColumns],
+      items: sourceColumnItems
     };
     
     if (source.droppableId !== destination.droppableId) {
-      newColumns[destination.droppableId] = {
-        ...destColumn,
-        items: destItems
+      newColumns[destination.droppableId as keyof typeof newColumns] = {
+        ...newColumns[destination.droppableId as keyof typeof newColumns],
+        items: destColumnItems
       };
     }
     
+    // PASSO 2: Atualizar estado SÍNCRONAMENTE
     setColumns(newColumns);
     
-    // SEGUNDO: Fazer chamada para API apenas se for movimento entre colunas
-    if (source.droppableId !== destination.droppableId) {
-      const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
-      
-      let updateData: any = {
-        id: prosthesisId,
-        status: targetStatus
-      };
-      
-      if (targetStatus === 'sent' && source.droppableId === 'pending') {
-        updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+    // PASSO 3: Fazer chamada para API de forma assíncrona (após UI atualizada) - SEM NOTIFICAÇÕES
+    setTimeout(() => {
+      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'sent',
+          returnDate: undefined
+        });
       } 
-      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-        updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'returned',
+          returnDate: format(new Date(), "yyyy-MM-dd")
+        });
       }
-      
-      // Executar atualização silenciosa
-      updateStatusMutation.mutate(updateData, {
-        onError: () => {
-          // Em caso de erro, reverter mudança local
-          setColumns(columns);
-          toast({
-            title: "Erro",
-            description: "Falha ao atualizar status da prótese",
-            variant: "destructive",
-          });
-        }
-      });
-    } else {
-      // Para reordenação na mesma coluna
-      executeDropSameColumn(result);
-    }
+      else if (destination.droppableId === 'completed') {
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: 'completed'
+        });
+      }
+      else {
+        // Para outras transições
+        updateStatusMutation.mutate({ 
+          id: prosthesisId, 
+          status: destination.droppableId
+        });
+      }
+    }, 0);
   };
   
   // Handlers para os filtros
@@ -1405,7 +1408,7 @@ export default function ProsthesisControlPage() {
                         {...provided.droppableProps}
                         ref={provided.innerRef}
                         className={cn(
-                          "p-2 flex-1 transition-all duration-200 flex flex-col",
+                          "p-2 flex-1 transition-all duration-200 flex flex-col relative",
                           snapshot.isDraggingOver && "bg-primary/5 border-2 border-primary/20 rounded-lg"
                         )}
                         style={{ 
@@ -1414,6 +1417,50 @@ export default function ProsthesisControlPage() {
                           overflow: "hidden"
                         }}
                       >
+                        {/* Barra de controle de posicionamento durante drag */}
+                        {isDragging && snapshot.isDraggingOver && (
+                          <div className="absolute top-2 left-2 right-2 bg-background/95 backdrop-blur border rounded-md p-2 z-30 shadow-lg">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                size="sm"
+                                variant={defaultDropPosition === 'start' ? 'default' : 'outline'}
+                                className="text-xs px-2 py-1 h-7"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDefaultDropPosition('start');
+                                }}
+                              >
+                                Início
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={defaultDropPosition === 'exact' ? 'default' : 'outline'}
+                                className="text-xs px-2 py-1 h-7"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDefaultDropPosition('exact');
+                                }}
+                              >
+                                Posição Exata
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={defaultDropPosition === 'end' ? 'default' : 'outline'}
+                                className="text-xs px-2 py-1 h-7"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDefaultDropPosition('end');
+                                }}
+                              >
+                                Final
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex-1 flex flex-col overflow-hidden">
                           <div 
                             className="flex-shrink-0 overflow-y-auto max-h-full space-y-2 kanban-column" 
