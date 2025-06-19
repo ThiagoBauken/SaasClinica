@@ -88,6 +88,7 @@ export interface IStorage {
   // Inventory - tenant-aware
   getInventoryCategories(companyId: number): Promise<any[]>;
   createInventoryCategory(data: any): Promise<any>;
+  updateInventoryCategory(id: number, data: any, companyId: number): Promise<any>;
   getInventoryItems(companyId: number): Promise<any[]>;
   createInventoryItem(data: any): Promise<any>;
   updateInventoryItem(id: number, data: any, companyId: number): Promise<any>;
@@ -1452,6 +1453,28 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Erro ao criar categoria de estoque:', error);
+      throw error;
+    }
+  }
+
+  async updateInventoryCategory(id: number, data: any, companyId: number): Promise<any> {
+    try {
+      const [result] = await db
+        .update(inventoryCategories)
+        .set({
+          name: data.name,
+          description: data.description,
+          color: data.color
+        })
+        .where(and(
+          eq(inventoryCategories.id, id),
+          eq(inventoryCategories.companyId, companyId)
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar categoria de estoque:', error);
       throw error;
     }
   }

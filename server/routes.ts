@@ -1427,6 +1427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // Update inventory category
+  app.patch("/api/inventory/categories/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const categoryId = parseInt(req.params.id);
+      const category = await storage.updateInventoryCategory(categoryId, req.body, user.companyId);
+      res.json(category);
+    } catch (error) {
+      console.error('Erro ao atualizar categoria:', error);
+      res.status(500).json({ error: 'Falha ao atualizar categoria' });
+    }
+  }));
+
   // Get inventory items
   app.get("/api/inventory/items", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
     try {
