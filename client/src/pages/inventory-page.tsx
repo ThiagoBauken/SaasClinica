@@ -201,6 +201,11 @@ export default function InventoryPage() {
   const [expirationDate, setExpirationDate] = useState<Date | undefined>(undefined);
   const [lastPurchaseDate, setLastPurchaseDate] = useState<Date | undefined>(undefined);
   const [newCategoryColor, setNewCategoryColor] = useState<string>("#3498db");
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  const [standardProducts, setStandardProducts] = useState<any[]>([]);
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string>("all");
 
   // Buscar dados do estoque
   const { data: inventoryItems, isLoading: isLoadingItems } = useQuery<InventoryItem[]>({
@@ -235,6 +240,45 @@ export default function InventoryPage() {
         console.error("Erro ao carregar categorias:", error);
         return mockCategories;
       }
+    }
+  });
+
+  // Buscar produtos odontológicos padrão
+  const { data: standardProductsData } = useQuery<any[]>({
+    queryKey: ["/api/inventory/standard-products"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/inventory/standard-products");
+      if (!res.ok) throw new Error("Falha ao carregar produtos padrão");
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setStandardProducts(data);
+    }
+  });
+
+  // Mutation para importar produtos padrão
+  const importProductsMutation = useMutation({
+    mutationFn: async (productIds: number[]) => {
+      const res = await apiRequest("POST", "/api/inventory/import-standard", { productIds });
+      if (!res.ok) throw new Error("Falha ao importar produtos");
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/categories"] });
+      setIsImportModalOpen(false);
+      setSelectedProducts([]);
+      toast({
+        title: "Sucesso",
+        description: `${data.length} produtos foram importados com sucesso!`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: `Falha ao importar produtos: ${error.message}`,
+        variant: "destructive",
+      });
     }
   });
 
@@ -667,6 +711,11 @@ export default function InventoryPage() {
             setIsCategoryModalOpen(true);
           }}>
             Categorias
+          </Button>
+          
+          <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Importar Produtos
           </Button>
           
           <Button onClick={() => {
