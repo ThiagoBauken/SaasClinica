@@ -20,8 +20,8 @@ export function useSmartRedirect() {
         break;
         
       case 'admin':
-        // Admin da empresa vai para administração da clínica
-        setLocation('/company-admin');
+        // Admin da empresa vai para o dashboard
+        setLocation('/dashboard');
         break;
         
       case 'dentist':
