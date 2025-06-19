@@ -1311,6 +1311,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerLaboratoryRoutes } = await import('./routes/laboratories');
   registerLaboratoryRoutes(app);
 
+  // Prosthesis Labels routes
+  // Listar etiquetas da empresa
+  app.get("/api/prosthesis-labels", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      const labels = await storage.getProsthesisLabels(companyId);
+      res.json(labels);
+    } catch (error) {
+      console.error('Erro ao buscar etiquetas:', error);
+      res.status(500).json({ error: 'Falha ao carregar etiquetas' });
+    }
+  }));
+
+  // Criar nova etiqueta
+  app.post("/api/prosthesis-labels", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const { name, color } = req.body;
+      
+      if (!name || !color) {
+        return res.status(400).json({ error: 'Nome e cor são obrigatórios' });
+      }
+      
+      const newLabel = await storage.createProsthesisLabel({
+        companyId,
+        name,
+        color,
+        active: true
+      });
+      
+      res.status(201).json(newLabel);
+    } catch (error) {
+      console.error('Erro ao criar etiqueta:', error);
+      res.status(500).json({ error: 'Falha ao criar etiqueta' });
+    }
+  }));
+
+  // Atualizar etiqueta
+  app.patch("/api/prosthesis-labels/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const labelId = parseInt(req.params.id);
+      const updates = req.body;
+      
+      if (!labelId || isNaN(labelId)) {
+        return res.status(400).json({ error: 'ID da etiqueta inválido' });
+      }
+      
+      const updatedLabel = await storage.updateProsthesisLabel(labelId, companyId, updates);
+      
+      if (!updatedLabel) {
+        return res.status(404).json({ error: 'Etiqueta não encontrada' });
+      }
+      
+      res.json(updatedLabel);
+    } catch (error) {
+      console.error('Erro ao atualizar etiqueta:', error);
+      res.status(500).json({ error: 'Falha ao atualizar etiqueta' });
+    }
+  }));
+
+  // Excluir etiqueta
+  app.delete("/api/prosthesis-labels/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      const labelId = parseInt(req.params.id);
+      
+      if (!labelId || isNaN(labelId)) {
+        return res.status(400).json({ error: 'ID da etiqueta inválido' });
+      }
+      
+      const deleted = await storage.deleteProsthesisLabel(labelId, companyId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: 'Etiqueta não encontrada' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Erro ao excluir etiqueta:', error);
+      res.status(500).json({ error: 'Falha ao excluir etiqueta' });
+    }
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }

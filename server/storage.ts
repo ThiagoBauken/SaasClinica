@@ -79,6 +79,12 @@ export interface IStorage {
   updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory>;
   deleteLaboratory(id: number, companyId: number): Promise<boolean>;
   
+  // Prosthesis Labels - tenant-aware
+  getProsthesisLabels(companyId: number): Promise<any[]>;
+  createProsthesisLabel(label: any): Promise<any>;
+  updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any>;
+  deleteProsthesisLabel(id: number, companyId: number): Promise<boolean>;
+  
   sessionStore: any;
 }
 
