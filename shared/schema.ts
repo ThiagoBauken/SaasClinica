@@ -276,6 +276,29 @@ export const insertLaboratorySchema = createInsertSchema(laboratories).pick({
 export type Laboratory = typeof laboratories.$inferSelect;
 export type InsertLaboratory = z.infer<typeof insertLaboratorySchema>;
 
+// Prosthesis Labels - Etiquetas de Próteses
+export const prosthesisLabels = pgTable("prosthesis_labels", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  color: varchar("color", { length: 7 }).notNull().default("#3B82F6"), // hex color
+  description: text("description"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProsthesisLabelSchema = createInsertSchema(prosthesisLabels).pick({
+  companyId: true,
+  name: true,
+  color: true,
+  description: true,
+  active: true,
+});
+
+export type ProsthesisLabel = typeof prosthesisLabels.$inferSelect;
+export type InsertProsthesisLabel = z.infer<typeof insertProsthesisLabelSchema>;
+
 // Rooms
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
