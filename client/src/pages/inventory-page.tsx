@@ -209,38 +209,26 @@ export default function InventoryPage() {
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>("all");
 
   // Buscar dados do estoque
-  const { data: inventoryItems, isLoading: isLoadingItems } = useQuery<InventoryItem[]>({
+  const { data: inventoryItems, isLoading: isLoadingItems, error: itemsError } = useQuery<InventoryItem[]>({
     queryKey: ["/api/inventory/items"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/inventory/items");
-        if (!res.ok) {
-          console.warn("Usando dados mockados para itens de estoque");
-          return generateMockItems();
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar itens de estoque:", error);
-        return generateMockItems();
+      const res = await apiRequest("GET", "/api/inventory/items");
+      if (!res.ok) {
+        throw new Error(`Failed to load inventory items: ${res.status}`);
       }
+      return await res.json();
     }
   });
 
   // Buscar categorias
-  const { data: inventoryCategories, isLoading: isLoadingCategories } = useQuery<InventoryCategory[]>({
+  const { data: inventoryCategories, isLoading: isLoadingCategories, error: categoriesError } = useQuery<InventoryCategory[]>({
     queryKey: ["/api/inventory/categories"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/inventory/categories");
-        if (!res.ok) {
-          console.warn("Usando dados mockados para categorias");
-          return mockCategories;
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar categorias:", error);
-        return mockCategories;
+      const res = await apiRequest("GET", "/api/inventory/categories");
+      if (!res.ok) {
+        throw new Error(`Failed to load categories: ${res.status}`);
       }
+      return await res.json();
     }
   });
 
@@ -720,11 +708,19 @@ export default function InventoryPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as categorias</SelectItem>
-              {inventoryCategories?.map((category) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
+              {isLoadingCategories ? (
+                <SelectItem value="loading" disabled>Carregando categorias...</SelectItem>
+              ) : categoriesError ? (
+                <SelectItem value="error" disabled>Erro ao carregar categorias</SelectItem>
+              ) : inventoryCategories && inventoryCategories.length > 0 ? (
+                inventoryCategories.map((category) => (
+                  <SelectItem key={category.id} value={category.id.toString()}>
+                    {category.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="empty" disabled>Nenhuma categoria encontrada</SelectItem>
+              )}
             </SelectContent>
           </Select>
           
