@@ -1009,8 +1009,20 @@ export default function ProsthesisControlPage() {
       updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // PASSO 5: Inserir na posição correta do destino
-    destColumnItems.splice(destination.index, 0, updatedItem);
+    // PASSO 5: Calcular posição baseada na configuração de posicionamento
+    let insertIndex = destination.index;
+    
+    if (defaultDropPosition === 'start') {
+      // Inserir sempre no início da coluna
+      insertIndex = 0;
+    } else if (defaultDropPosition === 'end') {
+      // Inserir sempre no final da coluna
+      insertIndex = destColumnItems.length;
+    }
+    // Se defaultDropPosition === 'exact', manter insertIndex = destination.index
+    
+    // Inserir na posição calculada
+    destColumnItems.splice(insertIndex, 0, updatedItem);
     
     // PASSO 6: Atualizar as colunas
     newColumns[source.droppableId] = {
@@ -1030,9 +1042,47 @@ export default function ProsthesisControlPage() {
     
     // PASSO 8: Chamada para API de forma assíncrona
     setTimeout(() => {
+      // Calcular sortOrder baseado na posição final
+      const targetStatus = destination.droppableId;
+      const allProsthesis = prosthesisQuery.data || [];
+      const targetColumnItems = allProsthesis.filter((item: any) => item.status === targetStatus);
+      let sortOrder = 0;
+
+      if (defaultDropPosition === 'start') {
+        // Inserir no início - usar sortOrder menor que o primeiro item
+        if (targetColumnItems.length > 0) {
+          const minOrder = Math.min(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+          sortOrder = minOrder - 1;
+        }
+      } else if (defaultDropPosition === 'end') {
+        // Inserir no final - usar sortOrder maior que o último item
+        if (targetColumnItems.length > 0) {
+          const maxOrder = Math.max(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+          sortOrder = maxOrder + 1;
+        }
+      } else {
+        // Posição exata - calcular baseado no índice de inserção
+        if (insertIndex === 0) {
+          const firstOrder = targetColumnItems[0]?.sortOrder || 0;
+          sortOrder = firstOrder - 1;
+        } else if (insertIndex >= targetColumnItems.length) {
+          const lastOrder = targetColumnItems[targetColumnItems.length - 1]?.sortOrder || 0;
+          sortOrder = lastOrder + 1;
+        } else {
+          const prevOrder = targetColumnItems[insertIndex - 1]?.sortOrder || 0;
+          const nextOrder = targetColumnItems[insertIndex]?.sortOrder || 0;
+          sortOrder = Math.floor((prevOrder + nextOrder) / 2);
+          
+          if (prevOrder >= nextOrder - 1) {
+            sortOrder = prevOrder + 1;
+          }
+        }
+      }
+
       updateStatusMutation.mutate({
         id: itemId,
         status: destination.droppableId,
+        sortOrder: sortOrder,
         ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
         ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
       });
