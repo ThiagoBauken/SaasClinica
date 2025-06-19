@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -777,6 +777,7 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
+        price: formData.get("price") ? parseFloat(formData.get("price") as string) : 0,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -985,37 +986,75 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop com opções de posicionamento
-  const onDragEnd = (result: any) => {
-    console.log('onDragEnd iniciado - finalizando drag');
-    
-    // Limpar throttle anterior se existir
-    if (dragThrottleRef.current) {
-      clearTimeout(dragThrottleRef.current);
-    }
-    
-    // Finalizar drag imediatamente para liberar interface
-    setIsDragging(false);
-    
+  // Handler para drag and drop otimizado - sem "volta e vai"
+  const onDragEnd = useCallback((result: any) => {
     const { source, destination, draggableId } = result;
     
-    // Validar resultado do drag
-    if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
-      console.log('Drag cancelado - sem mudança de posição');
+    // Validação básica
+    if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
       return;
     }
     
-    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    // Extrair ID do item
+    const itemId = parseInt(draggableId.replace('prosthesis-', ''));
+    
+    // PASSO 1: Clonar toda a estrutura
+    const newColumns = { ...columns };
+    
+    // PASSO 2: Clonar arrays das colunas afetadas
+    const sourceColumnItems = [...newColumns[source.droppableId].items];
+    const destColumnItems = source.droppableId === destination.droppableId 
+      ? sourceColumnItems 
+      : [...newColumns[destination.droppableId].items];
+    
+    // PASSO 3: Encontrar e remover item da origem
+    const draggedItemIndex = sourceColumnItems.findIndex(item => item.id === itemId);
+    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
+    
+    // PASSO 4: Criar item atualizado
+    const updatedItem = {
+      ...movedItem,
+      status: destination.droppableId
+    };
+    
+    // Aplicar lógica específica de transição
+    if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+    } 
+    else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // Executar drop usando a configuração padrão de posicionamento
-    executeDrop(result, defaultDropPosition);
-  };
+    // PASSO 5: Inserir na posição correta do destino
+    destColumnItems.splice(destination.index, 0, updatedItem);
+    
+    // PASSO 6: Atualizar as colunas
+    newColumns[source.droppableId] = {
+      ...newColumns[source.droppableId],
+      items: sourceColumnItems
+    };
+    
+    if (source.droppableId !== destination.droppableId) {
+      newColumns[destination.droppableId] = {
+        ...newColumns[destination.droppableId],
+        items: destColumnItems
+      };
+    }
+    
+    // PASSO 7: ATUALIZAR ESTADO IMEDIATAMENTE (SEM DELAY)
+    setColumns(newColumns);
+    
+    // PASSO 8: Chamada para API de forma assíncrona
+    setTimeout(() => {
+      updateStatusMutation.mutate({
+        id: itemId,
+        status: destination.droppableId,
+        ...(updatedItem.sentDate && { sentDate: updatedItem.sentDate }),
+        ...(updatedItem.returnDate && { returnDate: updatedItem.returnDate })
+      });
+    }, 0);
+    
+  }, [columns, updateStatusMutation]);
   
   // Handlers para os filtros
   const handleFilterChange = (filterKey: string, value: any) => {
@@ -1304,13 +1343,8 @@ export default function ProsthesisControlPage() {
         ) : (
           <DragDropContext 
             onDragStart={(start) => {
-              console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
               setDraggedItemId(start.draggableId);
-            }}
-            onDragUpdate={(update) => {
-              // Atualizar posição em tempo real durante o drag
-              console.log('Drag update:', update);
             }}
             onDragEnd={(result) => {
               // Limpar estados de drag imediatamente
@@ -2011,6 +2045,19 @@ export default function ProsthesisControlPage() {
                     name="observations"
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
+                  />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Preço (R$)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={editingProsthesis?.price || ""}
+                    placeholder="0,00"
                   />
                 </div>
 
