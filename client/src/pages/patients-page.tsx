@@ -24,7 +24,14 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle } from "lucide-react";
+import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle, ChevronDown, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +50,8 @@ export default function PatientsPage() {
   const [activeTab, setActiveTab] = useState("info");
   const [isImporting, setIsImporting] = useState(false);
   const [lastVisitFilter, setLastVisitFilter] = useState<string>("all");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
   // Fetch patients
   const {
@@ -260,6 +269,67 @@ export default function PatientsPage() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+    setShowSuggestions(e.target.value.length > 0);
+    setSelectedSuggestionIndex(-1);
+  };
+
+  // Gerar sugestões filtradas
+  const suggestions = patients?.filter(patient => {
+    const query = searchQuery.toLowerCase();
+    return searchQuery.length > 0 && (
+      patient.fullName.toLowerCase().includes(query) ||
+      (patient.email && patient.email.toLowerCase().includes(query)) ||
+      (patient.phone && patient.phone.includes(searchQuery))
+    );
+  }).slice(0, 8) || [];
+
+  // Função para selecionar sugestão
+  const selectSuggestion = (patient: any) => {
+    setSearchQuery(patient.fullName);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+  };
+
+  // Função para lidar com teclas de navegação
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev > 0 ? prev - 1 : suggestions.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0) {
+          selectSuggestion(suggestions[selectedSuggestionIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
+  };
+
+  // Função para obter label do filtro
+  const getFilterLabel = (filter: string) => {
+    switch (filter) {
+      case "all": return "Todos";
+      case "month-1": return "+1 mês";
+      case "month-3": return "+3 meses";
+      case "month-6": return "+6 meses";
+      case "year-1": return "+1 ano";
+      default: return "Todos";
+    }
   };
   
   // Exportar pacientes para arquivo CSV
@@ -435,7 +505,32 @@ export default function PatientsPage() {
             className="pl-9"
             value={searchQuery}
             onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setShowSuggestions(searchQuery.length > 0)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           />
+          
+          {/* Search Suggestions */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+              {suggestions.map((patient, index) => (
+                <div
+                  key={patient.id}
+                  className={`px-4 py-2 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                    index === selectedSuggestionIndex ? 'bg-blue-50' : ''
+                  }`}
+                  onClick={() => selectSuggestion(patient)}
+                >
+                  <div className="font-medium text-sm">{patient.fullName}</div>
+                  <div className="text-xs text-gray-500">
+                    {patient.email && <span>{patient.email}</span>}
+                    {patient.email && patient.phone && <span> • </span>}
+                    {patient.phone && <span>{patient.phone}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="flex flex-wrap gap-2 items-center">
