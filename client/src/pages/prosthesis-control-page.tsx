@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -986,35 +986,89 @@ export default function ProsthesisControlPage() {
   };
 
   // Handler para drag and drop com opções de posicionamento
-  const onDragEnd = (result: any) => {
+  const onDragEnd = useCallback((result: any) => {
     console.log('onDragEnd iniciado - finalizando drag');
-    
-    // Limpar throttle anterior se existir
-    if (dragThrottleRef.current) {
-      clearTimeout(dragThrottleRef.current);
-    }
-    
-    // Finalizar drag imediatamente para liberar interface
-    setIsDragging(false);
     
     const { source, destination, draggableId } = result;
     
-    // Validar resultado do drag
-    if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
-      console.log('Drag cancelado - sem mudança de posição');
+    // Validação básica
+    if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
       return;
     }
     
-    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    // Extrair ID do item
+    const itemId = parseInt(draggableId.replace('prosthesis-', ''));
+    
+    // PASSO 1: Clonar toda a estrutura
+    const newColumns = { ...columns };
+    
+    // PASSO 2: Clonar arrays das colunas afetadas
+    const sourceColumnItems = [...newColumns[source.droppableId].items];
+    const destColumnItems = source.droppableId === destination.droppableId 
+      ? sourceColumnItems 
+      : [...newColumns[destination.droppableId].items];
+    
+    // PASSO 3: Encontrar e remover item da origem
+    const draggedItemIndex = sourceColumnItems.findIndex(item => item.id === itemId);
+    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
+    
+    // PASSO 4: Criar item atualizado
+    const updatedItem = {
+      ...movedItem,
+      status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived'
+    };
+    
+    // PASSO 5: Inserir na posição correta do destino
+    destColumnItems.splice(destination.index, 0, updatedItem);
+    
+    // PASSO 6: Atualizar as colunas
+    newColumns[source.droppableId] = {
+      ...newColumns[source.droppableId],
+      items: sourceColumnItems
+    };
+    
+    if (source.droppableId !== destination.droppableId) {
+      newColumns[destination.droppableId] = {
+        ...newColumns[destination.droppableId],
+        items: destColumnItems
+      };
     }
     
-    // Executar drop usando a configuração padrão de posicionamento
-    executeDrop(result, defaultDropPosition);
+    // PASSO 7: ATUALIZAR ESTADO IMEDIATAMENTE (SEM DELAY)
+    setColumns(newColumns);
+    
+    // PASSO 8: Chamada para API de forma assíncrona
+    setTimeout(() => {
+      updateProsthesisInAPI(itemId, destination.droppableId, updatedItem);
+    }, 0);
+    
+  }, [columns]);
+
+  // Função separada para chamada da API
+  const updateProsthesisInAPI = async (id: number, status: string, updatedItem: Prosthesis) => {
+    try {
+      console.log(`Atualizando prótese ${id} para status ${status}`);
+      
+      // Preparar dados para API baseados no status
+      let updateData: any = { 
+        ...updatedItem,
+        id: id, 
+        status: status
+      };
+
+      // Lógica específica por transição
+      if (status === 'sent') {
+        updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+      } else if (status === 'returned') {
+        updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+      }
+
+      prosthesisMutation.mutate(updateData);
+    } catch (error) {
+      console.error('Erro ao atualizar prótese:', error);
+      // Em caso de erro, recarregar dados
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+    }
   };
   
   // Handlers para os filtros
@@ -1389,8 +1443,8 @@ export default function ProsthesisControlPage() {
                                       transition: snapshot.isDragging ? 'none' : 'all 0.2s ease-in-out'
                                     }}
                                     className={cn(
-                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1",
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150 transform-gpu",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 !transition-none",
                                       !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
                                       isDelayed(item) && "border-red-400",
                                       // Oculta o item original durante o drag para evitar flash visual
