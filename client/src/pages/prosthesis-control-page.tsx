@@ -641,7 +641,8 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      // Não invalidar queries imediatamente para evitar rollback visual
+      // queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -986,7 +987,7 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop otimizado
+  // Handler para drag and drop otimizado com atualização local imediata
   const onDragEnd = (result: any) => {
     const { source, destination, draggableId } = result;
     
@@ -1001,38 +1002,81 @@ export default function ProsthesisControlPage() {
     
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
     
-    // Movimento dentro da mesma coluna - reordenação
-    if (source.droppableId === destination.droppableId) {
-      executeDropSameColumn(result);
-      return;
+    // PRIMEIRO: Atualizar estado local imediatamente para evitar rollback
+    const sourceColumn = columns[source.droppableId];
+    const destColumn = columns[destination.droppableId];
+    const sourceItems = Array.from(sourceColumn.items);
+    const destItems = source.droppableId === destination.droppableId ? sourceItems : Array.from(destColumn.items);
+    
+    // Encontrar e remover o item da origem
+    const [movedItem] = sourceItems.splice(source.index, 1);
+    
+    // Atualizar status se for movimento entre colunas
+    if (source.droppableId !== destination.droppableId) {
+      movedItem.status = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+      
+      // Aplicar lógica específica por transição
+      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
+        movedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+      } 
+      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
+        movedItem.returnDate = format(new Date(), "yyyy-MM-dd");
+      }
     }
     
-    // Movimento entre colunas diferentes - atualizar status diretamente no backend
-    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+    // Inserir na nova posição
+    destItems.splice(destination.index, 0, movedItem);
     
-    let updateData: any = {
-      id: prosthesisId,
-      status: targetStatus
+    // Atualizar estado das colunas
+    const newColumns = {
+      ...columns,
+      [source.droppableId]: {
+        ...sourceColumn,
+        items: sourceItems
+      }
     };
     
-    // Aplicar lógica específica por transição
-    if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-    } 
-    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+    if (source.droppableId !== destination.droppableId) {
+      newColumns[destination.droppableId] = {
+        ...destColumn,
+        items: destItems
+      };
     }
     
-    // Executar atualização sem notificação automática
-    updateStatusMutation.mutate(updateData, {
-      onError: () => {
-        toast({
-          title: "Erro",
-          description: "Falha ao atualizar status da prótese",
-          variant: "destructive",
-        });
+    setColumns(newColumns);
+    
+    // SEGUNDO: Fazer chamada para API apenas se for movimento entre colunas
+    if (source.droppableId !== destination.droppableId) {
+      const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+      
+      let updateData: any = {
+        id: prosthesisId,
+        status: targetStatus
+      };
+      
+      if (targetStatus === 'sent' && source.droppableId === 'pending') {
+        updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+      } 
+      else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+        updateData.returnDate = format(new Date(), "yyyy-MM-dd");
       }
-    });
+      
+      // Executar atualização silenciosa
+      updateStatusMutation.mutate(updateData, {
+        onError: () => {
+          // Em caso de erro, reverter mudança local
+          setColumns(columns);
+          toast({
+            title: "Erro",
+            description: "Falha ao atualizar status da prótese",
+            variant: "destructive",
+          });
+        }
+      });
+    } else {
+      // Para reordenação na mesma coluna
+      executeDropSameColumn(result);
+    }
   };
   
   // Handlers para os filtros
