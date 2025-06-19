@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, anamnesis, patientExams, detailedTreatmentPlans, treatmentEvolution, prescriptions, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct, type Anamnesis, type PatientExam, type DetailedTreatmentPlan, type TreatmentEvolution, type Prescription } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql, desc, inArray } from "drizzle-orm";
 
@@ -97,6 +97,26 @@ export interface IStorage {
   createInventoryTransaction(data: any): Promise<any>;
   getStandardDentalProducts(): Promise<StandardDentalProduct[]>;
   importStandardProducts(productIds: number[], companyId: number): Promise<any[]>;
+
+  // Digital Patient Record - tenant-aware
+  getPatientAnamnesis(patientId: number, companyId: number): Promise<any | undefined>;
+  createPatientAnamnesis(data: any): Promise<any>;
+  updatePatientAnamnesis(id: number, data: any, companyId: number): Promise<any>;
+  
+  getPatientExams(patientId: number, companyId: number): Promise<any[]>;
+  createPatientExam(data: any): Promise<any>;
+  updatePatientExam(id: number, data: any, companyId: number): Promise<any>;
+  
+  getPatientTreatmentPlans(patientId: number, companyId: number): Promise<any[]>;
+  createPatientTreatmentPlan(data: any): Promise<any>;
+  updatePatientTreatmentPlan(id: number, data: any, companyId: number): Promise<any>;
+  
+  getPatientEvolution(patientId: number, companyId: number): Promise<any[]>;
+  createPatientEvolution(data: any): Promise<any>;
+  
+  getPatientPrescriptions(patientId: number, companyId: number): Promise<any[]>;
+  createPatientPrescription(data: any): Promise<any>;
+  updatePatientPrescription(id: number, data: any, companyId: number): Promise<any>;
   
   sessionStore: any;
 }

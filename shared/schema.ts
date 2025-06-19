@@ -93,33 +93,86 @@ export const insertUserSchema = createInsertSchema(users).pick({
   active: true,
 });
 
-// Patients
+// Patients - Ficha Digital Completa
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companies.id),
+  
+  // Dados de Identificação
   fullName: text("full_name").notNull(),
+  birthDate: timestamp("birth_date"),
+  cpf: text("cpf"),
+  rg: text("rg"),
+  gender: text("gender"), // masculino, feminino, outro
+  nationality: text("nationality"),
+  maritalStatus: text("marital_status"), // solteiro, casado, divorciado, viuvo
+  profession: text("profession"),
+  
+  // Contato
   email: text("email"),
   phone: text("phone"),
-  cpf: text("cpf"),
-  birthDate: timestamp("birth_date"),
-  gender: text("gender"),
+  cellphone: text("cellphone"),
+  
+  // Endereço
   address: text("address"),
-  insuranceInfo: text("insurance_info"),
+  neighborhood: text("neighborhood"),
+  city: text("city"),
+  state: text("state"),
+  cep: text("cep"),
+  
+  // Contato de Emergência
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  emergencyContactRelation: text("emergency_contact_relation"),
+  
+  // Informações de Saúde
+  healthInsurance: text("health_insurance"),
+  healthInsuranceNumber: text("health_insurance_number"),
+  bloodType: text("blood_type"), // A+, A-, B+, B-, AB+, AB-, O+, O-
+  allergies: text("allergies"),
+  medications: text("medications"),
+  chronicDiseases: text("chronic_diseases"),
+  
+  // Sistema
+  patientNumber: text("patient_number").unique(), // Número do prontuário
+  status: text("status").default("active"), // active, inactive, archived
   notes: text("notes"),
+  profilePhoto: text("profile_photo"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertPatientSchema = createInsertSchema(patients).pick({
   companyId: true,
   fullName: true,
+  birthDate: true,
+  cpf: true,
+  rg: true,
+  gender: true,
+  nationality: true,
+  maritalStatus: true,
+  profession: true,
   email: true,
   phone: true,
-  cpf: true,
-  birthDate: true,
-  gender: true,
+  cellphone: true,
   address: true,
-  insuranceInfo: true,
+  neighborhood: true,
+  city: true,
+  state: true,
+  cep: true,
+  emergencyContactName: true,
+  emergencyContactPhone: true,
+  emergencyContactRelation: true,
+  healthInsurance: true,
+  healthInsuranceNumber: true,
+  bloodType: true,
+  allergies: true,
+  medications: true,
+  chronicDiseases: true,
+  patientNumber: true,
+  status: true,
   notes: true,
+  profilePhoto: true,
 });
 
 // Appointments
@@ -443,6 +496,263 @@ export const insertPatientRecordSchema = createInsertSchema(patientRecords).pick
   recordType: true,
   content: true,
   createdBy: true,
+});
+
+// Anamnese Digital
+export const anamnesis = pgTable("anamnesis", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  
+  // Queixa Principal
+  chiefComplaint: text("chief_complaint"),
+  currentIllnessHistory: text("current_illness_history"),
+  
+  // Histórico Médico
+  medicalHistory: text("medical_history"),
+  currentMedications: text("current_medications"),
+  allergiesDetail: text("allergies_detail"),
+  previousSurgeries: text("previous_surgeries"),
+  hospitalizations: text("hospitalizations"),
+  
+  // Histórico Odontológico
+  dentalHistory: text("dental_history"),
+  previousDentalTreatments: text("previous_dental_treatments"),
+  orthodonticTreatment: boolean("orthodontic_treatment").default(false),
+  oralHygieneFequency: text("oral_hygiene_frequency"),
+  
+  // Hábitos
+  smoking: boolean("smoking").default(false),
+  smokingFrequency: text("smoking_frequency"),
+  alcohol: boolean("alcohol").default(false),
+  alcoholFrequency: text("alcohol_frequency"),
+  bruxism: boolean("bruxism").default(false),
+  nailBiting: boolean("nail_biting").default(false),
+  
+  // Informações Sistêmicas
+  heartDisease: boolean("heart_disease").default(false),
+  highBloodPressure: boolean("high_blood_pressure").default(false),
+  diabetes: boolean("diabetes").default(false),
+  hepatitis: boolean("hepatitis").default(false),
+  kidney_disease: boolean("kidney_disease").default(false),
+  pregnant: boolean("pregnant").default(false),
+  pregnancyMonth: integer("pregnancy_month"),
+  
+  // Informações Adicionais
+  additionalInfo: text("additional_info"),
+  
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAnamnesisSchema = createInsertSchema(anamnesis).pick({
+  patientId: true,
+  chiefComplaint: true,
+  currentIllnessHistory: true,
+  medicalHistory: true,
+  currentMedications: true,
+  allergiesDetail: true,
+  previousSurgeries: true,
+  hospitalizations: true,
+  dentalHistory: true,
+  previousDentalTreatments: true,
+  orthodonticTreatment: true,
+  oralHygieneFequency: true,
+  smoking: true,
+  smokingFrequency: true,
+  alcohol: true,
+  alcoholFrequency: true,
+  bruxism: true,
+  nailBiting: true,
+  heartDisease: true,
+  highBloodPressure: true,
+  diabetes: true,
+  hepatitis: true,
+  kidney_disease: true,
+  pregnant: true,
+  pregnancyMonth: true,
+  additionalInfo: true,
+  createdBy: true,
+});
+
+// Exames do Paciente
+export const patientExams = pgTable("patient_exams", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  examType: text("exam_type").notNull(), // radiografia, tomografia, fotografia, outros
+  title: text("title").notNull(),
+  description: text("description"),
+  examDate: timestamp("exam_date").defaultNow(),
+  fileUrl: text("file_url"),
+  fileType: text("file_type"), // image/jpeg, application/pdf, etc
+  results: text("results"),
+  observations: text("observations"),
+  requestedBy: integer("requested_by").references(() => users.id).notNull(),
+  performedAt: text("performed_at"), // Local do exame
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPatientExamSchema = createInsertSchema(patientExams).pick({
+  patientId: true,
+  examType: true,
+  title: true,
+  description: true,
+  examDate: true,
+  fileUrl: true,
+  fileType: true,
+  results: true,
+  observations: true,
+  requestedBy: true,
+  performedAt: true,
+});
+
+// Planos de Tratamento Detalhados
+export const detailedTreatmentPlans = pgTable("detailed_treatment_plans", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  professionalId: integer("professional_id").references(() => users.id).notNull(),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  diagnosis: text("diagnosis"),
+  objectives: text("objectives"),
+  
+  // Fases do tratamento
+  phases: jsonb("phases"), // Array de objetos com as fases
+  
+  // Financeiro
+  estimatedCost: integer("estimated_cost"), // em centavos
+  approvedCost: integer("approved_cost"), // em centavos
+  
+  // Status
+  status: text("status").default("proposed"), // proposed, approved, in_progress, completed, cancelled
+  priority: text("priority").default("normal"), // urgent, high, normal, low
+  
+  // Datas
+  proposedDate: timestamp("proposed_date").defaultNow(),
+  approvedDate: timestamp("approved_date"),
+  startDate: timestamp("start_date"),
+  expectedEndDate: timestamp("expected_end_date"),
+  completedDate: timestamp("completed_date"),
+  
+  // Observações
+  notes: text("notes"),
+  patientConsent: boolean("patient_consent").default(false),
+  consentDate: timestamp("consent_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDetailedTreatmentPlanSchema = createInsertSchema(detailedTreatmentPlans).pick({
+  patientId: true,
+  professionalId: true,
+  title: true,
+  description: true,
+  diagnosis: true,
+  objectives: true,
+  phases: true,
+  estimatedCost: true,
+  approvedCost: true,
+  status: true,
+  priority: true,
+  proposedDate: true,
+  approvedDate: true,
+  startDate: true,
+  expectedEndDate: true,
+  completedDate: true,
+  notes: true,
+  patientConsent: true,
+  consentDate: true,
+});
+
+// Evolução do Tratamento
+export const treatmentEvolution = pgTable("treatment_evolution", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  treatmentPlanId: integer("treatment_plan_id").references(() => detailedTreatmentPlans.id),
+  
+  sessionDate: timestamp("session_date").notNull(),
+  sessionNumber: integer("session_number"),
+  
+  // Procedimentos realizados
+  proceduresPerformed: text("procedures_performed"),
+  materials_used: text("materials_used"),
+  
+  // Observações clínicas
+  clinicalObservations: text("clinical_observations"),
+  patientResponse: text("patient_response"),
+  complications: text("complications"),
+  
+  // Próxima sessão
+  nextSession: text("next_session"),
+  homecare_instructions: text("homecare_instructions"),
+  
+  // Profissional
+  performedBy: integer("performed_by").references(() => users.id).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTreatmentEvolutionSchema = createInsertSchema(treatmentEvolution).pick({
+  patientId: true,
+  appointmentId: true,
+  treatmentPlanId: true,
+  sessionDate: true,
+  sessionNumber: true,
+  proceduresPerformed: true,
+  materials_used: true,
+  clinicalObservations: true,
+  patientResponse: true,
+  complications: true,
+  nextSession: true,
+  homecare_instructions: true,
+  performedBy: true,
+});
+
+// Receitas e Atestados
+export const prescriptions = pgTable("prescriptions", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  
+  type: text("type").notNull(), // receita, atestado, declaracao
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  
+  // Para receitas
+  medications: jsonb("medications"), // Array de medicamentos
+  instructions: text("instructions"),
+  
+  // Para atestados
+  attestationType: text("attestation_type"), // comparecimento, incapacidade, etc
+  period: text("period"), // período de afastamento
+  cid: text("cid"), // código CID se aplicável
+  
+  validUntil: timestamp("valid_until"),
+  prescribedBy: integer("prescribed_by").references(() => users.id).notNull(),
+  
+  // Controle
+  issued: boolean("issued").default(false),
+  issuedAt: timestamp("issued_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPrescriptionSchema = createInsertSchema(prescriptions).pick({
+  patientId: true,
+  type: true,
+  title: true,
+  content: true,
+  medications: true,
+  instructions: true,
+  attestationType: true,
+  period: true,
+  cid: true,
+  validUntil: true,
+  prescribedBy: true,
+  issued: true,
+  issuedAt: true,
 });
 
 // Odontogram
@@ -1421,3 +1731,19 @@ export type InsertPatientDocument = z.infer<typeof insertPatientDocumentSchema>;
 
 export type MachineTax = typeof machineTaxes.$inferSelect;
 export type InsertMachineTax = z.infer<typeof insertMachineTaxSchema>;
+
+// Types para Ficha Digital do Paciente
+export type Anamnesis = typeof anamnesis.$inferSelect;
+export type InsertAnamnesis = z.infer<typeof insertAnamnesisSchema>;
+
+export type PatientExam = typeof patientExams.$inferSelect;
+export type InsertPatientExam = z.infer<typeof insertPatientExamSchema>;
+
+export type DetailedTreatmentPlan = typeof detailedTreatmentPlans.$inferSelect;
+export type InsertDetailedTreatmentPlan = z.infer<typeof insertDetailedTreatmentPlanSchema>;
+
+export type TreatmentEvolution = typeof treatmentEvolution.$inferSelect;
+export type InsertTreatmentEvolution = z.infer<typeof insertTreatmentEvolutionSchema>;
+
+export type Prescription = typeof prescriptions.$inferSelect;
+export type InsertPrescription = z.infer<typeof insertPrescriptionSchema>;
