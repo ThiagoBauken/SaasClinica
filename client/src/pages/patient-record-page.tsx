@@ -109,48 +109,73 @@ interface Anamnesis {
 }
 
 export default function PatientRecordPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params.id;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("identification");
   const [isEditing, setIsEditing] = useState(false);
   const [editingAnamnesis, setEditingAnamnesis] = useState(false);
 
+  if (!id) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">ID do paciente não encontrado.</p>
+      </div>
+    );
+  }
+
   // Get patient data
-  const { data: patient, isLoading: patientLoading } = useQuery({
+  const { data: patient, isLoading: patientLoading, error: patientError } = useQuery({
     queryKey: ["/api/patients", id],
     enabled: !!id,
   });
 
   // Get patient anamnesis
-  const { data: anamnesis, isLoading: anamnesisLoading } = useQuery({
+  const { data: anamnesis = {}, isLoading: anamnesisLoading } = useQuery({
     queryKey: ["/api/patients", id, "anamnesis"],
     enabled: !!id,
   });
 
   // Get patient exams
-  const { data: exams, isLoading: examsLoading } = useQuery({
+  const { data: exams = [], isLoading: examsLoading } = useQuery({
     queryKey: ["/api/patients", id, "exams"],
     enabled: !!id,
   });
 
   // Get treatment plans
-  const { data: treatmentPlans, isLoading: treatmentPlansLoading } = useQuery({
+  const { data: treatmentPlans = [], isLoading: treatmentPlansLoading } = useQuery({
     queryKey: ["/api/patients", id, "treatment-plans"],
     enabled: !!id,
   });
 
   // Get treatment evolution
-  const { data: evolution, isLoading: evolutionLoading } = useQuery({
+  const { data: evolution = [], isLoading: evolutionLoading } = useQuery({
     queryKey: ["/api/patients", id, "evolution"],
     enabled: !!id,
   });
 
   // Get prescriptions
-  const { data: prescriptions, isLoading: prescriptionsLoading } = useQuery({
+  const { data: prescriptions = [], isLoading: prescriptionsLoading } = useQuery({
     queryKey: ["/api/patients", id, "prescriptions"],
     enabled: !!id,
   });
+
+  if (patientLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Carregando dados do paciente...</p>
+      </div>
+    );
+  }
+
+  if (patientError || !patient) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">O paciente solicitado não foi encontrado no sistema.</p>
+      </div>
+    );
+  }
 
   const calculateAge = (birthDate: string) => {
     const today = new Date();

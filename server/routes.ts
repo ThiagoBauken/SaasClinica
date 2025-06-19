@@ -242,6 +242,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedPatient);
   }));
 
+  // Patient Anamnesis Routes
+  app.get("/api/patients/:id/anamnesis", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const anamnesis = await storage.getPatientAnamnesis(patientId, companyId);
+    res.json(anamnesis);
+  }));
+
+  app.post("/api/patients/:id/anamnesis", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const anamnesis = await storage.createPatientAnamnesis(patientId, req.body, companyId);
+    res.status(201).json(anamnesis);
+  }));
+
+  // Patient Exams Routes
+  app.get("/api/patients/:id/exams", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const exams = await storage.getPatientExams(patientId, companyId);
+    res.json(exams);
+  }));
+
+  app.post("/api/patients/:id/exams", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const exam = await storage.createPatientExam(patientId, req.body, companyId);
+    res.status(201).json(exam);
+  }));
+
+  // Patient Treatment Plans Routes
+  app.get("/api/patients/:id/treatment-plans", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const plans = await storage.getPatientTreatmentPlans(patientId, companyId);
+    res.json(plans);
+  }));
+
+  app.post("/api/patients/:id/treatment-plans", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const plan = await storage.createPatientTreatmentPlan(patientId, req.body, companyId);
+    res.status(201).json(plan);
+  }));
+
+  // Patient Evolution Routes
+  app.get("/api/patients/:id/evolution", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const evolution = await storage.getPatientEvolution(patientId, companyId);
+    res.json(evolution);
+  }));
+
+  app.post("/api/patients/:id/evolution", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const evolution = await storage.createPatientEvolution(patientId, req.body, companyId);
+    res.status(201).json(evolution);
+  }));
+
+  // Patient Prescriptions Routes
+  app.get("/api/patients/:id/prescriptions", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const prescriptions = await storage.getPatientPrescriptions(patientId, companyId);
+    res.json(prescriptions);
+  }));
+
+  app.post("/api/patients/:id/prescriptions", authCheck, asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 3;
+    const patientId = parseInt(req.params.id);
+    const prescription = await storage.createPatientPrescription(patientId, req.body, companyId);
+    res.status(201).json(prescription);
+  }));
+
   // Appointments
   app.get("/api/appointments", async (req, res, next) => {
     try {
