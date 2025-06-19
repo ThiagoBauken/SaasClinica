@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,9 +57,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2 } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -78,7 +79,7 @@ interface Prosthesis {
   sentDate: string | null;
   expectedReturnDate: string | null;
   returnDate: string | null;
-  status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled';
+  status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
   createdAt: string;
@@ -92,24 +93,7 @@ interface Laboratory {
   address: string;
 }
 
-// Mock data
-const mockLaboratories: Laboratory[] = [
-  { id: 1, name: "Lab Dental", contact: "contato@labdental.com.br", address: "Rua das Flores, 123" },
-  { id: 2, name: "Odonto Tech", contact: "contato@odontotech.com.br", address: "Av. Paulista, 1000" },
-  { id: 3, name: "Prótese Premium", contact: "contato@protesepremium.com.br", address: "Rua Augusta, 500" }
-];
-
-const mockPatients = [
-  { id: 1, fullName: "Maria Silva", email: "maria@exemplo.com", phone: "(11) 98765-4321" },
-  { id: 2, fullName: "João Pereira", email: "joao@exemplo.com", phone: "(11) 91234-5678" },
-  { id: 3, fullName: "Ana Oliveira", email: "ana@exemplo.com", phone: "(11) 99876-5432" }
-];
-
-const mockProfessionals = [
-  { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista", email: "ana@exemplo.com" },
-  { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista", email: "carlos@exemplo.com" },
-  { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista", email: "juliana@exemplo.com" }
-];
+// Dados de pacientes e profissionais agora vêm do banco de dados via queries
 
 const prosthesisTypes = [
   "Coroa",
@@ -247,6 +231,99 @@ interface StatusColumn {
 
 export default function ProsthesisControlPage() {
   const { toast } = useToast();
+  
+  // Query para buscar laboratórios do banco
+  const { data: laboratories = [], isLoading: isLoadingLabs, refetch: refetchLabs } = useQuery({
+    queryKey: ["/api/laboratories"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/laboratories");
+      if (!res.ok) throw new Error("Falha ao carregar laboratórios");
+      return res.json();
+    }
+  });
+
+  // Query para buscar pacientes reais do banco de dados
+  const { data: patients = [], isLoading: isLoadingPatients } = useQuery({
+    queryKey: ["/api/patients"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/patients");
+      if (!res.ok) throw new Error("Falha ao carregar pacientes");
+      return res.json();
+    }
+  });
+
+  // Query para buscar profissionais reais do banco de dados
+  const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/users");
+      if (!res.ok) throw new Error("Falha ao carregar profissionais");
+      return res.json();
+    }
+  });
+
+  // Estados para laboratórios
+  const [newLabName, setNewLabName] = useState("");
+  const [newLabWhatsapp, setNewLabWhatsapp] = useState("");
+  const [editingLab, setEditingLab] = useState<any>(null);
+  const [editLabName, setEditLabName] = useState("");
+  const [editLabPhone, setEditLabPhone] = useState("");
+
+  // Mutations para laboratórios
+  const createLabMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone?: string }) => {
+      const res = await apiRequest("POST", "/api/laboratories", data);
+      if (!res.ok) throw new Error("Falha ao criar laboratório");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      setNewLabName("");
+      setNewLabWhatsapp("");
+      toast({ title: "Laboratório criado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar laboratório", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const updateLabMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/laboratories/${id}`, data);
+      if (!res.ok) throw new Error("Falha ao atualizar laboratório");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      setEditingLab(null);
+      setEditingLaboratory(null);
+      setEditLabName("");
+      setEditLabPhone("");
+      toast({ title: "Laboratório atualizado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar laboratório", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteLabMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/laboratories/${id}`);
+      if (!res.ok) throw new Error("Falha ao deletar laboratório");
+      // 204 No Content responses don't have a body, so don't try to parse JSON
+      if (res.status === 204) {
+        return { success: true };
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabs();
+      toast({ title: "Laboratório removido com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover laboratório", description: error.message, variant: "destructive" });
+    }
+  });
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
       id: "pending",
@@ -267,6 +344,11 @@ export default function ProsthesisControlPage() {
       id: "completed",
       title: "Realizado",
       items: []
+    },
+    archived: {
+      id: "archived",
+      title: "Arquivado",
+      items: []
     }
   });
   
@@ -283,6 +365,36 @@ export default function ProsthesisControlPage() {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [showArchivedColumn, setShowArchivedColumn] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<string>("");
+  const [selectedLaboratory, setSelectedLaboratory] = useState<string>("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [laboratorySearchOpen, setLaboratorySearchOpen] = useState(false);
+  
+  // Estados para controle robusto do drag-and-drop
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Função para limpar os estados após salvar
+  const clearFormStates = () => {
+    setSelectedPatient("");
+    setSelectedLaboratory("");
+    setSelectedLabels([]);
+    setSentDate(undefined);
+    setExpectedReturnDate(undefined);
+    setPatientSearchOpen(false);
+    setLaboratorySearchOpen(false);
+    setIsModalOpen(false);
+    setEditingProsthesis(null);
+  };
+
+  // Função para restaurar etiquetas padrão
+  const restoreDefaultLabels = () => {
+    setLabels(defaultLabels);
+    toast({
+      title: "Etiquetas restauradas",
+      description: "As etiquetas padrão foram restauradas com sucesso."
+    });
+  };
   const [filters, setFilters] = useState({
     delayedServices: false,
     returnedServices: false,
@@ -296,57 +408,69 @@ export default function ProsthesisControlPage() {
   const [sentDate, setSentDate] = useState<Date | undefined>(undefined);
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | undefined>(undefined);
   
-  // Mock query para dados de próteses
-  const { data: prosthesis, isLoading, isError, error } = useQuery<Prosthesis[]>({
+  // Query otimizada para dados de próteses
+  const prosthesisQuery = useQuery<Prosthesis[]>({
     queryKey: ["/api/prosthesis"],
     queryFn: async () => {
-      try {
-        // Tenta buscar do backend
-        const res = await apiRequest("GET", "/api/prosthesis");
-        if (!res.ok) {
-          console.warn("Usando dados mockados para próteses");
-          return generateMockProsthesis();
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar próteses:", error);
-        return generateMockProsthesis();
+      const res = await apiRequest("GET", "/api/prosthesis");
+      if (!res.ok) {
+        throw new Error(`Falha ao carregar: ${res.status}`);
       }
+      const data = await res.json();
+      
+      // Validar estrutura dos dados
+      if (!Array.isArray(data)) {
+        throw new Error("Dados inválidos do servidor");
+      }
+      
+      return data;
     },
-    retry: 2,
-    retryDelay: 1000,
+    retry: 1,
+    retryDelay: 2000,
     refetchOnWindowFocus: false,
     staleTime: 30000
   });
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    if (prosthesis) {
+    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
+    if (isDragging) {
+      console.log('Bloqueando atualização das colunas - drag em andamento');
+      return;
+    }
+    
+    if (prosthesisQuery.data) {
       try {
         const updatedColumns = {
           pending: {
             ...columns.pending,
-            items: prosthesis.filter(p => p.status === 'pending')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           sent: {
             ...columns.sent,
-            items: prosthesis.filter(p => p.status === 'sent')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           returned: {
             ...columns.returned,
-            items: prosthesis.filter(p => p.status === 'returned')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           completed: {
             ...columns.completed,
-            items: prosthesis.filter(p => p.status === 'completed')
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          },
+          archived: {
+            ...columns.archived,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           }
         };
         
+        // Manter coluna arquivado oculta por padrão (alternativa antes de excluir)
+
         // Aplicar filtros
         if (filters.delayedServices) {
           // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
           const now = new Date();
-          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
+          updatedColumns.sent.items = updatedColumns.sent.items.filter((p: any) => 
             p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
           );
         }
@@ -363,7 +487,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.professionalId === professionalId
+                (p: any) => p.professionalId === professionalId
               );
           });
         }
@@ -373,7 +497,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.laboratory === filters.laboratory
+                (p: any) => p.laboratory === filters.laboratory
               );
           });
         }
@@ -383,7 +507,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                p => p.labels && p.labels.includes(filters.label)
+                (p: any) => p.labels && p.labels.includes(filters.label)
               );
           });
         }
@@ -398,46 +522,50 @@ export default function ProsthesisControlPage() {
         });
       }
     }
-  }, [prosthesis, filters]);
+  }, [prosthesisQuery.data, filters, isDragging]);
+
+
   
   // Mutation para salvar prótese
   const prosthesisMutation = useMutation({
     mutationFn: async (prosthesisData: Partial<Prosthesis>) => {
+      const method = prosthesisData.id ? "PATCH" : "POST";
+      const url = prosthesisData.id ? `/api/prosthesis/${prosthesisData.id}` : "/api/prosthesis";
+      
+      console.log('Enviando requisição:', { method, url, data: prosthesisData });
+      
       try {
-        if (prosthesisData.id) {
-          // Atualização
-          const res = await apiRequest("PATCH", `/api/prosthesis/${prosthesisData.id}`, prosthesisData);
-          if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-          }
-          return await res.json();
-        } else {
-          // Criação
-          const res = await apiRequest("POST", "/api/prosthesis", prosthesisData);
-          if (!res.ok) {
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-          }
-          return await res.json();
-        }
+        const res = await apiRequest(method, url, prosthesisData);
+        
+        console.log('Resposta da requisição:', { status: res.status, ok: res.ok });
+        
+        // apiRequest já verifica se res.ok, então aqui só precisamos fazer o parse do JSON
+        const result = await res.json();
+        console.log('Dados retornados:', result);
+        return result;
       } catch (error) {
-        console.error("Erro na mutação:", error);
+        console.error('Erro completo na requisição:', error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Sucesso na mutation:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
+      setSelectedLabels([]);
+      setSentDate(undefined);
+      setExpectedReturnDate(undefined);
       toast({
-        title: "Sucesso",
-        description: "Prótese salva com sucesso!",
+        title: "Prótese salva",
+        description: "Dados salvos com sucesso!",
       });
     },
     onError: (error: Error) => {
-      console.error("Erro ao salvar prótese:", error);
+      console.error('Erro na mutation:', error);
       toast({
-        title: "Erro",
-        description: `Falha ao salvar prótese: ${error.message}`,
+        title: "Erro ao salvar",
+        description: error.message || "Erro desconhecido ao salvar prótese",
         variant: "destructive",
       });
     }
@@ -451,6 +579,10 @@ export default function ProsthesisControlPage() {
         if (!res.ok) {
           throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
         }
+        // 204 No Content responses don't have a body, so don't try to parse JSON
+        if (res.status === 204) {
+          return { success: true };
+        }
         return await res.json();
       } catch (error) {
         console.error("Erro ao excluir prótese:", error);
@@ -459,6 +591,7 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      
       toast({
         title: "Sucesso",
         description: "Prótese excluída com sucesso!",
@@ -474,23 +607,41 @@ export default function ProsthesisControlPage() {
     }
   });
   
-  // Mutation para atualizar status
+  // Estado para controle de debouncing
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Estado para controle de posicionamento no drop
+  const [showPositionOptions, setShowPositionOptions] = useState(false);
+  const [defaultDropPosition, setDefaultDropPosition] = useState<'start' | 'exact' | 'end'>('exact');
+  
+  // Mutation para atualizar status com posicionamento
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, returnDate }: { id: number; status: string; returnDate?: string }) => {
-      try {
-        const data: any = { status };
-        if (returnDate) {
-          data.returnDate = returnDate;
-        }
-        const res = await apiRequest("PATCH", `/api/prosthesis/${id}`, data);
-        if (!res.ok) {
-          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao atualizar status:", error);
-        throw error;
+    mutationFn: async ({ id, status, returnDate, sentDate, sortOrder }: { 
+      id: number; 
+      status: string; 
+      returnDate?: string;
+      sentDate?: string;
+      sortOrder?: number;
+    }) => {
+      const updateData: any = { status };
+      
+      if (status === 'sent' && sentDate) {
+        updateData.sentDate = sentDate;
       }
+      if (status === 'returned' && returnDate) {
+        updateData.returnDate = returnDate;
+      }
+      if (sortOrder !== undefined) {
+        updateData.sortOrder = sortOrder;
+      }
+      
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, updateData);
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao atualizar: ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
@@ -505,32 +656,364 @@ export default function ProsthesisControlPage() {
     }
   });
 
-  // Handler para drag and drop
-  const onDragEnd = (result: any) => {
+  // Mutation para arquivar prótese
+  const archiveProsthesisMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, { status: 'archived' });
+      if (!response.ok) {
+        throw new Error(`Erro ao arquivar: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      
+      toast({
+        title: "Prótese arquivada",
+        description: "A prótese foi arquivada com sucesso",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: "Falha ao arquivar prótese",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation para desarquivar prótese
+  const unarchiveProsthesisMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('PATCH', `/api/prosthesis/${id}`, { status: 'completed' });
+      if (!response.ok) {
+        throw new Error(`Erro ao desarquivar: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      
+      toast({
+        title: "Prótese desarquivada",
+        description: "A prótese foi retornada para concluído",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: "Falha ao desarquivar prótese",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation para criar laboratório automaticamente
+  const createLaboratoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest('POST', '/api/laboratories', {
+        name: name,
+        phone: '',
+        email: ''
+      });
+      if (!response.ok) {
+        throw new Error(`Erro ao criar laboratório: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao criar laboratório:", error);
+    }
+  });
+  
+  // Handler para salvar prótese
+  const handleSaveProsthesis = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    
+    // Preparar datas
+    let sentDateFormatted = sentDate ? format(sentDate, "yyyy-MM-dd") : null;
+    let expectedReturnDateFormatted = expectedReturnDate ? format(expectedReturnDate, "yyyy-MM-dd") : null;
+    
+    try {
+      console.log('Form data raw:', Object.fromEntries(formData.entries()));
+      console.log('Selected labels:', selectedLabels);
+      console.log('Sent date:', sentDateFormatted);
+      console.log('Expected return date:', expectedReturnDateFormatted);
+      console.log('Editing prosthesis:', editingProsthesis);
+      console.log('Original status:', editingProsthesis?.status);
+      
+      // Validar dados básicos
+      if (!selectedPatient && !formData.get("patient") || !formData.get("professional") || !formData.get("type") || !formData.get("description")) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios.");
+      }
+      
+      const laboratoryName = selectedLaboratory || formData.get("laboratory") as string;
+      
+      // Verificar se o laboratório existe, se não, criar automaticamente
+      if (laboratoryName && laboratories) {
+        const existingLab = laboratories.find((lab: any) => lab.name.toLowerCase() === laboratoryName.toLowerCase());
+        if (!existingLab) {
+          console.log("Creating new laboratory:", laboratoryName);
+          try {
+            await createLaboratoryMutation.mutateAsync(laboratoryName);
+          } catch (error) {
+            console.error("Error creating laboratory:", error);
+          }
+        }
+      }
+      
+      // Preparar dados da prótese
+      const prosthesisData: any = {
+        patientId: parseInt(selectedPatient || formData.get("patient") as string),
+        professionalId: parseInt(formData.get("professional") as string),
+        type: formData.get("type") as string,
+        description: formData.get("description") as string,
+        laboratory: laboratoryName,
+        sentDate: sentDateFormatted,
+        expectedReturnDate: expectedReturnDateFormatted,
+        observations: formData.get("observations") as string || null,
+        // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
+        status: editingProsthesis ? editingProsthesis.status : 'pending',
+        labels: selectedLabels || [],
+      };
+      
+      console.log('Prosthesis data to send:', prosthesisData);
+      
+      // Se estiver editando, manter dados existentes que não foram alterados
+      if (editingProsthesis) {
+        prosthesisData.id = editingProsthesis.id;
+        console.log('Editing existing prosthesis with ID:', editingProsthesis.id);
+      } else {
+        console.log('Creating new prosthesis');
+      }
+      
+      // Enviar dados para o servidor
+      prosthesisMutation.mutate(prosthesisData);
+    } catch (error) {
+      console.error('Error in handleSaveProsthesis:', error);
+      // Tratar erros de validação
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a prótese.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Ref para throttling de operações drag
+  const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Função específica para movimentação dentro da mesma coluna
+  const executeDropSameColumn = (result: any) => {
     const { source, destination, draggableId } = result;
-    
-    if (!destination) {
-      return;
-    }
-    
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
-    }
-    
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const newStatus = destination.droppableId;
+    const columnStatus = source.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
-    // Atualizar status no backend
-    let returnDate: string | undefined;
-    if (newStatus === 'returned') {
-      returnDate = format(new Date(), 'yyyy-MM-dd');
+    console.log(`Reordenando prótese ${prosthesisId} na coluna ${columnStatus} do índice ${source.index} para ${destination.index}`);
+    
+    // Obter todos os itens da coluna atual, ordenados
+    const allProsthesis = prosthesisQuery.data || [];
+    const columnItems = allProsthesis
+      .filter((item: any) => item.status === columnStatus)
+      .sort((a: any, b: any) => ((a as any).sortOrder || 0) - ((b as any).sortOrder || 0));
+    
+    // Remover o item que está sendo movido
+    const movingItem = columnItems.find((item: any) => item.id === prosthesisId);
+    const otherItems = columnItems.filter((item: any) => item.id !== prosthesisId);
+    
+    let newSortOrder = 0;
+    
+    if (otherItems.length === 0) {
+      newSortOrder = 0;
+    } else if (destination.index === 0) {
+      // Mover para o início
+      const firstOrder = (otherItems[0] as any)?.sortOrder || 0;
+      newSortOrder = firstOrder - 1;
+    } else if (destination.index >= otherItems.length) {
+      // Mover para o final
+      const lastOrder = (otherItems[otherItems.length - 1] as any)?.sortOrder || 0;
+      newSortOrder = lastOrder + 1;
+    } else {
+      // Mover para posição específica
+      const prevOrder = (otherItems[destination.index - 1] as any)?.sortOrder || 0;
+      const nextOrder = (otherItems[destination.index] as any)?.sortOrder || 0;
+      newSortOrder = Math.floor((prevOrder + nextOrder) / 2);
+      
+      // Se não há espaço, usar ordem sequencial
+      if (prevOrder >= nextOrder - 1) {
+        newSortOrder = prevOrder + 1;
+      }
     }
     
+    // Atualizar apenas o sortOrder
     updateStatusMutation.mutate({
       id: prosthesisId,
-      status: newStatus,
-      returnDate
+      status: columnStatus,
+      sortOrder: newSortOrder
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Posição atualizada",
+          description: "Prótese reordenada com sucesso",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Erro",
+          description: "Falha ao reordenar prótese",
+          variant: "destructive",
+        });
+      }
     });
+  };
+
+  // Função para executar o drop com posicionamento específico
+  const executeDrop = (result: any, position: 'start' | 'exact' | 'end') => {
+    const { source, destination, draggableId } = result;
+    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
+    
+    console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus} na posição: ${position}`);
+    
+    // Obter próteses da query para calcular posição baseado no status de destino
+    const allProsthesis = prosthesisQuery.data || [];
+    const targetColumnItems = allProsthesis.filter((item: any) => item.status === targetStatus);
+    let sortOrder = 0;
+    
+    // Calcular sortOrder baseado na posição desejada
+    if (position === 'start') {
+      // Inserir no início - usar sortOrder menor que o primeiro item
+      if (targetColumnItems.length > 0) {
+        const minOrder = Math.min(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+        sortOrder = minOrder - 1;
+      } else {
+        sortOrder = 0;
+      }
+    } else if (position === 'end') {
+      // Inserir no final - usar sortOrder maior que o último item
+      if (targetColumnItems.length > 0) {
+        const maxOrder = Math.max(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+        sortOrder = maxOrder + 1;
+      } else {
+        sortOrder = 0;
+      }
+    } else {
+      // Posição exata - inserir entre dois itens
+      if (targetColumnItems.length === 0) {
+        sortOrder = 0;
+      } else if (destination.index === 0) {
+        // Inserir no início
+        const firstOrder = targetColumnItems[0]?.sortOrder || 0;
+        sortOrder = firstOrder - 1;
+      } else if (destination.index >= targetColumnItems.length) {
+        // Inserir no final
+        const lastOrder = targetColumnItems[targetColumnItems.length - 1]?.sortOrder || 0;
+        sortOrder = lastOrder + 1;
+      } else {
+        // Inserir entre dois itens
+        const prevOrder = targetColumnItems[destination.index - 1]?.sortOrder || 0;
+        const nextOrder = targetColumnItems[destination.index]?.sortOrder || 0;
+        sortOrder = Math.floor((prevOrder + nextOrder) / 2);
+        
+        // Se não há espaço suficiente, reorganizar
+        if (prevOrder >= nextOrder - 1) {
+          sortOrder = prevOrder + 1;
+        }
+      }
+    }
+    
+    // Preparar dados para atualização
+    let updateData: any = { 
+      id: prosthesisId, 
+      status: targetStatus,
+      sortOrder: sortOrder 
+    };
+    let toastMessage = '';
+    
+    // Lógica específica por transição
+    if (targetStatus === 'sent' && source.droppableId === 'pending') {
+      const sentDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updateData.sentDate = sentDateFormatted;
+      toastMessage = 'Prótese enviada para o laboratório';
+    } 
+    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+      const returnDateFormatted = format(new Date(), "yyyy-MM-dd");
+      updateData.returnDate = returnDateFormatted;
+      toastMessage = 'Prótese retornada do laboratório';
+    }
+    else if (targetStatus === 'completed') {
+      toastMessage = 'Prótese concluída com sucesso';
+    }
+    else if (targetStatus === 'pending') {
+      toastMessage = 'Status atualizado para pendente';
+    }
+    else if (targetStatus === 'archived') {
+      toastMessage = 'Prótese arquivada';
+    }
+    else {
+      toastMessage = 'Status da prótese atualizado';
+    }
+    
+    // Adicionar informação de posicionamento ao toast
+    const positionText = position === 'start' ? 'no início' : 
+                        position === 'end' ? 'no final' : 
+                        'na posição escolhida';
+    toastMessage += ` (${positionText})`;
+    
+    // Executar atualização no backend
+    updateStatusMutation.mutate(updateData, {
+      onSuccess: () => {
+        if (toastMessage) {
+          toast({
+            title: "Status atualizado",
+            description: toastMessage,
+          });
+        }
+      },
+      onError: () => {
+        toast({
+          title: "Erro",
+          description: "Falha ao atualizar status da prótese",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  // Handler para drag and drop com opções de posicionamento
+  const onDragEnd = (result: any) => {
+    console.log('onDragEnd iniciado - finalizando drag');
+    
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
+    }
+    
+    // Finalizar drag imediatamente para liberar interface
+    setIsDragging(false);
+    
+    const { source, destination, draggableId } = result;
+    
+    // Validar resultado do drag
+    if (!destination || 
+        (source.droppableId === destination.droppableId && 
+         source.index === destination.index)) {
+      console.log('Drag cancelado - sem mudança de posição');
+      return;
+    }
+    
+    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
+    if (source.droppableId === destination.droppableId) {
+      executeDropSameColumn(result);
+      return;
+    }
+    
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
   };
   
   // Handlers para os filtros
@@ -544,241 +1027,1248 @@ export default function ProsthesisControlPage() {
   // Função auxiliar para verificar status atrasado
   const isDelayed = (item: Prosthesis) => {
     if (item.expectedReturnDate && !item.returnDate) {
-      const expectedDate = parseISO(item.expectedReturnDate);
-      const now = new Date();
-      return isAfter(now, expectedDate);
+      return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
     return false;
   };
   
-  // Função para calcular dias de atraso
+  // Função para verificar se uma cor é clara (para texto preto) ou escura (para texto branco)
+  const isLightColor = (color: string): boolean => {
+    // Remove o # se existir
+    const hex = color.replace('#', '');
+    
+    // Converte para RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calcula a luminosidade
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Retorna true se for clara (> 0.5)
+    return luminance > 0.5;
+  };
+  
+  // Função para calcular dias atrasados
   const calculateDaysLate = (item: Prosthesis) => {
     if (item.expectedReturnDate && !item.returnDate) {
-      const expectedDate = parseISO(item.expectedReturnDate);
-      const now = new Date();
-      if (isAfter(now, expectedDate)) {
-        return differenceInDays(now, expectedDate);
+      const today = new Date();
+      const expected = parseISO(item.expectedReturnDate);
+      if (isAfter(today, expected)) {
+        return differenceInDays(today, expected);
       }
     }
     return 0;
   };
   
-  // Função para calcular dias até o vencimento
+  // Função para calcular dias até o retorno esperado
   const calculateDaysUntil = (item: Prosthesis) => {
     if (item.expectedReturnDate && !item.returnDate) {
-      const expectedDate = parseISO(item.expectedReturnDate);
-      const now = new Date();
-      if (isBefore(now, expectedDate)) {
-        return differenceInDays(expectedDate, now);
+      const today = new Date();
+      const expected = parseISO(item.expectedReturnDate);
+      if (isBefore(today, expected)) {
+        return differenceInDays(expected, today);
       }
     }
     return 0;
   };
   
+  // Resetar dados do formulário ao abrir modal de novo item
+  const handleOpenNewProsthesisModal = () => {
+    setEditingProsthesis(null);
+    setSentDate(undefined);
+    setExpectedReturnDate(undefined);
+    setSelectedLabels([]);
+    setIsModalOpen(true);
+  };
+  
+  // Função para alternar a seleção de etiquetas
+  const toggleLabelSelection = (labelId: string) => {
+    setSelectedLabels(prevLabels => {
+      if (prevLabels.includes(labelId)) {
+        return prevLabels.filter(id => id !== labelId);
+      } else {
+        return [...prevLabels, labelId];
+      }
+    });
+  };
+  
+  // Configurar dados ao editar item existente
   const handleEditProsthesis = (prosthesis: Prosthesis) => {
     setEditingProsthesis(prosthesis);
     
-    // Configurar datas se disponíveis
-    if (prosthesis.sentDate) {
-      const sentDateParsed = parseISO(prosthesis.sentDate);
-      if (isValid(sentDateParsed)) {
-        setSentDate(sentDateParsed);
-      }
+    // Inicializar estados dos Comboboxes
+    setSelectedPatient(prosthesis.patientId.toString());
+    setSelectedLaboratory(prosthesis.laboratory || "");
+    
+    // Converter strings para objetos Date
+    if (prosthesis.sentDate && isValid(parseISO(prosthesis.sentDate))) {
+      setSentDate(parseISO(prosthesis.sentDate));
+    } else {
+      setSentDate(undefined);
     }
     
-    if (prosthesis.expectedReturnDate) {
-      const expectedDateParsed = parseISO(prosthesis.expectedReturnDate);
-      if (isValid(expectedDateParsed)) {
-        setExpectedReturnDate(expectedDateParsed);
-      }
+    if (prosthesis.expectedReturnDate && isValid(parseISO(prosthesis.expectedReturnDate))) {
+      setExpectedReturnDate(parseISO(prosthesis.expectedReturnDate));
+    } else {
+      setExpectedReturnDate(undefined);
     }
     
-    // Configurar labels selecionadas
-    setSelectedLabels(prosthesis.labels || []);
+    // Carregar etiquetas da prótese para edição
+    if (prosthesis.labels && prosthesis.labels.length > 0) {
+      setSelectedLabels(prosthesis.labels);
+    } else {
+      setSelectedLabels([]);
+    }
     
     setIsModalOpen(true);
   };
   
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center p-8">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Calcula o total de cada coluna com filtros aplicados
+  const totals = {
+    sent: columns.sent.items.length,
+    returned: columns.returned.items.length,
+    pending: columns.pending.items.length,
+    completed: columns.completed.items.length
+  };
   
-  if (isError) {
-    return (
-      <DashboardLayout>
-        <div className="p-8">
-          <div className="text-center text-red-500">
-            Erro ao carregar próteses: {error?.message}
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
+  // Calcula o total de itens atrasados
+  const delayedSent = columns.sent.items.filter(item => isDelayed(item)).length;
+  const delayedReturned = columns.returned.items.filter(item => 
+    item.expectedReturnDate && isAfter(new Date(), parseISO(item.expectedReturnDate))
+  ).length;
+  
+  // Verifica se há itens atrasados
+  const hasDelayedItems = columns.sent.items.some(isDelayed);
+  
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Controle de Próteses</h1>
+    <DashboardLayout title="Controle de Próteses" currentPath="/prosthesis">
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-6">
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFilterOpen(true)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
+            <Button variant="outline" onClick={() => setShowLabelManager(true)} className="gap-2">
+              <Settings className="h-4 w-4" />
+              Etiquetas
             </Button>
-            <Button onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Prótese
+            <Button 
+              variant={showArchivedColumn ? "default" : "outline"} 
+              onClick={() => setShowArchivedColumn(!showArchivedColumn)} 
+              className="gap-2"
+            >
+              <Archive className="h-4 w-4" />
+              Arquivados
+              {columns.archived.items.length > 0 && (
+                <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center rounded-full ml-1">
+                  {columns.archived.items.length}
+                </Badge>
+              )}
+            </Button>
+            <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtros
+                  {(filters.delayedServices || filters.returnedServices || filters.professional !== "all" || filters.laboratory !== "all" || filters.label !== "all") && (
+                    <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                      <Check className="h-3 w-3" />
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Filtros</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Personalize a visualização das próteses
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="delayedServices" 
+                        checked={filters.delayedServices}
+                        onCheckedChange={(checked) => 
+                          handleFilterChange('delayedServices', !!checked)
+                        }
+                      />
+                      <label
+                        htmlFor="delayedServices"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Serviços atrasados
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="returnedServices" 
+                        checked={filters.returnedServices}
+                        onCheckedChange={(checked) => 
+                          handleFilterChange('returnedServices', !!checked)
+                        }
+                      />
+                      <label
+                        htmlFor="returnedServices"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Serviços com retorno
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="professionalFilter">Profissional</Label>
+                    <Select 
+                      value={filters.professional} 
+                      onValueChange={(value) => handleFilterChange('professional', value)}
+                    >
+                      <SelectTrigger id="professionalFilter">
+                        <SelectValue placeholder="Todos os profissionais" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os profissionais</SelectItem>
+                        {professionals.map((prof: any) => (
+                          <SelectItem key={prof.id} value={prof.id.toString()}>
+                            {prof.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="laboratoryFilter">Laboratório</Label>
+                    <Select 
+                      value={filters.laboratory} 
+                      onValueChange={(value) => handleFilterChange('laboratory', value)}
+                    >
+                      <SelectTrigger id="laboratoryFilter">
+                        <SelectValue placeholder="Todos os laboratórios" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os laboratórios</SelectItem>
+                        {laboratories?.map((lab: Laboratory) => (
+                          <SelectItem key={lab.id} value={lab.name}>
+                            {lab.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button 
+                    onClick={() => {
+                      setFilters({
+                        delayedServices: false,
+                        returnedServices: false,
+                        custom: false,
+                        professional: "all",
+                        laboratory: "all",
+                        label: "all"
+                      });
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    Aplicar Filtros
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            <Button onClick={handleOpenNewProsthesisModal}>
+              <Plus className="h-4 w-4 mr-2" /> Nova Prótese
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPositionOptions(true)}
+            >
+              <ArrowUpDown className="h-4 w-4 mr-2" /> Posicionamento
             </Button>
           </div>
         </div>
+        
 
-        {/* Kanban Board */}
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.values(columns).map((column) => (
-              <div key={column.id} className="space-y-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">
+        
+        {/* Quadro Kanban */}
+        {prosthesisQuery.isLoading ? (
+          <div className="flex justify-center p-8">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        ) : (
+          <DragDropContext 
+            onDragStart={(start) => {
+              console.log('Drag iniciado - bloqueando operações');
+              setIsDragging(true);
+            }}
+            onDragUpdate={(update) => {
+              // Atualizar posição em tempo real durante o drag
+              console.log('Drag update:', update);
+            }}
+            onDragEnd={onDragEnd}>
+            <div className={cn(
+              "grid grid-cols-1 gap-4 min-h-[600px]",
+              showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
+            )}>
+              {Object.values(columns)
+                .filter(column => column.id !== 'archived' || showArchivedColumn)
+                .map(column => (
+                <div key={column.id} className={cn(
+                  "bg-card rounded-lg border shadow-sm flex flex-col h-full",
+                  (column.id === 'sent' && delayedSent > 0) && "border-red-400",
+                  (column.id === 'returned' && delayedReturned > 0) && "border-red-400"
+                )}>
+                  <div className="p-4 font-semibold border-b flex justify-between items-center select-none flex-shrink-0">
+                    <span className={cn(
+                      "",
+                      (column.id === 'sent' && delayedSent > 0) && "text-red-500",
+                      (column.id === 'returned' && delayedReturned > 0) && "text-red-500"
+                    )}>
                       {column.title}
-                      <Badge variant="secondary" className="ml-2">
-                        {column.items.length}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Droppable droppableId={column.id}>
-                      {(provided) => (
-                        <div
-                          {...provided.droppableProps}
-                          ref={provided.innerRef}
-                          className="space-y-2 min-h-[200px]"
-                        >
-                          {column.items.map((item, index) => (
-                            <Draggable
-                              key={item.id}
-                              draggableId={`prosthesis-${item.id}`}
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={cn(
-                                    "p-3 bg-white border rounded-lg shadow-sm cursor-move",
-                                    snapshot.isDragging && "shadow-lg rotate-2",
-                                    isDelayed(item) && "border-red-500 bg-red-50"
-                                  )}
-                                >
-                                  <div className="space-y-2">
-                                    <div className="flex justify-between items-start">
-                                      <h4 className="font-medium text-sm">{item.type}</h4>
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuItem onClick={() => handleEditProsthesis(item)}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Editar
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => {
-                                              setProsthesisToDelete(item);
-                                              setIsDeleteModalOpen(true);
-                                            }}
-                                            className="text-red-600"
-                                          >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Excluir
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
-                                    <p className="text-xs text-gray-600 line-clamp-2">
-                                      {item.description}
-                                    </p>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs font-medium text-blue-600">
-                                        {item.patientName}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        {item.laboratory}
-                                      </span>
-                                    </div>
-                                    
-                                    {/* Labels */}
-                                    {item.labels && item.labels.length > 0 && (
-                                      <div className="flex flex-wrap gap-1">
-                                        {item.labels.slice(0, 2).map((labelId) => {
-                                          const label = labels.find(l => l.id === labelId);
-                                          return label ? (
-                                            <Badge
-                                              key={labelId}
-                                              variant="secondary"
-                                              className="text-xs"
-                                              style={{ backgroundColor: label.color + '20', color: label.color }}
-                                            >
-                                              {label.name}
-                                            </Badge>
-                                          ) : null;
-                                        })}
-                                        {item.labels.length > 2 && (
-                                          <Badge variant="secondary" className="text-xs">
-                                            +{item.labels.length - 2}
-                                          </Badge>
-                                        )}
-                                      </div>
+                      {((column.id === 'sent' && delayedSent > 0) || 
+                       (column.id === 'returned' && delayedReturned > 0)) && 
+                       <AlertCircle className="h-4 w-4 inline ml-1" />}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline">{column.items.length}</Badge>
+                      {column.id === 'sent' && delayedSent > 0 && (
+                        <Badge variant="destructive">{delayedSent}</Badge>
+                      )}
+                      {column.id === 'returned' && delayedReturned > 0 && (
+                        <Badge variant="destructive">{delayedReturned}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Droppable droppableId={column.id}>
+                    {(provided, snapshot) => (
+                      <div 
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className={cn(
+                          "p-2 flex-1 transition-all duration-200 flex flex-col",
+                          snapshot.isDraggingOver && "bg-primary/5 border-2 border-primary/20 rounded-lg"
+                        )}
+                        style={{ 
+                          minHeight: "calc(100vh - 300px)",
+                          height: "calc(100vh - 300px)",
+                          overflow: "hidden"
+                        }}
+                      >
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
+                            {column.items.map((item, index) => (
+                              <Draggable 
+                                key={`prosthesis-${item.id}`} 
+                                draggableId={`prosthesis-${item.id}`} 
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    onClick={() => handleEditProsthesis(item)}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      margin: 0,
+                                      marginBottom: snapshot.isDragging ? 0 : '8px'
+                                    }}
+                                    className={cn(
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 opacity-90",
+                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
+                                      isDelayed(item) && "border-red-400"
                                     )}
-                                    
-                                    {/* Status indicator */}
-                                    {item.expectedReturnDate && !item.returnDate && (
-                                      <div className="flex items-center gap-1">
-                                        {isDelayed(item) ? (
-                                          <>
-                                            <AlertCircle className="h-3 w-3 text-red-500" />
-                                            <span className="text-xs text-red-600">
-                                              {calculateDaysLate(item)} dias atrasado
-                                            </span>
-                                          </>
+                                  >
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="cursor-pointer" onClick={(e) => {
+                                      e.stopPropagation(); // Evitar propagação do clique
+                                      handleEditProsthesis(item);
+                                    }}>
+                                      <h3 className="font-medium">{item.patientName}</h3>
+                                      <p className="text-xs text-muted-foreground">{item.type}</p>
+                                      
+                                      {/* Mostrar etiquetas */}
+                                      {item.labels && item.labels.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {item.labels.map(labelId => {
+                                            const labelObj = labels.find(l => l.id === labelId);
+                                            if (!labelObj) return null;
+                                            return (
+                                              <Badge 
+                                                key={labelId} 
+                                                className="text-xs px-1.5 py-0"
+                                                style={{ 
+                                                  backgroundColor: labelObj.color,
+                                                  color: isLightColor(labelObj.color) ? '#000' : '#fff'
+                                                }}
+                                              >
+                                                {labelObj.name}
+                                              </Badge>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditProsthesis(item);
+                                        }}>
+                                          <Edit className="h-4 w-4 mr-2" /> Editar
+                                        </DropdownMenuItem>
+                                        {item.status !== 'archived' ? (
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            archiveProsthesisMutation.mutate(item.id);
+                                          }}>
+                                            <Archive className="h-4 w-4 mr-2" /> Arquivar
+                                          </DropdownMenuItem>
                                         ) : (
-                                          <>
-                                            <CalendarIcon className="h-3 w-3 text-orange-500" />
-                                            <span className="text-xs text-orange-600">
-                                              {calculateDaysUntil(item)} dias restantes
-                                            </span>
-                                          </>
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            unarchiveProsthesisMutation.mutate(item.id);
+                                          }}>
+                                            <ArchiveRestore className="h-4 w-4 mr-2" /> Desarquivar
+                                          </DropdownMenuItem>
                                         )}
-                                      </div>
-                                    )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-destructive"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProsthesisToDelete(item);
+                                            setIsDeleteModalOpen(true);
+                                          }}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
+                                  
+                                  {item.description && (
+                                    <p className="text-xs mb-2 text-muted-foreground">{item.description}</p>
+                                  )}
+                                  
+                                  <div className="grid grid-cols-2 gap-1 text-xs mb-2">
+                                    <div>
+                                      <span className="text-muted-foreground">Profissional:</span>
+                                      <p className="truncate">{item.professionalName}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Laboratório:</span>
+                                      <p className="truncate">{item.laboratory}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {column.id === 'sent' && (
+                                    <div className="mt-2">
+                                      {isDelayed(item) ? (
+                                        <Badge variant="destructive" className="w-full justify-between">
+                                          <span>Atrasado</span>
+                                          <span>{calculateDaysLate(item)} dias</span>
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="w-full justify-between">
+                                          <span>Retorno em</span>
+                                          <span>{calculateDaysUntil(item)} dias</span>
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {column.id === 'returned' && item.returnDate && (
+                                    <div className="mt-2">
+                                      <Badge variant="secondary" className="w-full justify-between">
+                                        <span>Retornado em</span>
+                                        <span>{format(parseISO(item.returnDate), "dd/MM/yyyy")}</span>
+                                      </Badge>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </Draggable>
                           ))}
-                          {provided.placeholder}
                         </div>
-                      )}
-                    </Droppable>
-                  </CardContent>
-                </Card>
+                        
+                        {/* Empty state when no items */}
+                        {column.items.length === 0 && (
+                          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
+                            {column.id === "pending" && <Package className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "sent" && <ExternalLink className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "returned" && <ArrowLeftRight className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "completed" && <Check className="h-10 w-10 mb-2 opacity-20" />}
+                            {column.id === "archived" && <Archive className="h-10 w-10 mb-2 opacity-20" />}
+                            <span className="select-none">Nenhuma prótese</span>
+                          </div>
+                        )}
+                        
+                        {provided.placeholder}
+                        
+                        {/* Flex spacer to fill remaining height */}
+                        <div className="flex-1" />
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              ))}
+            </div>
+          </DragDropContext>
+        )}
+                
+        {/* Modal para adicionar/editar prótese */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                {editingProsthesis ? "Editar Prótese" : "Nova Prótese"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingProsthesis 
+                  ? "Edite os detalhes da prótese e clique em salvar."
+                  : "Preencha os detalhes da nova prótese e clique em salvar."}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSaveProsthesis}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="patient">Paciente</Label>
+                    <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={patientSearchOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedPatient
+                            ? patients.find((patient: any) => patient.id.toString() === selectedPatient)?.fullName
+                            : editingProsthesis
+                            ? patients.find((patient: any) => patient.id === editingProsthesis.patientId)?.fullName
+                            : "Selecione o paciente..."}
+                          <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar paciente..." />
+                          <CommandEmpty>Nenhum paciente encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {patients.map((patient: any) => (
+                              <CommandItem
+                                key={patient.id}
+                                value={patient.fullName}
+                                onSelect={() => {
+                                  setSelectedPatient(patient.id.toString());
+                                  setPatientSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedPatient === patient.id.toString() ||
+                                    (editingProsthesis && editingProsthesis.patientId === patient.id)
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {patient.fullName}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <input type="hidden" name="patient" value={selectedPatient || editingProsthesis?.patientId?.toString() || ""} required />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="professional">Profissional</Label>
+                    <Select 
+                      defaultValue={editingProsthesis?.professionalId.toString() || undefined}
+                      name="professional"
+                      required
+                    >
+                      <SelectTrigger id="professional">
+                        <SelectValue placeholder="Selecione o profissional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {professionals.map((professional: any) => (
+                          <SelectItem key={professional.id} value={professional.id.toString()}>
+                            {professional.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="type">Tipo de Prótese</Label>
+                    <Select 
+                      defaultValue={editingProsthesis?.type || undefined}
+                      name="type"
+                      required
+                    >
+                      <SelectTrigger id="type">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {prosthesisTypes.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Label htmlFor="laboratory" className="mr-2">Laboratório</Label>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => setShowLaboratoryManager(true)}
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          Gerenciar Laboratórios
+                        </Button>
+                      </div>
+                      
+                      <Popover open={laboratorySearchOpen} onOpenChange={setLaboratorySearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={laboratorySearchOpen}
+                            className="w-full justify-between"
+                          >
+                            {selectedLaboratory
+                              ? selectedLaboratory
+                              : editingProsthesis?.laboratory
+                              ? editingProsthesis.laboratory
+                              : "Selecione ou digite novo laboratório..."}
+                            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Buscar ou criar laboratório..." 
+                              value={selectedLaboratory}
+                              onValueChange={setSelectedLaboratory}
+                            />
+                            <CommandEmpty>
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum laboratório encontrado.
+                                {selectedLaboratory && (
+                                  <div className="mt-1">
+                                    Pressione Enter para criar "{selectedLaboratory}"
+                                  </div>
+                                )}
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {laboratories.map((lab: any) => (
+                                <CommandItem
+                                  key={lab.id}
+                                  value={lab.name}
+                                  onSelect={() => {
+                                    setSelectedLaboratory(lab.name);
+                                    setLaboratorySearchOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedLaboratory === lab.name ||
+                                      (editingProsthesis && editingProsthesis.laboratory === lab.name)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {lab.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <input 
+                        type="hidden" 
+                        name="laboratory" 
+                        value={selectedLaboratory || editingProsthesis?.laboratory || ""} 
+                        required 
+                      />
+                    </div>
+                    
+                    {/* Modal para gerenciar laboratórios */}
+                    <Dialog open={showLaboratoryManager} onOpenChange={setShowLaboratoryManager}>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>Gerenciar Laboratórios</DialogTitle>
+                          <DialogDescription>
+                            Adicione, edite ou remova laboratórios do sistema.
+                          </DialogDescription>
+                        </DialogHeader>
+                        
+                        {editingLaboratory ? (
+                          // Modo de edição de laboratório
+                          <div className="grid gap-4 py-2 my-4">
+                            <h3 className="text-sm font-medium">Editar Laboratório</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="md:col-span-2">
+                                <Input 
+                                  placeholder="Nome do laboratório" 
+                                  className="w-full"
+                                  value={editLabName || ""}
+                                  onChange={(e) => setEditLabName(e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <Input 
+                                  placeholder="WhatsApp" 
+                                  className="w-full"
+                                  value={editLabPhone || ""}
+                                  onChange={(e) => setEditLabPhone(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingLaboratory(null);
+                                  setEditLabName("");
+                                  setEditLabPhone("");
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  if (editLabName.trim() && editingLaboratory) {
+                                    updateLabMutation.mutate({
+                                      id: editingLaboratory.id,
+                                      data: {
+                                        name: editLabName.trim(),
+                                        email: editLabPhone.trim() || "",
+                                        phone: editLabPhone.trim() || ""
+                                      }
+                                    });
+                                  } else {
+                                    toast({
+                                      title: "Erro",
+                                      description: "Nome do laboratório é obrigatório",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                disabled={updateLabMutation.isPending}
+                                className="px-4"
+                              >
+                                Salvar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          // Modo de adição de laboratório
+                          <div className="grid gap-4 py-2 my-4">
+                            <h3 className="text-sm font-medium">Adicionar Laboratório</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="md:col-span-2">
+                                <Input 
+                                  placeholder="Nome do laboratório" 
+                                  id="newLaboratoryName" 
+                                  className="w-full"
+                                />
+                              </div>
+                              <div>
+                                <Input 
+                                  placeholder="WhatsApp" 
+                                  id="newLaboratoryPhone" 
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end">
+                              <Button
+                                onClick={() => {
+                                  const nameInput = document.getElementById("newLaboratoryName") as HTMLInputElement;
+                                  const phoneInput = document.getElementById("newLaboratoryPhone") as HTMLInputElement;
+                                  
+                                  if (nameInput?.value.trim()) {
+                                    createLabMutation.mutate({
+                                      name: nameInput.value.trim(),
+                                      email: phoneInput?.value.trim() || "",
+                                      phone: phoneInput?.value.trim() || ""
+                                    });
+                                    nameInput.value = "";
+                                    if (phoneInput) phoneInput.value = "";
+                                  } else {
+                                    toast({
+                                      title: "Erro",
+                                      description: "Nome do laboratório é obrigatório",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                disabled={createLabMutation.isPending}
+                                className="px-4"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Adicionar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="border-t my-2"></div>
+                        
+                        {/* Lista de laboratórios */}
+                        <div className="my-4">
+                          <h3 className="text-sm font-medium mb-4">Laboratórios Cadastrados</h3>
+                          <div className="max-h-[300px] overflow-y-auto rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>WhatsApp</TableHead>
+                                  <TableHead className="w-[120px] text-right">Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {laboratories.map((lab: any) => (
+                                  <TableRow key={lab.id}>
+                                    <TableCell className="font-medium">{lab.name}</TableCell>
+                                    <TableCell>{lab.email || lab.phone || "-"}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end space-x-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditingLaboratory({
+                                              id: lab.id,
+                                              name: lab.name,
+                                              contact: lab.phone || lab.email || ""
+                                            });
+                                            setEditLabName(lab.name);
+                                            setEditLabPhone(lab.phone || lab.email || "");
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            deleteLabMutation.mutate(lab.id);
+                                          }}
+                                          disabled={deleteLabMutation.isPending}
+                                        >
+                                          <X className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {laboratories.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
+                                      Nenhum laboratório cadastrado
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                        
+                        <DialogFooter>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowLaboratoryManager(false)}
+                          >
+                            Fechar
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="sentDate">Data de Envio</Label>
+                    <div className="relative">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="sentDate"
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !sentDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {sentDate ? format(sentDate, "dd/MM/yyyy") : "Selecione a data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={sentDate}
+                            onSelect={setSentDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="expectedReturnDate">Data de Retorno Prevista</Label>
+                    <div className="relative">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="expectedReturnDate"
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !expectedReturnDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {expectedReturnDate ? format(expectedReturnDate, "dd/MM/yyyy") : "Selecione a data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={expectedReturnDate}
+                            onSelect={setExpectedReturnDate}
+                            initialFocus
+                            disabled={(date) => sentDate ? isBefore(date, sentDate) : false}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    name="description"
+                    defaultValue={editingProsthesis?.description || ""}
+                    placeholder="Detalhes da prótese"
+                    required
+                  />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="observations">Observações</Label>
+                  <Input
+                    id="observations"
+                    name="observations"
+                    defaultValue={editingProsthesis?.observations || ""}
+                    placeholder="Observações adicionais"
+                  />
+                </div>
+
+                <div className="grid gap-2 mt-4">
+                  <Label>Etiquetas</Label>
+                  <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[80px]">
+                    {labels.map(label => (
+                      <div 
+                        key={label.id}
+                        onClick={() => toggleLabelSelection(label.id)}
+                        className={cn(
+                          "flex items-center px-2 py-1 rounded-md cursor-pointer transition-all",
+                          selectedLabels.includes(label.id) ? "ring-2 ring-offset-1" : "opacity-70 hover:opacity-100"
+                        )}
+                        style={{ 
+                          backgroundColor: label.color,
+                          color: isLightColor(label.color) ? '#000' : '#fff'
+                        }}
+                      >
+                        {label.name}
+                        {selectedLabels.includes(label.id) && (
+                          <Check className="h-3 w-3 ml-1" />
+                        )}
+                      </div>
+                    ))}
+                    {labels.length === 0 && (
+                      <div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
+                        Nenhuma etiqueta disponível. Use o botão "Etiquetas" para criar.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </DragDropContext>
+              <DialogFooter>
+                <Button type="submit" disabled={prosthesisMutation.isPending}>
+                  {prosthesisMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Modal de confirmação para excluir prótese */}
+        <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta prótese? Esta ação não pode ser desfeita.
+                {prosthesisToDelete && (
+                  <div className="mt-2 p-3 border rounded-md">
+                    <p><strong>Paciente:</strong> {prosthesisToDelete.patientName}</p>
+                    <p><strong>Tipo:</strong> {prosthesisToDelete.type}</p>
+                    <p><strong>Laboratório:</strong> {prosthesisToDelete.laboratory}</p>
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setProsthesisToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (prosthesisToDelete) {
+                    deleteProsthesisMutation.mutate(prosthesisToDelete.id);
+                    setProsthesisToDelete(null);
+                  }
+                }}
+              >
+                {deleteProsthesisMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      
+        {/* Modal de gerenciamento de etiquetas */}
+        <Dialog open={showLabelManager} onOpenChange={setShowLabelManager}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Gerenciamento de Etiquetas</DialogTitle>
+              <DialogDescription>
+                Crie e gerencie etiquetas para organizar suas próteses
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <div className="grid flex-1 gap-2">
+                  <Input
+                    placeholder="Nome da etiqueta"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <Input
+                    type="color"
+                    className="w-[80px] h-10 cursor-pointer"
+                    value={newLabelColor}
+                    onChange={(e) => setNewLabelColor(e.target.value)}
+                  />
+                </div>
+                <Button size="sm" onClick={() => {
+                  if (newLabelName.trim()) {
+                    const labelId = newLabelName.trim().toLowerCase().replace(/\s+/g, "-");
+                    
+                    // Verificar se já existe
+                    if (labels.some(l => l.id === labelId)) {
+                      toast({
+                        title: "Erro",
+                        description: "Já existe uma etiqueta com este nome",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    setLabels([...labels, {
+                      id: labelId,
+                      name: newLabelName.trim(),
+                      color: newLabelColor
+                    }]);
+                    setNewLabelName("");
+                    
+                    toast({
+                      title: "Sucesso",
+                      description: "Etiqueta criada com sucesso"
+                    });
+                  }
+                }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="border rounded-md">
+                <div className="py-2 px-3 border-b bg-muted/50">
+                  <h3 className="text-sm font-medium">Etiquetas disponíveis</h3>
+                </div>
+                <div className="p-2 max-h-[220px] overflow-auto">
+                  {labels.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      Nenhuma etiqueta criada
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {labels.map((label) => (
+                        <div key={label.id} className="flex items-center justify-between p-2 rounded hover:bg-muted">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: label.color }}></div>
+                            <span>{label.name}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setLabels(labels.filter(l => l.id !== label.id));
+                              toast({
+                                title: "Etiqueta removida",
+                                description: "A etiqueta foi removida com sucesso"
+                              });
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter className="sm:justify-between">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={restoreDefaultLabels}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restaurar Padrão
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal para configurações de posicionamento no Kanban */}
+        <Dialog open={showPositionOptions} onOpenChange={setShowPositionOptions}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Configurações de Posicionamento</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Escolha onde as próteses devem ser inseridas por padrão ao mover entre colunas:
+              </p>
+            </DialogHeader>
+            
+            <div className="space-y-3 py-4">
+              <Button
+                variant={defaultDropPosition === 'start' ? 'default' : 'outline'}
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => setDefaultDropPosition('start')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <ArrowUpDown className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">No início da fila</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir como primeiro item da coluna
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                variant={defaultDropPosition === 'exact' ? 'default' : 'outline'}
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => setDefaultDropPosition('exact')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Na posição escolhida</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir exatamente onde foi arrastado
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                variant={defaultDropPosition === 'end' ? 'default' : 'outline'}
+                className="w-full h-auto p-4 flex items-center justify-start gap-3"
+                onClick={() => setDefaultDropPosition('end')}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <ArrowLeftRight className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">No final da fila</div>
+                  <div className="text-sm text-muted-foreground">
+                    Inserir como último item da coluna
+                  </div>
+                </div>
+              </Button>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="default"
+                onClick={() => {
+                  setShowPositionOptions(false);
+                  toast({
+                    title: "Configuração salva",
+                    description: `Posicionamento padrão definido como: ${
+                      defaultDropPosition === 'start' ? 'início da fila' :
+                      defaultDropPosition === 'end' ? 'final da fila' :
+                      'posição escolhida'
+                    }`,
+                  });
+                }}
+              >
+                Salvar Configuração
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
