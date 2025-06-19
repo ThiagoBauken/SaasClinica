@@ -468,11 +468,16 @@ export default function ProsthesisControlPage() {
 
         // Aplicar filtros
         if (filters.delayedServices) {
-          // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
+          // Mostrar apenas serviços atrasados em todas as colunas
           const now = new Date();
-          updatedColumns.sent.items = updatedColumns.sent.items.filter((p: any) => 
-            p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
-          );
+          Object.keys(updatedColumns).forEach(key => {
+            updatedColumns[key as keyof typeof updatedColumns].items = 
+              updatedColumns[key as keyof typeof updatedColumns].items.filter((p: any) => 
+                p.expectedReturnDate && 
+                isAfter(now, parseISO(p.expectedReturnDate)) && 
+                !p.returnDate
+              );
+          });
         }
         
         if (filters.returnedServices) {
@@ -588,11 +593,7 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      
-      toast({
-        title: "Sucesso",
-        description: "Prótese excluída com sucesso!",
-      });
+      // Removido toast automático - operação silenciosa
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao excluir prótese:", error);
@@ -665,11 +666,7 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      
-      toast({
-        title: "Prótese arquivada",
-        description: "A prótese foi arquivada com sucesso",
-      });
+      // Removido toast automático - operação silenciosa
     },
     onError: (error: Error) => {
       toast({
