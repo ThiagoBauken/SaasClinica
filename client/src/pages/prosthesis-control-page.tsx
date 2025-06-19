@@ -768,6 +768,7 @@ export default function ProsthesisControlPage() {
       }
       
       // Preparar dados da prótese
+      const priceValue = formData.get("price") as string;
       const prosthesisData: any = {
         patientId: parseInt(selectedPatient || formData.get("patient") as string),
         professionalId: parseInt(formData.get("professional") as string),
@@ -777,6 +778,7 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
+        price: priceValue ? parseFloat(priceValue) : 0,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -985,9 +987,9 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop com opções de posicionamento
-  const onDragEnd = useCallback((result: any) => {
-    console.log('onDragEnd iniciado - finalizando drag');
+  // Handler para drag and drop simplificado
+  const onDragEnd = (result: any) => {
+    console.log('onDragEnd iniciado');
     
     const { source, destination, draggableId } = result;
     
@@ -996,79 +998,36 @@ export default function ProsthesisControlPage() {
       return;
     }
     
-    // Extrair ID do item
-    const itemId = parseInt(draggableId.replace('prosthesis-', ''));
+    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const targetStatus = destination.droppableId;
     
-    // PASSO 1: Clonar toda a estrutura
-    const newColumns = { ...columns };
+    console.log(`Movendo prótese ${prosthesisId} para status ${targetStatus}`);
     
-    // PASSO 2: Clonar arrays das colunas afetadas
-    const sourceColumnItems = [...newColumns[source.droppableId].items];
-    const destColumnItems = source.droppableId === destination.droppableId 
-      ? sourceColumnItems 
-      : [...newColumns[destination.droppableId].items];
+    // Buscar a prótese atual
+    const currentProsthesis = prosthesisQuery.data?.find((p: any) => p.id === prosthesisId);
+    if (!currentProsthesis) return;
     
-    // PASSO 3: Encontrar e remover item da origem
-    const draggedItemIndex = sourceColumnItems.findIndex(item => item.id === itemId);
-    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
-    
-    // PASSO 4: Criar item atualizado
-    const updatedItem = {
-      ...movedItem,
-      status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived'
+    // Preparar dados de atualização
+    const updateData: any = {
+      ...currentProsthesis,
+      id: prosthesisId,
+      status: targetStatus
     };
     
-    // PASSO 5: Inserir na posição correta do destino
-    destColumnItems.splice(destination.index, 0, updatedItem);
-    
-    // PASSO 6: Atualizar as colunas
-    newColumns[source.droppableId] = {
-      ...newColumns[source.droppableId],
-      items: sourceColumnItems
-    };
-    
-    if (source.droppableId !== destination.droppableId) {
-      newColumns[destination.droppableId] = {
-        ...newColumns[destination.droppableId],
-        items: destColumnItems
-      };
+    // Lógica específica por transição
+    if (targetStatus === 'sent' && !currentProsthesis.sentDate) {
+      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
+    } else if (targetStatus === 'returned' && !currentProsthesis.returnDate) {
+      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // PASSO 7: ATUALIZAR ESTADO IMEDIATAMENTE (SEM DELAY)
-    setColumns(newColumns);
+    // Remover campos problemáticos
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.companyId;
     
-    // PASSO 8: Chamada para API de forma assíncrona
-    setTimeout(() => {
-      updateProsthesisInAPI(itemId, destination.droppableId, updatedItem);
-    }, 0);
-    
-  }, [columns]);
-
-  // Função separada para chamada da API
-  const updateProsthesisInAPI = async (id: number, status: string, updatedItem: Prosthesis) => {
-    try {
-      console.log(`Atualizando prótese ${id} para status ${status}`);
-      
-      // Preparar dados para API baseados no status
-      let updateData: any = { 
-        ...updatedItem,
-        id: id, 
-        status: status
-      };
-
-      // Lógica específica por transição
-      if (status === 'sent') {
-        updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-      } else if (status === 'returned') {
-        updateData.returnDate = format(new Date(), "yyyy-MM-dd");
-      }
-
-      prosthesisMutation.mutate(updateData);
-    } catch (error) {
-      console.error('Erro ao atualizar prótese:', error);
-      // Em caso de erro, recarregar dados
-      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-    }
+    // Chamar API diretamente
+    prosthesisMutation.mutate(updateData);
   };
   
   // Handlers para os filtros
@@ -1081,12 +1040,8 @@ export default function ProsthesisControlPage() {
   
   // Função auxiliar para verificar status atrasado
   const isDelayed = (item: Prosthesis) => {
-    // Para status 'sent' - verifica atraso na data esperada de retorno
-    if (item.status === 'sent' && item.expectedReturnDate && !item.returnDate) {
-      return isAfter(new Date(), parseISO(item.expectedReturnDate));
-    }
-    // Para status 'returned' - verifica atraso na data esperada de retorno
-    if (item.status === 'returned' && item.expectedReturnDate && !item.returnDate) {
+    // Para qualquer status com data esperada de retorno, verifica se passou da data
+    if (item.expectedReturnDate && !item.returnDate) {
       return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
     return false;
@@ -2065,6 +2020,19 @@ export default function ProsthesisControlPage() {
                     name="observations"
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Preço (opcional)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={editingProsthesis?.price || ""}
+                    placeholder="0.00"
                   />
                 </div>
 
