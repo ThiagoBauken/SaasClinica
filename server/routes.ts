@@ -1579,6 +1579,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // === FINANCIAL INTEGRATION API ROUTES ===
+  
+  // Import financial integration service
+  const { financialIntegration } = await import("./financialIntegration");
+
+  // Create financial transactions from completed appointment
+  app.post("/api/financial/create-from-appointment/:appointmentId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const appointmentId = parseInt(req.params.appointmentId);
+      
+      if (!appointmentId) {
+        return res.status(400).json({ error: 'ID do agendamento é obrigatório' });
+      }
+
+      const transactions = await financialIntegration.createFinancialTransactionsFromAppointment(appointmentId);
+      
+      res.status(201).json({
+        message: 'Transações financeiras criadas com sucesso',
+        transactions: transactions
+      });
+    } catch (error) {
+      console.error('Erro ao criar transações financeiras:', error);
+      res.status(500).json({ error: 'Falha ao criar transações financeiras' });
+    }
+  }));
+
+  // Get patient financial summary
+  app.get("/api/financial/patient/:patientId/summary", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const patientId = parseInt(req.params.patientId);
+      
+      if (!patientId) {
+        return res.status(400).json({ error: 'ID do paciente é obrigatório' });
+      }
+
+      const summary = await financialIntegration.getPatientFinancialSummary(patientId, user.companyId);
+      
+      res.json(summary);
+    } catch (error) {
+      console.error('Erro ao buscar resumo financeiro do paciente:', error);
+      res.status(500).json({ error: 'Falha ao carregar resumo financeiro' });
+    }
+  }));
+
+  // Create treatment plan with financial breakdown
+  app.post("/api/financial/treatment-plans", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const { patientId, procedures, paymentPlan, name, description } = req.body;
+      
+      if (!patientId || !procedures || !Array.isArray(procedures)) {
+        return res.status(400).json({ error: 'Dados inválidos para criar plano de tratamento' });
+      }
+
+      const treatmentPlan = await financialIntegration.createTreatmentPlan(
+        patientId, 
+        user.companyId, 
+        procedures, 
+        paymentPlan
+      );
+      
+      res.status(201).json({
+        message: 'Plano de tratamento criado com sucesso',
+        treatmentPlan: treatmentPlan
+      });
+    } catch (error) {
+      console.error('Erro ao criar plano de tratamento:', error);
+      res.status(500).json({ error: 'Falha ao criar plano de tratamento' });
+    }
+  }));
+
+  // Process payment with fee calculation
+  app.post("/api/financial/process-payment", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const { transactionId, paymentAmount, paymentMethod } = req.body;
+      
+      if (!transactionId || !paymentAmount || !paymentMethod) {
+        return res.status(400).json({ error: 'Dados de pagamento incompletos' });
+      }
+
+      const result = await financialIntegration.processPayment(
+        transactionId,
+        paymentAmount,
+        paymentMethod,
+        user.companyId
+      );
+      
+      res.json({
+        message: 'Pagamento processado com sucesso',
+        payment: result
+      });
+    } catch (error) {
+      console.error('Erro ao processar pagamento:', error);
+      res.status(500).json({ error: 'Falha ao processar pagamento' });
+    }
+  }));
+
+  // Calculate payment machine fees
+  app.post("/api/financial/calculate-fees", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { amount, paymentMethod } = req.body;
+      
+      if (!amount || !paymentMethod) {
+        return res.status(400).json({ error: 'Valor e método de pagamento são obrigatórios' });
+      }
+
+      const feeCalculation = financialIntegration.calculatePaymentMachineFees(amount, paymentMethod);
+      
+      res.json(feeCalculation);
+    } catch (error) {
+      console.error('Erro ao calcular taxas:', error);
+      res.status(500).json({ error: 'Falha ao calcular taxas' });
+    }
+  }));
+
+  // Generate installment schedule
+  app.post("/api/financial/generate-installments", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { totalAmount, installments, startDate, interval = 'monthly' } = req.body;
+      
+      if (!totalAmount || !installments || !startDate) {
+        return res.status(400).json({ error: 'Dados incompletos para gerar parcelas' });
+      }
+
+      const schedule = financialIntegration.generateInstallmentSchedule(
+        totalAmount,
+        installments,
+        startDate,
+        interval
+      );
+      
+      res.json({
+        message: 'Cronograma de parcelas gerado com sucesso',
+        schedule: schedule
+      });
+    } catch (error) {
+      console.error('Erro ao gerar cronograma de parcelas:', error);
+      res.status(500).json({ error: 'Falha ao gerar cronograma' });
+    }
+  }));
+
+  // Auto-trigger financial transaction creation when appointment status changes to completed
+  app.patch("/api/appointments/:id/complete", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const appointmentId = parseInt(req.params.id);
+      
+      // Update appointment status to completed
+      await storage.updateAppointment(appointmentId, { status: 'completed' }, user.companyId);
+      
+      // Automatically create financial transactions
+      try {
+        const transactions = await financialIntegration.createFinancialTransactionsFromAppointment(appointmentId);
+        
+        res.json({
+          message: 'Consulta finalizada e transações financeiras criadas automaticamente',
+          appointmentId: appointmentId,
+          transactionsCreated: transactions.length,
+          transactions: transactions
+        });
+      } catch (financialError) {
+        console.error('Erro na integração financeira automática:', financialError);
+        
+        res.json({
+          message: 'Consulta finalizada, mas houve erro na criação automática das transações financeiras',
+          appointmentId: appointmentId,
+          warning: 'Transações financeiras precisam ser criadas manualmente'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar consulta:', error);
+      res.status(500).json({ error: 'Falha ao finalizar consulta' });
+    }
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -5,9 +5,12 @@ import {
   procedures, 
   patients,
   users,
-  companies
+  companies,
+  financialTransactions,
+  treatmentPlans,
+  treatmentPlanProcedures
 } from "@shared/schema";
-import { eq, and, sum } from "drizzle-orm";
+import { eq, and, sum, desc } from "drizzle-orm";
 
 // Financial Transaction interface for integration
 interface FinancialTransaction {
@@ -141,34 +144,34 @@ export class FinancialIntegrationService {
   async createTreatmentPlan(
     patientId: number, 
     companyId: number, 
-    procedures: { procedureId: number; quantity: number }[],
+    proceduresList: { procedureId: number; quantity: number }[],
     paymentPlan?: PaymentPlan
   ): Promise<TreatmentPlan> {
     try {
       // Get procedure details and calculate costs
-      const procedureDetails = await Promise.all(
-        procedures.map(async (p) => {
-          const [procedure] = await db
-            .select()
-            .from(procedures)
-            .where(eq(procedures.id, p.procedureId));
-          
-          if (!procedure) {
-            throw new Error(`Procedure ${p.procedureId} not found`);
-          }
+      const procedureDetails: TreatmentProcedure[] = [];
+      
+      for (const p of proceduresList) {
+        const [procedure] = await db
+          .select()
+          .from(procedures)
+          .where(eq(procedures.id, p.procedureId));
+        
+        if (!procedure) {
+          throw new Error(`Procedure ${p.procedureId} not found`);
+        }
 
-          const totalPrice = procedure.price * p.quantity;
-          
-          return {
-            procedureId: p.procedureId,
-            procedureName: procedure.name,
-            quantity: p.quantity,
-            unitPrice: procedure.price,
-            totalPrice: totalPrice,
-            status: 'pending' as const
-          };
-        })
-      );
+        const totalPrice = (procedure.price || 0) * p.quantity;
+        
+        procedureDetails.push({
+          procedureId: p.procedureId,
+          procedureName: procedure.name,
+          quantity: p.quantity,
+          unitPrice: procedure.price || 0,
+          totalPrice: totalPrice,
+          status: 'pending' as const
+        });
+      }
 
       const totalAmount = procedureDetails.reduce((sum, p) => sum + p.totalPrice, 0);
       
@@ -201,19 +204,57 @@ export class FinancialIntegrationService {
    */
   async getPatientFinancialSummary(patientId: number, companyId: number) {
     try {
-      // This would query a financial_transactions table that needs to be created
-      // For now, return structure for the financial summary
+      // Get all financial transactions for this patient
+      const transactions = await db
+        .select()
+        .from(financialTransactions)
+        .where(and(
+          eq(financialTransactions.patientId, patientId),
+          eq(financialTransactions.companyId, companyId)
+        ))
+        .orderBy(desc(financialTransactions.createdAt));
+
+      // Get treatment plans for this patient
+      const treatmentPlansList = await db
+        .select()
+        .from(treatmentPlans)
+        .where(and(
+          eq(treatmentPlans.patientId, patientId),
+          eq(treatmentPlans.companyId, companyId)
+        ))
+        .orderBy(desc(treatmentPlans.createdAt));
+
+      // Calculate totals
+      const totalTreatmentValue = treatmentPlansList.reduce((sum, plan) => sum + (plan.totalAmount || 0), 0);
+      const totalPaid = transactions
+        .filter(t => t.type === 'income' && t.status === 'paid')
+        .reduce((sum, t) => sum + t.amount, 0);
       
+      const remainingBalance = totalTreatmentValue - totalPaid;
+      
+      // Calculate overdue amount
+      const today = new Date();
+      const overdueAmount = transactions
+        .filter(t => t.status === 'pending' && t.dueDate && new Date(t.dueDate) < today)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Find next payment due
+      const upcomingTransactions = transactions
+        .filter(t => t.status === 'pending' && t.dueDate && new Date(t.dueDate) >= today)
+        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+      const nextPaymentDue = upcomingTransactions.length > 0 ? upcomingTransactions[0].dueDate : null;
+
       return {
         patientId,
-        totalTreatmentValue: 0,
-        totalPaid: 0,
-        remainingBalance: 0,
-        overdueAmount: 0,
-        nextPaymentDue: null,
-        treatmentPlans: [],
-        paymentHistory: [],
-        upcomingPayments: []
+        totalTreatmentValue,
+        totalPaid,
+        remainingBalance,
+        overdueAmount,
+        nextPaymentDue,
+        treatmentPlans: treatmentPlansList,
+        paymentHistory: transactions.filter(t => t.status === 'paid'),
+        upcomingPayments: upcomingTransactions.slice(0, 5) // Next 5 payments
       };
     } catch (error) {
       console.error('Error getting patient financial summary:', error);
