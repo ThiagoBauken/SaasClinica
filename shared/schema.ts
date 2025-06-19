@@ -474,6 +474,7 @@ export const insertOdontogramEntrySchema = createInsertSchema(odontogramEntries)
 // Controle de Estoque
 export const inventoryCategories = pgTable("inventory_categories", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   name: text("name").notNull(),
   description: text("description"),
   color: text("color"),
@@ -481,6 +482,7 @@ export const inventoryCategories = pgTable("inventory_categories", {
 });
 
 export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).pick({
+  companyId: true,
   name: true,
   description: true,
   color: true,
@@ -488,6 +490,7 @@ export const insertInventoryCategorySchema = createInsertSchema(inventoryCategor
 
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   name: text("name").notNull(),
   description: text("description"),
   categoryId: integer("category_id").references(() => inventoryCategories.id),
@@ -508,6 +511,7 @@ export const inventoryItems = pgTable("inventory_items", {
 });
 
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick({
+  companyId: true,
   name: true,
   description: true,
   categoryId: true,
@@ -539,6 +543,36 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
   patientId: integer("patient_id").references(() => patients.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Produtos Odontológicos Padrão
+export const standardDentalProducts = pgTable("standard_dental_products", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  brand: text("brand"),
+  unitOfMeasure: text("unit_of_measure").notNull(),
+  estimatedPrice: integer("estimated_price"), // em centavos
+  tags: jsonb("tags").$type<string[]>().default([]),
+  isPopular: boolean("is_popular").default(false),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStandardDentalProductSchema = createInsertSchema(standardDentalProducts).pick({
+  name: true,
+  description: true,
+  category: true,
+  brand: true,
+  unitOfMeasure: true,
+  estimatedPrice: true,
+  tags: true,
+  isPopular: true,
+  active: true,
+});
+
+export type StandardDentalProduct = typeof standardDentalProducts.$inferSelect;
+export type InsertStandardDentalProduct = z.infer<typeof insertStandardDentalProductSchema>;
 
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).pick({
   itemId: true,
