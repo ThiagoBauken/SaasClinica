@@ -1552,10 +1552,10 @@ export default function ProsthesisControlPage() {
                                     </div>
                                   </div>
                                   
-                                  {(item as any).price && (item as any).price > 0 && (
+                                  {item.price && item.price > 0 && (
                                     <div className="mb-2">
                                       <Badge variant="secondary" className="text-xs">
-                                        R$ {((item as any).price / 100).toFixed(2)}
+                                        R$ {(item.price / 100).toFixed(2)}
                                       </Badge>
                                     </div>
                                   )}
