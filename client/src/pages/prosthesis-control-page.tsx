@@ -421,6 +421,7 @@ export default function ProsthesisControlPage() {
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [isRestoringLabels, setIsRestoringLabels] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   
   // Usar etiquetas do banco ou padrão se vazio
   const labels = labelsFromDB.length > 0 ? labelsFromDB : defaultLabels;
@@ -1467,12 +1468,7 @@ export default function ProsthesisControlPage() {
               <ArrowUpDown className="h-4 w-4 mr-2" /> Posicionamento
             </Button>
             
-            <Button 
-              variant="outline" 
-              onClick={() => setShowReports(true)}
-            >
-              <BarChart3 className="h-4 w-4 mr-2" /> Relatórios
-            </Button>
+            
           </div>
         </div>
         
