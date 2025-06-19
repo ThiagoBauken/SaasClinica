@@ -373,7 +373,6 @@ export default function ProsthesisControlPage() {
   
   // Estados para controle robusto do drag-and-drop
   const [isDragging, setIsDragging] = useState(false);
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
   // Função para limpar os estados após salvar
   const clearFormStates = () => {
@@ -533,24 +532,10 @@ export default function ProsthesisControlPage() {
       const method = prosthesisData.id ? "PATCH" : "POST";
       const url = prosthesisData.id ? `/api/prosthesis/${prosthesisData.id}` : "/api/prosthesis";
       
-      console.log('Enviando requisição:', { method, url, data: prosthesisData });
-      
-      try {
-        const res = await apiRequest(method, url, prosthesisData);
-        
-        console.log('Resposta da requisição:', { status: res.status, ok: res.ok });
-        
-        // apiRequest já verifica se res.ok, então aqui só precisamos fazer o parse do JSON
-        const result = await res.json();
-        console.log('Dados retornados:', result);
-        return result;
-      } catch (error) {
-        console.error('Erro completo na requisição:', error);
-        throw error;
-      }
+      const res = await apiRequest(method, url, prosthesisData);
+      return res.json();
     },
-    onSuccess: (data) => {
-      console.log('Sucesso na mutation:', data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
       setIsModalOpen(false);
       setEditingProsthesis(null);
@@ -563,7 +548,6 @@ export default function ProsthesisControlPage() {
       });
     },
     onError: (error: Error) => {
-      console.error('Erro na mutation:', error);
       toast({
         title: "Erro ao salvar",
         description: error.message || "Erro desconhecido ao salvar prótese",
@@ -1341,17 +1325,7 @@ export default function ProsthesisControlPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
-          <DragDropContext 
-            onDragStart={(start) => {
-              setIsDragging(true);
-              setDraggedItemId(start.draggableId);
-            }}
-            onDragEnd={(result) => {
-              // Limpar estados de drag imediatamente
-              setIsDragging(false);
-              setDraggedItemId(null);
-              onDragEnd(result);
-            }}>
+          <DragDropContext onDragEnd={onDragEnd}>
             <div className={cn(
               "grid grid-cols-1 gap-4 min-h-[600px]",
               showArchivedColumn ? "md:grid-cols-5" : "md:grid-cols-4"
@@ -1417,18 +1391,13 @@ export default function ProsthesisControlPage() {
                                     style={{
                                       ...provided.draggableProps.style,
                                       margin: 0,
-                                      marginBottom: snapshot.isDragging ? 0 : '8px',
-                                      // Evita o flash visual durante o drag
-                                      opacity: snapshot.isDragging ? 0.9 : 1,
-                                      transition: snapshot.isDragging ? 'none' : 'all 0.2s ease-in-out'
+                                      marginBottom: snapshot.isDragging ? 0 : '8px'
                                     }}
                                     className={cn(
-                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1",
-                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
-                                      isDelayed(item) && "border-red-400",
-                                      // Oculta o item original durante o drag para evitar flash visual
-                                      draggedItemId === `prosthesis-${item.id}` && !snapshot.isDragging && "opacity-0 pointer-events-none"
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 transition-none",
+                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md transition-all duration-150",
+                                      isDelayed(item) && "border-red-400"
                                     )}
                                   >
                                   <div className="flex justify-between items-start mb-2">
