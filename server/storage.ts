@@ -652,6 +652,7 @@ export class DatabaseStorage implements IStorage {
         returnDate: prosthesis.returnDate,
         observations: prosthesis.observations,
         labels: prosthesis.labels,
+        price: prosthesis.price,
         sortOrder: prosthesis.sortOrder,
         createdAt: prosthesis.createdAt,
         updatedAt: prosthesis.updatedAt,
