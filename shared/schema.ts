@@ -237,7 +237,6 @@ export const insertProsthesisSchema = createInsertSchema(prosthesis).pick({
   labels: true,
   cost: true,
   price: true,
-  sortOrder: true,
 });
 
 export type Prosthesis = typeof prosthesis.$inferSelect;

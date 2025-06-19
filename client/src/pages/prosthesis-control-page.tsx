@@ -82,9 +82,6 @@ interface Prosthesis {
   status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
-  price?: number;
-  cost?: number;
-  sortOrder?: number;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -412,7 +409,7 @@ export default function ProsthesisControlPage() {
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | undefined>(undefined);
   
   // Query otimizada para dados de próteses
-  const prosthesisQuery = useQuery<Prosthesis[]>({
+  const { data: prosthesis, isLoading, isError, error } = useQuery<Prosthesis[]>({
     queryKey: ["/api/prosthesis"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/prosthesis");
@@ -436,28 +433,34 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    if (prosthesisQuery.data) {
+    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
+    if (isDragging) {
+      console.log('Bloqueando atualização das colunas - drag em andamento');
+      return;
+    }
+    
+    if (prosthesis) {
       try {
         const updatedColumns = {
           pending: {
             ...columns.pending,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            items: prosthesis.filter(p => p.status === 'pending')
           },
           sent: {
             ...columns.sent,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            items: prosthesis.filter(p => p.status === 'sent')
           },
           returned: {
             ...columns.returned,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            items: prosthesis.filter(p => p.status === 'returned')
           },
           completed: {
             ...columns.completed,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            items: prosthesis.filter(p => p.status === 'completed')
           },
           archived: {
             ...columns.archived,
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            items: prosthesis.filter(p => p.status === 'archived')
           }
         };
         
@@ -467,7 +470,7 @@ export default function ProsthesisControlPage() {
         if (filters.delayedServices) {
           // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
           const now = new Date();
-          updatedColumns.sent.items = updatedColumns.sent.items.filter((p: any) => 
+          updatedColumns.sent.items = updatedColumns.sent.items.filter(p => 
             p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
           );
         }
@@ -484,7 +487,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                (p: any) => p.professionalId === professionalId
+                p => p.professionalId === professionalId
               );
           });
         }
@@ -494,7 +497,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                (p: any) => p.laboratory === filters.laboratory
+                p => p.laboratory === filters.laboratory
               );
           });
         }
@@ -504,7 +507,7 @@ export default function ProsthesisControlPage() {
           Object.keys(updatedColumns).forEach(key => {
             updatedColumns[key as keyof typeof updatedColumns].items = 
               updatedColumns[key as keyof typeof updatedColumns].items.filter(
-                (p: any) => p.labels && p.labels.includes(filters.label)
+                p => p.labels && p.labels.includes(filters.label)
               );
           });
         }
@@ -519,7 +522,7 @@ export default function ProsthesisControlPage() {
         });
       }
     }
-  }, [prosthesisQuery.data, filters, isDragging]);
+  }, [prosthesis, filters, isDragging]);
 
 
   
@@ -804,70 +807,6 @@ export default function ProsthesisControlPage() {
   // Ref para throttling de operações drag
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Função específica para movimentação dentro da mesma coluna
-  const executeDropSameColumn = (result: any) => {
-    const { source, destination, draggableId } = result;
-    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const columnStatus = source.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
-    
-    console.log(`Reordenando prótese ${prosthesisId} na coluna ${columnStatus} do índice ${source.index} para ${destination.index}`);
-    
-    // Obter todos os itens da coluna atual, ordenados
-    const allProsthesis = prosthesisQuery.data || [];
-    const columnItems = allProsthesis
-      .filter((item: any) => item.status === columnStatus)
-      .sort((a: any, b: any) => ((a as any).sortOrder || 0) - ((b as any).sortOrder || 0));
-    
-    // Remover o item que está sendo movido
-    const movingItem = columnItems.find((item: any) => item.id === prosthesisId);
-    const otherItems = columnItems.filter((item: any) => item.id !== prosthesisId);
-    
-    let newSortOrder = 0;
-    
-    if (otherItems.length === 0) {
-      newSortOrder = 0;
-    } else if (destination.index === 0) {
-      // Mover para o início
-      const firstOrder = (otherItems[0] as any)?.sortOrder || 0;
-      newSortOrder = firstOrder - 1;
-    } else if (destination.index >= otherItems.length) {
-      // Mover para o final
-      const lastOrder = (otherItems[otherItems.length - 1] as any)?.sortOrder || 0;
-      newSortOrder = lastOrder + 1;
-    } else {
-      // Mover para posição específica
-      const prevOrder = (otherItems[destination.index - 1] as any)?.sortOrder || 0;
-      const nextOrder = (otherItems[destination.index] as any)?.sortOrder || 0;
-      newSortOrder = Math.floor((prevOrder + nextOrder) / 2);
-      
-      // Se não há espaço, usar ordem sequencial
-      if (prevOrder >= nextOrder - 1) {
-        newSortOrder = prevOrder + 1;
-      }
-    }
-    
-    // Atualizar apenas o sortOrder
-    updateStatusMutation.mutate({
-      id: prosthesisId,
-      status: columnStatus,
-      sortOrder: newSortOrder
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Posição atualizada",
-          description: "Prótese reordenada com sucesso",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Erro",
-          description: "Falha ao reordenar prótese",
-          variant: "destructive",
-        });
-      }
-    });
-  };
-
   // Função para executar o drop com posicionamento específico
   const executeDrop = (result: any, position: 'start' | 'exact' | 'end') => {
     const { source, destination, draggableId } = result;
@@ -876,16 +815,15 @@ export default function ProsthesisControlPage() {
     
     console.log(`Movendo prótese ${prosthesisId} de ${source.droppableId} para ${targetStatus} na posição: ${position}`);
     
-    // Obter próteses da query para calcular posição baseado no status de destino
-    const allProsthesis = prosthesisQuery.data || [];
-    const targetColumnItems = allProsthesis.filter((item: any) => item.status === targetStatus);
+    // Obter itens da coluna de destino para calcular posição
+    const targetColumnItems = columns.find(col => col.id === targetStatus)?.items || [];
     let sortOrder = 0;
     
     // Calcular sortOrder baseado na posição desejada
     if (position === 'start') {
       // Inserir no início - usar sortOrder menor que o primeiro item
       if (targetColumnItems.length > 0) {
-        const minOrder = Math.min(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+        const minOrder = Math.min(...targetColumnItems.map(item => item.sortOrder || 0));
         sortOrder = minOrder - 1;
       } else {
         sortOrder = 0;
@@ -893,33 +831,18 @@ export default function ProsthesisControlPage() {
     } else if (position === 'end') {
       // Inserir no final - usar sortOrder maior que o último item
       if (targetColumnItems.length > 0) {
-        const maxOrder = Math.max(...targetColumnItems.map((item: any) => item.sortOrder || 0));
+        const maxOrder = Math.max(...targetColumnItems.map(item => item.sortOrder || 0));
         sortOrder = maxOrder + 1;
       } else {
         sortOrder = 0;
       }
     } else {
-      // Posição exata - inserir entre dois itens
-      if (targetColumnItems.length === 0) {
-        sortOrder = 0;
-      } else if (destination.index === 0) {
-        // Inserir no início
-        const firstOrder = targetColumnItems[0]?.sortOrder || 0;
-        sortOrder = firstOrder - 1;
-      } else if (destination.index >= targetColumnItems.length) {
-        // Inserir no final
-        const lastOrder = targetColumnItems[targetColumnItems.length - 1]?.sortOrder || 0;
-        sortOrder = lastOrder + 1;
+      // Posição exata - usar o índice de destino
+      if (destination.index < targetColumnItems.length) {
+        const targetItem = targetColumnItems[destination.index];
+        sortOrder = targetItem?.sortOrder || destination.index;
       } else {
-        // Inserir entre dois itens
-        const prevOrder = targetColumnItems[destination.index - 1]?.sortOrder || 0;
-        const nextOrder = targetColumnItems[destination.index]?.sortOrder || 0;
-        sortOrder = Math.floor((prevOrder + nextOrder) / 2);
-        
-        // Se não há espaço suficiente, reorganizar
-        if (prevOrder >= nextOrder - 1) {
-          sortOrder = prevOrder + 1;
-        }
+        sortOrder = targetColumnItems.length;
       }
     }
     
@@ -981,8 +904,16 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop simplificado
+  // Handler para drag and drop com opções de posicionamento
   const onDragEnd = (result: any) => {
+    console.log('onDragEnd iniciado - finalizando drag');
+    
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
+    }
+    
+    // Finalizar drag imediatamente para liberar interface
     setIsDragging(false);
     
     const { source, destination, draggableId } = result;
@@ -991,36 +922,18 @@ export default function ProsthesisControlPage() {
     if (!destination || 
         (source.droppableId === destination.droppableId && 
          source.index === destination.index)) {
+      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const newStatus = destination.droppableId;
-    
-    // Preparar dados para API
-    const updateData: any = { 
-      id: prosthesisId, 
-      status: newStatus
-    };
-    
-    // Adicionar datas baseado na transição
-    if (newStatus === 'sent' && source.droppableId === 'pending') {
-      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-    } else if (newStatus === 'returned' && source.droppableId === 'sent') {
-      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
+    if (source.droppableId === destination.droppableId) {
+      executeDrop(result, 'exact');
+      return;
     }
     
-    // Chamar API - o React Query vai revalidar automaticamente
-    updateStatusMutation.mutate(updateData, {
-      onError: () => {
-        toast({
-          title: "Erro",
-          description: "Falha ao atualizar status",
-          variant: "destructive",
-          duration: 2000,
-        });
-      }
-    });
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
   };
   
   // Handlers para os filtros
@@ -1298,13 +1211,14 @@ export default function ProsthesisControlPage() {
 
         
         {/* Quadro Kanban */}
-        {prosthesisQuery.isLoading ? (
+        {isLoading ? (
           <div className="flex justify-center p-8">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
           <DragDropContext 
             onDragStart={(start) => {
+              console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
             }}
             onDragEnd={onDragEnd}>
@@ -1357,35 +1271,32 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="flex-shrink-0 overflow-y-auto max-h-full" style={{ minHeight: '200px' }}>
+                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full">
                             {column.items.map((item, index) => (
                               <Draggable 
-                                key={`prosthesis-${item.id}`} 
-                                draggableId={`prosthesis-${item.id}`} 
-                                index={index}
-                              >
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    onClick={() => handleEditProsthesis(item)}
-                                    style={{
-                                      ...provided.draggableProps.style,
-                                      transform: snapshot.isDragging 
-                                        ? `${provided.draggableProps.style?.transform} rotate(3deg)` 
-                                        : 'none',
-                                      transition: snapshot.isDragging ? 'none' : 'transform 0.2s ease',
-                                      zIndex: snapshot.isDragging ? 1000 : 'auto',
-                                      marginBottom: '8px'
-                                    }}
-                                    className={cn(
-                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm opacity-90",
-                                      !snapshot.isDragging && "hover:bg-muted hover:shadow-md transition-colors duration-200",
-                                      isDelayed(item) && "border-red-400"
-                                    )}
-                                  >
+                              key={`prosthesis-${item.id}`} 
+                              draggableId={`prosthesis-${item.id}`} 
+                              index={index}
+                            >
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => handleEditProsthesis(item)}
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    transform: snapshot.isDragging 
+                                      ? provided.draggableProps.style?.transform 
+                                      : 'none'
+                                  }}
+                                  className={cn(
+                                    "p-3 mb-2 bg-background rounded-md border shadow-sm cursor-grab select-none relative",
+                                    snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-2",
+                                    !snapshot.isDragging && "transition-all duration-200 hover:bg-muted hover:shadow-md",
+                                    isDelayed(item) && "border-red-400"
+                                  )}
+                                >
                                   <div className="flex justify-between items-start mb-2">
                                     <div className="cursor-pointer" onClick={(e) => {
                                       e.stopPropagation(); // Evitar propagação do clique
@@ -1503,7 +1414,6 @@ export default function ProsthesisControlPage() {
                               )}
                             </Draggable>
                           ))}
-                          {provided.placeholder}
                         </div>
                         
                         {/* Empty state when no items */}
@@ -1521,6 +1431,8 @@ export default function ProsthesisControlPage() {
                         {/* Flex spacer to fill remaining height */}
                         <div className="flex-1" />
                         </div>
+                        
+                        {provided.placeholder}
                       </div>
                     )}
                   </Droppable>
