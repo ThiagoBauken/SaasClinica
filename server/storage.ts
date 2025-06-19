@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
 
@@ -84,6 +84,18 @@ export interface IStorage {
   createProsthesisLabel(label: any): Promise<any>;
   updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any>;
   deleteProsthesisLabel(id: number, companyId: number): Promise<boolean>;
+  
+  // Inventory - tenant-aware
+  getInventoryCategories(companyId: number): Promise<any[]>;
+  createInventoryCategory(data: any): Promise<any>;
+  getInventoryItems(companyId: number): Promise<any[]>;
+  createInventoryItem(data: any): Promise<any>;
+  updateInventoryItem(id: number, data: any, companyId: number): Promise<any>;
+  deleteInventoryItem(id: number, companyId: number): Promise<boolean>;
+  getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]>;
+  createInventoryTransaction(data: any): Promise<any>;
+  getStandardDentalProducts(): Promise<StandardDentalProduct[]>;
+  importStandardProducts(productIds: number[], companyId: number): Promise<any[]>;
   
   sessionStore: any;
 }
@@ -1405,6 +1417,308 @@ export class DatabaseStorage implements IStorage {
       return true;
     } catch (error) {
       console.error('Erro ao deletar etiqueta:', error);
+      throw error;
+    }
+  }
+
+  // Inventory Methods
+  async getInventoryCategories(companyId: number): Promise<any[]> {
+    try {
+      const result = await db
+        .select()
+        .from(inventoryCategories)
+        .where(eq(inventoryCategories.companyId, companyId))
+        .orderBy(inventoryCategories.name);
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar categorias de estoque:', error);
+      return [];
+    }
+  }
+
+  async createInventoryCategory(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(inventoryCategories)
+        .values({
+          companyId: data.companyId,
+          name: data.name,
+          description: data.description,
+          color: data.color
+        })
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar categoria de estoque:', error);
+      throw error;
+    }
+  }
+
+  async getInventoryItems(companyId: number): Promise<any[]> {
+    try {
+      const result = await db
+        .select({
+          id: inventoryItems.id,
+          name: inventoryItems.name,
+          description: inventoryItems.description,
+          categoryId: inventoryItems.categoryId,
+          categoryName: inventoryCategories.name,
+          categoryColor: inventoryCategories.color,
+          sku: inventoryItems.sku,
+          barcode: inventoryItems.barcode,
+          brand: inventoryItems.brand,
+          supplier: inventoryItems.supplier,
+          minimumStock: inventoryItems.minimumStock,
+          currentStock: inventoryItems.currentStock,
+          price: inventoryItems.price,
+          unitOfMeasure: inventoryItems.unitOfMeasure,
+          expirationDate: inventoryItems.expirationDate,
+          location: inventoryItems.location,
+          lastPurchaseDate: inventoryItems.lastPurchaseDate,
+          active: inventoryItems.active,
+          createdAt: inventoryItems.createdAt,
+          updatedAt: inventoryItems.updatedAt
+        })
+        .from(inventoryItems)
+        .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
+        .where(and(
+          eq(inventoryItems.companyId, companyId),
+          eq(inventoryItems.active, true)
+        ))
+        .orderBy(inventoryItems.name);
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar itens de estoque:', error);
+      return [];
+    }
+  }
+
+  async createInventoryItem(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(inventoryItems)
+        .values({
+          companyId: data.companyId,
+          name: data.name,
+          description: data.description,
+          categoryId: data.categoryId,
+          sku: data.sku,
+          barcode: data.barcode,
+          brand: data.brand,
+          supplier: data.supplier,
+          minimumStock: data.minimumStock || 0,
+          currentStock: data.currentStock || 0,
+          price: data.price,
+          unitOfMeasure: data.unitOfMeasure,
+          expirationDate: data.expirationDate,
+          location: data.location,
+          lastPurchaseDate: data.lastPurchaseDate,
+          active: data.active ?? true
+        })
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar item de estoque:', error);
+      throw error;
+    }
+  }
+
+  async updateInventoryItem(id: number, data: any, companyId: number): Promise<any> {
+    try {
+      const [result] = await db
+        .update(inventoryItems)
+        .set({
+          name: data.name,
+          description: data.description,
+          categoryId: data.categoryId,
+          sku: data.sku,
+          barcode: data.barcode,
+          brand: data.brand,
+          supplier: data.supplier,
+          minimumStock: data.minimumStock,
+          currentStock: data.currentStock,
+          price: data.price,
+          unitOfMeasure: data.unitOfMeasure,
+          expirationDate: data.expirationDate,
+          location: data.location,
+          lastPurchaseDate: data.lastPurchaseDate,
+          active: data.active,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(inventoryItems.id, id),
+          eq(inventoryItems.companyId, companyId)
+        ))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar item de estoque:', error);
+      throw error;
+    }
+  }
+
+  async deleteInventoryItem(id: number, companyId: number): Promise<boolean> {
+    try {
+      await db
+        .update(inventoryItems)
+        .set({
+          active: false,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(inventoryItems.id, id),
+          eq(inventoryItems.companyId, companyId)
+        ));
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar item de estoque:', error);
+      throw error;
+    }
+  }
+
+  async getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]> {
+    try {
+      let query = db
+        .select({
+          id: inventoryTransactions.id,
+          itemId: inventoryTransactions.itemId,
+          itemName: inventoryItems.name,
+          userId: inventoryTransactions.userId,
+          userName: users.fullName,
+          type: inventoryTransactions.type,
+          quantity: inventoryTransactions.quantity,
+          reason: inventoryTransactions.reason,
+          notes: inventoryTransactions.notes,
+          previousStock: inventoryTransactions.previousStock,
+          newStock: inventoryTransactions.newStock,
+          appointmentId: inventoryTransactions.appointmentId,
+          patientId: inventoryTransactions.patientId,
+          createdAt: inventoryTransactions.createdAt
+        })
+        .from(inventoryTransactions)
+        .leftJoin(inventoryItems, eq(inventoryTransactions.itemId, inventoryItems.id))
+        .leftJoin(users, eq(inventoryTransactions.userId, users.id))
+        .where(eq(inventoryItems.companyId, companyId));
+
+      if (itemId) {
+        query = query.where(eq(inventoryTransactions.itemId, itemId));
+      }
+
+      const result = await query.orderBy(desc(inventoryTransactions.createdAt));
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar transações de estoque:', error);
+      return [];
+    }
+  }
+
+  async createInventoryTransaction(data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(inventoryTransactions)
+        .values({
+          itemId: data.itemId,
+          userId: data.userId,
+          type: data.type,
+          quantity: data.quantity,
+          reason: data.reason,
+          notes: data.notes,
+          previousStock: data.previousStock,
+          newStock: data.newStock,
+          appointmentId: data.appointmentId,
+          patientId: data.patientId
+        })
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar transação de estoque:', error);
+      throw error;
+    }
+  }
+
+  async getStandardDentalProducts(): Promise<StandardDentalProduct[]> {
+    try {
+      const result = await db
+        .select()
+        .from(standardDentalProducts)
+        .where(eq(standardDentalProducts.active, true))
+        .orderBy(standardDentalProducts.isPopular.desc(), standardDentalProducts.category, standardDentalProducts.name);
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar produtos odontológicos padrão:', error);
+      return [];
+    }
+  }
+
+  async importStandardProducts(productIds: number[], companyId: number): Promise<any[]> {
+    try {
+      const standardProducts = await db
+        .select()
+        .from(standardDentalProducts)
+        .where(and(
+          sql`${standardDentalProducts.id} = ANY(${productIds})`,
+          eq(standardDentalProducts.active, true)
+        ));
+
+      const importedItems = [];
+      
+      for (const product of standardProducts) {
+        // Buscar categoria correspondente ou criar se não existir
+        let category = await db
+          .select()
+          .from(inventoryCategories)
+          .where(and(
+            eq(inventoryCategories.companyId, companyId),
+            eq(inventoryCategories.name, product.category)
+          ))
+          .limit(1);
+
+        if (category.length === 0) {
+          // Criar categoria se não existir
+          const [newCategory] = await db
+            .insert(inventoryCategories)
+            .values({
+              companyId,
+              name: product.category,
+              description: `Categoria ${product.category}`,
+              color: '#6B7280'
+            })
+            .returning();
+          category = [newCategory];
+        }
+
+        // Criar item no estoque da empresa
+        const [item] = await db
+          .insert(inventoryItems)
+          .values({
+            companyId,
+            name: product.name,
+            description: product.description,
+            categoryId: category[0].id,
+            brand: product.brand,
+            unitOfMeasure: product.unitOfMeasure,
+            price: product.estimatedPrice,
+            minimumStock: 5,
+            currentStock: 0,
+            active: true
+          })
+          .returning();
+
+        importedItems.push(item);
+      }
+      
+      return importedItems;
+    } catch (error) {
+      console.error('Erro ao importar produtos padrão:', error);
       throw error;
     }
   }

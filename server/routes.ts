@@ -1400,6 +1400,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // === INVENTORY API ROUTES ===
+  
+  // Get inventory categories
+  app.get("/api/inventory/categories", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const categories = await storage.getInventoryCategories(user.companyId);
+      res.json(categories);
+    } catch (error) {
+      console.error('Erro ao buscar categorias de estoque:', error);
+      res.status(500).json({ error: 'Falha ao carregar categorias' });
+    }
+  }));
+
+  // Create inventory category
+  app.post("/api/inventory/categories", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const categoryData = { ...req.body, companyId: user.companyId };
+      const category = await storage.createInventoryCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error('Erro ao criar categoria:', error);
+      res.status(500).json({ error: 'Falha ao criar categoria' });
+    }
+  }));
+
+  // Get inventory items
+  app.get("/api/inventory/items", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const items = await storage.getInventoryItems(user.companyId);
+      res.json(items);
+    } catch (error) {
+      console.error('Erro ao buscar itens de estoque:', error);
+      res.status(500).json({ error: 'Falha ao carregar itens' });
+    }
+  }));
+
+  // Create inventory item
+  app.post("/api/inventory/items", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const itemData = { ...req.body, companyId: user.companyId };
+      const item = await storage.createInventoryItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error('Erro ao criar item:', error);
+      res.status(500).json({ error: 'Falha ao criar item' });
+    }
+  }));
+
+  // Update inventory item
+  app.patch("/api/inventory/items/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const itemId = parseInt(req.params.id);
+      const item = await storage.updateInventoryItem(itemId, req.body, user.companyId);
+      res.json(item);
+    } catch (error) {
+      console.error('Erro ao atualizar item:', error);
+      res.status(500).json({ error: 'Falha ao atualizar item' });
+    }
+  }));
+
+  // Delete inventory item
+  app.delete("/api/inventory/items/:id", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const itemId = parseInt(req.params.id);
+      await storage.deleteInventoryItem(itemId, user.companyId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Erro ao deletar item:', error);
+      res.status(500).json({ error: 'Falha ao deletar item' });
+    }
+  }));
+
+  // Get inventory transactions
+  app.get("/api/inventory/transactions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
+      const transactions = await storage.getInventoryTransactions(user.companyId, itemId);
+      res.json(transactions);
+    } catch (error) {
+      console.error('Erro ao buscar transações:', error);
+      res.status(500).json({ error: 'Falha ao carregar transações' });
+    }
+  }));
+
+  // Create inventory transaction (entrada/saída)
+  app.post("/api/inventory/transactions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const transactionData = { ...req.body, userId: user.id };
+      
+      // Get current stock for validation
+      const items = await storage.getInventoryItems(user.companyId);
+      const item = items.find(i => i.id === transactionData.itemId);
+      
+      if (!item) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+
+      const previousStock = item.currentStock;
+      const quantity = parseInt(transactionData.quantity);
+      const type = transactionData.type;
+
+      let newStock = previousStock;
+      if (type === 'entrada') {
+        newStock = previousStock + quantity;
+      } else if (type === 'saida') {
+        newStock = previousStock - quantity;
+        if (newStock < 0) {
+          return res.status(400).json({ error: 'Estoque insuficiente' });
+        }
+      } else if (type === 'ajuste') {
+        newStock = quantity;
+      }
+
+      transactionData.previousStock = previousStock;
+      transactionData.newStock = newStock;
+
+      // Create transaction
+      const transaction = await storage.createInventoryTransaction(transactionData);
+      
+      // Update item stock
+      await storage.updateInventoryItem(transactionData.itemId, { currentStock: newStock }, user.companyId);
+      
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error('Erro ao criar transação:', error);
+      res.status(500).json({ error: 'Falha ao criar transação' });
+    }
+  }));
+
+  // Get standard dental products
+  app.get("/api/inventory/standard-products", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const products = await storage.getStandardDentalProducts();
+      res.json(products);
+    } catch (error) {
+      console.error('Erro ao buscar produtos padrão:', error);
+      res.status(500).json({ error: 'Falha ao carregar produtos padrão' });
+    }
+  }));
+
+  // Import standard products to inventory
+  app.post("/api/inventory/import-standard", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const { productIds } = req.body;
+      
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ error: 'Lista de produtos inválida' });
+      }
+
+      const importedItems = await storage.importStandardProducts(productIds, user.companyId);
+      res.status(201).json(importedItems);
+    } catch (error) {
+      console.error('Erro ao importar produtos padrão:', error);
+      res.status(500).json({ error: 'Falha ao importar produtos' });
+    }
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }
