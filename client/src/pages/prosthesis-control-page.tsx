@@ -60,7 +60,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { format, addDays, isAfter, isBefore, parseISO, isValid, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Filter, Edit, Trash2, MoreHorizontal, Calendar as CalendarIcon, ExternalLink, AlertCircle, ChevronRight, Package, ArrowUpDown, Check, ArrowLeftRight, Settings, X, Loader2, RotateCcw, Archive, ArchiveRestore, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -421,6 +421,7 @@ export default function ProsthesisControlPage() {
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [isRestoringLabels, setIsRestoringLabels] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   
   // Usar etiquetas do banco ou padrão se vazio
   const labels = labelsFromDB.length > 0 ? labelsFromDB : defaultLabels;
@@ -2395,6 +2396,156 @@ export default function ProsthesisControlPage() {
                 {isRestoringLabels ? "Restaurando..." : "Restaurar Padrão"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Relatórios e Estatísticas */}
+        <Dialog open={showReports} onOpenChange={setShowReports}>
+          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Relatórios e Estatísticas</DialogTitle>
+              <DialogDescription>
+                Análise detalhada do controle de próteses
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              {/* Resumo Geral */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-blue-600">{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'pending').length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Pendentes</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-orange-600">{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'sent').length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Enviadas</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-purple-600">{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'returned').length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Retornadas</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-green-600">{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'completed').length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Concluídas</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Alertas e Problemas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    Alertas Importantes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'sent' && p.expectedReturnDate && isAfter(new Date(), parseISO(p.expectedReturnDate))).length > 0 && (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <Clock className="h-4 w-4" />
+                        <span>{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'sent' && p.expectedReturnDate && isAfter(new Date(), parseISO(p.expectedReturnDate))).length} próteses enviadas em atraso</span>
+                      </div>
+                    )}
+                    {prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'returned' && p.returnDate && differenceInDays(new Date(), parseISO(p.returnDate)) > 3).length > 0 && (
+                      <div className="flex items-center gap-2 text-orange-600">
+                        <Package className="h-4 w-4" />
+                        <span>{prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'returned' && p.returnDate && differenceInDays(new Date(), parseISO(p.returnDate)) > 3).length} próteses retornadas há mais de 3 dias</span>
+                      </div>
+                    )}
+                    {(!prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'sent' && p.expectedReturnDate && isAfter(new Date(), parseISO(p.expectedReturnDate))).length && 
+                      !prosthesisQuery.data?.filter((p: Prosthesis) => p.status === 'returned' && p.returnDate && differenceInDays(new Date(), parseISO(p.returnDate)) > 3).length) && (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span>Nenhum alerta no momento</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Estatísticas por Laboratório */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribuição por Laboratório</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {laboratories?.map((lab: Laboratory) => {
+                      const count = prosthesisQuery.data?.filter((p: Prosthesis) => p.laboratory === lab.name).length || 0;
+                      const percentage = prosthesisQuery.data?.length ? Math.round((count / prosthesisQuery.data.length) * 100) : 0;
+                      return (
+                        <div key={lab.id} className="flex justify-between items-center">
+                          <span className="font-medium">{lab.name}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-32 bg-gray-200 rounded-full h-2">
+                              <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{count} ({percentage}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tempo Médio de Processamento */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tempo Médio de Processamento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-lg font-semibold">Envio para Laboratório</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {(() => {
+                          const sentItems = prosthesisQuery.data?.filter((p: Prosthesis) => p.status !== 'pending' && p.sentDate);
+                          if (!sentItems?.length) return '0 dias';
+                          const avgDays = sentItems.reduce((acc, p) => {
+                            const created = parseISO(p.createdAt);
+                            const sent = parseISO(p.sentDate!);
+                            return acc + differenceInDays(sent, created);
+                          }, 0) / sentItems.length;
+                          return `${Math.round(avgDays)} dias`;
+                        })()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Tempo médio do cadastro até envio</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">Retorno do Laboratório</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {(() => {
+                          const returnedItems = prosthesisQuery.data?.filter((p: Prosthesis) => p.returnDate && p.sentDate);
+                          if (!returnedItems?.length) return '0 dias';
+                          const avgDays = returnedItems.reduce((acc, p) => {
+                            const sent = parseISO(p.sentDate!);
+                            const returned = parseISO(p.returnDate!);
+                            return acc + differenceInDays(returned, sent);
+                          }, 0) / returnedItems.length;
+                          return `${Math.round(avgDays)} dias`;
+                        })()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Tempo médio no laboratório</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setShowReports(false)}>
                 Fechar
               </Button>
             </DialogFooter>
