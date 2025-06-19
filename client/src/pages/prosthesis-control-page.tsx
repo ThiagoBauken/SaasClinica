@@ -147,6 +147,8 @@ const generateMockProsthesis = (): Prosthesis[] => {
       status: 'sent',
       observations: "Paciente com sensibilidade",
       labels: ["urgente", "premium"],
+      price: 850.00,
+      sortOrder: 1,
       createdAt: format(addDays(now, -12), "yyyy-MM-dd"),
       updatedAt: format(addDays(now, -10), "yyyy-MM-dd")
     },
@@ -444,12 +446,34 @@ export default function ProsthesisControlPage() {
   };
 
   // Função para restaurar etiquetas padrão
-  const restoreDefaultLabels = () => {
-    setLabels(defaultLabels);
-    toast({
-      title: "Etiquetas restauradas",
-      description: "As etiquetas padrão foram restauradas com sucesso."
-    });
+  const restoreDefaultLabels = async () => {
+    try {
+      // Primeiro, deletar todas as etiquetas existentes do banco
+      for (const label of labelsFromDB) {
+        if (label.id) {
+          await deleteLabelMutation.mutateAsync(label.id);
+        }
+      }
+      
+      // Depois, criar as etiquetas padrão no banco
+      for (const label of defaultLabels) {
+        await createLabelMutation.mutateAsync({
+          name: label.name,
+          color: label.color
+        });
+      }
+      
+      toast({
+        title: "Etiquetas restauradas",
+        description: "As etiquetas padrão foram restauradas com sucesso."
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao restaurar etiquetas",
+        description: "Ocorreu um erro ao restaurar as etiquetas padrão.",
+        variant: "destructive"
+      });
+    }
   };
   const [filters, setFilters] = useState({
     delayedServices: false,
@@ -2269,34 +2293,23 @@ export default function ProsthesisControlPage() {
                     onChange={(e) => setNewLabelColor(e.target.value)}
                   />
                 </div>
-                <Button size="sm" onClick={() => {
-                  if (newLabelName.trim()) {
-                    const labelId = newLabelName.trim().toLowerCase().replace(/\s+/g, "-");
-                    
-                    // Verificar se já existe
-                    if (labels.some(l => l.id === labelId)) {
-                      toast({
-                        title: "Erro",
-                        description: "Já existe uma etiqueta com este nome",
-                        variant: "destructive",
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    if (newLabelName.trim()) {
+                      createLabelMutation.mutate({
+                        name: newLabelName.trim(),
+                        color: newLabelColor
                       });
-                      return;
                     }
-                    
-                    setLabels([...labels, {
-                      id: labelId,
-                      name: newLabelName.trim(),
-                      color: newLabelColor
-                    }]);
-                    setNewLabelName("");
-                    
-                    toast({
-                      title: "Sucesso",
-                      description: "Etiqueta criada com sucesso"
-                    });
-                  }
-                }}>
-                  <Plus className="h-4 w-4" />
+                  }} 
+                  disabled={!newLabelName.trim() || createLabelMutation.isPending}
+                >
+                  {createLabelMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               
@@ -2322,14 +2335,15 @@ export default function ProsthesisControlPage() {
                             size="icon" 
                             className="h-7 w-7"
                             onClick={() => {
-                              setLabels(labels.filter(l => l.id !== label.id));
-                              toast({
-                                title: "Etiqueta removida",
-                                description: "A etiqueta foi removida com sucesso"
-                              });
+                              deleteLabelMutation.mutate(label.id);
                             }}
+                            disabled={deleteLabelMutation.isPending}
                           >
-                            <X className="h-4 w-4" />
+                            {deleteLabelMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       ))}
