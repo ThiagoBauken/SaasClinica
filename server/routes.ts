@@ -1082,6 +1082,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // === API DE ESTOQUE/INVENTÁRIO ===
+  
+  // Buscar categorias de estoque
+  app.get("/api/inventory/categories", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const categories = await storage.getInventoryCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error('Erro ao buscar categorias de estoque:', error);
+      res.status(500).json({ error: 'Erro ao buscar categorias' });
+    }
+  }));
+
+  // Buscar itens de estoque
+  app.get("/api/inventory/items", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const items = await storage.getInventoryItems();
+      res.json(items);
+    } catch (error) {
+      console.error('Erro ao buscar itens de estoque:', error);
+      res.status(500).json({ error: 'Erro ao buscar itens' });
+    }
+  }));
+
+  // Criar item de estoque
+  app.post("/api/inventory/items", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const newItem = await storage.createInventoryItem(req.body);
+      res.status(201).json(newItem);
+    } catch (error) {
+      console.error('Erro ao criar item de estoque:', error);
+      res.status(500).json({ error: 'Erro ao criar item' });
+    }
+  }));
+
+  // Atualizar item de estoque
+  app.patch("/api/inventory/items/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      const updatedItem = await storage.updateInventoryItem(itemId, req.body);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('Erro ao atualizar item de estoque:', error);
+      res.status(500).json({ error: 'Erro ao atualizar item' });
+    }
+  }));
+
+  // Atualizar estoque de um item
+  app.patch("/api/inventory/items/:id/stock", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      const { quantity, type } = req.body;
+      const updatedItem = await storage.updateInventoryStock(itemId, quantity, type);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('Erro ao atualizar estoque:', error);
+      res.status(500).json({ error: 'Erro ao atualizar estoque' });
+    }
+  }));
+
+  // Buscar transações de estoque
+  app.get("/api/inventory/transactions", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const transactions = await storage.getInventoryTransactions();
+      res.json(transactions);
+    } catch (error) {
+      console.error('Erro ao buscar transações de estoque:', error);
+      res.status(500).json({ error: 'Erro ao buscar transações' });
+    }
+  }));
+
   // === API DE AUTENTICAÇÃO ===
   // Auto-login para desenvolvimento
   app.post("/api/auth/auto-login", asyncHandler(async (req: Request, res: Response) => {

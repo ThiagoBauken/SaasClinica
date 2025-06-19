@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory } from "@shared/schema";
+import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, inventoryCategories, inventoryItems, inventoryTransactions, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type InventoryCategory, type InventoryItem, type InventoryTransaction, type InsertInventoryCategory, type InsertInventoryItem, type InsertInventoryTransaction } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
 
@@ -84,6 +84,14 @@ export interface IStorage {
   createProsthesisLabel(label: any): Promise<any>;
   updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any>;
   deleteProsthesisLabel(id: number, companyId: number): Promise<boolean>;
+  
+  // Inventory Management
+  getInventoryCategories(): Promise<InventoryCategory[]>;
+  getInventoryItems(): Promise<InventoryItem[]>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem>;
+  updateInventoryStock(id: number, quantity: number, type: 'add' | 'remove'): Promise<InventoryItem>;
+  getInventoryTransactions(): Promise<InventoryTransaction[]>;
   
   sessionStore: any;
 }
@@ -1390,6 +1398,106 @@ export class DatabaseStorage implements IStorage {
       return (result.rowCount || 0) > 0;
     } catch (error) {
       console.error('Erro ao deletar etiqueta:', error);
+      throw error;
+    }
+  }
+
+  // === INVENTORY MANAGEMENT ===
+  
+  async getInventoryCategories(): Promise<InventoryCategory[]> {
+    try {
+      const categories = await db.select().from(inventoryCategories);
+      return categories;
+    } catch (error) {
+      console.error('Erro ao buscar categorias de estoque:', error);
+      throw error;
+    }
+  }
+
+  async getInventoryItems(): Promise<InventoryItem[]> {
+    try {
+      const items = await db.select().from(inventoryItems).where(eq(inventoryItems.active, true));
+      return items;
+    } catch (error) {
+      console.error('Erro ao buscar itens de estoque:', error);
+      throw error;
+    }
+  }
+
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    try {
+      const [newItem] = await db.insert(inventoryItems).values(item).returning();
+      return newItem;
+    } catch (error) {
+      console.error('Erro ao criar item de estoque:', error);
+      throw error;
+    }
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem> {
+    try {
+      const [updatedItem] = await db
+        .update(inventoryItems)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(inventoryItems.id, id))
+        .returning();
+      return updatedItem;
+    } catch (error) {
+      console.error('Erro ao atualizar item de estoque:', error);
+      throw error;
+    }
+  }
+
+  async updateInventoryStock(id: number, quantity: number, type: 'add' | 'remove'): Promise<InventoryItem> {
+    try {
+      // First get the current item
+      const [currentItem] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+      if (!currentItem) {
+        throw new Error('Item não encontrado');
+      }
+
+      const newStock = type === 'add' 
+        ? currentItem.currentStock + quantity
+        : currentItem.currentStock - quantity;
+
+      if (newStock < 0) {
+        throw new Error('Estoque não pode ser negativo');
+      }
+
+      // Update the stock
+      const [updatedItem] = await db
+        .update(inventoryItems)
+        .set({ 
+          currentStock: newStock,
+          updatedAt: new Date()
+        })
+        .where(eq(inventoryItems.id, id))
+        .returning();
+
+      // Create a transaction record
+      await db.insert(inventoryTransactions).values({
+        itemId: id,
+        userId: 1, // TODO: Get from request context
+        type: type === 'add' ? 'entrada' : 'saída',
+        quantity: quantity,
+        reason: `Ajuste de estoque - ${type === 'add' ? 'Entrada' : 'Saída'}`,
+        previousStock: currentItem.currentStock,
+        newStock: newStock
+      });
+
+      return updatedItem;
+    } catch (error) {
+      console.error('Erro ao atualizar estoque:', error);
+      throw error;
+    }
+  }
+
+  async getInventoryTransactions(): Promise<InventoryTransaction[]> {
+    try {
+      const transactions = await db.select().from(inventoryTransactions).orderBy(desc(inventoryTransactions.createdAt));
+      return transactions;
+    } catch (error) {
+      console.error('Erro ao buscar transações de estoque:', error);
       throw error;
     }
   }
