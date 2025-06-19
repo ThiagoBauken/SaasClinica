@@ -436,12 +436,6 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
-    if (isDragging) {
-      console.log('Bloqueando atualização das colunas - drag em andamento');
-      return;
-    }
-    
     if (prosthesisQuery.data) {
       try {
         const updatedColumns = {
@@ -987,12 +981,11 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop com atualização otimista
+  // Handler para drag and drop simplificado
   const onDragEnd = (result: any) => {
-    const { source, destination, draggableId } = result;
-    
-    // Finalizar drag imediatamente
     setIsDragging(false);
+    
+    const { source, destination, draggableId } = result;
     
     // Validar resultado do drag
     if (!destination || 
@@ -1002,67 +995,29 @@ export default function ProsthesisControlPage() {
     }
     
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const sourceColumn = source.droppableId as keyof typeof columns;
-    const destColumn = destination.droppableId as keyof typeof columns;
+    const newStatus = destination.droppableId;
     
-    // ATUALIZAÇÃO OTIMISTA - Atualizar UI imediatamente
-    const newColumns = { ...columns };
-    const sourceItems = [...newColumns[sourceColumn].items];
-    const destItems = sourceColumn === destColumn ? sourceItems : [...newColumns[destColumn].items];
-    
-    // Remover item da origem
-    const [movedItem] = sourceItems.splice(source.index, 1);
-    
-    // Atualizar status se mudou de coluna
-    if (sourceColumn !== destColumn) {
-      movedItem.status = destColumn as 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
-      
-      // Atualizar datas baseado na transição
-      if (destColumn === 'sent' && sourceColumn === 'pending') {
-        movedItem.sentDate = format(new Date(), "yyyy-MM-dd");
-      } else if (destColumn === 'returned' && sourceColumn === 'sent') {
-        movedItem.returnDate = format(new Date(), "yyyy-MM-dd");
-      }
-    }
-    
-    // Inserir na nova posição
-    destItems.splice(destination.index, 0, movedItem);
-    
-    // Atualizar estado imediatamente
-    newColumns[sourceColumn].items = sourceItems;
-    newColumns[destColumn].items = destItems;
-    setColumns(newColumns);
-    
-    // Chamar API de forma assíncrona sem bloquear UI
+    // Preparar dados para API
     const updateData: any = { 
       id: prosthesisId, 
-      status: destColumn
+      status: newStatus
     };
     
-    if (destColumn === 'sent' && sourceColumn === 'pending') {
+    // Adicionar datas baseado na transição
+    if (newStatus === 'sent' && source.droppableId === 'pending') {
       updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-    } else if (destColumn === 'returned' && sourceColumn === 'sent') {
+    } else if (newStatus === 'returned' && source.droppableId === 'sent') {
       updateData.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // Update API call - não aguardar resposta
+    // Chamar API - o React Query vai revalidar automaticamente
     updateStatusMutation.mutate(updateData, {
       onError: () => {
-        // Em caso de erro, reverter estado
-        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
         toast({
           title: "Erro",
-          description: "Falha ao atualizar status da prótese",
+          description: "Falha ao atualizar status",
           variant: "destructive",
-          duration: 2000, // Reduzir tempo de notificação
-        });
-      },
-      onSuccess: () => {
-        // Notificação rápida de sucesso
-        toast({
-          title: "Status atualizado",
-          description: "Prótese movida com sucesso",
-          duration: 1500, // Notificação curta
+          duration: 2000,
         });
       }
     });
@@ -1350,12 +1305,7 @@ export default function ProsthesisControlPage() {
         ) : (
           <DragDropContext 
             onDragStart={(start) => {
-              console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
-            }}
-            onDragUpdate={(update) => {
-              // Atualizar posição em tempo real durante o drag
-              console.log('Drag update:', update);
             }}
             onDragEnd={onDragEnd}>
             <div className={cn(
