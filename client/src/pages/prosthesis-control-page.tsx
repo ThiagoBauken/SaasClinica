@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -768,7 +768,6 @@ export default function ProsthesisControlPage() {
       }
       
       // Preparar dados da prótese
-      const priceValue = formData.get("price") as string;
       const prosthesisData: any = {
         patientId: parseInt(selectedPatient || formData.get("patient") as string),
         professionalId: parseInt(formData.get("professional") as string),
@@ -778,7 +777,6 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
-        price: priceValue ? parseFloat(priceValue) : 0,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -987,47 +985,36 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop simplificado
+  // Handler para drag and drop com opções de posicionamento
   const onDragEnd = (result: any) => {
-    console.log('onDragEnd iniciado');
+    console.log('onDragEnd iniciado - finalizando drag');
+    
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
+    }
+    
+    // Finalizar drag imediatamente para liberar interface
+    setIsDragging(false);
     
     const { source, destination, draggableId } = result;
     
-    // Validação básica
-    if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
+    // Validar resultado do drag
+    if (!destination || 
+        (source.droppableId === destination.droppableId && 
+         source.index === destination.index)) {
+      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const targetStatus = destination.droppableId;
-    
-    console.log(`Movendo prótese ${prosthesisId} para status ${targetStatus}`);
-    
-    // Buscar a prótese atual
-    const currentProsthesis = prosthesisQuery.data?.find((p: any) => p.id === prosthesisId);
-    if (!currentProsthesis) return;
-    
-    // Preparar dados de atualização
-    const updateData: any = {
-      ...currentProsthesis,
-      id: prosthesisId,
-      status: targetStatus
-    };
-    
-    // Lógica específica por transição
-    if (targetStatus === 'sent' && !currentProsthesis.sentDate) {
-      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-    } else if (targetStatus === 'returned' && !currentProsthesis.returnDate) {
-      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
+    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
+    if (source.droppableId === destination.droppableId) {
+      executeDropSameColumn(result);
+      return;
     }
     
-    // Remover campos problemáticos
-    delete updateData.createdAt;
-    delete updateData.updatedAt;
-    delete updateData.companyId;
-    
-    // Chamar API diretamente
-    prosthesisMutation.mutate(updateData);
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
   };
   
   // Handlers para os filtros
@@ -1040,8 +1027,12 @@ export default function ProsthesisControlPage() {
   
   // Função auxiliar para verificar status atrasado
   const isDelayed = (item: Prosthesis) => {
-    // Para qualquer status com data esperada de retorno, verifica se passou da data
-    if (item.expectedReturnDate && !item.returnDate) {
+    // Para status 'sent' - verifica atraso na data esperada de retorno
+    if (item.status === 'sent' && item.expectedReturnDate && !item.returnDate) {
+      return isAfter(new Date(), parseISO(item.expectedReturnDate));
+    }
+    // Para status 'returned' - verifica atraso na data esperada de retorno
+    if (item.status === 'returned' && item.expectedReturnDate && !item.returnDate) {
       return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
     return false;
@@ -1398,8 +1389,8 @@ export default function ProsthesisControlPage() {
                                       transition: snapshot.isDragging ? 'none' : 'all 0.2s ease-in-out'
                                     }}
                                     className={cn(
-                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150 transform-gpu",
-                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1 !transition-none",
+                                      "p-3 bg-background rounded-md border shadow-sm cursor-grab select-none relative transition-all duration-150",
+                                      snapshot.isDragging && "shadow-2xl border-primary scale-105 border-2 bg-background/95 backdrop-blur-sm z-50 rotate-1",
                                       !snapshot.isDragging && "hover:bg-muted hover:shadow-md",
                                       isDelayed(item) && "border-red-400",
                                       // Oculta o item original durante o drag para evitar flash visual
@@ -2020,19 +2011,6 @@ export default function ProsthesisControlPage() {
                     name="observations"
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="price">Preço (opcional)</Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={editingProsthesis?.price || ""}
-                    placeholder="0.00"
                   />
                 </div>
 
