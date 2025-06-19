@@ -202,6 +202,7 @@ export default function InventoryPage() {
   const [expirationDate, setExpirationDate] = useState<Date | undefined>(undefined);
   const [lastPurchaseDate, setLastPurchaseDate] = useState<Date | undefined>(undefined);
   const [newCategoryColor, setNewCategoryColor] = useState<string>("#3498db");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [standardProducts, setStandardProducts] = useState<any[]>([]);
@@ -335,6 +336,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory/categories"] });
       setIsCategoryModalOpen(false);
       setEditingCategory(null);
+      setIsCreatingCategory(false);
       toast({
         title: "Sucesso",
         description: "Categoria salva com sucesso!",
@@ -1159,6 +1161,7 @@ export default function InventoryPage() {
                 variant="outline" 
                 onClick={() => {
                   setEditingCategory(null);
+                  setIsCreatingCategory(true);
                   setNewCategoryColor("#3498db");
                 }}
               >
@@ -1168,7 +1171,7 @@ export default function InventoryPage() {
             </div>
           )}
           
-          {(editingCategory || !inventoryCategories?.length) && (
+          {(editingCategory || isCreatingCategory || !inventoryCategories?.length) && (
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome da Categoria*</Label>
@@ -1243,6 +1246,7 @@ export default function InventoryPage() {
                   variant="outline" 
                   onClick={() => {
                     setEditingCategory(null);
+                    setIsCreatingCategory(false);
                     if (inventoryCategories?.length === 0) {
                       setIsCategoryModalOpen(false);
                     }

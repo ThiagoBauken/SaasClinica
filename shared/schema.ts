@@ -799,6 +799,121 @@ export const insertCommissionRecordSchema = createInsertSchema(commissionRecords
   notes: true,
 });
 
+// Financial Transactions - Comprehensive financial system
+export const financialTransactions = pgTable("financial_transactions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  type: text("type").notNull(), // income, expense
+  category: text("category").notNull(),
+  description: text("description").notNull(),
+  amount: integer("amount").notNull(), // in cents
+  patientId: integer("patient_id").references(() => patients.id),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  date: timestamp("date").notNull(),
+  dueDate: timestamp("due_date"),
+  paymentMethod: text("payment_method"), // cash, credit_card, debit_card, pix, bank_transfer
+  status: text("status").notNull().default("pending"), // pending, partial, paid, overdue, cancelled
+  installments: integer("installments").default(1),
+  installmentsPaid: integer("installments_paid").default(0),
+  feeAmount: integer("fee_amount").default(0), // payment machine fees in cents
+  netAmount: integer("net_amount"), // amount after fees
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).pick({
+  companyId: true,
+  type: true,
+  category: true,
+  description: true,
+  amount: true,
+  patientId: true,
+  appointmentId: true,
+  professionalId: true,
+  date: true,
+  dueDate: true,
+  paymentMethod: true,
+  status: true,
+  installments: true,
+  installmentsPaid: true,
+  feeAmount: true,
+  netAmount: true,
+  notes: true,
+});
+
+// Treatment Plans
+export const treatmentPlans = pgTable("treatment_plans", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  totalAmount: integer("total_amount").notNull(), // in cents
+  paidAmount: integer("paid_amount").default(0), // in cents
+  discountAmount: integer("discount_amount").default(0), // in cents
+  status: text("status").notNull().default("proposed"), // proposed, approved, in_progress, completed, cancelled
+  paymentPlan: jsonb("payment_plan"), // installment details
+  startDate: timestamp("start_date"),
+  completedDate: timestamp("completed_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTreatmentPlanSchema = createInsertSchema(treatmentPlans).pick({
+  companyId: true,
+  patientId: true,
+  professionalId: true,
+  name: true,
+  description: true,
+  totalAmount: true,
+  paidAmount: true,
+  discountAmount: true,
+  status: true,
+  paymentPlan: true,
+  startDate: true,
+  completedDate: true,
+  notes: true,
+});
+
+// Treatment Plan Procedures
+export const treatmentPlanProcedures = pgTable("treatment_plan_procedures", {
+  id: serial("id").primaryKey(),
+  treatmentPlanId: integer("treatment_plan_id").notNull().references(() => treatmentPlans.id),
+  procedureId: integer("procedure_id").notNull().references(() => procedures.id),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: integer("unit_price").notNull(), // in cents
+  totalPrice: integer("total_price").notNull(), // in cents
+  status: text("status").notNull().default("pending"), // pending, scheduled, completed
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  completedDate: timestamp("completed_date"),
+  notes: text("notes"),
+});
+
+export const insertTreatmentPlanProcedureSchema = createInsertSchema(treatmentPlanProcedures).pick({
+  treatmentPlanId: true,
+  procedureId: true,
+  quantity: true,
+  unitPrice: true,
+  totalPrice: true,
+  status: true,
+  appointmentId: true,
+  completedDate: true,
+  notes: true,
+});
+
+export type FinancialTransaction = typeof financialTransactions.$inferSelect;
+export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
+
+export type TreatmentPlan = typeof treatmentPlans.$inferSelect;
+export type InsertTreatmentPlan = z.infer<typeof insertTreatmentPlanSchema>;
+
+export type TreatmentPlanProcedure = typeof treatmentPlanProcedures.$inferSelect;
+export type InsertTreatmentPlanProcedure = z.infer<typeof insertTreatmentPlanProcedureSchema>;
+
 // Configurações Fiscais
 export const fiscalSettings = pgTable("fiscal_settings", {
   id: serial("id").primaryKey(),
