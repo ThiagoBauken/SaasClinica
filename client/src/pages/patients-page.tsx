@@ -534,49 +534,62 @@ export default function PatientsPage() {
         </div>
         
         <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex items-center bg-muted/40 rounded-md">
-            <div className="px-3 py-1.5 text-sm font-medium">Última consulta:</div>
-            <Button 
-              variant={lastVisitFilter === "all" ? "default" : "ghost"} 
-              size="sm" 
-              onClick={() => setLastVisitFilter("all")} 
-              className="rounded-none h-8"
-            >
-              Todos
-            </Button>
-            <Button 
-              variant={lastVisitFilter === "month-1" ? "default" : "ghost"} 
-              size="sm" 
-              onClick={() => setLastVisitFilter("month-1")} 
-              className="rounded-none h-8"
-            >
-              +1 mês
-            </Button>
-            <Button 
-              variant={lastVisitFilter === "month-3" ? "default" : "ghost"} 
-              size="sm" 
-              onClick={() => setLastVisitFilter("month-3")} 
-              className="rounded-none h-8"
-            >
-              +3 meses
-            </Button>
-            <Button 
-              variant={lastVisitFilter === "month-6" ? "default" : "ghost"} 
-              size="sm" 
-              onClick={() => setLastVisitFilter("month-6")} 
-              className="rounded-none h-8"
-            >
-              +6 meses
-            </Button>
-            <Button 
-              variant={lastVisitFilter === "year-1" ? "default" : "ghost"} 
-              size="sm" 
-              onClick={() => setLastVisitFilter("year-1")} 
-              className="rounded-none h-8"
-            >
-              +1 ano
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <span className="text-sm font-medium mr-2">Última consulta:</span>
+                <span className="text-sm">{getFilterLabel(lastVisitFilter)}</span>
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem 
+                onClick={() => setLastVisitFilter("all")}
+                className={lastVisitFilter === "all" ? "bg-accent" : ""}
+              >
+                <span className="flex-1">Todos</span>
+                {lastVisitFilter === "all" && (
+                  <div className="w-2 h-2 bg-primary rounded-full ml-2" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setLastVisitFilter("month-1")}
+                className={lastVisitFilter === "month-1" ? "bg-accent" : ""}
+              >
+                <span className="flex-1">+1 mês sem consulta</span>
+                {lastVisitFilter === "month-1" && (
+                  <div className="w-2 h-2 bg-primary rounded-full ml-2" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setLastVisitFilter("month-3")}
+                className={lastVisitFilter === "month-3" ? "bg-accent" : ""}
+              >
+                <span className="flex-1">+3 meses sem consulta</span>
+                {lastVisitFilter === "month-3" && (
+                  <div className="w-2 h-2 bg-primary rounded-full ml-2" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setLastVisitFilter("month-6")}
+                className={lastVisitFilter === "month-6" ? "bg-accent" : ""}
+              >
+                <span className="flex-1">+6 meses sem consulta</span>
+                {lastVisitFilter === "month-6" && (
+                  <div className="w-2 h-2 bg-primary rounded-full ml-2" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setLastVisitFilter("year-1")}
+                className={lastVisitFilter === "year-1" ? "bg-accent" : ""}
+              >
+                <span className="flex-1">+1 ano sem consulta</span>
+                {lastVisitFilter === "year-1" && (
+                  <div className="w-2 h-2 bg-primary rounded-full ml-2" />
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
         <div className="flex gap-2">
