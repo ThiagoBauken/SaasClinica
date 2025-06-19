@@ -1327,52 +1327,62 @@ export class DatabaseStorage implements IStorage {
     }
   }
   // Prosthesis Labels Methods
-  async getProsthesisLabels(companyId: number): Promise<any[]> {
+  async getProsthesisLabels(companyId: number): Promise<ProsthesisLabel[]> {
     try {
-      const result = await pool.query(`
-        SELECT * FROM prosthesis_labels 
-        WHERE company_id = $1 AND active = true 
-        ORDER BY name
-      `, [companyId]);
+      const result = await db
+        .select()
+        .from(prosthesisLabels)
+        .where(and(
+          eq(prosthesisLabels.companyId, companyId),
+          eq(prosthesisLabels.active, true)
+        ))
+        .orderBy(prosthesisLabels.name);
       
-      return result.rows || [];
+      return result;
     } catch (error) {
       console.error('Erro ao buscar etiquetas:', error);
-      // Return default labels if table doesn't exist yet
-      return [
-        { id: 1, name: "urgente", color: "#ef4444", companyId },
-        { id: 2, name: "retrabalho", color: "#f97316", companyId },
-        { id: 3, name: "prioritário", color: "#eab308", companyId },
-        { id: 4, name: "complexo", color: "#8b5cf6", companyId }
-      ];
+      return [];
     }
   }
 
-  async createProsthesisLabel(data: any): Promise<any> {
+  async createProsthesisLabel(data: any): Promise<ProsthesisLabel> {
     try {
-      const result = await pool.query(`
-        INSERT INTO prosthesis_labels (company_id, name, color, active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, NOW(), NOW())
-        RETURNING *
-      `, [data.companyId, data.name, data.color, data.active ?? true]);
+      const [result] = await db
+        .insert(prosthesisLabels)
+        .values({
+          companyId: data.companyId,
+          name: data.name,
+          color: data.color,
+          description: data.description,
+          active: data.active ?? true
+        })
+        .returning();
       
-      return result.rows[0];
+      return result;
     } catch (error) {
       console.error('Erro ao criar etiqueta:', error);
       throw error;
     }
   }
 
-  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> {
+  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<ProsthesisLabel> {
     try {
-      const result = await pool.query(`
-        UPDATE prosthesis_labels 
-        SET name = $1, color = $2, active = $3, updated_at = NOW()
-        WHERE id = $4 AND company_id = $5
-        RETURNING *
-      `, [data.name, data.color, data.active, id, companyId]);
+      const [result] = await db
+        .update(prosthesisLabels)
+        .set({
+          name: data.name,
+          color: data.color,
+          description: data.description,
+          active: data.active,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(prosthesisLabels.id, id),
+          eq(prosthesisLabels.companyId, companyId)
+        ))
+        .returning();
       
-      return result.rows[0];
+      return result;
     } catch (error) {
       console.error('Erro ao atualizar etiqueta:', error);
       throw error;
@@ -1381,13 +1391,18 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
     try {
-      const result = await pool.query(`
-        UPDATE prosthesis_labels 
-        SET active = false, updated_at = NOW()
-        WHERE id = $1 AND company_id = $2
-      `, [id, companyId]);
+      const result = await db
+        .update(prosthesisLabels)
+        .set({
+          active: false,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(prosthesisLabels.id, id),
+          eq(prosthesisLabels.companyId, companyId)
+        ));
       
-      return (result.rowCount || 0) > 0;
+      return true;
     } catch (error) {
       console.error('Erro ao deletar etiqueta:', error);
       throw error;
