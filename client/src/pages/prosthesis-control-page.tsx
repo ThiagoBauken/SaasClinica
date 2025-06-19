@@ -468,16 +468,11 @@ export default function ProsthesisControlPage() {
 
         // Aplicar filtros
         if (filters.delayedServices) {
-          // Mostrar apenas serviços atrasados em todas as colunas
+          // Filtrar apenas serviços atrasados (data de retorno esperada já passou)
           const now = new Date();
-          Object.keys(updatedColumns).forEach(key => {
-            updatedColumns[key as keyof typeof updatedColumns].items = 
-              updatedColumns[key as keyof typeof updatedColumns].items.filter((p: any) => 
-                p.expectedReturnDate && 
-                isAfter(now, parseISO(p.expectedReturnDate)) && 
-                !p.returnDate
-              );
-          });
+          updatedColumns.sent.items = updatedColumns.sent.items.filter((p: any) => 
+            p.expectedReturnDate && isAfter(now, parseISO(p.expectedReturnDate)) && !p.returnDate
+          );
         }
         
         if (filters.returnedServices) {
@@ -593,7 +588,11 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      // Removido toast automático - operação silenciosa
+      
+      toast({
+        title: "Sucesso",
+        description: "Prótese excluída com sucesso!",
+      });
     },
     onError: (error: Error) => {
       console.error("Erro detalhado ao excluir prótese:", error);
@@ -642,8 +641,7 @@ export default function ProsthesisControlPage() {
       return response.json();
     },
     onSuccess: () => {
-      // Não invalidar queries imediatamente para evitar rollback visual
-      // queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
     },
     onError: (error: Error) => {
       console.error("Erro ao atualizar status:", error);
@@ -666,7 +664,11 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      // Removido toast automático - operação silenciosa
+      
+      toast({
+        title: "Prótese arquivada",
+        description: "A prótese foi arquivada com sucesso",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -688,7 +690,11 @@ export default function ProsthesisControlPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
-      // Removido toast automático - operação silenciosa
+      
+      toast({
+        title: "Prótese desarquivada",
+        description: "A prótese foi retornada para concluído",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -980,103 +986,53 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop otimizado com atualização local imediata
+  // Handler para drag and drop otimizado
   const onDragEnd = (result: any) => {
     const { source, destination, draggableId } = result;
     
     // Finalizar drag
     setIsDragging(false);
     
-    // Se não há destino ou se o destino é o mesmo que a origem na mesma posição
+    // Validação básica
     if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
+        (source.droppableId === destination.droppableId && source.index === destination.index)) {
       return;
     }
     
-    // Encontrar o item arrastado
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const allItems = Object.values(columns).flatMap(column => column.items);
-    const draggedItem = allItems.find(item => item.id === prosthesisId);
     
-    if (!draggedItem) return;
+    // Movimento dentro da mesma coluna - reordenação
+    if (source.droppableId === destination.droppableId) {
+      executeDropSameColumn(result);
+      return;
+    }
     
-    // PASSO 1: Atualizar estado local IMEDIATAMENTE (sem requestAnimationFrame)
-    const newColumns = { ...columns };
+    // Movimento entre colunas diferentes - atualizar status diretamente no backend
+    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
     
-    // Clonar arrays das colunas afetadas para evitar mutação
-    const sourceColumnItems = [...newColumns[source.droppableId as keyof typeof newColumns].items];
-    const destColumnItems = source.droppableId === destination.droppableId 
-      ? sourceColumnItems 
-      : [...newColumns[destination.droppableId as keyof typeof newColumns].items];
-    
-    // Remover da origem
-    const draggedItemIndex = sourceColumnItems.findIndex(item => item.id === prosthesisId);
-    const [movedItem] = sourceColumnItems.splice(draggedItemIndex, 1);
-    
-    // Criar item atualizado com novo status
-    const updatedItem = { 
-      ...movedItem,
-      status: destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived'
+    let updateData: any = {
+      id: prosthesisId,
+      status: targetStatus
     };
     
-    // Aplicar lógica específica de transição
-    if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
-      updatedItem.sentDate = format(new Date(), "yyyy-MM-dd");
+    // Aplicar lógica específica por transição
+    if (targetStatus === 'sent' && source.droppableId === 'pending') {
+      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
     } 
-    else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
-      updatedItem.returnDate = format(new Date(), "yyyy-MM-dd");
+    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
+      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
     }
     
-    // Adicionar no destino
-    destColumnItems.splice(destination.index, 0, updatedItem);
-    
-    // Atualizar as colunas com os novos arrays
-    newColumns[source.droppableId as keyof typeof newColumns] = {
-      ...newColumns[source.droppableId as keyof typeof newColumns],
-      items: sourceColumnItems
-    };
-    
-    if (source.droppableId !== destination.droppableId) {
-      newColumns[destination.droppableId as keyof typeof newColumns] = {
-        ...newColumns[destination.droppableId as keyof typeof newColumns],
-        items: destColumnItems
-      };
-    }
-    
-    // PASSO 2: Atualizar estado SÍNCRONAMENTE
-    setColumns(newColumns);
-    
-    // PASSO 3: Fazer chamada para API de forma assíncrona (após UI atualizada) - SEM NOTIFICAÇÕES
-    setTimeout(() => {
-      if (destination.droppableId === 'sent' && source.droppableId === 'pending') {
-        updateStatusMutation.mutate({ 
-          id: prosthesisId, 
-          status: 'sent',
-          returnDate: undefined
-        });
-      } 
-      else if (destination.droppableId === 'returned' && source.droppableId === 'sent') {
-        updateStatusMutation.mutate({ 
-          id: prosthesisId, 
-          status: 'returned',
-          returnDate: format(new Date(), "yyyy-MM-dd")
+    // Executar atualização sem notificação automática
+    updateStatusMutation.mutate(updateData, {
+      onError: () => {
+        toast({
+          title: "Erro",
+          description: "Falha ao atualizar status da prótese",
+          variant: "destructive",
         });
       }
-      else if (destination.droppableId === 'completed') {
-        updateStatusMutation.mutate({ 
-          id: prosthesisId, 
-          status: 'completed'
-        });
-      }
-      else {
-        // Para outras transições
-        updateStatusMutation.mutate({ 
-          id: prosthesisId, 
-          status: destination.droppableId
-        });
-      }
-    }, 0);
+    });
   };
   
   // Handlers para os filtros
@@ -1408,7 +1364,7 @@ export default function ProsthesisControlPage() {
                         {...provided.droppableProps}
                         ref={provided.innerRef}
                         className={cn(
-                          "p-2 flex-1 transition-all duration-200 flex flex-col relative",
+                          "p-2 flex-1 transition-all duration-200 flex flex-col",
                           snapshot.isDraggingOver && "bg-primary/5 border-2 border-primary/20 rounded-lg"
                         )}
                         style={{ 
@@ -1417,50 +1373,6 @@ export default function ProsthesisControlPage() {
                           overflow: "hidden"
                         }}
                       >
-                        {/* Barra de controle de posicionamento durante drag */}
-                        {isDragging && snapshot.isDraggingOver && (
-                          <div className="absolute top-2 left-2 right-2 bg-background/95 backdrop-blur border rounded-md p-2 z-30 shadow-lg">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                size="sm"
-                                variant={defaultDropPosition === 'start' ? 'default' : 'outline'}
-                                className="text-xs px-2 py-1 h-7"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDefaultDropPosition('start');
-                                }}
-                              >
-                                Início
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={defaultDropPosition === 'exact' ? 'default' : 'outline'}
-                                className="text-xs px-2 py-1 h-7"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDefaultDropPosition('exact');
-                                }}
-                              >
-                                Posição Exata
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={defaultDropPosition === 'end' ? 'default' : 'outline'}
-                                className="text-xs px-2 py-1 h-7"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDefaultDropPosition('end');
-                                }}
-                              >
-                                Final
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        
                         <div className="flex-1 flex flex-col overflow-hidden">
                           <div 
                             className="flex-shrink-0 overflow-y-auto max-h-full space-y-2 kanban-column" 
