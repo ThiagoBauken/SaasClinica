@@ -371,6 +371,10 @@ export default function ProsthesisControlPage() {
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [laboratorySearchOpen, setLaboratorySearchOpen] = useState(false);
   
+  // Estados para configurações de posicionamento
+  const [showPositionOptions, setShowPositionOptions] = useState(false);
+  const [defaultDropPosition, setDefaultDropPosition] = useState<'start' | 'exact' | 'end'>('exact');
+  
   // Estados para controle robusto do drag-and-drop
   const [isDragging, setIsDragging] = useState(false);
 
@@ -594,10 +598,6 @@ export default function ProsthesisControlPage() {
   
   // Estado para controle de debouncing
   const [isUpdating, setIsUpdating] = useState(false);
-  
-  // Estado para controle de posicionamento no drop
-  const [showPositionOptions, setShowPositionOptions] = useState(false);
-  const [defaultDropPosition, setDefaultDropPosition] = useState<'start' | 'exact' | 'end'>('exact');
   
   // Mutation para atualizar status com posicionamento
   const updateStatusMutation = useMutation({
@@ -1051,10 +1051,10 @@ export default function ProsthesisControlPage() {
   // Função auxiliar para verificar status atrasado
   const isDelayed = (item: Prosthesis) => {
     // Para status 'sent' - verifica atraso na data esperada de retorno
-    if (item.status === 'sent' && item.expectedReturnDate && !item.returnDate) {
+    if (item.status === 'sent' && item.expectedReturnDate) {
       return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
-    // Para status 'returned' - verifica atraso na data esperada de retorno
+    // Para status 'returned' - verifica atraso na data esperada de retorno  
     if (item.status === 'returned' && item.expectedReturnDate && !item.returnDate) {
       return isAfter(new Date(), parseISO(item.expectedReturnDate));
     }
