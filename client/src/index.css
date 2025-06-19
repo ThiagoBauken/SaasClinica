@@ -41,16 +41,6 @@
   --chart-5: 4 90% 58%;
 }
 
-/* Remove scrollbars from Kanban columns */
-.kanban-column::-webkit-scrollbar {
-  display: none;
-}
-
-.kanban-column {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 .dark {
   --background: 220 14% 10%;
   --foreground: 220 10% 90%;

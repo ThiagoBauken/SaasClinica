@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -433,34 +433,34 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
+    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
+    if (isDragging) {
+      console.log('Bloqueando atualização das colunas - drag em andamento');
+      return;
+    }
     
     if (prosthesisQuery.data) {
       try {
         const updatedColumns = {
           pending: {
-            id: "pending",
-            title: "Pré-laboratório",
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending')
+            ...columns.pending,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'pending').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           sent: {
-            id: "sent",
-            title: "Envio",
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent')
+            ...columns.sent,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'sent').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           returned: {
-            id: "returned",
-            title: "Laboratório",
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned')
+            ...columns.returned,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'returned').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           completed: {
-            id: "completed",
-            title: "Realizado",
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed')
+            ...columns.completed,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'completed').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           },
           archived: {
-            id: "archived",
-            title: "Arquivado",
-            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived')
+            ...columns.archived,
+            items: prosthesisQuery.data.filter((p: any) => p.status === 'archived').sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
           }
         };
         
@@ -556,7 +556,10 @@ export default function ProsthesisControlPage() {
       setSelectedLabels([]);
       setSentDate(undefined);
       setExpectedReturnDate(undefined);
-      // Removido toast automático - só mostrar em caso de erro
+      toast({
+        title: "Prótese salva",
+        description: "Dados salvos com sucesso!",
+      });
     },
     onError: (error: Error) => {
       console.error('Erro na mutation:', error);
@@ -763,10 +766,6 @@ export default function ProsthesisControlPage() {
         }
       }
       
-      // Processar preço (converter para centavos)
-      const priceValue = formData.get("price") as string;
-      const priceInCents = priceValue ? Math.round(parseFloat(priceValue) * 100) : 0;
-      
       // Preparar dados da prótese
       const prosthesisData: any = {
         patientId: parseInt(selectedPatient || formData.get("patient") as string),
@@ -777,7 +776,6 @@ export default function ProsthesisControlPage() {
         sentDate: sentDateFormatted,
         expectedReturnDate: expectedReturnDateFormatted,
         observations: formData.get("observations") as string || null,
-        price: priceInCents,
         // Se estiver editando, manter status atual; se criando nova, sempre 'pending'
         status: editingProsthesis ? editingProsthesis.status : 'pending',
         labels: selectedLabels || [],
@@ -986,53 +984,36 @@ export default function ProsthesisControlPage() {
     });
   };
 
-  // Handler para drag and drop otimizado
+  // Handler para drag and drop com opções de posicionamento
   const onDragEnd = (result: any) => {
-    const { source, destination, draggableId } = result;
+    console.log('onDragEnd iniciado - finalizando drag');
     
-    // Finalizar drag
+    // Limpar throttle anterior se existir
+    if (dragThrottleRef.current) {
+      clearTimeout(dragThrottleRef.current);
+    }
+    
+    // Finalizar drag imediatamente para liberar interface
     setIsDragging(false);
     
-    // Validação básica
+    const { source, destination, draggableId } = result;
+    
+    // Validar resultado do drag
     if (!destination || 
-        (source.droppableId === destination.droppableId && source.index === destination.index)) {
+        (source.droppableId === destination.droppableId && 
+         source.index === destination.index)) {
+      console.log('Drag cancelado - sem mudança de posição');
       return;
     }
     
-    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    
-    // Movimento dentro da mesma coluna - reordenação
+    // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
     if (source.droppableId === destination.droppableId) {
       executeDropSameColumn(result);
       return;
     }
     
-    // Movimento entre colunas diferentes - atualizar status diretamente no backend
-    const targetStatus = destination.droppableId as 'pending' | 'sent' | 'returned' | 'completed' | 'archived';
-    
-    let updateData: any = {
-      id: prosthesisId,
-      status: targetStatus
-    };
-    
-    // Aplicar lógica específica por transição
-    if (targetStatus === 'sent' && source.droppableId === 'pending') {
-      updateData.sentDate = format(new Date(), "yyyy-MM-dd");
-    } 
-    else if (targetStatus === 'returned' && source.droppableId === 'sent') {
-      updateData.returnDate = format(new Date(), "yyyy-MM-dd");
-    }
-    
-    // Executar atualização sem notificação automática
-    updateStatusMutation.mutate(updateData, {
-      onError: () => {
-        toast({
-          title: "Erro",
-          description: "Falha ao atualizar status da prótese",
-          variant: "destructive",
-        });
-      }
-    });
+    // Executar drop usando a configuração padrão de posicionamento
+    executeDrop(result, defaultDropPosition);
   };
   
   // Handlers para os filtros
@@ -1374,12 +1355,7 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div 
-                            className="flex-shrink-0 overflow-y-auto max-h-full space-y-2 kanban-column" 
-                            style={{ 
-                              minHeight: '200px'
-                            }}
-                          >
+                          <div className="flex-shrink-0 overflow-y-auto max-h-full space-y-2" style={{ minHeight: '200px' }}>
                             {column.items.map((item, index) => (
                               <Draggable 
                                 key={`prosthesis-${item.id}`} 
@@ -2018,19 +1994,6 @@ export default function ProsthesisControlPage() {
                     name="observations"
                     defaultValue={editingProsthesis?.observations || ""}
                     placeholder="Observações adicionais"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="price">Preço (opcional)</Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={editingProsthesis?.price ? (editingProsthesis.price / 100).toFixed(2) : ""}
-                    placeholder="0.00"
                   />
                 </div>
 
