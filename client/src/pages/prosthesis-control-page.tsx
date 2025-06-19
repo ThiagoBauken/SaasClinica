@@ -1299,7 +1299,7 @@ export default function ProsthesisControlPage() {
                         }}
                       >
                         <div className="flex-1 flex flex-col overflow-hidden">
-                          <div className="space-y-2 flex-shrink-0 overflow-y-auto max-h-full">
+                          <div className="space-y-2 flex-1 overflow-y-auto">
                             {column.items.map((item, index) => (
                               <Draggable 
                               key={`prosthesis-${item.id}`} 
