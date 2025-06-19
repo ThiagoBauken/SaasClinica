@@ -264,6 +264,17 @@ export default function ProsthesisControlPage() {
     }
   });
 
+  // Query para buscar etiquetas do banco
+  const { data: labelsFromDB = [], isLoading: isLoadingLabels, refetch: refetchLabels } = useQuery({
+    queryKey: ["/api/prosthesis-labels"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/prosthesis-labels");
+      if (!res.ok) throw new Error("Falha ao carregar etiquetas");
+      const data = await res.json();
+      return data.length > 0 ? data : defaultLabels;
+    }
+  });
+
   // Estados para laboratórios
   const [newLabName, setNewLabName] = useState("");
   const [newLabWhatsapp, setNewLabWhatsapp] = useState("");
@@ -326,6 +337,39 @@ export default function ProsthesisControlPage() {
       toast({ title: "Erro ao remover laboratório", description: error.message, variant: "destructive" });
     }
   });
+
+  // Mutations para etiquetas
+  const createLabelMutation = useMutation({
+    mutationFn: async (data: { name: string; color: string }) => {
+      const res = await apiRequest("POST", "/api/prosthesis-labels", data);
+      if (!res.ok) throw new Error("Falha ao criar etiqueta");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLabels();
+      setNewLabelName("");
+      setNewLabelColor("#16a34a");
+      toast({ title: "Etiqueta criada com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar etiqueta", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteLabelMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/prosthesis-labels/${id}`);
+      if (!res.ok) throw new Error("Falha ao deletar etiqueta");
+      return res.status === 204 ? { success: true } : res.json();
+    },
+    onSuccess: () => {
+      refetchLabels();
+      toast({ title: "Etiqueta removida com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover etiqueta", description: error.message, variant: "destructive" });
+    }
+  });
   const [columns, setColumns] = useState<Record<string, StatusColumn>>({
     pending: {
       id: "pending",
@@ -363,10 +407,12 @@ export default function ProsthesisControlPage() {
   const [editingProsthesis, setEditingProsthesis] = useState<Prosthesis | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [prosthesisToDelete, setProsthesisToDelete] = useState<Prosthesis | null>(null);
-  const [labels, setLabels] = useState<ProsthesisLabel[]>(defaultLabels);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  
+  // Usar etiquetas do banco ou padrão se vazio
+  const labels = labelsFromDB.length > 0 ? labelsFromDB : defaultLabels;
   const [showArchivedColumn, setShowArchivedColumn] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<string>("");
   const [selectedLaboratory, setSelectedLaboratory] = useState<string>("");
