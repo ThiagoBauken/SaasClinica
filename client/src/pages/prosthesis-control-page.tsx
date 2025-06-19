@@ -82,6 +82,8 @@ interface Prosthesis {
   status: 'pending' | 'sent' | 'returned' | 'completed' | 'canceled' | 'archived';
   observations: string | null;
   labels: string[];
+  price: number;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string | null;
 }

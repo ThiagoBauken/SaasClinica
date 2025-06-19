@@ -1328,33 +1328,34 @@ export class DatabaseStorage implements IStorage {
   // Prosthesis Labels Methods
   async getProsthesisLabels(companyId: number): Promise<any[]> {
     try {
-      // For development, return mock labels until table is created
+      const result = await pool.query(`
+        SELECT * FROM prosthesis_labels 
+        WHERE company_id = $1 AND active = true 
+        ORDER BY name
+      `, [companyId]);
+      
+      return result.rows || [];
+    } catch (error) {
+      console.error('Erro ao buscar etiquetas:', error);
+      // Return default labels if table doesn't exist yet
       return [
         { id: 1, name: "urgente", color: "#ef4444", companyId },
         { id: 2, name: "retrabalho", color: "#f97316", companyId },
         { id: 3, name: "prioritário", color: "#eab308", companyId },
         { id: 4, name: "complexo", color: "#8b5cf6", companyId }
       ];
-    } catch (error) {
-      console.error('Erro ao buscar etiquetas:', error);
-      throw error;
     }
   }
 
   async createProsthesisLabel(data: any): Promise<any> {
     try {
-      // Mock implementation for development
-      const newLabel = {
-        id: Date.now(),
-        companyId: data.companyId,
-        name: data.name,
-        color: data.color,
-        active: data.active ?? true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      const result = await db.raw(`
+        INSERT INTO prosthesis_labels (company_id, name, color, active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, NOW(), NOW())
+        RETURNING *
+      `, [data.companyId, data.name, data.color, data.active ?? true]);
       
-      return newLabel;
+      return result.rows[0];
     } catch (error) {
       console.error('Erro ao criar etiqueta:', error);
       throw error;
@@ -1363,17 +1364,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> {
     try {
-      // Mock implementation for development
-      const updatedLabel = {
-        id,
-        companyId,
-        name: data.name,
-        color: data.color,
-        active: data.active,
-        updatedAt: new Date()
-      };
+      const result = await db.raw(`
+        UPDATE prosthesis_labels 
+        SET name = ?, color = ?, active = ?, updated_at = NOW()
+        WHERE id = ? AND company_id = ?
+        RETURNING *
+      `, [data.name, data.color, data.active, id, companyId]);
       
-      return updatedLabel;
+      return result.rows[0];
     } catch (error) {
       console.error('Erro ao atualizar etiqueta:', error);
       throw error;
@@ -1382,8 +1380,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
     try {
-      // Mock implementation for development
-      return true;
+      const result = await db.raw(`
+        UPDATE prosthesis_labels 
+        SET active = false, updated_at = NOW()
+        WHERE id = ? AND company_id = ?
+      `, [id, companyId]);
+      
+      return result.rowCount > 0;
     } catch (error) {
       console.error('Erro ao deletar etiqueta:', error);
       throw error;
