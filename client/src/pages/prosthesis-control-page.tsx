@@ -885,7 +885,7 @@ export default function ProsthesisControlPage() {
                         'na posição escolhida';
     toastMessage += ` (${positionText})`;
     
-    // Executar atualização no backend
+    // Executar atualização no backend sem invalidar queries imediatamente
     updateStatusMutation.mutate(updateData, {
       onSuccess: () => {
         if (toastMessage) {
@@ -894,8 +894,14 @@ export default function ProsthesisControlPage() {
             description: toastMessage,
           });
         }
+        // Invalidar apenas após sucesso para garantir sincronização
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
+        }, 500);
       },
       onError: () => {
+        // Em caso de erro, reverter a atualização otimística
+        queryClient.invalidateQueries({ queryKey: ["/api/prosthesis"] });
         toast({
           title: "Erro",
           description: "Falha ao atualizar status da prótese",
@@ -903,6 +909,37 @@ export default function ProsthesisControlPage() {
         });
       }
     });
+  };
+
+  // Função para atualização otimística das colunas durante o drag
+  const updateColumnsOptimistically = (result: any) => {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+
+    const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
+    const draggedItem = Object.values(columns)
+      .flatMap(col => col.items)
+      .find(item => item.id === prosthesisId);
+    
+    if (!draggedItem) return;
+
+    const newColumns = { ...columns };
+    
+    // Remover item da coluna de origem
+    newColumns[source.droppableId].items = newColumns[source.droppableId].items.filter(
+      item => item.id !== prosthesisId
+    );
+    
+    // Adicionar item na posição correta da coluna de destino
+    const destinationItems = [...newColumns[destination.droppableId].items];
+    destinationItems.splice(destination.index, 0, {
+      ...draggedItem,
+      status: destination.droppableId as any
+    });
+    
+    newColumns[destination.droppableId].items = destinationItems;
+    
+    setColumns(newColumns);
   };
 
   // Handler para drag and drop com opções de posicionamento
@@ -926,6 +963,9 @@ export default function ProsthesisControlPage() {
       console.log('Drag cancelado - sem mudança de posição');
       return;
     }
+    
+    // Atualizar colunas otimisticamente primeiro
+    updateColumnsOptimistically(result);
     
     // Se está movendo dentro da mesma coluna, executa diretamente na posição exata
     if (source.droppableId === destination.droppableId) {
