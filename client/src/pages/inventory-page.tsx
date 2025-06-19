@@ -1194,16 +1194,46 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 <Label>Cor</Label>
                 <div className="flex flex-wrap gap-2">
-                  {["#dc2626", "#ea580c", "#16a34a", "#2563eb", "#9333ea", "#eab308"].map((color) => (
+                  {[
+                    "#dc2626", // Red
+                    "#ea580c", // Orange  
+                    "#ca8a04", // Yellow
+                    "#16a34a", // Green
+                    "#059669", // Emerald
+                    "#0891b2", // Cyan
+                    "#2563eb", // Blue
+                    "#7c3aed", // Violet
+                    "#9333ea", // Purple
+                    "#c2410c", // Orange Red
+                    "#be123c", // Rose
+                    "#7c2d12", // Brown
+                    "#374151", // Gray
+                    "#1f2937", // Dark Gray
+                    "#0f172a", // Slate
+                    "#ec4899"  // Pink
+                  ].map((color) => (
                     <div 
                       key={color}
-                      className={`w-8 h-8 rounded-full cursor-pointer transition-all ${
-                        newCategoryColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
+                      className={`w-8 h-8 rounded-full cursor-pointer transition-all border-2 ${
+                        newCategoryColor === color ? 'ring-2 ring-offset-2 ring-primary border-primary' : 'border-gray-300 hover:border-gray-400'
                       }`}
                       style={{ backgroundColor: color }}
                       onClick={() => setNewCategoryColor(color)}
                     />
                   ))}
+                </div>
+                <div className="mt-2">
+                  <Label htmlFor="customColor" className="text-sm">Cor personalizada</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      id="customColor"
+                      type="color"
+                      value={newCategoryColor}
+                      onChange={(e) => setNewCategoryColor(e.target.value)}
+                      className="w-10 h-8 rounded border cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-600">{newCategoryColor}</span>
+                  </div>
                 </div>
               </div>
               
