@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow, differenceInDays, differenceInMonths, differenceInYears, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Phone, Mail, Calendar, ChevronRight, Clock } from "lucide-react";
+import { Phone, Mail, Calendar, ChevronRight, Clock, FileText } from "lucide-react";
+import { Link } from "wouter";
 
 // Função para formatar o tempo desde a última consulta
 function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: string; color: string; needsAttention: boolean } {
@@ -158,14 +159,26 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="px-1.5"
-                    onClick={() => onPatientClick(patient)}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Link href={`/patients/${patient.id}/record`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3"
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Ficha
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-1.5"
+                      onClick={() => onPatientClick(patient)}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
