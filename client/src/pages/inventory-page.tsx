@@ -580,6 +580,23 @@ export default function InventoryPage() {
     return matchesSearch && matchesCategory && matchesLowStock;
   }) : [];
 
+  // Filter standard products based on search and category
+  const getFilteredStandardProducts = () => {
+    if (!standardProducts || standardProducts.length === 0) return [];
+    
+    return standardProducts.filter(product => {
+      const matchesSearch = !productSearchTerm || 
+        product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.description.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.brand.toLowerCase().includes(productSearchTerm.toLowerCase());
+      
+      const matchesCategory = selectedProductCategory === "all" || 
+        product.categoryId.toString() === selectedProductCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  };
+
   // Verificar se o produto está próximo da validade (30 dias)
   const isExpiringProduct = (expiryDate: string | Date | null): boolean => {
     if (!expiryDate) return false;
