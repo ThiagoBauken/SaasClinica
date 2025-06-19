@@ -1,6 +1,6 @@
 import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, gte, lt, count, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lt, count, sql, desc, inArray } from "drizzle-orm";
 
 // Data structure for transaction objects
 interface Transaction {
@@ -1666,7 +1666,7 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(standardDentalProducts)
         .where(and(
-          sql`${standardDentalProducts.id} = ANY(${productIds})`,
+          inArray(standardDentalProducts.id, productIds),
           eq(standardDentalProducts.active, true)
         ));
 
