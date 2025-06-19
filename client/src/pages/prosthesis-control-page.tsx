@@ -1664,17 +1664,13 @@ export default function ProsthesisControlPage() {
                                 if (!patientSearchTerm) return true;
                                 
                                 const searchTerm = patientSearchTerm.toLowerCase();
-                                const patientName = patient.fullName.toLowerCase();
-                                let searchIndex = 0;
+                                const patientFullName = patient.fullName.toLowerCase();
                                 
-                                // Busca sequencial: verifica se as letras aparecem na ordem correta
-                                for (let i = 0; i < patientName.length && searchIndex < searchTerm.length; i++) {
-                                  if (patientName[i] === searchTerm[searchIndex]) {
-                                    searchIndex++;
-                                  }
-                                }
+                                // Dividir o nome completo em palavras (nome e sobrenomes)
+                                const nameWords = patientFullName.split(' ');
                                 
-                                return searchIndex === searchTerm.length;
+                                // Verificar se o termo de busca corresponde ao início de qualquer palavra
+                                return nameWords.some(word => word.startsWith(searchTerm));
                               })
                               .map((patient: any) => (
                               <CommandItem
