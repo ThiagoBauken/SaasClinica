@@ -434,12 +434,6 @@ export default function ProsthesisControlPage() {
   
   // Organizar próteses em colunas quando os dados estiverem disponíveis
   useEffect(() => {
-    // BLOQUEIO CRÍTICO: Se estiver arrastando, NÃO atualizar colunas
-    if (isDragging) {
-      console.log('Bloqueando atualização das colunas - drag em andamento');
-      return;
-    }
-    
     if (prosthesis) {
       try {
         const updatedColumns = {
@@ -917,27 +911,36 @@ export default function ProsthesisControlPage() {
     if (!destination) return;
 
     const prosthesisId = parseInt(draggableId.replace('prosthesis-', ''));
-    const draggedItem = Object.values(columns)
-      .flatMap(col => col.items)
-      .find(item => item.id === prosthesisId);
     
-    if (!draggedItem) return;
-
+    // Criar nova estrutura de colunas limpa
     const newColumns = { ...columns };
     
-    // Remover item da coluna de origem
-    newColumns[source.droppableId].items = newColumns[source.droppableId].items.filter(
-      item => item.id !== prosthesisId
-    );
-    
-    // Adicionar item na posição correta da coluna de destino
-    const destinationItems = [...newColumns[destination.droppableId].items];
-    destinationItems.splice(destination.index, 0, {
-      ...draggedItem,
-      status: destination.droppableId as any
+    // Primeiro, remover o item de TODAS as colunas para evitar duplicatas
+    Object.keys(newColumns).forEach(columnId => {
+      newColumns[columnId] = {
+        ...newColumns[columnId],
+        items: newColumns[columnId].items.filter(item => item.id !== prosthesisId)
+      };
     });
     
-    newColumns[destination.droppableId].items = destinationItems;
+    // Encontrar o item original nos dados da API
+    const draggedItem = prosthesis?.find(item => item.id === prosthesisId);
+    if (!draggedItem) return;
+    
+    // Criar item atualizado com novo status
+    const updatedItem = {
+      ...draggedItem,
+      status: destination.droppableId as any
+    };
+    
+    // Inserir item na posição correta da coluna de destino
+    const destinationItems = [...newColumns[destination.droppableId].items];
+    destinationItems.splice(destination.index, 0, updatedItem);
+    
+    newColumns[destination.droppableId] = {
+      ...newColumns[destination.droppableId],
+      items: destinationItems
+    };
     
     setColumns(newColumns);
   };
@@ -1261,6 +1264,12 @@ export default function ProsthesisControlPage() {
             onDragStart={(start) => {
               console.log('Drag iniciado - bloqueando operações');
               setIsDragging(true);
+            }}
+            onDragUpdate={(update) => {
+              // Atualizar colunas em tempo real durante o arrasto para movimento fluido
+              if (update.destination && update.destination.droppableId !== update.source.droppableId) {
+                updateColumnsOptimistically(update);
+              }
             }}
             onDragEnd={onDragEnd}>
             <div className={cn(
