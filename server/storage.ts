@@ -1349,9 +1349,9 @@ export class DatabaseStorage implements IStorage {
 
   async createProsthesisLabel(data: any): Promise<any> {
     try {
-      const result = await db.raw(`
+      const result = await pool.query(`
         INSERT INTO prosthesis_labels (company_id, name, color, active, created_at, updated_at)
-        VALUES (?, ?, ?, ?, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
         RETURNING *
       `, [data.companyId, data.name, data.color, data.active ?? true]);
       
@@ -1364,10 +1364,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> {
     try {
-      const result = await db.raw(`
+      const result = await pool.query(`
         UPDATE prosthesis_labels 
-        SET name = ?, color = ?, active = ?, updated_at = NOW()
-        WHERE id = ? AND company_id = ?
+        SET name = $1, color = $2, active = $3, updated_at = NOW()
+        WHERE id = $4 AND company_id = $5
         RETURNING *
       `, [data.name, data.color, data.active, id, companyId]);
       
@@ -1380,13 +1380,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
     try {
-      const result = await db.raw(`
+      const result = await pool.query(`
         UPDATE prosthesis_labels 
         SET active = false, updated_at = NOW()
-        WHERE id = ? AND company_id = ?
+        WHERE id = $1 AND company_id = $2
       `, [id, companyId]);
       
-      return result.rowCount > 0;
+      return (result.rowCount || 0) > 0;
     } catch (error) {
       console.error('Erro ao deletar etiqueta:', error);
       throw error;
