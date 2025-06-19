@@ -420,6 +420,7 @@ export default function ProsthesisControlPage() {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#16a34a");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [isRestoringLabels, setIsRestoringLabels] = useState(false);
   
   // Usar etiquetas do banco ou padrão se vazio
   const labels = labelsFromDB.length > 0 ? labelsFromDB : defaultLabels;
@@ -455,15 +456,22 @@ export default function ProsthesisControlPage() {
 
   // Função para restaurar etiquetas padrão
   const restoreDefaultLabels = async () => {
+    setIsRestoringLabels(true);
     try {
-      // Primeiro, deletar todas as etiquetas existentes do banco
-      for (const label of labelsFromDB) {
+      // Obter lista atual de etiquetas antes de começar
+      const currentLabels = labelsFromDB || [];
+      
+      // Deletar todas as etiquetas existentes
+      for (const label of currentLabels) {
         if (label.id) {
           await deleteLabelMutation.mutateAsync(label.id);
         }
       }
       
-      // Depois, criar as etiquetas padrão no banco
+      // Aguardar um momento para garantir que as exclusões foram processadas
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Criar as etiquetas padrão uma por uma
       for (const label of defaultLabels) {
         await createLabelMutation.mutateAsync({
           name: label.name,
@@ -476,11 +484,14 @@ export default function ProsthesisControlPage() {
         description: "As etiquetas padrão foram restauradas com sucesso."
       });
     } catch (error) {
+      console.error("Erro ao restaurar etiquetas:", error);
       toast({
         title: "Erro ao restaurar etiquetas",
         description: "Ocorreu um erro ao restaurar as etiquetas padrão.",
         variant: "destructive"
       });
+    } finally {
+      setIsRestoringLabels(false);
     }
   };
   const [filters, setFilters] = useState({
@@ -1455,6 +1466,13 @@ export default function ProsthesisControlPage() {
             >
               <ArrowUpDown className="h-4 w-4 mr-2" /> Posicionamento
             </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setShowReports(true)}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" /> Relatórios
+            </Button>
           </div>
         </div>
         
@@ -2366,10 +2384,15 @@ export default function ProsthesisControlPage() {
                 type="button" 
                 variant="outline" 
                 onClick={restoreDefaultLabels}
+                disabled={isRestoringLabels}
                 className="gap-2"
               >
-                <RotateCcw className="h-4 w-4" />
-                Restaurar Padrão
+                {isRestoringLabels ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                {isRestoringLabels ? "Restaurando..." : "Restaurar Padrão"}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowLabelManager(false)}>
                 Fechar
