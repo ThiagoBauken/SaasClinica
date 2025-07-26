@@ -113,10 +113,10 @@ export default function MonthAgendaView({
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   return (
-    <div className={`calendar-month-view ${isDarkMode ? 'dark text-white' : ''}`}>
+    <div className="calendar-month-view">
       {/* Calendar header with title and controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-        <h2 className={`text-xl font-medium text-center sm:text-left w-full sm:w-auto ${isDarkMode ? 'text-white' : ''}`}>
+        <h2 className="text-xl font-medium text-center sm:text-left w-full sm:w-auto dark:text-white">
           {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
         </h2>
         
@@ -125,7 +125,7 @@ export default function MonthAgendaView({
             variant="outline" 
             onClick={prevMonth}
             size="icon"
-            className={`h-8 w-8 ${isDarkMode ? 'text-white border-gray-700' : ''}`}
+            className="h-8 w-8 dark:text-white dark:border-gray-700"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -134,7 +134,7 @@ export default function MonthAgendaView({
             variant="outline" 
             onClick={nextMonth}
             size="icon"
-            className={`h-8 w-8 ${isDarkMode ? 'text-white border-gray-700' : ''}`}
+            className="h-8 w-8 dark:text-white dark:border-gray-700"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -142,9 +142,9 @@ export default function MonthAgendaView({
       </div>
 
       {/* Calendar grid */}
-      <div className={`border rounded-lg overflow-hidden shadow-sm overflow-x-auto ${isDarkMode ? 'border-gray-700 bg-gray-800' : ''}`}>
+      <div className="border rounded-lg overflow-hidden shadow-sm overflow-x-auto dark:border-gray-700 dark:bg-gray-800">
         {/* Days of week header */}
-        <div className={`min-w-[640px] md:min-w-0 grid grid-cols-7 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50'}`}>
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 border-b bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-white">
           {weekDays.map((day, index) => (
             <div 
               key={index} 
@@ -159,7 +159,7 @@ export default function MonthAgendaView({
         </div>
 
         {/* Calendar days */}
-        <div className={`min-w-[640px] md:min-w-0 grid grid-cols-7 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 bg-white dark:bg-gray-800">
           {calendarDays.map((day, index) => {
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isCurrentDay = isToday(day);
@@ -167,18 +167,11 @@ export default function MonthAgendaView({
             const dayAppointments = getDayAppointments(day);
             const hasAppointments = dayAppointments.length > 0;
             const dayStyles = cn(
-              "min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border-b border-r p-1 relative",
-              isDarkMode && "border-gray-700",
-              !isCurrentMonth && (isDarkMode 
-                ? "bg-gray-800 text-gray-500" 
-                : "bg-gray-50 text-gray-400"),
-              isCurrentMonth && isDarkMode && "bg-gray-800 text-gray-200",
-              isCurrentDay && (isDarkMode 
-                ? "bg-blue-900/20" 
-                : "bg-blue-50"),
-              isSelected && (isDarkMode 
-                ? "ring-2 ring-inset ring-indigo-400" 
-                : "ring-2 ring-inset ring-indigo-600")
+              "min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border-b border-r p-1 relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-700",
+              !isCurrentMonth && "bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500",
+              isCurrentMonth && "dark:bg-gray-800 dark:text-gray-200",
+              isCurrentDay && "bg-blue-50 dark:bg-blue-900/20",
+              isSelected && "ring-2 ring-inset ring-indigo-600 dark:ring-indigo-400"
             );
 
             return (
@@ -248,22 +241,18 @@ export default function MonthAgendaView({
       {/* Appointment details for selected day */}
       {selectedDate && (
         <div className="mt-6">
-          <h3 className={`text-lg font-medium mb-3 text-center sm:text-left ${isDarkMode ? 'text-gray-200' : ''}`}>
+          <h3 className="text-lg font-medium mb-3 text-center sm:text-left dark:text-gray-200">
             Agendamentos para {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
           </h3>
           
           {getDayAppointments(selectedDate).length === 0 ? (
-            <p className={`text-center sm:text-left ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Não há agendamentos para este dia.</p>
+            <p className="text-center sm:text-left text-gray-500 dark:text-gray-400">Não há agendamentos para este dia.</p>
           ) : (
             <div className="space-y-2">
               {getDayAppointments(selectedDate).map((appointment, idx) => (
                 <div 
                   key={idx} 
-                  className={`p-3 border rounded-md cursor-pointer ${
-                    isDarkMode 
-                      ? 'border-gray-700 bg-gray-900 hover:bg-gray-800' 
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className="p-3 border rounded-md cursor-pointer hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
                   onClick={() => {
                     if (onAppointmentClick) onAppointmentClick(appointment);
                   }}
