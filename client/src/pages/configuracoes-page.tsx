@@ -1,6 +1,18 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Settings, 
   Building2, 
@@ -10,62 +22,71 @@ import {
   CreditCard,
   BarChart,
   Wrench,
-  ArrowRight
+  ArrowRight,
+  Save,
+  Plus,
+  Edit,
+  Trash2,
+  UserPlus,
+  Shield,
+  Clock,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Stethoscope,
+  User,
+  Calendar
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function ConfiguracoesPage() {
-  // Configuração simplificada com links para páginas específicas
-  const configCards = [
-    { 
-      title: "Dados da Clínica", 
-      icon: <Building2 className="h-8 w-8 text-primary" />,
-      description: "Configure informações básicas, endereço e horário de funcionamento da clínica", 
-      href: "/configuracoes/clinica" 
-    },
-    { 
-      title: "Nota Fiscal",
-      icon: <FileText className="h-8 w-8 text-primary" />, 
-      description: "Configure integração com sistemas de Nota Fiscal Eletrônica",
-      href: "/configuracoes/fiscal" 
-    },
-    { 
-      title: "Equipe e Permissões", 
-      icon: <Users2 className="h-8 w-8 text-primary" />,
-      description: "Gerencie profissionais, suas permissões e acessos ao sistema",
-      href: "/configuracoes/equipe" 
-    },
-    { 
-      title: "Comissões", 
-      icon: <CreditCard className="h-8 w-8 text-primary" />,
-      description: "Configure as regras de comissão para cada profissional",
-      href: "/configuracoes/comissoes" 
-    },
-    { 
-      title: "Taxas de Cartão", 
-      icon: <BarChart className="h-8 w-8 text-primary" />,
-      description: "Configure taxas de máquinas de cartão e regras de desconto",
-      href: "/configuracoes/taxas" 
-    },
-    { 
-      title: "Modelos de Documentos", 
-      icon: <Paperclip className="h-8 w-8 text-primary" />,
-      description: "Gerencie modelos de termos, laudos e documentos da clínica",
-      href: "/configuracoes/modelos" 
-    },
-    { 
-      title: "Sistema", 
-      icon: <Settings className="h-8 w-8 text-primary" />,
-      description: "Configure opções gerais, backup e integrações do sistema",
-      href: "/configuracoes/sistema" 
-    },
-    { 
-      title: "Manutenção", 
-      icon: <Wrench className="h-8 w-8 text-primary" />,
-      description: "Ferramentas de manutenção, limpeza de cache e diagnóstico",
-      href: "/configuracoes/manutencao" 
-    }
-  ];
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("clinica");
+  const [showUserDialog, setShowUserDialog] = useState(false);
+  const [showProfessionalDialog, setShowProfessionalDialog] = useState(false);
+  const [showProcedureDialog, setShowProcedureDialog] = useState(false);
+
+  // Mock data for demonstration
+  const [clinicData, setClinicData] = useState({
+    name: "DentCare Clínica Odontológica",
+    cnpj: "12.345.678/0001-90",
+    address: "Rua das Flores, 123",
+    neighborhood: "Centro",
+    city: "São Paulo",
+    state: "SP",
+    zipCode: "01234-567",
+    phone: "(11) 99999-9999",
+    email: "contato@dentcare.com.br",
+    website: "www.dentcare.com.br",
+    workingHours: "08:00 - 18:00",
+    workingDays: "Segunda a Sexta"
+  });
+
+  const [users, setUsers] = useState([
+    { id: 1, name: "Dr. João Silva", email: "joao@dentcare.com", role: "admin", specialty: "Ortodontia", active: true },
+    { id: 2, name: "Dra. Maria Santos", email: "maria@dentcare.com", role: "dentist", specialty: "Endodontia", active: true },
+    { id: 3, name: "Ana Costa", email: "ana@dentcare.com", role: "staff", specialty: "Recepção", active: true }
+  ]);
+
+  const [procedures, setProcedures] = useState([
+    { id: 1, name: "Consulta", price: 150.00, duration: 30, category: "Geral" },
+    { id: 2, name: "Limpeza", price: 120.00, duration: 45, category: "Preventiva" },
+    { id: 3, name: "Obturação", price: 200.00, duration: 60, category: "Restauradora" },
+    { id: 4, name: "Canal", price: 800.00, duration: 90, category: "Endodontia" }
+  ]);
+
+  const [rooms, setRooms] = useState([
+    { id: 1, name: "Consultório 1", type: "Geral", equipment: "Cadeira odontológica, Raio-X", active: true },
+    { id: 2, name: "Consultório 2", type: "Cirurgia", equipment: "Cadeira cirúrgica, Sugador", active: true },
+    { id: 3, name: "Sala de Raio-X", type: "Diagnóstico", equipment: "Aparelho de Raio-X digital", active: true }
+  ]);
+
+  const handleSaveClinic = () => {
+    toast({
+      title: "Dados salvos",
+      description: "As informações da clínica foram atualizadas com sucesso.",
+    });
+  };
 
   return (
     <DashboardLayout title="Configurações" currentPath="/configuracoes">
