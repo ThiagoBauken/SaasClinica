@@ -1,268 +1,310 @@
-import { useState, useMemo } from "react";
-import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Plus } from "lucide-react";
+import { AppointmentWithRelations, TimeSlot } from "@/lib/types";
+import { format, parseISO, differenceInMinutes, isBefore, isAfter } from "date-fns";
 import { cn } from "@/lib/utils";
-import { AppointmentWithRelations } from "@/lib/types";
+import { 
+  Calendar, 
+  Clock, 
+  Edit2, 
+  Check, 
+  X, 
+  AlertTriangle, 
+  MessageCircle,
+  MoreHorizontal,
+  ArrowRight
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useState, useMemo, useCallback } from "react";
 
 interface TimelineViewProps {
-  selectedDate: Date;
-  appointments?: AppointmentWithRelations[];
-  professionals: any[];
-  onAppointmentClick?: (appointment: AppointmentWithRelations) => void;
-  onNewAppointment?: (professionalId: number, time: string) => void;
-  timeInterval?: number;
-  viewMode?: "day" | "week";
+  date: Date;
+  professionals: Array<{
+    id: number;
+    fullName: string;
+    speciality?: string;
+  }>;
+  timeSlots: TimeSlot[];
+  onSlotClick: (professionalId: number, time: string) => void;
+  onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  viewType?: 'day' | 'timeline'; // Adicionar tipo de visualização
 }
 
 export default function TimelineView({
-  selectedDate,
-  appointments = [],
+  date,
   professionals,
+  timeSlots,
+  onSlotClick,
   onAppointmentClick,
-  onNewAppointment,
-  timeInterval = 30,
-  viewMode = "day"
+  viewType = 'timeline' // Valor padrão é timeline
 }: TimelineViewProps) {
-  const [hoveredSlot, setHoveredSlot] = useState<{ professionalId: number; time: string } | null>(null);
-
-  // Generate time slots based on interval
-  const generateTimeSlots = () => {
-    const slots = [];
-    const startHour = 7;
-    const endHour = 19;
-    
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += timeInterval) {
-        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        slots.push({ time });
-      }
+  const [hoveredSlot, setHoveredSlot] = useState<{profId: number, time: string} | null>(null);
+  
+  // Helper function to get appointment color class
+  const getAppointmentColorClass = (appointment: AppointmentWithRelations) => {
+    if (appointment.type === 'block') {
+      return 'bg-gray-100 border-l-4 border-gray-500 dark:bg-gray-800 dark:border-gray-600';
     }
-    return slots;
+    
+    // Default colors based on status
+    switch (appointment.status) {
+      case 'scheduled':
+        return 'bg-blue-50 border-l-4 border-blue-500 dark:bg-blue-900/20 dark:border-blue-400';
+      case 'confirmed':
+        return 'bg-green-50 border-l-4 border-green-500 dark:bg-green-900/20 dark:border-green-400';
+      case 'in_progress':
+        return 'bg-purple-50 border-l-4 border-purple-500 dark:bg-purple-900/20 dark:border-purple-400';
+      case 'completed':
+        return 'bg-indigo-50 border-l-4 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-400';
+      case 'cancelled':
+        return 'bg-red-50 border-l-4 border-red-500 dark:bg-red-900/20 dark:border-red-400';
+      case 'no_show':
+        return 'bg-gray-50 border-l-4 border-gray-500 dark:bg-gray-800 dark:border-gray-600';
+      default:
+        return 'bg-blue-50 border-l-4 border-blue-500 dark:bg-blue-900/20 dark:border-blue-400';
+    }
   };
 
-  const timeSlots = generateTimeSlots();
-
-  // Create appointment map for quick lookup
-  const appointmentsMap = useMemo(() => {
-    const map: Record<number, Record<string, AppointmentWithRelations>> = {};
-    
-    appointments.forEach(appointment => {
-      if (!appointment.professionalId) return;
-      
-      const appointmentDate = parseISO(appointment.startTime);
-      const appointmentTime = format(appointmentDate, "HH:mm");
-      
-      if (!map[appointment.professionalId]) {
-        map[appointment.professionalId] = {};
-      }
-      
-      map[appointment.professionalId][appointmentTime] = appointment;
-    });
-    
-    return map;
-  }, [appointments]);
-
-  const getAppointmentColor = (status: string): string => {
+  // Helper function to get status badge class
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200';
-      case 'scheduled': return 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200';
-      case 'in_progress': return 'bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200';
-      case 'completed': return 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200';
-      default: return 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200';
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+      case 'confirmed':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300';
+      case 'in_progress':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300';
+      case 'completed':
+        return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
+      case 'no_show':
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+      default:
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
     }
   };
 
-  const appointmentsForDay = (date: Date) => {
-    return appointments.filter(appointment => 
-      isSameDay(parseISO(appointment.startTime), date)
-    );
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'Agendado';
+      case 'confirmed': return 'Confirmado';
+      case 'in_progress': return 'Em andamento';
+      case 'completed': return 'Concluído';
+      case 'cancelled': return 'Cancelado';
+      case 'no_show': return 'Não compareceu';
+      default: return 'Agendado';
+    }
   };
 
-  if (viewMode === "week") {
-    // Week view rendering
-    return (
-      <div className="p-0">
-        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 border-b overflow-x-auto">
-          {Array.from({length: 7}).map((_, i) => {
-            const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
-            const isToday = isSameDay(day, new Date());
-            const isSelectedDay = isSameDay(day, selectedDate);
-            return (
-              <div 
-                key={i} 
-                className={cn(
-                  "border-r last:border-r-0 py-2 cursor-pointer",
-                  isToday && "bg-primary/5",
-                  isSelectedDay && "bg-blue-100/50"
-                )}
-                onClick={() => {/* Handle day click */}}
-              >
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground">{format(day, "EEE", {locale: ptBR})}</div>
-                  <div className={cn("text-base sm:text-xl font-bold", isToday && "text-primary")}>
-                    {format(day, "dd")}
-                  </div>
-                  <div className="text-xs text-muted-foreground">{format(day, "MMM", {locale: ptBR})}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        
-        <div className="min-w-[640px] md:min-w-0 grid grid-cols-7 divide-x h-[calc(100vh-300px)] overflow-auto">
-          {Array.from({length: 7}).map((_, i) => {
-            const day = addDays(startOfWeek(selectedDate, {locale: ptBR}), i);
-            const isToday = isSameDay(day, new Date());
-            const dayAppointments = appointmentsForDay(day);
-            
-            return (
-              <div 
-                key={i} 
-                className={cn("relative", isToday && "bg-primary/5")}
-              >
-                {/* Time slots */}
-                {timeSlots.map((slot, index) => (
-                  <div 
-                    key={index} 
-                    className="border-b h-12 sm:h-16 relative"
-                  >
-                    {index % 2 === 0 && (
-                      <span className="absolute -left-0 top-0 text-[10px] sm:text-xs text-muted-foreground p-1">
-                        {slot.time}
-                      </span>
-                    )}
-                  </div>
-                ))}
-                
-                {/* Appointments */}
-                {dayAppointments.map(appt => {
-                  const startTime = new Date(appt.startTime);
-                  const endTime = new Date(appt.endTime);
-                  
-                  const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-                  const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-                  
-                  // Calculate position relative to time slots
-                  const baseHeight = window.innerWidth < 640 ? 48 : 64;
-                  const startPosition = (startHour - 7) * baseHeight; 
-                  const height = duration * baseHeight;
-                  
-                  return (
-                    <div 
-                      key={appt.id}
-                      className={cn(
-                        "absolute left-0 right-0 mx-1 rounded shadow-sm border-l-4 p-1 overflow-hidden z-10 cursor-pointer",
-                        getAppointmentColor(appt.status)
-                      )}
-                      style={{
-                        top: `${startPosition}px`,
-                        height: `${height}px`,
-                        minHeight: '24px'
-                      }}
-                      onClick={() => onAppointmentClick && onAppointmentClick(appt)}
-                    >
-                      <div className="text-xs font-medium truncate">
-                        {format(startTime, "HH:mm")} - {appt.patient?.fullName || 'Sem paciente'}
-                      </div>
-                      {height > 30 && (
-                        <div className="text-xs truncate">
-                          {appt.procedures?.[0]?.name || appt.title}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'scheduled': return <Calendar className="h-3 w-3" />;
+      case 'confirmed': return <Check className="h-3 w-3" />;
+      case 'in_progress': return <ArrowRight className="h-3 w-3" />;
+      case 'completed': return <Check className="h-3 w-3" />;
+      case 'cancelled': return <X className="h-3 w-3" />;
+      case 'no_show': return <AlertTriangle className="h-3 w-3" />;
+      default: return <Calendar className="h-3 w-3" />;
+    }
+  };
 
-  // Day view rendering (professionals timeline)
+  // Detect appointment conflicts
+  const hasConflict = useCallback((appointment: AppointmentWithRelations, allAppointments: AppointmentWithRelations[]): boolean => {
+    const apptStart = new Date(appointment.startTime);
+    const apptEnd = new Date(appointment.endTime);
+    
+    return allAppointments.some(other => 
+      other.id !== appointment.id && 
+      other.professionalId === appointment.professionalId &&
+      other.status !== 'cancelled' &&
+      ((isBefore(apptStart, new Date(other.endTime)) && isAfter(apptEnd, new Date(other.startTime))) ||
+       (isBefore(new Date(other.startTime), apptEnd) && isAfter(new Date(other.endTime), apptStart)))
+    );
+  }, []);
+
+  // Get all appointments flat array
+  const allAppointments = useMemo(() => {
+    return timeSlots.flatMap(slot => 
+      Object.values(slot.appointments).filter(Boolean) as AppointmentWithRelations[]
+    );
+  }, [timeSlots]);
+
+  // Calculate available time percentage for the time slot
+  const getAvailabilityClass = useCallback((profId: number, time: string): string => {
+    // Check if this slot is at the current time or in the future
+    const slotTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}:00`);
+    const now = new Date();
+    
+    if (isBefore(slotTime, now)) {
+      return 'bg-gray-50 dark:bg-gray-900/20'; // Past times are gray
+    }
+    
+    // Check if this professional has appointments at this time
+    const hasAppointment = allAppointments.some(appt => 
+      appt.professionalId === profId &&
+      appt.status !== 'cancelled' &&
+      format(parseISO(appt.startTime), 'HH:mm') <= time &&
+      format(parseISO(appt.endTime), 'HH:mm') > time
+    );
+    
+    return hasAppointment 
+      ? 'bg-red-50/10 dark:bg-red-900/5' // Busy slot
+      : 'bg-green-50/10 dark:bg-green-900/5 hover:bg-green-100/50 dark:hover:bg-green-800/10'; // Available slot
+  }, [date, allAppointments]);
+
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[800px]">
-        <div className="grid grid-cols-[80px_1fr] border-b">
-          <div className="p-3 font-medium">Horário</div>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}>
-            {professionals.map(professional => (
-              <div key={professional.id} className="p-3 text-center font-medium border-l">
-                <div>{professional.fullName}</div>
-                <div className="text-xs text-muted-foreground">{professional.speciality}</div>
-              </div>
-            ))}
-          </div>
+    <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
+      {/* Time header */}
+      <div className="sticky top-0 z-10 flex border-b bg-background">
+        <div className="w-16 py-2 px-2 text-center text-xs font-medium text-muted-foreground border-r">
+          Horário
         </div>
         
-        {/* Time slots */}
-        {timeSlots.map((slot, slotIndex) => (
+        {professionals.map((prof) => (
           <div 
-            key={slotIndex} 
-            className={cn(
-              "grid grid-cols-[80px_1fr] border-b",
-              slotIndex % 2 === 0 && "bg-muted/5"
-            )}
+            key={prof.id} 
+            className="flex-1 py-2 px-3 text-center text-sm font-medium border-r last:border-r-0 truncate"
           >
-            <div className="p-2 flex items-center justify-center">
-              <span className="text-sm font-medium">{slot.time}</span>
+            {prof.fullName}
+            {prof.speciality && (
+              <div className="text-xs text-muted-foreground font-normal">{prof.speciality}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {/* Timeline slots */}
+      <div className="relative" style={{ height: '650px', overflowY: 'auto' }}>
+        {timeSlots.map((slot, index) => (
+          <div key={index} className="flex border-b h-16 last:border-b-0">
+            <div className="w-16 py-2 px-2 text-center text-xs text-muted-foreground border-r flex flex-col items-center justify-center sticky left-0 bg-background z-10">
+              <span>{slot.time}</span>
             </div>
             
-            <div 
-              className="grid" 
-              style={{ gridTemplateColumns: `repeat(${professionals.length}, minmax(180px, 1fr))` }}
-            >
-              {professionals.map(professional => {
-                const appointment = appointmentsMap[professional.id]?.[slot.time];
-                
-                return (
-                  <div 
-                    key={professional.id} 
-                    className="p-1 border-l min-h-[50px] relative"
-                    onMouseEnter={() => setHoveredSlot({ professionalId: professional.id, time: slot.time })}
-                    onMouseLeave={() => setHoveredSlot(null)}
-                  >
-                    {appointment ? (
-                      <div 
-                        className={cn(
-                          "p-2 rounded h-full cursor-pointer",
-                          getAppointmentColor(appointment.status)
-                        )}
-                        onClick={() => onAppointmentClick && onAppointmentClick(appointment)}
-                      >
-                        <div className="text-sm font-medium truncate">
-                          {appointment.patient?.fullName || 'Sem paciente'}
+            {professionals.map((prof) => {
+              const appointment = slot.appointments[prof.id];
+              const isHovered = hoveredSlot?.profId === prof.id && hoveredSlot?.time === slot.time;
+              
+              return (
+                <div 
+                  key={prof.id} 
+                  className={cn(
+                    "flex-1 border-r last:border-r-0 p-1 relative transition-colors duration-200",
+                    getAvailabilityClass(prof.id, slot.time)
+                  )}
+                  onMouseEnter={() => setHoveredSlot({profId: prof.id, time: slot.time})}
+                  onMouseLeave={() => setHoveredSlot(null)}
+                >
+                  {!appointment && isHovered && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                      onClick={() => onSlotClick(prof.id, slot.time)}
+                    >
+                      <div className="bg-primary/10 text-primary text-xs py-1 px-2 rounded-full">
+                        + Agendar
+                      </div>
+                    </div>
+                  )}
+                  
+                  {appointment && (
+                    <div 
+                      className={cn(
+                        "appointment h-full rounded px-2 py-1 shadow-sm group cursor-pointer relative overflow-hidden transition-all duration-100",
+                        getAppointmentColorClass(appointment),
+                        hasConflict(appointment, allAppointments) && "ring-2 ring-red-500 ring-opacity-50"
+                      )}
+                    >
+                      {/* Quick action buttons that appear on hover */}
+                      <div className="absolute right-1 top-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <TooltipProvider>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="h-5 w-5 rounded-full bg-white/80 p-0.5 flex items-center justify-center">
+                              <MoreHorizontal className="h-3 w-3 text-gray-500" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                onAppointmentClick(appointment);
+                              }}>
+                                <Edit2 className="mr-2 h-4 w-4" />
+                                <span>Editar</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Check className="mr-2 h-4 w-4" />
+                                <span>Concluir</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <X className="mr-2 h-4 w-4" />
+                                <span>Cancelar</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <MessageCircle className="mr-2 h-4 w-4" />
+                                <span>Enviar mensagem</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TooltipProvider>
+                      </div>
+                      
+                      {/* Conflict indicator */}
+                      {hasConflict(appointment, allAppointments) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="absolute -left-1 top-1 bg-red-500 rounded-full p-0.5 shadow-md">
+                              <AlertTriangle className="h-3 w-3 text-white" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Conflito de horário detectado!</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Main content */}
+                      <div className="flex flex-col pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-xs truncate max-w-[70%]">
+                            {appointment.patient?.fullName || appointment.title}
+                          </span>
+                          <span className={cn(
+                            "text-[10px] flex items-center gap-0.5 px-1 py-0.5 rounded-sm",
+                            getStatusBadgeClass(appointment.status)
+                          )}>
+                            {getStatusIcon(appointment.status)}
+                            <span>{getStatusText(appointment.status)}</span>
+                          </span>
                         </div>
-                        <div className="text-xs truncate">
-                          {format(parseISO(appointment.startTime), "HH:mm")} - {format(parseISO(appointment.endTime), "HH:mm")}
+                        
+                        <div className="flex items-center text-[10px] text-muted-foreground mt-0.5">
+                          <Clock className="h-2.5 w-2.5 mr-1" />
+                          <span>
+                            {format(parseISO(appointment.startTime), 'HH:mm')} - {format(parseISO(appointment.endTime), 'HH:mm')}
+                            {' '}
+                            ({differenceInMinutes(parseISO(appointment.endTime), parseISO(appointment.startTime))}min)
+                          </span>
                         </div>
-                        {appointment.title && (
-                          <div className="text-xs truncate">{appointment.title}</div>
+                        
+                        {appointment.procedures && appointment.procedures.length > 0 && (
+                          <div className="text-[10px] mt-0.5 truncate">
+                            {appointment.procedures[0].name}
+                          </div>
                         )}
                       </div>
-                    ) : (
-                      <div 
-                        className={cn(
-                          "h-full w-full flex items-center justify-center transition-opacity cursor-pointer",
-                          hoveredSlot?.professionalId === professional.id && hoveredSlot?.time === slot.time
-                            ? "opacity-100"
-                            : "opacity-0 hover:opacity-100"
-                        )}
-                        onClick={() => onNewAppointment && onNewAppointment(professional.id, slot.time)}
-                      >
-                        <div className="text-xs text-primary flex items-center">
-                          <Plus className="h-3 w-3 mr-1" />
-                          Agendar
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

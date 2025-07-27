@@ -7,8 +7,6 @@ import FitInModal from "@/components/calendar/FitInModal";
 import ScheduleSettings from "@/components/calendar/ScheduleSettings";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
 import ConfirmationModal from "@/components/calendar/ConfirmationModal";
-import UpcomingPatients from "@/components/calendar/UpcomingPatients";
-import DayListView from "@/components/calendar/DayListView";
 import { 
   Select, 
   SelectContent, 
@@ -653,50 +651,8 @@ export default function SchedulePage() {
           ) : (
             <>
 
-              {/* Day view with list view like agenda */}
-              {currentView === 'day' && (
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                  {/* Main day view */}
-                  <div className="lg:col-span-3">
-                    <DayListView
-                      selectedDate={selectedDate}
-                      appointments={appointments}
-                      onAppointmentClick={handleOpenAppointment}
-                      onEditAppointment={handleOpenAppointment}
-                      onDeleteAppointment={(id) => {
-                        // Handle delete appointment
-                        console.log("Delete appointment:", id);
-                      }}
-                      onNewAppointment={(time) => {
-                        if (time) {
-                          setSelectedSlotInfo({ 
-                            professionalId: filteredProfessionals?.[0]?.id || 1, 
-                            time 
-                          });
-                        }
-                        handleNewAppointment();
-                      }}
-                      timeInterval={timeInterval}
-                      workingHours={{
-                        start: workHours.startHour,
-                        end: workHours.endHour
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Sidebar with upcoming patients */}
-                  <div className="lg:col-span-1">
-                    <UpcomingPatients
-                      appointments={appointments}
-                      limit={8}
-                      onPatientClick={handleOpenAppointment}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Original timeline view for professionals */}
-              {currentView === 'professionals' && filteredProfessionals && (
+              {/* Day view (dia específico) - Similar à visualização timeline mas só para o dia selecionado */}
+              {currentView === 'day' && filteredProfessionals && (
                 <div className="overflow-x-auto">
                   <div className="min-w-[800px]">
                     <div className="grid grid-cols-[80px_1fr] border-b">

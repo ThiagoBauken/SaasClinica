@@ -123,21 +123,19 @@ export default function CalendarHeader({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as cadeiras</SelectItem>
-                <SelectItem value="1">Sala 01</SelectItem>
-                <SelectItem value="2">Sala 02</SelectItem>
-                <SelectItem value="3">Sala 03</SelectItem>
-                <SelectItem value="4">Consultório A</SelectItem>
-                <SelectItem value="5">Consultório B</SelectItem>
+                <SelectItem value="1">Cadeira 01</SelectItem>
+                <SelectItem value="2">Cadeira 02</SelectItem>
+                <SelectItem value="3">Cadeira 03</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <Button
             variant="outline"
-            className="ml-auto bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
+            className="ml-auto"
             onClick={handleToday}
           >
-            Hoje
+            HOJE
           </Button>
         </div>
 
@@ -239,7 +237,7 @@ export default function CalendarHeader({
             
             <Button
               variant="outline"
-              className="shadow-sm bg-orange-50 text-orange-600 hover:bg-orange-100 border-orange-200"
+              className="shadow-sm"
               onClick={handleFitIn}
               size="sm"
             >
