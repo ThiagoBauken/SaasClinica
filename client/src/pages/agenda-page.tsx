@@ -60,12 +60,24 @@ export default function AgendaPage() {
         format(parseISO(apt.startTime), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
       );
       
+      // Calculate load percentage (assuming max 16 appointments per day for 8 hours)
+      const maxDailyAppointments = 16;
+      const load = Math.min((todayAppointments.length / maxDailyAppointments) * 100, 100);
+      
+      // Determine status based on load
+      let status: 'available' | 'moderate' | 'busy' | 'full';
+      if (load === 0) status = 'available';
+      else if (load < 50) status = 'available';
+      else if (load < 75) status = 'moderate';
+      else if (load < 100) status = 'busy';
+      else status = 'full';
+      
       return {
         id: prof.id,
-        name: prof.fullName,
-        specialty: prof.speciality || 'Dentista',
-        todayCount: todayAppointments.length,
-        weekCount: profAppointments.length
+        fullName: prof.fullName,
+        speciality: prof.speciality || 'Dentista',
+        load: Math.round(load),
+        status
       };
     });
   }, [professionals, appointments]);
