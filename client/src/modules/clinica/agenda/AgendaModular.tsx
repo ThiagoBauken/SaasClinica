@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import CalendarHeader from '@/components/calendar/CalendarHeader';
 import MonthAgendaView from '@/components/calendar/MonthAgendaView';
 
-export default function AgendaModular() {
+export function AgendaModular() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<'day' | 'week' | 'month' | 'room'>('month');
 
@@ -78,10 +78,9 @@ export default function AgendaModular() {
       <div className="flex-1 p-4">
         {viewType === 'month' && (
           <MonthAgendaView 
-            currentDate={currentDate}
-            onDateChange={setCurrentDate}
-            onEventClick={() => {}}
-            onTimeSlotClick={() => {}}
+            appointments={[]}
+            onDateSelect={setCurrentDate}
+            onAppointmentClick={() => {}}
           />
         )}
         
@@ -131,3 +130,5 @@ export default function AgendaModular() {
     </div>
   );
 }
+
+export default AgendaModular;

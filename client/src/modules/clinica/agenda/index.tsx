@@ -3,11 +3,11 @@ import { Calendar, Clock } from 'lucide-react';
 
 // Componentes lazy-loaded do módulo
 const AgendaPage = lazy(() => import('./AgendaModular'));
-const NovoAgendamento = lazy(() => import('./NovoAgendamento'));
-const EditarAgendamento = lazy(() => import('./EditarAgendamento'));
+const NovoAgendamento = lazy(() => import('../../../pages/novo-agendamento'));
+const EditarAgendamento = lazy(() => import('../../../pages/editar-agendamento'));
 
 // Configuração do módulo
-export default {
+export const agendaModuleConfig = {
   id: 'agenda',
   name: 'Sistema de Agenda',
   component: AgendaPage,
@@ -54,3 +54,5 @@ export default {
     }
   ]
 };
+
+export default agendaModuleConfig;
