@@ -27,6 +27,8 @@ import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
 import ScheduleModularPage from "@/pages/schedule-modular-page";
 import PatientRecordPage from "@/pages/patient-record-page";
+import NovoAgendamento from "@/pages/novo-agendamento";
+import EditarAgendamento from "@/pages/editar-agendamento";
 
 export default function App() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
             <ProtectedRoute path="/schedule" component={SchedulePage} />
             <ProtectedRoute path="/schedule-modular" component={ScheduleModularPage} />
             <ProtectedRoute path="/agenda" component={AgendaPage} />
+            <ProtectedRoute path="/agenda/novo" component={NovoAgendamento} />
+            <ProtectedRoute path="/agenda/:id/editar" component={EditarAgendamento} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
             <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
