@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, User, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, addDays, subDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import CalendarHeader from '@/components/calendar/CalendarHeader';
 import MonthAgendaView from '@/components/calendar/MonthAgendaView';
 
-export function AgendaModular() {
+function AgendaModular() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<'day' | 'week' | 'month' | 'room'>('month');
 
