@@ -162,6 +162,17 @@ export class MemStorage implements IStorage {
     this.odontogramEntries = new Map();
     this.appointmentProcedures = new Map();
     this.transactions = new Map();
+    this.laboratories = new Map();
+    this.prosthesisLabels = new Map();
+    this.inventoryCategories = new Map();
+    this.inventoryItems = new Map();
+    this.inventoryTransactions = new Map();
+    this.standardDentalProducts = new Map();
+    this.patientAnamnesis = new Map();
+    this.patientExams = new Map();
+    this.treatmentPlans = new Map();
+    this.treatmentEvolution = new Map();
+    this.prescriptions = new Map();
     
     this.userIdCounter = 1;
     this.patientIdCounter = 1;
@@ -175,6 +186,16 @@ export class MemStorage implements IStorage {
     this.odontogramEntryIdCounter = 1;
     this.appointmentProcedureIdCounter = 1;
     this.transactionIdCounter = 1;
+    this.laboratoriesIdCounter = 1;
+    this.prosthesisLabelsIdCounter = 1;
+    this.inventoryCategoriesIdCounter = 1;
+    this.inventoryItemsIdCounter = 1;
+    this.inventoryTransactionsIdCounter = 1;
+    this.anamnesisIdCounter = 1;
+    this.examIdCounter = 1;
+    this.treatmentPlanIdCounter = 1;
+    this.evolutionIdCounter = 1;
+    this.prescriptionIdCounter = 1;
     
     // Remover sessionStore que está causando problemas
     // this.sessionStore = new MemoryStore({
@@ -499,18 +520,6 @@ export class MemStorage implements IStorage {
     return this.getAppointment(id, companyId);
   }
 
-  // Professional methods
-  async getProfessionals(): Promise<User[]> {
-    return Array.from(this.users.values()).filter(
-      (user) => user.role === "dentist" || user.speciality
-    );
-  }
-
-  // Room methods
-  async getRooms(): Promise<Room[]> {
-    return Array.from(this.rooms.values());
-  }
-
   async getRoom(id: number): Promise<Room | undefined> {
     return this.rooms.get(id);
   }
@@ -523,11 +532,6 @@ export class MemStorage implements IStorage {
     };
     this.rooms.set(id, newRoom);
     return newRoom;
-  }
-
-  // Procedure methods
-  async getProcedures(): Promise<Procedure[]> {
-    return Array.from(this.procedures.values());
   }
 
   async getProcedure(id: number): Promise<Procedure | undefined> {
@@ -553,61 +557,6 @@ export class MemStorage implements IStorage {
     };
     this.appointmentProcedures.set(id, appointmentProcedure);
     return appointmentProcedure;
-  }
-
-  // Patient record methods
-  async getPatientRecords(patientId: number): Promise<PatientRecord[]> {
-    return Array.from(this.patientRecords.values())
-      .filter(record => record.patientId === patientId);
-  }
-
-  async createPatientRecord(data: any): Promise<PatientRecord> {
-    const id = this.patientRecordIdCounter++;
-    const now = new Date();
-    const record: PatientRecord = {
-      ...data,
-      id,
-      createdAt: now
-    };
-    this.patientRecords.set(id, record);
-    return record;
-  }
-
-  // Odontogram methods
-  async getOdontogramEntries(patientId: number): Promise<OdontogramEntry[]> {
-    return Array.from(this.odontogramEntries.values())
-      .filter(entry => entry.patientId === patientId);
-  }
-
-  async createOdontogramEntry(data: any): Promise<OdontogramEntry> {
-    const id = this.odontogramEntryIdCounter++;
-    const now = new Date();
-    const entry: OdontogramEntry = {
-      ...data,
-      id,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.odontogramEntries.set(id, entry);
-    return entry;
-  }
-
-  // Financial methods
-  async getTransactions(): Promise<Transaction[]> {
-    return Array.from(this.transactions.values());
-  }
-
-  async createTransaction(data: any): Promise<Transaction> {
-    const id = this.transactionIdCounter++;
-    const now = new Date();
-    const transaction: Transaction = {
-      ...data,
-      id,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
-    };
-    this.transactions.set(id, transaction);
-    return transaction;
   }
 
   // Automation methods
@@ -653,6 +602,485 @@ export class MemStorage implements IStorage {
     }
     
     this.automations.delete(id);
+  }
+
+  // Laboratory methods (missing implementations)
+  private laboratories: Map<number, Laboratory> = new Map();
+  private laboratoriesIdCounter: number = 1;
+
+  async getLaboratories(companyId: number): Promise<Laboratory[]> {
+    return Array.from(this.laboratories.values()).filter(lab => lab.companyId === companyId);
+  }
+
+  async getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined> {
+    const lab = this.laboratories.get(id);
+    if (lab && lab.companyId === companyId) {
+      return lab;
+    }
+    return undefined;
+  }
+
+  async createLaboratory(laboratory: any): Promise<Laboratory> {
+    const id = this.laboratoriesIdCounter++;
+    const now = new Date();
+    const newLab: Laboratory = {
+      ...laboratory,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.laboratories.set(id, newLab);
+    return newLab;
+  }
+
+  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory> {
+    const lab = await this.getLaboratory(id, companyId);
+    if (!lab) {
+      throw new Error("Laboratory not found");
+    }
+    
+    const updatedLab = {
+      ...lab,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.laboratories.set(id, updatedLab);
+    return updatedLab;
+  }
+
+  async deleteLaboratory(id: number, companyId: number): Promise<boolean> {
+    const lab = await this.getLaboratory(id, companyId);
+    if (!lab) {
+      return false;
+    }
+    
+    // Soft delete
+    const updatedLab = {
+      ...lab,
+      active: false,
+      updatedAt: new Date()
+    };
+    
+    this.laboratories.set(id, updatedLab);
+    return true;
+  }
+
+  // Prosthesis Label methods (missing implementations)
+  private prosthesisLabels: Map<number, ProsthesisLabel> = new Map();
+  private prosthesisLabelsIdCounter: number = 1;
+
+  async getProsthesisLabels(companyId: number): Promise<any[]> {
+    return Array.from(this.prosthesisLabels.values()).filter(label => label.companyId === companyId);
+  }
+
+  async createProsthesisLabel(label: any): Promise<any> {
+    const id = this.prosthesisLabelsIdCounter++;
+    const now = new Date();
+    const newLabel: ProsthesisLabel = {
+      ...label,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.prosthesisLabels.set(id, newLabel);
+    return newLabel;
+  }
+
+  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> {
+    const label = this.prosthesisLabels.get(id);
+    if (!label || label.companyId !== companyId) {
+      throw new Error("Prosthesis label not found");
+    }
+    
+    const updatedLabel = {
+      ...label,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.prosthesisLabels.set(id, updatedLabel);
+    return updatedLabel;
+  }
+
+  async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
+    const label = this.prosthesisLabels.get(id);
+    if (!label || label.companyId !== companyId) {
+      return false;
+    }
+    
+    this.prosthesisLabels.delete(id);
+    return true;
+  }
+
+  // Inventory methods (missing implementations)
+  private inventoryCategories: Map<number, any> = new Map();
+  private inventoryItems: Map<number, any> = new Map();
+  private inventoryTransactions: Map<number, any> = new Map();
+  private standardDentalProducts: Map<number, StandardDentalProduct> = new Map();
+  private inventoryCategoriesIdCounter: number = 1;
+  private inventoryItemsIdCounter: number = 1;
+  private inventoryTransactionsIdCounter: number = 1;
+
+  async getInventoryCategories(companyId: number): Promise<any[]> {
+    return Array.from(this.inventoryCategories.values()).filter(cat => cat.companyId === companyId);
+  }
+
+  async createInventoryCategory(data: any): Promise<any> {
+    const id = this.inventoryCategoriesIdCounter++;
+    const now = new Date();
+    const newCategory = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.inventoryCategories.set(id, newCategory);
+    return newCategory;
+  }
+
+  async updateInventoryCategory(id: number, data: any, companyId: number): Promise<any> {
+    const category = this.inventoryCategories.get(id);
+    if (!category || category.companyId !== companyId) {
+      throw new Error("Inventory category not found");
+    }
+    
+    const updatedCategory = {
+      ...category,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.inventoryCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  async getInventoryItems(companyId: number): Promise<any[]> {
+    return Array.from(this.inventoryItems.values()).filter(item => item.companyId === companyId);
+  }
+
+  async createInventoryItem(data: any): Promise<any> {
+    const id = this.inventoryItemsIdCounter++;
+    const now = new Date();
+    const newItem = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.inventoryItems.set(id, newItem);
+    return newItem;
+  }
+
+  async updateInventoryItem(id: number, data: any, companyId: number): Promise<any> {
+    const item = this.inventoryItems.get(id);
+    if (!item || item.companyId !== companyId) {
+      throw new Error("Inventory item not found");
+    }
+    
+    const updatedItem = {
+      ...item,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.inventoryItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async deleteInventoryItem(id: number, companyId: number): Promise<boolean> {
+    const item = this.inventoryItems.get(id);
+    if (!item || item.companyId !== companyId) {
+      return false;
+    }
+    
+    this.inventoryItems.delete(id);
+    return true;
+  }
+
+  async getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]> {
+    let transactions = Array.from(this.inventoryTransactions.values()).filter(txn => txn.companyId === companyId);
+    
+    if (itemId) {
+      transactions = transactions.filter(txn => txn.itemId === itemId);
+    }
+    
+    return transactions;
+  }
+
+  async createInventoryTransaction(data: any): Promise<any> {
+    const id = this.inventoryTransactionsIdCounter++;
+    const now = new Date();
+    const newTransaction = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.inventoryTransactions.set(id, newTransaction);
+    return newTransaction;
+  }
+
+  async getStandardDentalProducts(): Promise<StandardDentalProduct[]> {
+    return Array.from(this.standardDentalProducts.values());
+  }
+
+  async importStandardProducts(productIds: number[], companyId: number): Promise<any[]> {
+    const importedProducts = [];
+    for (const productId of productIds) {
+      const product = this.standardDentalProducts.get(productId);
+      if (product) {
+        const newItem = await this.createInventoryItem({
+          ...product,
+          companyId,
+          quantity: 0
+        });
+        importedProducts.push(newItem);
+      }
+    }
+    return importedProducts;
+  }
+
+  // Digital Patient Record methods (missing implementations)
+  private patientAnamnesis: Map<number, Anamnesis> = new Map();
+  private patientExams: Map<number, PatientExam> = new Map();
+  private treatmentPlans: Map<number, DetailedTreatmentPlan> = new Map();
+  private treatmentEvolution: Map<number, TreatmentEvolution> = new Map();
+  private prescriptions: Map<number, Prescription> = new Map();
+  private anamnesisIdCounter: number = 1;
+  private examIdCounter: number = 1;
+  private treatmentPlanIdCounter: number = 1;
+  private evolutionIdCounter: number = 1;
+  private prescriptionIdCounter: number = 1;
+
+  async getPatientAnamnesis(patientId: number, companyId: number): Promise<any | undefined> {
+    return Array.from(this.patientAnamnesis.values()).find(anamnesis => 
+      anamnesis.patientId === patientId && anamnesis.companyId === companyId
+    );
+  }
+
+  async createPatientAnamnesis(data: any): Promise<any> {
+    const id = this.anamnesisIdCounter++;
+    const now = new Date();
+    const newAnamnesis = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.patientAnamnesis.set(id, newAnamnesis);
+    return newAnamnesis;
+  }
+
+  async updatePatientAnamnesis(id: number, data: any, companyId: number): Promise<any> {
+    const anamnesis = this.patientAnamnesis.get(id);
+    if (!anamnesis || anamnesis.companyId !== companyId) {
+      throw new Error("Anamnesis not found");
+    }
+    
+    const updatedAnamnesis = {
+      ...anamnesis,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.patientAnamnesis.set(id, updatedAnamnesis);
+    return updatedAnamnesis;
+  }
+
+  async getPatientExams(patientId: number, companyId: number): Promise<any[]> {
+    return Array.from(this.patientExams.values()).filter(exam => 
+      exam.patientId === patientId && exam.companyId === companyId
+    );
+  }
+
+  async createPatientExam(data: any): Promise<any> {
+    const id = this.examIdCounter++;
+    const now = new Date();
+    const newExam = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.patientExams.set(id, newExam);
+    return newExam;
+  }
+
+  async updatePatientExam(id: number, data: any, companyId: number): Promise<any> {
+    const exam = this.patientExams.get(id);
+    if (!exam || exam.companyId !== companyId) {
+      throw new Error("Exam not found");
+    }
+    
+    const updatedExam = {
+      ...exam,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.patientExams.set(id, updatedExam);
+    return updatedExam;
+  }
+
+  async getPatientTreatmentPlans(patientId: number, companyId: number): Promise<any[]> {
+    return Array.from(this.treatmentPlans.values()).filter(plan => 
+      plan.patientId === patientId && plan.companyId === companyId
+    );
+  }
+
+  async createPatientTreatmentPlan(data: any): Promise<any> {
+    const id = this.treatmentPlanIdCounter++;
+    const now = new Date();
+    const newPlan = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.treatmentPlans.set(id, newPlan);
+    return newPlan;
+  }
+
+  async updatePatientTreatmentPlan(id: number, data: any, companyId: number): Promise<any> {
+    const plan = this.treatmentPlans.get(id);
+    if (!plan || plan.companyId !== companyId) {
+      throw new Error("Treatment plan not found");
+    }
+    
+    const updatedPlan = {
+      ...plan,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.treatmentPlans.set(id, updatedPlan);
+    return updatedPlan;
+  }
+
+  async getPatientEvolution(patientId: number, companyId: number): Promise<any[]> {
+    return Array.from(this.treatmentEvolution.values()).filter(evolution => 
+      evolution.patientId === patientId && evolution.companyId === companyId
+    );
+  }
+
+  async createPatientEvolution(data: any): Promise<any> {
+    const id = this.evolutionIdCounter++;
+    const now = new Date();
+    const newEvolution = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.treatmentEvolution.set(id, newEvolution);
+    return newEvolution;
+  }
+
+  async getPatientPrescriptions(patientId: number, companyId: number): Promise<any[]> {
+    return Array.from(this.prescriptions.values()).filter(prescription => 
+      prescription.patientId === patientId && prescription.companyId === companyId
+    );
+  }
+
+  async createPatientPrescription(data: any): Promise<any> {
+    const id = this.prescriptionIdCounter++;
+    const now = new Date();
+    const newPrescription = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.prescriptions.set(id, newPrescription);
+    return newPrescription;
+  }
+
+  async updatePatientPrescription(id: number, data: any, companyId: number): Promise<any> {
+    const prescription = this.prescriptions.get(id);
+    if (!prescription || prescription.companyId !== companyId) {
+      throw new Error("Prescription not found");
+    }
+    
+    const updatedPrescription = {
+      ...prescription,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.prescriptions.set(id, updatedPrescription);
+    return updatedPrescription;
+  }
+
+  // Fix method signatures to match interface
+  async getOdontogramEntries(patientId: number, companyId: number): Promise<OdontogramEntry[]> {
+    return Array.from(this.odontogramEntries.values())
+      .filter(entry => entry.patientId === patientId && entry.companyId === companyId);
+  }
+
+  async createOdontogramEntry(entry: any, companyId: number): Promise<OdontogramEntry> {
+    const id = this.odontogramEntryIdCounter++;
+    const now = new Date();
+    const newEntry: OdontogramEntry = {
+      ...entry,
+      id,
+      companyId,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.odontogramEntries.set(id, newEntry);
+    return newEntry;
+  }
+
+  async getPatientRecords(patientId: number, companyId: number): Promise<PatientRecord[]> {
+    return Array.from(this.patientRecords.values())
+      .filter(record => record.patientId === patientId && record.companyId === companyId);
+  }
+
+  async createPatientRecord(record: any, companyId: number): Promise<PatientRecord> {
+    const id = this.patientRecordIdCounter++;
+    const now = new Date();
+    const newRecord: PatientRecord = {
+      ...record,
+      id,
+      companyId,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.patientRecords.set(id, newRecord);
+    return newRecord;
+  }
+
+  async getTransactions(companyId: number): Promise<Transaction[]> {
+    return Array.from(this.transactions.values()).filter(txn => txn.companyId === companyId);
+  }
+
+  async createTransaction(transaction: any, companyId: number): Promise<Transaction> {
+    const id = this.transactionIdCounter++;
+    const now = new Date();
+    const newTransaction: Transaction = {
+      ...transaction,
+      id,
+      companyId,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+    this.transactions.set(id, newTransaction);
+    return newTransaction;
+  }
+
+  async getProfessionals(companyId: number): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => 
+      user.companyId === companyId && (user.role === 'dentist' || user.role === 'admin')
+    );
+  }
+
+  async getRooms(companyId: number): Promise<Room[]> {
+    return Array.from(this.rooms.values()).filter(room => room.companyId === companyId);
+  }
+
+  async getProcedures(companyId: number): Promise<Procedure[]> {
+    return Array.from(this.procedures.values()).filter(procedure => procedure.companyId === companyId);
   }
 }
 

@@ -136,43 +136,19 @@ export const patients = pgTable("patients", {
   // Sistema
   patientNumber: text("patient_number").unique(), // Número do prontuário
   status: text("status").default("active"), // active, inactive, archived
+  active: boolean("active").notNull().default(true),
   notes: text("notes"),
   profilePhoto: text("profile_photo"),
+  lastVisit: timestamp("last_visit"),
+  insuranceInfo: jsonb("insurance_info").$type<Record<string, any>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertPatientSchema = createInsertSchema(patients).pick({
-  companyId: true,
-  fullName: true,
-  birthDate: true,
-  cpf: true,
-  rg: true,
-  gender: true,
-  nationality: true,
-  maritalStatus: true,
-  profession: true,
-  email: true,
-  phone: true,
-  cellphone: true,
-  address: true,
-  neighborhood: true,
-  city: true,
-  state: true,
-  cep: true,
-  emergencyContactName: true,
-  emergencyContactPhone: true,
-  emergencyContactRelation: true,
-  healthInsurance: true,
-  healthInsuranceNumber: true,
-  bloodType: true,
-  allergies: true,
-  medications: true,
-  chronicDiseases: true,
-  patientNumber: true,
-  status: true,
-  notes: true,
-  profilePhoto: true,
+export const insertPatientSchema = createInsertSchema(patients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Appointments
@@ -484,6 +460,7 @@ export const insertAutomationSchema = createInsertSchema(automations).pick({
 // Patient Records
 export const patientRecords = pgTable("patient_records", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   recordType: text("record_type").notNull(), // anamnesis, evolution, document, prescription, exam
   content: jsonb("content").notNull(),
@@ -492,6 +469,7 @@ export const patientRecords = pgTable("patient_records", {
 });
 
 export const insertPatientRecordSchema = createInsertSchema(patientRecords).pick({
+  companyId: true,
   patientId: true,
   recordType: true,
   content: true,
@@ -501,6 +479,7 @@ export const insertPatientRecordSchema = createInsertSchema(patientRecords).pick
 // Anamnese Digital
 export const anamnesis = pgTable("anamnesis", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   
   // Queixa Principal
@@ -546,6 +525,7 @@ export const anamnesis = pgTable("anamnesis", {
 });
 
 export const insertAnamnesisSchema = createInsertSchema(anamnesis).pick({
+  companyId: true,
   patientId: true,
   chiefComplaint: true,
   currentIllnessHistory: true,
@@ -578,6 +558,7 @@ export const insertAnamnesisSchema = createInsertSchema(anamnesis).pick({
 // Exames do Paciente
 export const patientExams = pgTable("patient_exams", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   examType: text("exam_type").notNull(), // radiografia, tomografia, fotografia, outros
   title: text("title").notNull(),
@@ -593,6 +574,7 @@ export const patientExams = pgTable("patient_exams", {
 });
 
 export const insertPatientExamSchema = createInsertSchema(patientExams).pick({
+  companyId: true,
   patientId: true,
   examType: true,
   title: true,
@@ -609,6 +591,7 @@ export const insertPatientExamSchema = createInsertSchema(patientExams).pick({
 // Planos de Tratamento Detalhados
 export const detailedTreatmentPlans = pgTable("detailed_treatment_plans", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   professionalId: integer("professional_id").references(() => users.id).notNull(),
   
@@ -645,6 +628,7 @@ export const detailedTreatmentPlans = pgTable("detailed_treatment_plans", {
 });
 
 export const insertDetailedTreatmentPlanSchema = createInsertSchema(detailedTreatmentPlans).pick({
+  companyId: true,
   patientId: true,
   professionalId: true,
   title: true,
@@ -669,6 +653,7 @@ export const insertDetailedTreatmentPlanSchema = createInsertSchema(detailedTrea
 // Evolução do Tratamento
 export const treatmentEvolution = pgTable("treatment_evolution", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   appointmentId: integer("appointment_id").references(() => appointments.id),
   treatmentPlanId: integer("treatment_plan_id").references(() => detailedTreatmentPlans.id),
@@ -696,6 +681,7 @@ export const treatmentEvolution = pgTable("treatment_evolution", {
 });
 
 export const insertTreatmentEvolutionSchema = createInsertSchema(treatmentEvolution).pick({
+  companyId: true,
   patientId: true,
   appointmentId: true,
   treatmentPlanId: true,
@@ -714,6 +700,7 @@ export const insertTreatmentEvolutionSchema = createInsertSchema(treatmentEvolut
 // Receitas e Atestados
 export const prescriptions = pgTable("prescriptions", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   
   type: text("type").notNull(), // receita, atestado, declaracao
@@ -740,6 +727,7 @@ export const prescriptions = pgTable("prescriptions", {
 });
 
 export const insertPrescriptionSchema = createInsertSchema(prescriptions).pick({
+  companyId: true,
   patientId: true,
   type: true,
   title: true,
@@ -758,6 +746,7 @@ export const insertPrescriptionSchema = createInsertSchema(prescriptions).pick({
 // Odontogram
 export const odontogramEntries = pgTable("odontogram_entries", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
   toothId: text("tooth_id").notNull(), // E.g. "11", "21", etc.
   faceId: text("face_id"), // occlusal, buccal, lingual, mesial, distal
@@ -771,6 +760,7 @@ export const odontogramEntries = pgTable("odontogram_entries", {
 });
 
 export const insertOdontogramEntrySchema = createInsertSchema(odontogramEntries).pick({
+  companyId: true,
   patientId: true,
   toothId: true,
   faceId: true,
