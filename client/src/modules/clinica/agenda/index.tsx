@@ -2,7 +2,7 @@ import { lazy } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 
 // Componentes lazy-loaded do módulo
-const AgendaPage = lazy(() => import('./AgendaPage'));
+const AgendaPage = lazy(() => import('./AgendaModular'));
 const NovoAgendamento = lazy(() => import('./NovoAgendamento'));
 const EditarAgendamento = lazy(() => import('./EditarAgendamento'));
 
