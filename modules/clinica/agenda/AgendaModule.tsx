@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, lazy } from "react";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import MonthAgendaView from "@/components/calendar/MonthAgendaView";
 import AppointmentModal from "@/components/calendar/AppointmentModal";
@@ -207,10 +207,7 @@ function AgendaModule() {
   // Create appointment mutation
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
-      return apiRequest("/api/appointments", {
-        method: "POST",
-        body: appointmentData
-      });
+      return apiRequest("/api/appointments", "POST", appointmentData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
@@ -233,10 +230,7 @@ function AgendaModule() {
   // Update appointment mutation
   const updateAppointmentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return apiRequest(`/api/appointments/${id}`, {
-        method: "PATCH",
-        body: data
-      });
+      return apiRequest(`/api/appointments/${id}`, "PATCH", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
@@ -260,9 +254,7 @@ function AgendaModule() {
   // Delete appointment mutation
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/appointments/${id}`, {
-        method: "DELETE"
-      });
+      return apiRequest(`/api/appointments/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });

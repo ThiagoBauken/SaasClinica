@@ -751,6 +751,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(laboratories.name);
   }
 
+  async getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined> {
+    const [result] = await db
+      .select()
+      .from(laboratories)
+      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
+    return result;
+  }
+
   async createLaboratory(data: any): Promise<Laboratory> {
     const cleanData = { ...data };
     delete cleanData.id;
@@ -759,13 +767,18 @@ export class DatabaseStorage implements IStorage {
     
     const [result] = await db
       .insert(laboratories)
-      .values(cleanData)
+      .values({
+        ...cleanData,
+        active: cleanData.active ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
       .returning();
     
     return result;
   }
 
-  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory | null> {
+  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory> {
     const cleanData = { ...data };
     delete cleanData.id;
     delete cleanData.companyId;
@@ -778,14 +791,20 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)))
       .returning();
     
-    return result || null;
+    if (!result) {
+      throw new Error("Laboratory not found");
+    }
+    
+    return result;
   }
 
-  async deleteLaboratory(id: number, companyId: number): Promise<void> {
-    await db
+  async deleteLaboratory(id: number, companyId: number): Promise<boolean> {
+    const result = await db
       .update(laboratories)
       .set({ active: false, updatedAt: new Date() })
       .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
+    
+    return (result.rowCount || 0) > 0;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -1261,70 +1280,7 @@ export class DatabaseStorage implements IStorage {
     throw new Error("Method not implemented with database storage");
   }
 
-  // Laboratory operations
-  async getLaboratories(companyId: number): Promise<Laboratory[]> {
-    return db
-      .select()
-      .from(laboratories)
-      .where(eq(laboratories.companyId, companyId))
-      .orderBy(desc(laboratories.createdAt));
-  }
-
-  async getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined> {
-    const [result] = await db
-      .select()
-      .from(laboratories)
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
-    return result;
-  }
-
-  async createLaboratory(data: any): Promise<Laboratory> {
-    console.log('Storage: Creating laboratory with data:', data);
-    
-    const [newLaboratory] = await db
-      .insert(laboratories)
-      .values({
-        ...data,
-        active: data.active ?? true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    
-    console.log('Storage: Created laboratory:', newLaboratory);
-    return newLaboratory;
-  }
-
-  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory> {
-    console.log('Storage: Updating laboratory', id, 'with data:', data);
-    
-    const [updatedLaboratory] = await db
-      .update(laboratories)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)))
-      .returning();
-    
-    if (!updatedLaboratory) {
-      throw new Error("Laboratory not found");
-    }
-    
-    console.log('Storage: Updated laboratory:', updatedLaboratory);
-    return updatedLaboratory;
-  }
-
-  async deleteLaboratory(id: number, companyId: number): Promise<boolean> {
-    console.log('Storage: Deleting laboratory', id, 'for company', companyId);
-    
-    const result = await db
-      .delete(laboratories)
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
-    
-    console.log('Storage: Delete result:', result);
-    return result.rowCount > 0;
-  }
+  // Laboratory operations (remove duplicates)
 
   // Helper methods to seed initial data
   async seedInitialData() {
