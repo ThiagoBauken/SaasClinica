@@ -1,3 +1,7 @@
+// IMPORTANTE: Carregar variáveis de ambiente PRIMEIRO, antes de qualquer outro import
+import { config } from 'dotenv';
+config({ override: true });
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupTestRoutes } from "./testRoutes";
@@ -17,6 +21,8 @@ import { sessionManager } from './sessionManager';
 import { cdnManager } from './cdnManager';
 import { queueSystem } from './queueSystem';
 import session from 'express-session';
+import { RedisStore } from 'connect-redis';
+import { redisClient, isRedisAvailable } from './redis';
 
 // Determina quantos workers serão usados (no máximo)
 const WORKERS = process.env.NODE_ENV === "production" 
@@ -55,17 +61,42 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
   }));
   
-  // Configuração de sessões (usando configuração original para evitar conflitos)
-  const sessionConfig = {
-    secret: process.env.SESSION_SECRET || "dental-management-system-secret",
+  // Configuração de sessões com Redis (com fallback para memorystore)
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret && process.env.NODE_ENV === "production") {
+    console.error('⚠️  WARNING: SESSION_SECRET not set in production! Using default (INSECURE)');
+  }
+
+  const sessionConfig: any = {
+    secret: sessionSecret || "dental-management-system-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 // 24 horas
-    }
+      maxAge: 1000 * 60 * 60 * 24, // 24 horas
+      sameSite: 'lax'
+    },
+    name: 'dental.sid', // Nome customizado do cookie de sessão
   };
+
+  // Tenta usar Redis se disponível, senão usa memorystore
+  isRedisAvailable().then(available => {
+    if (available) {
+      sessionConfig.store = new RedisStore({
+        client: redisClient,
+        prefix: 'dental:sess:',
+        ttl: 86400, // 24 horas em segundos
+      });
+      console.log('✓ Using Redis for session storage');
+    } else {
+      console.warn('⚠️  Using in-memory session storage (not recommended for production)');
+    }
+  }).catch(err => {
+    console.error('Redis connection error:', err);
+    console.warn('⚠️  Falling back to in-memory session storage');
+  });
+
   app.use(session(sessionConfig));
   
   // Limitador de requisições para evitar abuso
@@ -173,11 +204,7 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     }
 
     const port = 5000;
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
+    server.listen(port, "0.0.0.0", () => {
       log(`Worker ${process.pid} servindo na porta ${port}`);
     });
   })();

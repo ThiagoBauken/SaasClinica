@@ -35,21 +35,35 @@ import PatientRecordTab from "@/components/patients/PatientRecordTab";
 import OdontogramChart from "@/components/odontogram/OdontogramChart";
 import Papa from "papaparse";
 
+// Tipo para paciente
+type Patient = {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  dateOfBirth?: string;
+  address?: string;
+  createdAt: string;
+  lastVisit?: string;
+  [key: string]: any;
+};
+
 export default function PacientesPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [isImporting, setIsImporting] = useState(false);
   const [lastVisitFilter, setLastVisitFilter] = useState<string>("all");
 
   // Fetch patients
   const {
-    data: patients,
+    data: patients = [],
     isLoading: isLoadingPatients,
     error: patientsError,
-  } = useQuery({
+  } = useQuery<Patient[]>({
     queryKey: ["/api/patients"],
   });
 
@@ -265,9 +279,10 @@ export default function PacientesPage() {
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Paciente</DialogTitle>
                 </DialogHeader>
-                <PatientForm 
+                <PatientForm
                   onSubmit={(data) => createPatientMutation.mutate(data)}
                   isLoading={createPatientMutation.isPending}
+                  {...({} as any)}
                 />
               </DialogContent>
             </Dialog>
@@ -280,9 +295,10 @@ export default function PacientesPage() {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <PatientsList 
+          <PatientsList
             patients={filteredPatients}
             onPatientSelect={setSelectedPatient}
+            {...({} as any)}
           />
         )}
 

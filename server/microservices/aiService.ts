@@ -101,8 +101,8 @@ class AIService {
     const cacheKey = `treatment_plan_${diagnosis.patientId}_${JSON.stringify(diagnosis.symptoms).slice(0, 20)}`;
     
     const cached = await distributedCache.get(diagnosis.companyId, 'treatment_plans', cacheKey);
-    if (cached) {
-      return cached;
+    if (cached && Array.isArray(cached)) {
+      return cached as TreatmentSuggestion[];
     }
 
     try {

@@ -91,7 +91,7 @@ export default function PatientForm({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
@@ -118,8 +118,8 @@ export default function PatientForm({
               <p className="text-red-500 text-sm mt-1">{errors.phone.message as string}</p>
             )}
           </div>
-          
-          <div>
+
+          <div className="sm:col-span-2 md:col-span-1">
             <Label htmlFor="cpf">CPF</Label>
             <Input
               id="cpf"
@@ -133,7 +133,7 @@ export default function PatientForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="birthDate">Data de Nascimento</Label>
             <Input

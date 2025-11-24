@@ -11,14 +11,12 @@ export async function getClinicSettings(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
-    // Buscar configurações da clínica
-    const settings = await db.query.clinicSettings.findFirst({
-      where: eq(clinicSettings.companyId, companyId)
-    });
+    // Buscar configurações da clínica (global, sem filtro de companyId)
+    const settings = await db.query.clinicSettings.findFirst();
 
-    // Buscar horários de funcionamento
+    // Buscar horários de funcionamento (filtrado por userId)
     const hours = await db.query.workingHours.findMany({
-      where: eq(workingHours.companyId, companyId)
+      where: req.user?.id ? eq(workingHours.userId, req.user.id) : undefined
     });
 
     const defaultSettings = {
@@ -67,11 +65,9 @@ export async function updateClinicSettings(req: Request, res: Response) {
 
     const { clinic, workingHours: hours, notifications, system } = req.body;
 
-    // Atualizar ou criar configurações da clínica
+    // Atualizar ou criar configurações da clínica (global)
     if (clinic) {
-      const existingSettings = await db.query.clinicSettings.findFirst({
-        where: eq(clinicSettings.companyId, companyId)
-      });
+      const existingSettings = await db.query.clinicSettings.findFirst();
 
       if (existingSettings) {
         await db.update(clinicSettings)
@@ -82,11 +78,9 @@ export async function updateClinicSettings(req: Request, res: Response) {
           .where(eq(clinicSettings.id, existingSettings.id));
       } else {
         await db.insert(clinicSettings).values({
-          companyId,
           ...clinic,
-          createdAt: new Date(),
           updatedAt: new Date()
-        });
+        } as any);
       }
     }
 
@@ -171,18 +165,16 @@ export async function getProcedureAnalytics(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
-    // Buscar procedimentos mais realizados
+    // Buscar procedimentos mais realizados (global, sem category e companyId)
     const procedureStats = await db.select({
       id: procedures.id,
       name: procedures.name,
-      category: procedures.category,
       count: count(),
       totalRevenue: sql<number>`sum(${procedures.price})`,
       averagePrice: sql<number>`avg(${procedures.price})`
     })
     .from(procedures)
-    .where(eq(procedures.companyId, companyId))
-    .groupBy(procedures.id, procedures.name, procedures.category)
+    .groupBy(procedures.id, procedures.name)
     .orderBy(desc(count()))
     .limit(10);
 
@@ -354,9 +346,9 @@ export async function getProcedures(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
+    // Buscar todos os procedimentos (global, sem companyId ou createdAt)
     const procedureList = await db.query.procedures.findMany({
-      where: eq(procedures.companyId, companyId),
-      orderBy: desc(procedures.createdAt)
+      orderBy: desc(procedures.id)
     });
 
     res.json(procedureList);

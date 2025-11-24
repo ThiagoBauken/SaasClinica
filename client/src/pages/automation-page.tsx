@@ -241,7 +241,7 @@ export default function AutomationPage() {
 
   // Filter automations based on search query
   const filteredAutomations = automations
-    ? automations.filter((automation) =>
+    ? automations.filter((automation: AutomationFormData) =>
         automation.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
@@ -324,7 +324,7 @@ export default function AutomationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {automations?.filter((a) => a.active).length || 0}
+              {automations?.filter((a: AutomationFormData) => a.active).length || 0}
             </div>
           </CardContent>
         </Card>
@@ -381,15 +381,15 @@ export default function AutomationPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAutomations.map((automation) => (
+              {filteredAutomations.map((automation: AutomationFormData) => (
                 <TableRow key={automation.id}>
                   <TableCell>
                     <div className="font-medium">{automation.name}</div>
                     <div className="text-xs text-muted-foreground">
                       Criado em{" "}
-                      {new Date(automation.createdAt).toLocaleDateString(
-                        "pt-BR"
-                      )}
+                      {(automation as any).createdAt
+                        ? new Date((automation as any).createdAt).toLocaleDateString("pt-BR")
+                        : "N/A"}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -433,7 +433,7 @@ export default function AutomationPage() {
                     <Switch
                       checked={automation.active}
                       onCheckedChange={(checked) =>
-                        handleToggleActive(automation.id, checked)
+                        automation.id && handleToggleActive(automation.id, checked)
                       }
                     />
                   </TableCell>

@@ -1567,7 +1567,7 @@ export default function ProsthesisControlPage() {
                                       {item.labels && item.labels.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-2">
                                           {item.labels.map(labelId => {
-                                            const labelObj = labels.find(l => l.id === labelId);
+                                            const labelObj = labels.find((l: any) => l.id === labelId);
                                             if (!labelObj) return null;
                                             return (
                                               <Badge 
@@ -1760,9 +1760,9 @@ export default function ProsthesisControlPage() {
                                 
                                 // Dividir o nome completo em palavras (nome e sobrenomes)
                                 const nameWords = patientFullName.split(' ');
-                                
+
                                 // Verificar se o termo de busca corresponde ao início de qualquer palavra
-                                return nameWords.some(word => word.startsWith(searchTerm));
+                                return nameWords.some((word: any) => word.startsWith(searchTerm));
                               })
                               .map((patient: any) => (
                               <CommandItem
@@ -2214,7 +2214,7 @@ export default function ProsthesisControlPage() {
                 <div className="grid gap-2 mt-4">
                   <Label>Etiquetas</Label>
                   <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[80px]">
-                    {labels.map(label => (
+                    {labels.map((label: any) => (
                       <div 
                         key={label.id}
                         onClick={() => toggleLabelSelection(label.id)}
@@ -2346,7 +2346,7 @@ export default function ProsthesisControlPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {labels.map((label) => (
+                      {labels.map((label: any) => (
                         <div key={label.id} className="flex items-center justify-between p-2 rounded hover:bg-muted">
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: label.color }}></div>

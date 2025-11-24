@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { db } from './db';
-import { subscriptions, payments } from '../shared/schema';
+import { subscriptions, mercadoPagoSubscriptions, payments } from '../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Configurar Mercado Pago
@@ -92,7 +92,7 @@ export async function getCurrentSubscription(req: Request, res: Response) {
       return res.status(404).json({ message: 'Nenhuma assinatura encontrada' });
     }
 
-    const plan = availablePlans.find(p => p.id === subscription.planId);
+    const plan = availablePlans.find(p => String(p.id) === String(subscription.planId));
     
     res.json({
       ...subscription,
@@ -154,7 +154,7 @@ export async function createSubscription(req: Request, res: Response) {
     const nextBillingDate = new Date(currentDate);
     nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
 
-    await db.insert(subscriptions).values({
+    await db.insert(mercadoPagoSubscriptions).values({
       companyId,
       planId,
       status: 'pending',
@@ -239,23 +239,21 @@ export async function handleWebhook(req: Request, res: Response) {
         
         // Atualizar status da assinatura baseado no pagamento
         if (paymentInfo.status === 'approved') {
-          await db.update(subscriptions)
-            .set({ 
+          await db.update(mercadoPagoSubscriptions)
+            .set({
               status: 'active',
               updatedAt: new Date()
             })
             .where(and(
-              eq(subscriptions.companyId, parseInt(companyId)),
-              eq(subscriptions.mercadoPagoId, paymentInfo.collector_id?.toString() || '')
+              eq(mercadoPagoSubscriptions.companyId, parseInt(companyId)),
+              eq(mercadoPagoSubscriptions.mercadoPagoId, paymentInfo.collector_id?.toString() || '')
             ));
 
           // Registrar o pagamento
           await db.insert(payments).values({
             companyId: parseInt(companyId),
-            subscriptionId: paymentInfo.collector_id?.toString() || '',
-            amount: (paymentInfo.transaction_amount || 0) * 100, // Converter para centavos
-            currency: paymentInfo.currency_id || 'BRL',
-            status: 'approved',
+            amount: ((paymentInfo.transaction_amount || 0) * 100).toFixed(2), // Converter para centavos como string
+            status: 'confirmed',
             paymentDate: new Date(),
             paymentMethod: paymentInfo.payment_method_id || 'mercadopago',
             mercadoPagoId: paymentId.toString(),

@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 const MOCK_ADMIN_USER: SelectUser = {
   id: 99999,
   username: "admin",
-  password: "admin123", 
+  password: "admin123",
   fullName: "Administrador",
   email: "admin@dentalsys.com",
   role: "admin",
@@ -21,6 +21,15 @@ const MOCK_ADMIN_USER: SelectUser = {
   speciality: null,
   active: true,
   googleId: null,
+  googleCalendarId: null,
+  googleAccessToken: null,
+  googleRefreshToken: null,
+  googleTokenExpiry: null,
+  wuzapiPhone: null,
+  cfoRegistrationNumber: null,
+  cfoState: null,
+  digitalCertificatePath: null,
+  companyId: 1, // Empresa padrão
   trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
   createdAt: new Date(),
   updatedAt: new Date()

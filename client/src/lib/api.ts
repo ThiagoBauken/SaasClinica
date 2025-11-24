@@ -80,3 +80,20 @@ export const machineTaxesApi = {
   updateTax: (id: number, data: any) => apiRequest<any>(`/api/machine-taxes/${id}`, "PATCH", data),
   deleteTax: (id: number) => apiRequest<void>(`/api/machine-taxes/${id}`, "DELETE"),
 };
+
+// Configurações da Empresa (OpenAI, N8N, etc)
+export const companySettingsApi = {
+  getSettings: () => apiRequest<any>("/api/v1/company/settings"),
+  updateSettings: (data: { openaiApiKey?: string; n8nWebhookUrl?: string }) =>
+    apiRequest<any>("/api/v1/company/settings", "PATCH", data),
+};
+
+// Integrações (Wuzapi, Google Calendar, N8N)
+export const integrationsApi = {
+  getSettings: () => apiRequest<any>("/api/v1/integrations"),
+  updateSettings: (data: any) => apiRequest<any>("/api/v1/integrations", "PATCH", data),
+  testWhatsApp: () => apiRequest<any>("/api/v1/integrations/test-whatsapp", "POST"),
+  testN8N: () => apiRequest<any>("/api/v1/integrations/test-n8n", "POST"),
+  sendTestWhatsApp: (data: { phone: string; message?: string }) =>
+    apiRequest<any>("/api/v1/integrations/send-test-whatsapp", "POST", data),
+};

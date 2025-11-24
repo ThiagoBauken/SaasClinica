@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ConfigCard } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,21 @@ export default function ConfiguracoesPage() {
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [showProfessionalDialog, setShowProfessionalDialog] = useState(false);
   const [showProcedureDialog, setShowProcedureDialog] = useState(false);
+
+  const configCards: any[] = [
+    {
+      title: "Dados da Clínica",
+      description: "Informações básicas e contato",
+      icon: <Building2 className="h-5 w-5" />,
+      path: "/configuracoes/clinica"
+    },
+    {
+      title: "Integrações",
+      description: "Wuzapi, Google Calendar e N8N",
+      icon: <Wrench className="h-5 w-5" />,
+      path: "/configuracoes/integracoes"
+    }
+  ];
 
   // Mock data for demonstration
   const [clinicData, setClinicData] = useState({
@@ -96,8 +112,8 @@ export default function ConfiguracoesPage() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {configCards.map((card, index) => (
-            <Link key={index} href={card.href}>
+          {configCards.map((card: any, index: number) => (
+            <Link key={index} href={card.path}>
               <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-muted hover:border-primary">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -109,7 +125,7 @@ export default function ConfiguracoesPage() {
                 <CardContent>
                   <CardDescription className="text-sm">{card.description}</CardDescription>
                   <Button variant="link" className="p-0 h-auto mt-2 text-primary" asChild>
-                    <Link href={card.href}>Configurar</Link>
+                    <Link href={card.path}>Configurar</Link>
                   </Button>
                 </CardContent>
               </Card>

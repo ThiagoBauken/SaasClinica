@@ -6,8 +6,7 @@ const redisUrl = process.env.REDIS_URL;
 let redisClient: Redis | null = null;
 
 // Cache em memória para desenvolvimento ou fallback
-// Usando objeto simples para evitar problemas de iteração
-const memoryCache: Record<string, { data: any; expiry: number }> = {};
+const memoryCache = new Map<string, { data: any; expiry: number }>();
 
 // Tempo padrão de cache em segundos
 const DEFAULT_CACHE_TTL = 300; // 5 minutos
@@ -67,16 +66,16 @@ export async function getCache<T>(key: string): Promise<T | null> {
   
   // Fallback para o cache em memória
   const now = Date.now();
-  const cached = memoryCache[key];
-  
+  const cached = memoryCache.get(key);
+
   // Verifica se o cache existe e não expirou
   if (cached && cached.expiry > now) {
     return cached.data as T;
   }
-  
+
   // Remove o cache expirado se existir
   if (cached) {
-    delete memoryCache[key];
+    memoryCache.delete(key);
   }
   
   return null;

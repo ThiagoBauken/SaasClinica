@@ -49,11 +49,11 @@ export default function CompanyAdminPageFixed() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Buscar usuários
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const response = await apiRequest("/api/admin/users", "GET");
-      return response;
+      return response.json();
     }
   });
 

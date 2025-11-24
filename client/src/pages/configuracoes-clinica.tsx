@@ -12,17 +12,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useClinicSettings } from "@/hooks/use-clinic-settings";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  Loader2, 
-  Building, 
-  Globe, 
-  Palette, 
-  Eye, 
-  Phone, 
-  MessageCircle, 
-  Upload, 
+import {
+  Loader2,
+  Building,
+  Globe,
+  Palette,
+  Eye,
+  Phone,
+  MessageCircle,
+  Upload,
   Search,
   Trash2,
   Edit3,
@@ -36,7 +37,11 @@ import {
   Youtube,
   Camera,
   Image,
-  ExternalLink
+  ExternalLink,
+  Zap,
+  Key,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
 
 export default function ConfiguracoesClinicaPage() {
@@ -44,12 +49,19 @@ export default function ConfiguracoesClinicaPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("clinic");
   
-  const { 
-    clinicSettings, 
-    isLoading, 
+  const {
+    clinicSettings,
+    isLoading,
     updateClinicSettings,
-    isUpdating 
+    isUpdating
   } = useClinicSettings();
+
+  const {
+    companySettings,
+    isLoading: isLoadingCompany,
+    updateCompanySettings,
+    isUpdating: isUpdatingCompany
+  } = useCompanySettings();
   
   // Formulário da clínica
   const [form, setForm] = useState({
@@ -74,6 +86,12 @@ export default function ConfiguracoesClinicaPage() {
     receiptPrintEnabled: false,
     receiptHeader: "",
     receiptFooter: ""
+  });
+
+  // Formulário de automação (OpenAI, N8N)
+  const [automationForm, setAutomationForm] = useState({
+    openaiApiKey: "",
+    n8nWebhookUrl: "",
   });
 
   // Estado para o criador de sites
@@ -204,7 +222,7 @@ export default function ConfiguracoesClinicaPage() {
   };
 
   // Queries e mutations para o criador de sites
-  const { data: savedWebsite } = useQuery({
+  const { data: savedWebsite } = useQuery<{ data: any }>({
     queryKey: ['/api/website'],
     enabled: activeTab === 'website'
   });
@@ -243,6 +261,16 @@ export default function ConfiguracoesClinicaPage() {
     }
   });
   
+  // Atualiza o formulário de automação quando os dados são carregados
+  useEffect(() => {
+    if (companySettings) {
+      setAutomationForm({
+        openaiApiKey: companySettings.openaiApiKey || "",
+        n8nWebhookUrl: companySettings.n8nWebhookUrl || "",
+      });
+    }
+  }, [companySettings]);
+
   // Atualiza o formulário quando os dados são carregados
   useEffect(() => {
     if (clinicSettings) {
@@ -345,9 +373,14 @@ export default function ConfiguracoesClinicaPage() {
     }));
   };
   
-  // Função para salvar as configurações
+  // Função para salvar as configurações da clínica
   const salvarConfiguracoes = () => {
     updateClinicSettings(form);
+  };
+
+  // Função para salvar as configurações de automação
+  const salvarAutomacao = () => {
+    updateCompanySettings(automationForm);
   };
 
   return (
@@ -357,7 +390,7 @@ export default function ConfiguracoesClinicaPage() {
           <h1 className="text-3xl font-bold tracking-tight">Configurações da Clínica</h1>
           <div className="flex gap-2">
             {activeTab === 'clinic' && (
-              <Button 
+              <Button
                 onClick={salvarConfiguracoes}
                 className="bg-gradient-to-r from-blue-600 to-blue-500"
                 disabled={isUpdating}
@@ -368,6 +401,20 @@ export default function ConfiguracoesClinicaPage() {
                     Salvando...
                   </>
                 ) : "Salvar Configurações"}
+              </Button>
+            )}
+            {activeTab === 'automation' && (
+              <Button
+                onClick={salvarAutomacao}
+                className="bg-gradient-to-r from-purple-600 to-purple-500"
+                disabled={isUpdatingCompany}
+              >
+                {isUpdatingCompany ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : "Salvar Automações"}
               </Button>
             )}
             {activeTab === 'website' && (
@@ -403,10 +450,14 @@ export default function ConfiguracoesClinicaPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="clinic">
               <Building className="h-4 w-4 mr-2" />
               Dados da Clínica
+            </TabsTrigger>
+            <TabsTrigger value="automation">
+              <Zap className="h-4 w-4 mr-2" />
+              Automações
             </TabsTrigger>
             <TabsTrigger value="website">
               <Globe className="h-4 w-4 mr-2" />
@@ -503,6 +554,140 @@ export default function ConfiguracoesClinicaPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="automation" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-purple-600" />
+                  Integrações e Automações
+                </CardTitle>
+                <CardDescription>
+                  Configure integrações com OpenAI e N8N para automatizar processos da clínica
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {isLoadingCompany ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <>
+                    {/* OpenAI API Key Section */}
+                    <div className="space-y-4 pb-6 border-b">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="openaiApiKey" className="text-base font-semibold flex items-center gap-2">
+                            <Key className="h-4 w-4" />
+                            Chave API da OpenAI
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Sua chave privada para usar automações com IA. Cada clínica usa sua própria chave.
+                          </p>
+                        </div>
+                        {companySettings?.hasOpenaiApiKey && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Configurada
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Input
+                            id="openaiApiKey"
+                            type="password"
+                            placeholder={companySettings?.hasOpenaiApiKey ? "sk-...****" : "sk-..."}
+                            value={automationForm.openaiApiKey}
+                            onChange={(e) => setAutomationForm(prev => ({ ...prev, openaiApiKey: e.target.value }))}
+                            className="font-mono"
+                          />
+                          <p className="text-xs text-muted-foreground flex items-start gap-1">
+                            <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                            <span>
+                              A chave deve começar com "sk-". {companySettings?.hasOpenaiApiKey && "Deixe em branco para manter a chave atual."}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                          <h4 className="font-medium text-blue-900 text-sm flex items-center gap-2">
+                            <Key className="h-4 w-4" />
+                            Como obter sua chave OpenAI
+                          </h4>
+                          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                            <li>Acesse <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline font-medium">platform.openai.com/api-keys</a></li>
+                            <li>Faça login ou crie uma conta OpenAI</li>
+                            <li>Clique em "Create new secret key"</li>
+                            <li>Copie a chave (ela começa com "sk-")</li>
+                            <li>Cole aqui e salve as configurações</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* N8N Webhook Section */}
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="n8nWebhookUrl" className="text-base font-semibold flex items-center gap-2">
+                          <Share2 className="h-4 w-4" />
+                          URL do Webhook N8N (Opcional)
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          URL do webhook N8N para receber eventos da sua clínica
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Input
+                          id="n8nWebhookUrl"
+                          type="url"
+                          placeholder="https://seu-n8n.com/webhook/..."
+                          value={automationForm.n8nWebhookUrl}
+                          onChange={(e) => setAutomationForm(prev => ({ ...prev, n8nWebhookUrl: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground flex items-start gap-1">
+                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          <span>
+                            Configure este campo apenas se você tiver um workflow N8N personalizado
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-2">
+                        <h4 className="font-medium text-purple-900 text-sm flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          Automações Disponíveis
+                        </h4>
+                        <ul className="text-sm text-purple-800 space-y-1 list-disc list-inside">
+                          <li>Confirmação automática de consultas via WhatsApp</li>
+                          <li>Lembretes inteligentes para pacientes</li>
+                          <li>Resumos automáticos de atendimentos</li>
+                          <li>Análise de sentimento em feedbacks</li>
+                          <li>Sugestões de tratamento baseadas em IA</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Security Warning */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="font-medium text-amber-900 text-sm">
+                          Segurança e Privacidade
+                        </h4>
+                        <p className="text-sm text-amber-800">
+                          Sua chave OpenAI é armazenada de forma segura e criptografada. Nunca compartilhe sua chave com terceiros.
+                          Monitore o uso da sua chave no painel da OpenAI para evitar cobranças inesperadas.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="website" className="space-y-4">

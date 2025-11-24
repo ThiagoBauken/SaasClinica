@@ -1,0 +1,37 @@
+/**
+ * Health check script para Docker
+ * Usado no HEALTHCHECK do Dockerfile
+ */
+
+const http = require('http');
+
+const options = {
+  hostname: 'localhost',
+  port: process.env.PORT || 5000,
+  path: '/health/live',
+  method: 'GET',
+  timeout: 5000,
+};
+
+const req = http.request(options, (res) => {
+  if (res.statusCode === 200) {
+    console.log('✓ Health check passed');
+    process.exit(0);
+  } else {
+    console.error(`✗ Health check failed with status ${res.statusCode}`);
+    process.exit(1);
+  }
+});
+
+req.on('error', (error) => {
+  console.error('✗ Health check failed:', error.message);
+  process.exit(1);
+});
+
+req.on('timeout', () => {
+  console.error('✗ Health check timeout');
+  req.destroy();
+  process.exit(1);
+});
+
+req.end();

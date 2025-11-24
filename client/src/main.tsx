@@ -12,17 +12,17 @@ document.head.appendChild(metaDesc);
 
 // Add open graph tags
 const ogTitle = document.createElement('meta');
-ogTitle.property = "og:title";
+ogTitle.setAttribute('property', 'og:title');
 ogTitle.content = "DentCare - Sistema de Gerenciamento Odontológico";
 document.head.appendChild(ogTitle);
 
 const ogDesc = document.createElement('meta');
-ogDesc.property = "og:description";
+ogDesc.setAttribute('property', 'og:description');
 ogDesc.content = "Gerencie sua clínica odontológica com agenda, prontuário digital e automações.";
 document.head.appendChild(ogDesc);
 
 const ogType = document.createElement('meta');
-ogType.property = "og:type";
+ogType.setAttribute('property', 'og:type');
 ogType.content = "website";
 document.head.appendChild(ogType);
 

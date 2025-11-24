@@ -6,17 +6,18 @@ import { Input } from '../../../client/src/components/ui/input';
 import { Label } from '../../../client/src/components/ui/label';
 import { Switch } from '../../../client/src/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../client/src/components/ui/tabs';
-import { 
-  Settings, 
-  Building, 
-  Clock, 
-  Bell, 
-  Shield, 
+import {
+  Settings,
+  Building,
+  Clock,
+  Bell,
+  Shield,
   Database,
   Mail,
   Phone,
   MapPin,
-  Save
+  Save,
+  Globe
 } from 'lucide-react';
 import { useToast } from '../../../client/src/hooks/use-toast';
 

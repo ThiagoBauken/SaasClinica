@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { addMonths, isBefore, parseISO, differenceInMonths, format } from "date-fns";
+import { Link } from "wouter";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle, ChevronDown, X } from "lucide-react";
+import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle, ChevronDown, X, Scan } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -348,12 +349,12 @@ export default function PatientsPage() {
       Nome: patient.fullName,
       Email: patient.email || '',
       Telefone: patient.phone || '',
-      CPF: patient.cpf || '',
+      CPF: (patient as any).cpf || '',
       DataNascimento: patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('pt-BR') : '',
       Gênero: patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : 'Outro',
       Endereço: patient.address || '',
       Convênio: patient.insuranceInfo || '',
-      Observações: patient.notes || ''
+      Observações: (patient as any).notes || ''
     }));
 
     // Converter para CSV
@@ -497,8 +498,8 @@ export default function PatientsPage() {
 
   return (
     <DashboardLayout title="Pacientes" currentPath="/patients">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="relative w-full sm:w-96">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-4">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-medium" />
           <Input
             placeholder="Buscar paciente por nome, email ou telefone"
@@ -533,12 +534,12 @@ export default function PatientsPage() {
           )}
         </div>
         
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
-                <span className="text-sm font-medium mr-2">Última consulta:</span>
-                <span className="text-sm">{getFilterLabel(lastVisitFilter)}</span>
+              <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none">
+                <span className="text-xs sm:text-sm font-medium mr-2">Última consulta:</span>
+                <span className="text-xs sm:text-sm">{getFilterLabel(lastVisitFilter)}</span>
                 <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
@@ -592,13 +593,17 @@ export default function PatientsPage() {
           </DropdownMenu>
         </div>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportPatients}>
-            Exportar Pacientes
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportPatients} size="sm" className="flex-1 sm:flex-none">
+            <span className="hidden sm:inline">Exportar Pacientes</span>
+            <span className="sm:hidden">Exportar</span>
           </Button>
-          <label htmlFor="import-patients" className="cursor-pointer">
-            <Button variant="outline" asChild>
-              <span>Importar Pacientes</span>
+          <label htmlFor="import-patients" className="cursor-pointer flex-1 sm:flex-none">
+            <Button variant="outline" asChild size="sm" className="w-full">
+              <span>
+                <span className="hidden sm:inline">Importar Pacientes</span>
+                <span className="sm:hidden">Importar</span>
+              </span>
             </Button>
             <input
               type="file"
@@ -608,9 +613,17 @@ export default function PatientsPage() {
               onChange={handleImportPatients}
             />
           </label>
-          <Button className="bg-primary text-white" onClick={() => setIsAddPatientOpen(true)}>
+          <Link href="/pacientes/digitalizar">
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none w-full">
+              <Scan className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Digitalizar Prontuários</span>
+              <span className="sm:hidden">Digitalizar</span>
+            </Button>
+          </Link>
+          <Button className="bg-primary text-white flex-1 sm:flex-none" onClick={() => setIsAddPatientOpen(true)} size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Novo Paciente
+            <span className="hidden sm:inline">Novo Paciente</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
       </div>
@@ -642,14 +655,14 @@ export default function PatientsPage() {
 
       {/* Patient Details Dialog */}
       <Dialog open={!!selectedPatient} onOpenChange={closePatientDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Detalhes do Paciente</DialogTitle>
           </DialogHeader>
-          
+
           {selectedPatient && (
             <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-4 mb-6">
+              <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6">
                 <TabsTrigger value="info">Informações</TabsTrigger>
                 <TabsTrigger value="records">Prontuário</TabsTrigger>
                 <TabsTrigger value="odontogram">Odontograma</TabsTrigger>

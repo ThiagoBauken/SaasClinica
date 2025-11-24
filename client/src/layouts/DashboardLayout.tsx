@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import Header from "@/components/dashboard/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/core/AuthProvider";
+import { User } from "@shared/schema";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,7 +12,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title, currentPath }: DashboardLayoutProps) {
   // Try to get auth context safely
-  let user = null;
+  let user: User | null = null;
   try {
     const auth = useAuth();
     user = auth.user;
@@ -29,11 +30,19 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
       speciality: null,
       active: true,
       googleId: null,
+      googleCalendarId: null,
+      googleAccessToken: null,
+      googleRefreshToken: null,
+      googleTokenExpiry: null,
+      wuzapiPhone: null,
+      cfoRegistrationNumber: null,
+      cfoState: null,
+      digitalCertificatePath: null,
       companyId: 3,
-      trialEndsAt: null,
-      createdAt: null,
-      updatedAt: null
-    };
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as User;
   }
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

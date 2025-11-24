@@ -5,6 +5,9 @@ import { lazy } from 'react';
 // Dynamic import for the agenda component
 export const AgendaComponent = lazy(() => import('./AgendaModule').then(module => ({ default: module.AgendaModule })));
 
+// Re-export AgendaModule for lazy loading compatibility
+export { AgendaModule } from './AgendaModule';
+
 export const agendaModule: ModuleDefinition = {
   id: 'agenda',
   name: 'agenda',

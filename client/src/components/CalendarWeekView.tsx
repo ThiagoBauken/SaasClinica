@@ -1,16 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { format, addDays, startOfWeek, parseISO, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
-// Intervalos de tempo para exibição na grade
-const timeSlots: string[] = [];
-for (let hour = 7; hour < 20; hour++) {
-  timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-  timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
-}
 
 // Tipo para um compromisso/agendamento
 interface Appointment {
@@ -31,6 +24,8 @@ interface CalendarWeekViewProps {
   onDateSelect?: (date: Date, startTime: string, endTime?: string) => void;
   onAppointmentClick?: (appointment: Appointment) => void;
   professionals?: { id: number; name: string }[];
+  timeInterval?: 15 | 20 | 30 | 60;
+  selectedDate?: Date;
 }
 
 export default function CalendarWeekView({
@@ -38,14 +33,36 @@ export default function CalendarWeekView({
   onDateSelect,
   onAppointmentClick,
   professionals = [],
+  timeInterval = 30,
+  selectedDate: externalSelectedDate,
 }: CalendarWeekViewProps) {
   // Estado para a semana atual sendo visualizada
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(externalSelectedDate || new Date());
   const [selectionStart, setSelectionStart] = useState<{ day: number; time: string } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ day: number; time: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // Sincronizar com a data externa quando ela mudar
+  useEffect(() => {
+    if (externalSelectedDate) {
+      setCurrentDate(externalSelectedDate);
+    }
+  }, [externalSelectedDate]);
+
+  // Gerar intervalos de tempo baseados no timeInterval
+  const timeSlots = useMemo(() => {
+    const slots: string[] = [];
+    for (let hour = 7; hour < 20; hour++) {
+      const intervals = 60 / timeInterval;
+      for (let i = 0; i < intervals; i++) {
+        const minutes = i * timeInterval;
+        slots.push(`${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+      }
+    }
+    return slots;
+  }, [timeInterval]);
 
   // Calcular o início da semana (começando no domingo)
   const weekStart = startOfWeek(currentDate, { locale: ptBR });

@@ -36,9 +36,8 @@ export async function createBackup(req: Request, res: Response) {
       where: eq(appointments.companyId, companyId)
     });
 
-    const companyProcedures = await db.query.procedures.findMany({
-      where: eq(procedures.companyId, companyId)
-    });
+    // Procedures are global (no companyId filter)
+    const companyProcedures = await db.query.procedures.findMany();
 
     // Remover senhas dos usuários
     const safeUsers = companyUsers.map(user => {

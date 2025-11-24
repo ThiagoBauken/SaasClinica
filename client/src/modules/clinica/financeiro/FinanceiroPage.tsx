@@ -62,6 +62,23 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+type Transaction = {
+  id: number;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category?: string;
+  date: string;
+  patientId?: number;
+  [key: string]: any;
+};
+
+type Patient = {
+  id: number;
+  name: string;
+  [key: string]: any;
+};
+
 export default function FinanceiroPage() {
   const { toast } = useToast();
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -74,12 +91,12 @@ export default function FinanceiroPage() {
     data: transactions = [],
     isLoading: isLoadingTransactions,
     error: transactionsError,
-  } = useQuery({
+  } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
   });
 
   // Fetch patients for the select
-  const { data: patients = [] } = useQuery({
+  const { data: patients = [] } = useQuery<Patient[]>({
     queryKey: ["/api/patients"],
   });
 

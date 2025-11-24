@@ -31,7 +31,7 @@ export function CompanyProvider({ children }: CompanyProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Buscar informações da empresa do usuário logado
-  const { data: userCompany, isLoading, refetch } = useQuery({
+  const { data: userCompany, isLoading, refetch } = useQuery<Company>({
     queryKey: ['/api/user/company'],
     enabled: true,
     staleTime: 5 * 60 * 1000, // 5 minutos

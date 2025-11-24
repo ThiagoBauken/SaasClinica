@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, varchar, decimal, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, decimal, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -12,6 +12,9 @@ export const companies = pgTable("companies", {
   cnpj: text("cnpj"),
   active: boolean("active").notNull().default(true),
   trialEndsAt: timestamp("trial_ends_at"),
+  // Configurações de Automação/Integrações
+  openaiApiKey: text("openai_api_key"), // Chave da OpenAI para automações N8N
+  n8nWebhookUrl: text("n8n_webhook_url"), // URL do webhook N8N (opcional)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -54,6 +57,15 @@ export const users = pgTable("users", {
   speciality: text("speciality"),
   active: boolean("active").notNull().default(true),
   googleId: text("google_id").unique(),
+  googleCalendarId: text("google_calendar_id"), // ID do Google Calendar do profissional
+  googleAccessToken: text("google_access_token"), // Token de acesso do Google Calendar
+  googleRefreshToken: text("google_refresh_token"), // Token de refresh do Google Calendar
+  googleTokenExpiry: timestamp("google_token_expiry"), // Data de expiração do access token
+  wuzapiPhone: text("wuzapi_phone"), // Telefone WhatsApp para notificações
+  // Dados CFO para assinatura digital
+  cfoRegistrationNumber: text("cfo_registration_number"), // Número do CRO (ex: "12345")
+  cfoState: text("cfo_state"), // Estado do CRO (ex: "SP", "RJ")
+  digitalCertificatePath: text("digital_certificate_path"), // Caminho do certificado digital (opcional)
   trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -89,6 +101,14 @@ export const insertUserSchema = createInsertSchema(users).pick({
   profileImageUrl: true,
   speciality: true,
   googleId: true,
+  googleCalendarId: true,
+  googleAccessToken: true,
+  googleRefreshToken: true,
+  googleTokenExpiry: true,
+  wuzapiPhone: true,
+  cfoRegistrationNumber: true,
+  cfoState: true,
+  digitalCertificatePath: true,
   trialEndsAt: true,
   active: true,
 });
@@ -112,7 +132,8 @@ export const patients = pgTable("patients", {
   email: text("email"),
   phone: text("phone"),
   cellphone: text("cellphone"),
-  
+  whatsappPhone: text("whatsapp_phone"), // WhatsApp específico (pode ser diferente)
+
   // Endereço
   address: text("address"),
   neighborhood: text("neighborhood"),
@@ -169,6 +190,18 @@ export const appointments = pgTable("appointments", {
   recurrencePattern: text("recurrence_pattern"),
   automationEnabled: boolean("automation_enabled").default(true),
   automationParams: jsonb("automation_params"),
+  googleCalendarEventId: text("google_calendar_event_id"), // ID do evento no Google Calendar
+  wuzapiMessageId: text("wuzapi_message_id"), // ID da mensagem enviada via Wuzapi
+  automationStatus: text("automation_status").default("pending"), // pending, sent, confirmed, cancelled, error
+  automationSentAt: timestamp("automation_sent_at"),
+  automationError: text("automation_error"),
+  lastReminderSent: timestamp("last_reminder_sent"),
+  // Confirmação
+  confirmationMethod: text("confirmation_method"), // whatsapp, sms, email, phone, manual
+  confirmedByPatient: boolean("confirmed_by_patient").default(false),
+  confirmationDate: timestamp("confirmation_date"),
+  confirmationMessageId: text("confirmation_message_id"), // ID da mensagem de confirmação
+  patientResponse: text("patient_response"), // Resposta do paciente
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -194,19 +227,25 @@ export const insertAppointmentSchema = createInsertSchema(appointments).pick({
 // Procedures
 export const procedures = pgTable("procedures", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   name: text("name").notNull(),
   duration: integer("duration").notNull(), // in minutes
   price: integer("price").notNull(), // in cents
   description: text("description"),
   color: text("color"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertProcedureSchema = createInsertSchema(procedures).pick({
+  companyId: true,
   name: true,
   duration: true,
   price: true,
   description: true,
   color: true,
+  active: true,
 });
 
 // AppointmentProcedures - many-to-many relationship
@@ -331,12 +370,16 @@ export type InsertProsthesisLabel = z.infer<typeof insertProsthesisLabelSchema>;
 // Rooms
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertRoomSchema = createInsertSchema(rooms).pick({
+  companyId: true,
   name: true,
   description: true,
   active: true,
@@ -363,19 +406,23 @@ export const insertWorkingHoursSchema = createInsertSchema(workingHours).pick({
 // Holidays
 export const holidays = pgTable("holidays", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id), // NULL = nacional, preenchido = específico da clínica
   name: text("name").notNull(),
   date: timestamp("date").notNull(),
   isRecurringYearly: boolean("is_recurring_yearly").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertHolidaySchema = createInsertSchema(holidays).pick({
+  companyId: true,
   name: true,
   date: true,
   isRecurringYearly: true,
 });
 
-// Subscriptions and Payments
-export const subscriptions = pgTable("subscriptions", {
+// Legacy: MercadoPago Subscriptions (deprecated - use new billing system)
+export const mercadoPagoSubscriptions = pgTable("mercado_pago_subscriptions", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
   planId: text("plan_id").notNull(),
@@ -394,18 +441,19 @@ export const subscriptions = pgTable("subscriptions", {
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
-  subscriptionId: text("subscription_id").notNull(),
-  amount: integer("amount").notNull(), // in cents
-  currency: text("currency").notNull().default("BRL"),
-  status: text("status").notNull(), // approved, pending, rejected, cancelled
+  subscriptionId: integer("subscription_id"),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull(), // pending, confirmed, failed
   paymentDate: timestamp("payment_date").notNull(),
-  paymentMethod: text("payment_method").notNull(),
+  paymentMethod: text("payment_method").notNull(), // credit_card, debit_card, cash, pix
   mercadoPagoId: text("mercado_pago_id"),
-  description: text("description").notNull(),
+  description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertSubscriptionSchema = createInsertSchema(subscriptions);
+export const insertMercadoPagoSubscriptionSchema = createInsertSchema(mercadoPagoSubscriptions);
 export const insertPaymentSchema = createInsertSchema(payments);
 
 // N8N Automations
@@ -431,6 +479,11 @@ export const automations = pgTable("automations", {
   responseActions: jsonb("response_actions"),
   logLevel: text("log_level").default("complete"),
   active: boolean("active").default(true),
+  n8nWorkflowId: text("n8n_workflow_id"), // ID do workflow no n8n
+  lastExecution: timestamp("last_execution"),
+  executionCount: integer("execution_count").default(0),
+  errorCount: integer("error_count").default(0),
+  lastError: text("last_error"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -697,32 +750,103 @@ export const insertTreatmentEvolutionSchema = createInsertSchema(treatmentEvolut
   performedBy: true,
 });
 
+// Assinaturas Digitais (CFO)
+export const digitalSignatures = pgTable("digital_signatures", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  professionalId: integer("professional_id").notNull().references(() => users.id),
+
+  // Tipo de documento
+  documentType: text("document_type").notNull(), // 'prescription', 'certificate', 'attestation', 'exam_request'
+  documentId: integer("document_id").notNull(),
+
+  // Dados do certificado digital
+  certificateSerialNumber: text("certificate_serial_number"),
+  certificateName: text("certificate_name"),
+  certificateIssuer: text("certificate_issuer"),
+  certificateValidFrom: timestamp("certificate_valid_from"),
+  certificateValidUntil: timestamp("certificate_valid_until"),
+
+  // Dados do CFO
+  cfoRegistrationNumber: text("cfo_registration_number").notNull(),
+  cfoState: text("cfo_state").notNull(),
+
+  // Assinatura e validação
+  signedPdfUrl: text("signed_pdf_url").notNull(),
+  signatureHash: text("signature_hash"),
+  qrCodeData: text("qr_code_data"),
+  cfoValidationUrl: text("cfo_validation_url"),
+
+  // Timestamps
+  signedAt: timestamp("signed_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+
+  // Status
+  status: text("status").notNull().default('valid'), // 'valid', 'revoked', 'expired'
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDigitalSignatureSchema = createInsertSchema(digitalSignatures).pick({
+  companyId: true,
+  professionalId: true,
+  documentType: true,
+  documentId: true,
+  certificateSerialNumber: true,
+  certificateName: true,
+  certificateIssuer: true,
+  certificateValidFrom: true,
+  certificateValidUntil: true,
+  cfoRegistrationNumber: true,
+  cfoState: true,
+  signedPdfUrl: true,
+  signatureHash: true,
+  qrCodeData: true,
+  cfoValidationUrl: true,
+  expiresAt: true,
+  status: true,
+  metadata: true,
+});
+
 // Receitas e Atestados
 export const prescriptions = pgTable("prescriptions", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
   patientId: integer("patient_id").references(() => patients.id).notNull(),
-  
+
   type: text("type").notNull(), // receita, atestado, declaracao
   title: text("title").notNull(),
   content: text("content").notNull(),
-  
+
   // Para receitas
   medications: jsonb("medications"), // Array de medicamentos
   instructions: text("instructions"),
-  
+
   // Para atestados
   attestationType: text("attestation_type"), // comparecimento, incapacidade, etc
   period: text("period"), // período de afastamento
   cid: text("cid"), // código CID se aplicável
-  
+
   validUntil: timestamp("valid_until"),
   prescribedBy: integer("prescribed_by").references(() => users.id).notNull(),
-  
+
   // Controle
   issued: boolean("issued").default(false),
   issuedAt: timestamp("issued_at"),
-  
+
+  // Assinatura Digital
+  signatureId: integer("signature_id").references(() => digitalSignatures.id),
+  digitallySigned: boolean("digitally_signed").default(false),
+  signedPdfUrl: text("signed_pdf_url"),
+  validatedByCfo: boolean("validated_by_cfo").default(false),
+  cfoValidationUrl: text("cfo_validation_url"),
+  qrCodeData: text("qr_code_data"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -770,6 +894,68 @@ export const insertOdontogramEntrySchema = createInsertSchema(odontogramEntries)
   procedureId: true,
   createdBy: true,
 });
+
+// Periodontal Chart (Periodontograma)
+export const periodontalChart = pgTable("periodontal_chart", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  chartDate: timestamp("chart_date").notNull().defaultNow(),
+  teethData: jsonb("teeth_data").notNull().$type<PeriodontalToothData[]>().default([]),
+  generalNotes: text("general_notes"),
+  diagnosis: text("diagnosis"),
+  treatmentPlan: text("treatment_plan"),
+  plaqueIndex: decimal("plaque_index", { precision: 5, scale: 2 }),
+  bleedingIndex: decimal("bleeding_index", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPeriodontalChartSchema = createInsertSchema(periodontalChart).pick({
+  companyId: true,
+  patientId: true,
+  professionalId: true,
+  chartDate: true,
+  teethData: true,
+  generalNotes: true,
+  diagnosis: true,
+  treatmentPlan: true,
+  plaqueIndex: true,
+  bleedingIndex: true,
+});
+
+// TypeScript interfaces for Periodontal Chart
+export interface PeriodontalMeasurements {
+  mesialBuccal: number;
+  buccal: number;
+  distalBuccal: number;
+  mesialLingual: number;
+  lingual: number;
+  distalLingual: number;
+}
+
+export interface PeriodontalBleedingSupp {
+  mesialBuccal: boolean;
+  buccal: boolean;
+  distalBuccal: boolean;
+  mesialLingual: boolean;
+  lingual: boolean;
+  distalLingual: boolean;
+}
+
+export interface PeriodontalToothData {
+  toothNumber: string; // "11", "12", ... "48" (FDI notation)
+  probingDepth: PeriodontalMeasurements; // in mm
+  gingivalRecession: PeriodontalMeasurements; // in mm
+  bleeding: PeriodontalBleedingSupp;
+  suppuration: PeriodontalBleedingSupp;
+  mobility: 0 | 1 | 2 | 3; // 0=normal, 1=slight, 2=moderate, 3=severe
+  furcation: 0 | 1 | 2 | 3; // 0=none, 1=incipient, 2=moderate, 3=severe
+  plaque: boolean;
+  calculus: boolean;
+  notes?: string;
+}
 
 // Controle de Estoque
 export const inventoryCategories = pgTable("inventory_categories", {
@@ -935,6 +1121,7 @@ export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransacti
 // Configurações da Clínica
 export const clinicSettings = pgTable("clinic_settings", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).unique(), // Uma configuração por empresa
   name: text("name").notNull(),
   tradingName: text("trading_name"),
   cnpj: text("cnpj"),
@@ -956,7 +1143,14 @@ export const clinicSettings = pgTable("clinic_settings", {
   receiptPrintEnabled: boolean("receipt_print_enabled").default(false),
   receiptHeader: text("receipt_header"),
   receiptFooter: text("receipt_footer"),
+  // Integrações
+  wuzapiInstanceId: text("wuzapi_instance_id"),
+  wuzapiApiKey: text("wuzapi_api_key"),
+  defaultGoogleCalendarId: text("default_google_calendar_id"),
+  n8nWebhookBaseUrl: text("n8n_webhook_base_url"),
+  adminWhatsappPhone: text("admin_whatsapp_phone"),
   updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertClinicSettingsSchema = createInsertSchema(clinicSettings).pick({
@@ -1739,3 +1933,272 @@ export type InsertTreatmentEvolution = z.infer<typeof insertTreatmentEvolutionSc
 
 export type Prescription = typeof prescriptions.$inferSelect;
 export type InsertPrescription = z.infer<typeof insertPrescriptionSchema>;
+
+// ============================================
+// BILLING & SUBSCRIPTIONS (SaaS)
+// ============================================
+
+// Planos do SaaS
+export const plans = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(), // basic, pro, enterprise
+  displayName: text("display_name").notNull(), // "Básico", "Profissional", "Empresarial"
+  description: text("description"),
+  monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }).notNull(),
+  yearlyPrice: decimal("yearly_price", { precision: 10, scale: 2 }),
+  trialDays: integer("trial_days").notNull().default(14),
+  maxUsers: integer("max_users").notNull().default(5),
+  maxPatients: integer("max_patients").notNull().default(100),
+  maxAppointmentsPerMonth: integer("max_appointments_per_month").notNull().default(500),
+  maxAutomations: integer("max_automations").notNull().default(5),
+  maxStorageGB: integer("max_storage_gb").notNull().default(5),
+  features: jsonb("features").$type<string[]>(), // Lista de features incluídas
+  isActive: boolean("is_active").notNull().default(true),
+  isPopular: boolean("is_popular").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Features detalhadas dos planos
+export const planFeatures = pgTable("plan_features", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull().references(() => plans.id),
+  featureKey: text("feature_key").notNull(), // whatsapp_integration, reports_pdf, etc.
+  featureName: text("feature_name").notNull(),
+  featureDescription: text("feature_description"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  limit: integer("limit"), // null = ilimitado
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Assinaturas das empresas
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id).unique(),
+  planId: integer("plan_id").notNull().references(() => plans.id),
+  status: text("status").notNull().default("trial"), // trial, active, past_due, canceled, expired
+  billingCycle: text("billing_cycle").notNull().default("monthly"), // monthly, yearly
+  currentPeriodStart: timestamp("current_period_start").notNull().defaultNow(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  trialEndsAt: timestamp("trial_ends_at"),
+  canceledAt: timestamp("canceled_at"),
+  // Integração com gateways
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  stripeCustomerId: text("stripe_customer_id"),
+  mercadoPagoSubscriptionId: text("mercado_pago_subscription_id").unique(),
+  mercadoPagoCustomerId: text("mercado_pago_customer_id"),
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Faturas de assinaturas
+export const subscriptionInvoices = pgTable("subscription_invoices", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").notNull().references(() => subscriptions.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("pending"), // pending, paid, failed, refunded
+  dueDate: timestamp("due_date").notNull(),
+  paidAt: timestamp("paid_at"),
+  // Integração com gateways
+  stripeInvoiceId: text("stripe_invoice_id").unique(),
+  mercadoPagoInvoiceId: text("mercado_pago_invoice_id").unique(),
+  paymentMethod: text("payment_method"), // credit_card, pix, boleto
+  invoiceUrl: text("invoice_url"),
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Métricas de uso para enforcement de limites
+export const usageMetrics = pgTable("usage_metrics", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  metricType: text("metric_type").notNull(), // users, patients, appointments, automations, storage_gb
+  currentValue: integer("current_value").notNull().default(0),
+  periodStart: timestamp("period_start").notNull().defaultNow(),
+  periodEnd: timestamp("period_end").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Histórico de mudanças de planos
+export const subscriptionHistory = pgTable("subscription_history", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").notNull().references(() => subscriptions.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  fromPlanId: integer("from_plan_id").references(() => plans.id),
+  toPlanId: integer("to_plan_id").notNull().references(() => plans.id),
+  reason: text("reason"), // upgrade, downgrade, trial_ended, payment_failed
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert Schemas para Billing
+export const insertPlanSchema = createInsertSchema(plans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPlanFeatureSchema = createInsertSchema(planFeatures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionInvoiceSchema = createInsertSchema(subscriptionInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUsageMetricSchema = createInsertSchema(usageMetrics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionHistorySchema = createInsertSchema(subscriptionHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Automation Logs
+export const automationLogs = pgTable("automation_logs", {
+  id: serial("id").primaryKey(),
+  automationId: integer("automation_id").references(() => automations.id, { onDelete: "cascade" }),
+  appointmentId: integer("appointment_id").references(() => appointments.id, { onDelete: "set null" }),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  executionStatus: text("execution_status").notNull(), // success, error, skipped, pending
+  executionTime: integer("execution_time"), // tempo em milissegundos
+  errorMessage: text("error_message"),
+  payload: jsonb("payload").$type<Record<string, any>>(),
+  sentTo: text("sent_to"), // telefone ou email de destino
+  messageId: text("message_id"), // ID da mensagem retornado pelo provedor
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAutomationLogSchema = createInsertSchema(automationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AutomationLog = typeof automationLogs.$inferSelect;
+export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
+
+// Types para Billing
+export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+
+export type PlanFeature = typeof planFeatures.$inferSelect;
+export type InsertPlanFeature = z.infer<typeof insertPlanFeatureSchema>;
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+
+export type SubscriptionInvoice = typeof subscriptionInvoices.$inferSelect;
+export type InsertSubscriptionInvoice = z.infer<typeof insertSubscriptionInvoiceSchema>;
+
+export type UsageMetric = typeof usageMetrics.$inferSelect;
+export type InsertUsageMetric = z.infer<typeof insertUsageMetricSchema>;
+
+export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect;
+export type InsertSubscriptionHistory = z.infer<typeof insertSubscriptionHistorySchema>;
+
+// ============================================
+// DIGITALIZAÇÃO DE FICHAS - CONTROLE DE USO
+// ============================================
+
+// Controle de uso de digitalização (OCR + AI)
+export const digitalizationUsage = pgTable("digitalization_usage", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  usageCount: integer("usage_count").notNull().default(0), // Total de fichas digitalizadas
+  lastUsedAt: timestamp("last_used_at"),
+  billingCycle: text("billing_cycle").notNull().default("monthly"), // monthly, prepaid
+  currentCycleStart: timestamp("current_cycle_start").notNull().defaultNow(),
+  currentCycleEnd: timestamp("current_cycle_end").notNull(),
+  currentCycleCount: integer("current_cycle_count").notNull().default(0), // Usos no ciclo atual
+  paidUnits: integer("paid_units").notNull().default(0), // Unidades pagas antecipadamente
+  remainingUnits: integer("remaining_units").notNull().default(0), // Unidades restantes (prepago)
+  pricePerThousand: integer("price_per_thousand").notNull().default(3000), // R$ 30,00 em centavos
+  totalSpent: integer("total_spent").notNull().default(0), // Total gasto em centavos
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDigitalizationUsageSchema = createInsertSchema(digitalizationUsage).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Log detalhado de cada digitalização
+export const digitalizationLogs = pgTable("digitalization_logs", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  userId: integer("user_id").references(() => users.id),
+  imageCount: integer("image_count").notNull().default(1), // Número de imagens processadas
+  successCount: integer("success_count").notNull().default(0), // Fichas extraídas com sucesso
+  failedCount: integer("failed_count").notNull().default(0), // Fichas com falha
+  ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // Confiança média do OCR
+  aiModel: text("ai_model").notNull().default("deepseek-chat"), // Modelo AI usado
+  processingTime: integer("processing_time"), // Tempo de processamento em ms
+  cost: integer("cost").notNull().default(0), // Custo em centavos
+  importType: text("import_type").notNull(), // images, xlsx
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDigitalizationLogSchema = createInsertSchema(digitalizationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Faturas de digitalização
+export const digitalizationInvoices = pgTable("digitalization_invoices", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  unitsUsed: integer("units_used").notNull(), // Quantidade de fichas digitalizadas
+  amount: integer("amount").notNull(), // Valor em centavos
+  status: text("status").notNull().default("pending"), // pending, paid, cancelled
+  paidAt: timestamp("paid_at"),
+  paymentMethod: text("payment_method"), // credit_card, pix, boleto
+  invoiceUrl: text("invoice_url"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDigitalizationInvoiceSchema = createInsertSchema(digitalizationInvoices).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types para digitalização
+export type DigitalizationUsage = typeof digitalizationUsage.$inferSelect;
+export type InsertDigitalizationUsage = z.infer<typeof insertDigitalizationUsageSchema>;
+
+export type DigitalizationLog = typeof digitalizationLogs.$inferSelect;
+export type InsertDigitalizationLog = z.infer<typeof insertDigitalizationLogSchema>;
+
+export type DigitalizationInvoice = typeof digitalizationInvoices.$inferSelect;
+
+// =============================================
+// CLINIC SETTINGS & AUTOMATION
+// =============================================
+
+export type InsertDigitalizationInvoice = z.infer<typeof insertDigitalizationInvoiceSchema>;

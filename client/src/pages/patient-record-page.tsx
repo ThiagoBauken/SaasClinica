@@ -6,23 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, 
-  User, 
-  Calendar, 
-  Phone, 
-  Mail, 
-  MapPin, 
+import {
+  ArrowLeft,
+  User,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
   Heart,
   FileText,
   Stethoscope,
   Clipboard,
   Activity,
-  Pill
+  Pill,
+  Layers
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { PeriodontalChart } from "@/components/periodontal";
 
 interface Patient {
   id: number;
@@ -73,37 +75,37 @@ export default function PatientRecordPage() {
   }
 
   // Get patient data
-  const { data: patient, isLoading: patientLoading, error: patientError } = useQuery({
+  const { data: patient, isLoading: patientLoading, error: patientError } = useQuery<any>({
     queryKey: ["/api/patients", patientId],
     enabled: !!patientId,
   });
 
   // Get patient anamnesis
-  const { data: anamnesis = {} } = useQuery({
+  const { data: anamnesis = {} } = useQuery<any>({
     queryKey: ["/api/patients", patientId, "anamnesis"],
     enabled: !!patientId,
   });
 
   // Get patient exams
-  const { data: exams = [] } = useQuery({
+  const { data: exams = [] } = useQuery<any[]>({
     queryKey: ["/api/patients", patientId, "exams"],
     enabled: !!patientId,
   });
 
   // Get treatment plans
-  const { data: treatmentPlans = [] } = useQuery({
+  const { data: treatmentPlans = [] } = useQuery<any[]>({
     queryKey: ["/api/patients", patientId, "treatment-plans"],
     enabled: !!patientId,
   });
 
   // Get treatment evolution
-  const { data: evolution = [] } = useQuery({
+  const { data: evolution = [] } = useQuery<any[]>({
     queryKey: ["/api/patients", patientId, "evolution"],
     enabled: !!patientId,
   });
 
   // Get prescriptions
-  const { data: prescriptions = [] } = useQuery({
+  const { data: prescriptions = [] } = useQuery<any[]>({
     queryKey: ["/api/patients", patientId, "prescriptions"],
     enabled: !!patientId,
   });
@@ -182,7 +184,7 @@ export default function PatientRecordPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="identification">
             <User className="h-4 w-4 mr-2" />
             Identificação
@@ -190,6 +192,10 @@ export default function PatientRecordPage() {
           <TabsTrigger value="anamnesis">
             <Stethoscope className="h-4 w-4 mr-2" />
             Anamnese
+          </TabsTrigger>
+          <TabsTrigger value="periodontal">
+            <Layers className="h-4 w-4 mr-2" />
+            Periodontograma
           </TabsTrigger>
           <TabsTrigger value="exams">
             <FileText className="h-4 w-4 mr-2" />
@@ -432,6 +438,14 @@ export default function PatientRecordPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Periodontal Tab */}
+        <TabsContent value="periodontal">
+          <PeriodontalChart
+            patientId={parseInt(patientId)}
+            readOnly={false}
+          />
         </TabsContent>
 
         {/* Exams Tab */}

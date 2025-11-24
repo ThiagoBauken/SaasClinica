@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import DashboardLayout from "@/layouts/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -210,19 +211,20 @@ export default function EditarAgendamento() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLocation("/agenda")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </Button>
-          <h1 className="text-2xl font-bold">Editar Agendamento #{appointmentId}</h1>
-        </div>
+    <DashboardLayout title={`Editar Agendamento #${appointmentId}`} currentPath="/agenda">
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/agenda")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <h1 className="text-2xl font-bold">Editar Agendamento #{appointmentId}</h1>
+          </div>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -476,5 +478,6 @@ export default function EditarAgendamento() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }

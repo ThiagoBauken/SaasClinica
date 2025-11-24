@@ -57,8 +57,8 @@ export async function checkUserModulePermission(
     // Buscar o módulo
     const [module] = await db
       .select()
-      .from(db.schema.modules)
-      .where(eq(db.schema.modules.name, moduleName));
+      .from(modules)
+      .where(eq(modules.name, moduleName));
 
     if (!module) {
       return false;
@@ -145,8 +145,8 @@ export async function grantModulePermission(
     // Buscar o módulo
     const [module] = await db
       .select()
-      .from(db.schema.modules)
-      .where(eq(db.schema.modules.name, moduleName));
+      .from(modules)
+      .where(eq(modules.name, moduleName));
 
     if (!module) {
       throw new Error("Module not found");

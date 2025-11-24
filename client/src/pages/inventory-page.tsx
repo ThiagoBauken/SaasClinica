@@ -69,17 +69,18 @@ import type { InventoryItem, InventoryCategory, InventoryTransaction } from "@sh
 
 // Dados para testar a interface
 const mockCategories: InventoryCategory[] = [
-  { id: 1, name: "Materiais Dentários", description: "Materiais diversos para procedimentos", color: "#3498db", createdAt: new Date().toISOString() },
-  { id: 2, name: "Anestésicos", description: "Produtos anestésicos", color: "#e74c3c", createdAt: new Date().toISOString() },
-  { id: 3, name: "Higiene", description: "Produtos para limpeza e higiene", color: "#2ecc71", createdAt: new Date().toISOString() },
-  { id: 4, name: "Instrumentos", description: "Instrumentos odontológicos", color: "#f39c12", createdAt: new Date().toISOString() },
-  { id: 5, name: "Insumos", description: "Insumos gerais", color: "#9b59b6", createdAt: new Date().toISOString() }
+  { id: 1, companyId: 1, name: "Materiais Dentários", description: "Materiais diversos para procedimentos", color: "#3498db", createdAt: new Date() },
+  { id: 2, companyId: 1, name: "Anestésicos", description: "Produtos anestésicos", color: "#e74c3c", createdAt: new Date() },
+  { id: 3, companyId: 1, name: "Higiene", description: "Produtos para limpeza e higiene", color: "#2ecc71", createdAt: new Date() },
+  { id: 4, companyId: 1, name: "Instrumentos", description: "Instrumentos odontológicos", color: "#f39c12", createdAt: new Date() },
+  { id: 5, companyId: 1, name: "Insumos", description: "Insumos gerais", color: "#9b59b6", createdAt: new Date() }
 ];
 
 const generateMockItems = (): InventoryItem[] => {
   return [
     {
       id: 1,
+      companyId: 1,
       name: "Resina Z350 A2",
       description: "Resina composta fotopolimerizável",
       categoryId: 1,
@@ -91,15 +92,16 @@ const generateMockItems = (): InventoryItem[] => {
       currentStock: 8,
       price: 12000, // R$ 120,00
       unitOfMeasure: "unidade",
-      expirationDate: new Date(2025, 5, 15).toISOString(),
+      expirationDate: new Date(2025, 5, 15),
       location: "Armário 3, Prateleira 2",
-      lastPurchaseDate: new Date(2023, 8, 10).toISOString(),
+      lastPurchaseDate: new Date(2023, 8, 10),
       active: true,
-      createdAt: new Date(2023, 1, 15).toISOString(),
-      updatedAt: new Date(2023, 8, 10).toISOString()
+      createdAt: new Date(2023, 1, 15),
+      updatedAt: new Date(2023, 8, 10)
     },
     {
       id: 2,
+      companyId: 1,
       name: "Anestésico Lidocaína 2%",
       description: "Anestésico local com vasoconstrictor",
       categoryId: 2,
@@ -111,15 +113,16 @@ const generateMockItems = (): InventoryItem[] => {
       currentStock: 3,
       price: 4500, // R$ 45,00
       unitOfMeasure: "caixa",
-      expirationDate: new Date(2024, 3, 20).toISOString(),
+      expirationDate: new Date(2024, 3, 20),
       location: "Armário 1, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 6, 5).toISOString(),
+      lastPurchaseDate: new Date(2023, 6, 5),
       active: true,
-      createdAt: new Date(2023, 1, 15).toISOString(),
-      updatedAt: new Date(2023, 6, 5).toISOString()
+      createdAt: new Date(2023, 1, 15),
+      updatedAt: new Date(2023, 6, 5)
     },
     {
       id: 3,
+      companyId: 1,
       name: "Luvas de Procedimento M",
       description: "Luvas de nitrilo sem pó",
       categoryId: 3,
@@ -131,15 +134,16 @@ const generateMockItems = (): InventoryItem[] => {
       currentStock: 45,
       price: 3800, // R$ 38,00
       unitOfMeasure: "caixa",
-      expirationDate: new Date(2026, 10, 10).toISOString(),
+      expirationDate: new Date(2026, 10, 10),
       location: "Armário 2, Prateleira 3",
-      lastPurchaseDate: new Date(2023, 9, 15).toISOString(),
+      lastPurchaseDate: new Date(2023, 9, 15),
       active: true,
-      createdAt: new Date(2023, 1, 15).toISOString(),
-      updatedAt: new Date(2023, 9, 15).toISOString()
+      createdAt: new Date(2023, 1, 15),
+      updatedAt: new Date(2023, 9, 15)
     },
     {
       id: 4,
+      companyId: 1,
       name: "Sugador Descartável",
       description: "Sugador plástico colorido",
       categoryId: 5,
@@ -151,15 +155,16 @@ const generateMockItems = (): InventoryItem[] => {
       currentStock: 80,
       price: 1500, // R$ 15,00
       unitOfMeasure: "pacote",
-      expirationDate: new Date(2025, 8, 30).toISOString(),
+      expirationDate: new Date(2025, 8, 30),
       location: "Armário 4, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 7, 20).toISOString(),
+      lastPurchaseDate: new Date(2023, 7, 20),
       active: true,
-      createdAt: new Date(2023, 1, 15).toISOString(),
-      updatedAt: new Date(2023, 7, 20).toISOString()
+      createdAt: new Date(2023, 1, 15),
+      updatedAt: new Date(2023, 7, 20)
     },
     {
       id: 5,
+      companyId: 1,
       name: "Broca Diamantada 1014",
       description: "Broca esférica para alta rotação",
       categoryId: 4,
@@ -173,10 +178,10 @@ const generateMockItems = (): InventoryItem[] => {
       unitOfMeasure: "unidade",
       expirationDate: null,
       location: "Armário 3, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 5, 8).toISOString(),
+      lastPurchaseDate: new Date(2023, 5, 8),
       active: true,
-      createdAt: new Date(2023, 1, 15).toISOString(),
-      updatedAt: new Date(2023, 5, 8).toISOString()
+      createdAt: new Date(2023, 1, 15),
+      updatedAt: new Date(2023, 5, 8)
     }
   ];
 };
@@ -418,14 +423,16 @@ export default function InventoryPage() {
     setEditingItem(item);
     
     // Converter datas
-    if (item.expirationDate && isValid(new Date(item.expirationDate))) {
-      setExpirationDate(parseISO(item.expirationDate));
+    if (item.expirationDate) {
+      const dateObj = item.expirationDate instanceof Date ? item.expirationDate : new Date(item.expirationDate);
+      setExpirationDate(isValid(dateObj) ? dateObj : undefined);
     } else {
       setExpirationDate(undefined);
     }
-    
-    if (item.lastPurchaseDate && isValid(new Date(item.lastPurchaseDate))) {
-      setLastPurchaseDate(parseISO(item.lastPurchaseDate));
+
+    if (item.lastPurchaseDate) {
+      const dateObj = item.lastPurchaseDate instanceof Date ? item.lastPurchaseDate : new Date(item.lastPurchaseDate);
+      setLastPurchaseDate(isValid(dateObj) ? dateObj : undefined);
     } else {
       setLastPurchaseDate(undefined);
     }
@@ -471,11 +478,11 @@ export default function InventoryPage() {
     
     // Adicionar datas se existirem
     if (expirationDate) {
-      itemData.expirationDate = expirationDate.toISOString();
+      itemData.expirationDate = expirationDate;
     }
-    
+
     if (lastPurchaseDate) {
-      itemData.lastPurchaseDate = lastPurchaseDate.toISOString();
+      itemData.lastPurchaseDate = lastPurchaseDate;
     }
     
     // Se estiver editando, adicionar ID
@@ -509,8 +516,8 @@ export default function InventoryPage() {
     event.preventDefault();
     
     if (!transactionItem || !transactionType) return;
-    
-    let newStock = transactionItem.currentStock;
+
+    let newStock = transactionItem.currentStock || 0;
     if (transactionType === "entrada") {
       newStock += transactionQuantity;
     } else if (transactionType === "saida") {
@@ -519,14 +526,14 @@ export default function InventoryPage() {
       // Ajuste: a quantidade informada é o novo valor do estoque
       newStock = transactionQuantity;
     }
-    
+
     const transactionData: Partial<InventoryTransaction> = {
       itemId: transactionItem.id,
       type: transactionType,
       quantity: transactionQuantity,
       reason: transactionReason,
       notes: transactionNotes,
-      previousStock: transactionItem.currentStock,
+      previousStock: transactionItem.currentStock || 0,
       newStock: newStock,
       userId: 1 // ID do usuário logado
     };
@@ -564,8 +571,8 @@ export default function InventoryPage() {
       item.categoryId === parseInt(selectedCategory);
     
     // Filtro por estoque baixo
-    const matchesLowStock = !showLowStock || 
-      (item.currentStock <= item.minimumStock);
+    const matchesLowStock = !showLowStock ||
+      ((item.currentStock || 0) <= (item.minimumStock || 0));
     
     return matchesSearch && matchesCategory && matchesLowStock;
   }) : [];
@@ -614,9 +621,9 @@ export default function InventoryPage() {
     totalItems: inventoryItems?.length || 0,
     totalCategories: inventoryCategories?.length || 0,
     totalValue: inventoryItems?.reduce((acc, item) => acc + ((item.price || 0) * (item.currentStock || 0)), 0) || 0,
-    lowStockItems: inventoryItems?.filter(item => item.currentStock <= item.minimumStock).length || 0,
-    expiringItems: inventoryItems?.filter(item => isExpiringProduct(item.expiryDate)).length || 0,
-    expiredItems: inventoryItems?.filter(item => isExpiredProduct(item.expiryDate)).length || 0
+    lowStockItems: inventoryItems?.filter(item => (item.currentStock || 0) <= (item.minimumStock || 0)).length || 0,
+    expiringItems: inventoryItems?.filter(item => isExpiringProduct(item.expirationDate)).length || 0,
+    expiredItems: inventoryItems?.filter(item => isExpiredProduct(item.expirationDate)).length || 0
   };
 
   return (
@@ -789,8 +796,9 @@ export default function InventoryPage() {
             ) : (
               filteredItems.map((item) => {
                 const category = inventoryCategories?.find(c => c.id === item.categoryId);
-                const isLowStock = item.currentStock <= item.minimumStock;
-                
+                const isLowStock = (item.currentStock || 0) <= (item.minimumStock || 0);
+                const unit = item.unitOfMeasure || 'unidade';
+
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -798,9 +806,9 @@ export default function InventoryPage() {
                       <div className="text-sm text-muted-foreground">{item.brand}</div>
                     </TableCell>
                     <TableCell>
-                      {category && (
+                      {category && category.color && (
                         <Badge
-                          style={{ 
+                          style={{
                             backgroundColor: `${category.color}20`,
                             color: category.color,
                             borderColor: category.color
@@ -814,13 +822,13 @@ export default function InventoryPage() {
                     <TableCell>{item.sku}</TableCell>
                     <TableCell>
                       <div className={isLowStock ? "text-red-500 font-medium" : ""}>
-                        {item.currentStock} {item.currentStock !== 1 ? getPluralUnit(item.unitOfMeasure) : item.unitOfMeasure}
+                        {item.currentStock || 0} {(item.currentStock || 0) !== 1 ? getPluralUnit(unit) : unit}
                       </div>
                     </TableCell>
-                    <TableCell>{item.minimumStock} {item.minimumStock !== 1 ? getPluralUnit(item.unitOfMeasure) : item.unitOfMeasure}</TableCell>
+                    <TableCell>{item.minimumStock || 0} {(item.minimumStock || 0) !== 1 ? getPluralUnit(unit) : unit}</TableCell>
                     <TableCell>
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                        .format(item.price / 100)}
+                        .format((item.price || 0) / 100)}
                     </TableCell>
                     <TableCell>
                       {item.expirationDate ? format(new Date(item.expirationDate), 'dd/MM/yyyy') : '-'}
@@ -1076,10 +1084,10 @@ export default function InventoryPage() {
             </div>
             
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="active" 
-                name="active" 
-                defaultChecked={editingItem ? editingItem.active : true}
+              <Checkbox
+                id="active"
+                name="active"
+                defaultChecked={editingItem ? (editingItem.active ?? true) : true}
               />
               <label
                 htmlFor="active"
@@ -1132,20 +1140,20 @@ export default function InventoryPage() {
                     {inventoryCategories?.map((category) => (
                       <TableRow key={category.id}>
                         <TableCell>
-                          <div 
-                            className="w-6 h-6 rounded-full" 
-                            style={{ backgroundColor: category.color }}
+                          <div
+                            className="w-6 h-6 rounded-full"
+                            style={{ backgroundColor: category.color || '#3498db' }}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell>{category.description}</TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="icon"
                             onClick={() => {
                               setEditingCategory(category);
-                              setNewCategoryColor(category.color);
+                              setNewCategoryColor(category.color || '#3498db');
                             }}
                           >
                             <Edit className="h-4 w-4" />
@@ -1287,11 +1295,11 @@ export default function InventoryPage() {
               <Label htmlFor="quantity">
                 {transactionType === "ajuste" ? "Novo Valor de Estoque" : "Quantidade"}
               </Label>
-              <Input 
-                id="quantity" 
+              <Input
+                id="quantity"
                 type="number"
                 min={transactionType === "saida" ? 1 : 0}
-                max={transactionType === "saida" ? transactionItem?.currentStock : undefined}
+                max={transactionType === "saida" ? (transactionItem?.currentStock ?? undefined) : undefined}
                 value={transactionQuantity}
                 onChange={(e) => setTransactionQuantity(parseInt(e.target.value) || 0)}
                 required
@@ -1490,14 +1498,14 @@ export default function InventoryPage() {
               <div className="p-2 space-y-1">
                 {selectedProductCategory === "all" ? (
                   // Group products by category when showing all
-                  Object.entries(
+                  (Object.entries(
                     getFilteredStandardProducts().reduce((groups, product) => {
                       const category = product.category;
                       if (!groups[category]) groups[category] = [];
                       groups[category].push(product);
                       return groups;
                     }, {} as Record<string, any[]>)
-                  ).map(([category, products]) => (
+                  ) as [string, any[]][]).map(([category, products]) => (
                     <div key={category} className="mb-4">
                       <div className="flex items-center justify-between p-2 bg-muted/30 rounded-t">
                         <h4 className="font-medium text-sm">{category}</h4>
@@ -1510,20 +1518,20 @@ export default function InventoryPage() {
                             size="sm"
                             className="h-6 px-2 text-xs"
                             onClick={() => {
-                              const categoryProductIds = products.map(p => p.id);
-                              const allSelected = categoryProductIds.every(id => selectedProducts.includes(id));
+                              const categoryProductIds = products.map((p: any) => p.id);
+                              const allSelected = categoryProductIds.every((id: any) => selectedProducts.includes(id));
                               if (allSelected) {
-                                setSelectedProducts(selectedProducts.filter(id => !categoryProductIds.includes(id)));
+                                setSelectedProducts(selectedProducts.filter((id: any) => !categoryProductIds.includes(id)));
                               } else {
-                                setSelectedProducts([...new Set([...selectedProducts, ...categoryProductIds])]);
+                                setSelectedProducts(Array.from(new Set([...selectedProducts, ...categoryProductIds])));
                               }
                             }}
                           >
-                            {products.every(p => selectedProducts.includes(p.id)) ? "Desmarcar" : "Selecionar"} Categoria
+                            {products.every((p: any) => selectedProducts.includes(p.id)) ? "Desmarcar" : "Selecionar"} Categoria
                           </Button>
                         </div>
                       </div>
-                      {products.map((product) => (
+                      {products.map((product: any) => (
                         <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded border-l-2 border-muted">
                           <Checkbox
                             checked={selectedProducts.includes(product.id)}

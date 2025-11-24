@@ -20,6 +20,7 @@ import OdontogramDemo from "@/pages/odontogram-demo";
 import CadastrosPage from "@/pages/cadastros-page";
 import ConfiguracoesPage from "@/pages/configuracoes-page";
 import ConfiguracoesClinicaPage from "@/pages/configuracoes-clinica";
+import ConfiguracoesIntegracoesPage from "@/pages/configuracoes-integracoes";
 import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
@@ -29,6 +30,7 @@ import ScheduleModularPage from "@/pages/schedule-modular-page";
 import PatientRecordPage from "@/pages/patient-record-page";
 import NovoAgendamento from "@/pages/novo-agendamento";
 import EditarAgendamento from "@/pages/editar-agendamento";
+import ScheduleSettingsPage from "@/pages/settings/schedule-page";
 
 export default function App() {
   return (
@@ -62,6 +64,8 @@ export default function App() {
             <ProtectedRoute path="/cadastros" component={CadastrosPage} />
             <ProtectedRoute path="/configuracoes" component={ConfiguracoesPage} />
             <ProtectedRoute path="/configuracoes/clinica" component={ConfiguracoesClinicaPage} />
+            <ProtectedRoute path="/configuracoes/integracoes" component={ConfiguracoesIntegracoesPage} />
+            <ProtectedRoute path="/settings/schedule" component={ScheduleSettingsPage} />
             <ProtectedRoute path="/saas-admin" component={SaasAdminPage} />
             <ProtectedRoute path="/company-admin" component={CompanyAdminPage} />
             <ProtectedRoute path="/clinic-modules" component={ClinicModulesPage} />

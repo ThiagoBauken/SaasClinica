@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
 import { useAuth, ProtectedRoute } from './AuthProvider';
 import { useActiveModules } from './ModuleLoader';
+import type { ModuleRoute as ModuleRouteType } from '@/types';
 
 // Páginas estáticas do core
 const LoginPage = lazy(() => import('@/pages/login-page'));
@@ -13,6 +14,8 @@ const UnauthorizedPage = lazy(() => import('@/pages/UnauthorizedPage'));
 // Lazy load de módulos específicos (fallback)
 const AgendaPage = lazy(() => import('@/pages/agenda-page'));
 const PatientsPage = lazy(() => import('@/pages/patients-page'));
+const PatientImportPage = lazy(() => import('@/pages/patient-import-page'));
+const PatientDigitizationPage = lazy(() => import('@/pages/patient-digitization-page'));
 const FinancialPage = lazy(() => import('@/pages/financial-page'));
 const InventoryPage = lazy(() => import('@/pages/inventory-page'));
 const AutomationsPage = lazy(() => import('@/pages/automations-page'));
@@ -94,8 +97,8 @@ export default function DynamicRouter() {
         </Route>
 
         {/* Rotas dinâmicas dos módulos */}
-        {!modulesLoading && modules.map(module => 
-          module.routes?.map(route => (
+        {!modulesLoading && modules.map(module =>
+          module.definition.routes?.map((route: any) => (
             <Route key={route.path} path={route.path}>
               <ProtectedRoute>
                 <ModuleRoute 
@@ -117,6 +120,18 @@ export default function DynamicRouter() {
         <Route path="/pacientes">
           <ProtectedRoute>
             <PatientsPage />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/pacientes/importar">
+          <ProtectedRoute>
+            <PatientImportPage />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/pacientes/digitalizar">
+          <ProtectedRoute>
+            <PatientDigitizationPage />
           </ProtectedRoute>
         </Route>
 

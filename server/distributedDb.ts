@@ -11,7 +11,7 @@ interface DatabaseConfig {
 }
 
 class DistributedDatabase {
-  private masterPool: Pool;
+  private masterPool!: Pool;
   private readPools: Pool[] = [];
   private currentReadIndex = 0;
 
@@ -133,7 +133,7 @@ class DistributedDatabase {
     return {
       master: {
         healthy: health.master,
-        maxConnections: this.masterPool.options.max,
+        maxConnections: (this.masterPool as any).options?.max || 0,
         totalConnections: this.masterPool.totalCount,
         idleConnections: this.masterPool.idleCount,
         waitingCount: this.masterPool.waitingCount
@@ -141,7 +141,7 @@ class DistributedDatabase {
       replicas: this.readPools.map((pool, index) => ({
         index: index + 1,
         healthy: health.replicas[index],
-        maxConnections: pool.options.max,
+        maxConnections: (pool as any).options?.max || 0,
         totalConnections: pool.totalCount,
         idleConnections: pool.idleCount,
         waitingCount: pool.waitingCount

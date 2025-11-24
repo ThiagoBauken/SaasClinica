@@ -274,6 +274,17 @@ function AgendaModule() {
     }
   });
 
+  const handleNewAppointment = (isFitIn?: boolean) => {
+    if (isFitIn) {
+      setIsFitInModalOpen(true);
+    } else {
+      setSelectedSlotInfo(null);
+      setSelectedAppointment(undefined);
+      setIsEditMode(false);
+      setIsAppointmentModalOpen(true);
+    }
+  };
+
   const handleSlotClick = (professionalId: number, time: string) => {
     setSelectedSlotInfo({
       professionalId,
@@ -337,6 +348,8 @@ function AgendaModule() {
             onDateChange={setSelectedDate}
             currentView={currentView}
             onViewChange={setCurrentView}
+            onNewAppointment={handleNewAppointment}
+            professionalsSummary={professionalsSummary}
           />
           <div className="flex items-center gap-2">
             <Select value={timeInterval.toString()} onValueChange={(value) => setTimeInterval(parseInt(value) as 15 | 20 | 30 | 60)}>
@@ -371,31 +384,15 @@ function AgendaModule() {
         <div className="flex flex-1 gap-4 overflow-hidden">
           {/* Sidebar */}
           <div className="w-80 flex-shrink-0">
-            <ScheduleSidebar
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
-              professionals={professionalsSummary}
-              selectedProfessional={selectedProfessionalFilter}
-              onProfessionalChange={setSelectedProfessionalFilter}
-              selectedRoom={selectedRoomFilter}
-              onRoomChange={setSelectedRoomFilter}
-              appointments={appointments || []}
-            />
+            <ScheduleSidebar />
           </div>
 
           {/* Calendar View */}
           <div className="flex-1 overflow-hidden">
             <MonthAgendaView
-              selectedDate={selectedDate}
-              currentView={currentView}
               appointments={appointments || []}
-              professionals={professionals || []}
-              timeSlots={timeSlots}
-              onSlotClick={handleSlotClick}
+              onDateSelect={setSelectedDate}
               onAppointmentClick={handleAppointmentClick}
-              selectedProfessional={selectedProfessionalForDay}
-              onProfessionalChange={setSelectedProfessionalForDay}
-              isLoading={isLoadingAppointments}
             />
           </div>
         </div>
@@ -410,32 +407,27 @@ function AgendaModule() {
           setSelectedAppointment(undefined);
           setIsEditMode(false);
         }}
-        onSubmit={isEditMode ? handleUpdateAppointment : handleCreateAppointment}
+        onSave={isEditMode ? handleUpdateAppointment : handleCreateAppointment}
         appointment={selectedAppointment}
-        isEditMode={isEditMode}
-        selectedSlot={selectedSlotInfo}
-        professionals={professionals || []}
-        isLoading={createAppointmentMutation.isPending || updateAppointmentMutation.isPending}
-        onDelete={handleDeleteAppointment}
-        deleteLoading={deleteAppointmentMutation.isPending}
+        isEdit={isEditMode}
       />
 
       <FitInModal
         isOpen={isFitInModalOpen}
         onClose={() => setIsFitInModalOpen(false)}
-        selectedDate={selectedDate}
-        professionals={professionals || []}
-        appointments={appointments || []}
-        onAppointmentCreate={handleCreateAppointment}
+        onSave={handleCreateAppointment}
+        defaultDate={selectedDate}
       />
 
       <ScheduleSettings
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         workHours={workHours}
-        onWorkHoursChange={setWorkHours}
         timeInterval={timeInterval}
-        onTimeIntervalChange={setTimeInterval}
+        onSave={(settings) => {
+          setWorkHours(settings.workHours);
+          setTimeInterval(settings.timeInterval);
+        }}
       />
     </DashboardLayout>
   );

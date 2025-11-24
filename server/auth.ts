@@ -46,15 +46,17 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "dental-management-system-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
-      secure: false, // Set to true in production with HTTPS
+      secure: isProduction, // HTTPS obrigatório em produção
       httpOnly: true,
-      sameSite: 'lax'
+      sameSite: isProduction ? 'strict' : 'lax'
     }
   };
 
@@ -69,14 +71,14 @@ export function setupAuth(app: Express) {
       try {
         // Import hardcoded users
         const { fixedUsers } = await import('./hardcodedUsers');
-        
+
         // Check for hardcoded users first (easier debugging)
-        const fixedUser = fixedUsers.find(u => u.username === username && u.password === password);
-        if (fixedUser) {
+        const fixedUser = fixedUsers.find(u => u.username === username);
+        if (fixedUser && await comparePasswords(password, fixedUser.password)) {
           console.log("Login com usuário fixo:", fixedUser.username);
           return done(null, fixedUser);
         }
-        
+
         // Fall back to database authentication if not a hard-coded account
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
@@ -167,16 +169,37 @@ export function setupAuth(app: Express) {
   
   passport.deserializeUser(async (data: string | number, done) => {
     try {
+      console.log('[AUTH] Deserializing user, data type:', typeof data, 'value:', typeof data === 'string' ? data.substring(0, 100) : data);
+
       if (typeof data === 'string' && (data.includes('"id":99999') || data.includes('"id":99998'))) {
         // This is one of our fixed users, parse it back from JSON
         const user = JSON.parse(data);
+        console.log('[AUTH] Deserialized fixed user:', user.id);
         return done(null, user);
       }
-      
+
+      // Check if data is the ID of a fixed user
+      if (typeof data === 'number' && (data === 99999 || data === 99998)) {
+        const { fixedUsers } = await import('./hardcodedUsers');
+        const user = fixedUsers.find(u => u.id === data);
+        if (user) {
+          console.log('[AUTH] Found fixed user by ID:', user.id);
+          return done(null, user);
+        }
+      }
+
       // Regular user, fetch from database
       const user = await storage.getUser(data as number);
+
+      if (!user) {
+        // User not found - session is invalid
+        console.log('[AUTH] User not found for data:', data);
+        return done(new Error('User not found in database'));
+      }
+
       done(null, user);
     } catch (error) {
+      console.error('[AUTH] Deserialization error:', error);
       done(error);
     }
   });

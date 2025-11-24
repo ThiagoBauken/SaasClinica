@@ -31,13 +31,11 @@ class DistributedCache {
         this.cluster = new Cluster(nodes, {
           redisOptions: {
             password: process.env.REDIS_PASSWORD,
-            retryStrategy: (times) => Math.min(times * 50, 2000),
             maxRetriesPerRequest: 3
           },
           scaleReads: 'slave',
           enableOfflineQueue: false,
-          clusterRetryDelayOnFailover: 100,
-          maxRetriesPerRequest: 3
+          retryDelayOnFailover: 100
         });
 
         this.cluster.on('connect', () => {
@@ -67,7 +65,9 @@ class DistributedCache {
     // Remove oldest entries if cache is full
     if (this.localCache.size >= this.maxLocalCacheSize) {
       const oldestKey = this.localCache.keys().next().value;
-      this.localCache.delete(oldestKey);
+      if (oldestKey) {
+        this.localCache.delete(oldestKey);
+      }
     }
 
     this.localCache.set(key, {

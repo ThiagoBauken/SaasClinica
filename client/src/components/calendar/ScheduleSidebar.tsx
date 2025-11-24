@@ -306,8 +306,8 @@ export default function ScheduleSidebar({ onFilterChange }: ScheduleSidebarProps
                     {key === 'room' && 'Sala:'}
                     {key === 'patient' && 'Paciente:'}
                     <span className="truncate max-w-[80px]">
-                      {key === 'patient' ? value : 
-                       (key === 'selectedDate' ? format(value as Date, 'dd/MM/yyyy') : value)}
+                      {key === 'patient' ? String(value) :
+                       (key === 'selectedDate' ? format(value as Date, 'dd/MM/yyyy') : String(value))}
                     </span>
                     <X 
                       className="h-3 w-3 cursor-pointer" 

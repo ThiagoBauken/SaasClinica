@@ -1,6 +1,6 @@
-import { users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, anamnesis, patientExams, detailedTreatmentPlans, treatmentEvolution, prescriptions, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct, type Anamnesis, type PatientExam, type DetailedTreatmentPlan, type TreatmentEvolution, type Prescription } from "@shared/schema";
+import { companies, users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, anamnesis, patientExams, detailedTreatmentPlans, treatmentEvolution, prescriptions, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct, type Anamnesis, type PatientExam, type DetailedTreatmentPlan, type TreatmentEvolution, type Prescription } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, gte, lt, count, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, lt, count, sql, desc, inArray } from "drizzle-orm";
 
 // Data structure for transaction objects
 interface Transaction {
@@ -44,15 +44,30 @@ export interface IStorage {
   getAppointment(id: number, companyId?: number): Promise<any | undefined>;
   createAppointment(appointment: any, companyId: number): Promise<any>;
   updateAppointment(id: number, data: any, companyId: number): Promise<any>;
-  
+  deleteAppointment(id: number, companyId: number): Promise<boolean>;
+  checkAppointmentConflicts(
+    companyId: number,
+    startTime: Date,
+    endTime: Date,
+    options?: { professionalId?: number; roomId?: number; excludeAppointmentId?: number }
+  ): Promise<any[]>;
+
   // Professionals - tenant-aware
   getProfessionals(companyId: number): Promise<User[]>;
 
   // Rooms - tenant-aware
   getRooms(companyId: number): Promise<Room[]>;
-  
+  getRoom(id: number, companyId: number): Promise<Room | undefined>;
+  createRoom(room: any, companyId: number): Promise<Room>;
+  updateRoom(id: number, data: any, companyId: number): Promise<Room>;
+  deleteRoom(id: number, companyId: number): Promise<boolean>;
+
   // Procedures - tenant-aware
   getProcedures(companyId: number): Promise<Procedure[]>;
+  getProcedure(id: number, companyId: number): Promise<Procedure | undefined>;
+  createProcedure(procedure: any, companyId: number): Promise<Procedure>;
+  updateProcedure(id: number, data: any, companyId: number): Promise<Procedure>;
+  deleteProcedure(id: number, companyId: number): Promise<boolean>;
   
   // Patient records - tenant-aware
   getPatientRecords(patientId: number, companyId: number): Promise<PatientRecord[]>;
@@ -71,7 +86,15 @@ export interface IStorage {
   createAutomation(automation: any, companyId: number): Promise<Automation>;
   updateAutomation(id: number, data: any, companyId: number): Promise<Automation>;
   deleteAutomation(id: number, companyId: number): Promise<void>;
-  
+
+  // Clinic Settings - tenant-aware
+  getClinicSettings(companyId: number): Promise<any | undefined>;
+  createClinicSettings(data: any): Promise<any>;
+  updateClinicSettings(companyId: number, data: any): Promise<any>;
+
+  // Automation Logs - tenant-aware
+  createAutomationLog(data: any): Promise<any>;
+
   // Laboratories - tenant-aware
   getLaboratories(companyId: number): Promise<Laboratory[]>;
   getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined>;
@@ -206,9 +229,9 @@ export class MemStorage implements IStorage {
     this.seedData();
   }
 
-  private seedData() {
+  private async seedData() {
     // Create admin user
-    this.createUser({
+    await this.createUser({
       username: "admin",
       password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: admin123
       fullName: "Administrador",
@@ -218,9 +241,9 @@ export class MemStorage implements IStorage {
       active: true,
       companyId: 3
     });
-    
+
     // Create dentist user
-    this.createUser({
+    await this.createUser({
       username: "dentista",
       password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: dentista123
       fullName: "Dr. Ana Silva",
@@ -230,18 +253,18 @@ export class MemStorage implements IStorage {
       active: true,
       companyId: 3
     });
-    
+
     // Create rooms
-    const room1 = this.createRoom({ name: "Sala 01", description: "Consultório principal", active: true });
-    const room2 = this.createRoom({ name: "Sala 02", description: "Consultório secundário", active: true });
-    const room3 = this.createRoom({ name: "Sala 03", description: "Sala de procedimentos", active: true });
-    
+    const room1 = await this.createRoom({ name: "Sala 01", description: "Consultório principal", active: true }, 1);
+    const room2 = await this.createRoom({ name: "Sala 02", description: "Consultório secundário", active: true }, 1);
+    const room3 = await this.createRoom({ name: "Sala 03", description: "Sala de procedimentos", active: true }, 1);
+
     // Create procedures
-    const procedure1 = this.createProcedure({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2" });
-    const procedure2 = this.createProcedure({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047" });
-    const procedure3 = this.createProcedure({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722" });
-    const procedure4 = this.createProcedure({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0" });
-    const procedure5 = this.createProcedure({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336" });
+    const procedure1 = await this.createProcedure({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2" }, 1);
+    const procedure2 = await this.createProcedure({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047" }, 1);
+    const procedure3 = await this.createProcedure({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722" }, 1);
+    const procedure4 = await this.createProcedure({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0" }, 1);
+    const procedure5 = await this.createProcedure({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336" }, 1);
   }
 
   // User methods
@@ -271,13 +294,21 @@ export class MemStorage implements IStorage {
     const id = this.userIdCounter++;
     const now = new Date();
     const { speciality, ...userWithoutSpeciality } = insertUser;
-    const user: User = { 
-      ...userWithoutSpeciality, 
-      id, 
+    const user: User = {
+      ...userWithoutSpeciality,
+      id,
       createdAt: now,
       updatedAt: now,
       active: true,
       googleId: insertUser.googleId || null,
+      googleCalendarId: insertUser.googleCalendarId || null,
+      googleAccessToken: insertUser.googleAccessToken || null,
+      googleRefreshToken: insertUser.googleRefreshToken || null,
+      googleTokenExpiry: insertUser.googleTokenExpiry || null,
+      wuzapiPhone: insertUser.wuzapiPhone || null,
+      cfoRegistrationNumber: insertUser.cfoRegistrationNumber || null,
+      cfoState: insertUser.cfoState || null,
+      digitalCertificatePath: insertUser.digitalCertificatePath || null,
       trialEndsAt: insertUser.trialEndsAt || null,
       phone: insertUser.phone || null,
       role: insertUser.role || "user",
@@ -372,14 +403,14 @@ export class MemStorage implements IStorage {
       appointments.map(async (appointment) => {
         const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId) : undefined;
         const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
-        const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
-        
+        const room = appointment.roomId ? await this.getRoom(appointment.roomId, companyId) : undefined;
+
         // Get procedures for this appointment
         const appointmentProcedures = Array.from(this.appointmentProcedures.values())
           .filter(ap => ap.appointmentId === appointment.id);
-        
+
         const procedures = await Promise.all(
-          appointmentProcedures.map(async (ap) => this.getProcedure(ap.procedureId))
+          appointmentProcedures.map(async (ap) => this.getProcedure(ap.procedureId, companyId))
         );
         
         return {
@@ -416,14 +447,14 @@ export class MemStorage implements IStorage {
     // Enrich with related data
     const patient = appointment.patientId ? await this.getPatient(appointment.patientId, companyId || appointment.companyId) : undefined;
     const professional = appointment.professionalId ? await this.getUser(appointment.professionalId) : undefined;
-    const room = appointment.roomId ? await this.getRoom(appointment.roomId) : undefined;
-    
+    const room = appointment.roomId ? await this.getRoom(appointment.roomId, companyId || appointment.companyId) : undefined;
+
     // Get procedures for this appointment
     const appointmentProcedures = Array.from(this.appointmentProcedures.values())
       .filter(ap => ap.appointmentId === appointment.id);
-    
+
     const procedures = await Promise.all(
-      appointmentProcedures.map(async (ap) => this.getProcedure(ap.procedureId))
+      appointmentProcedures.map(async (ap) => this.getProcedure(ap.procedureId, companyId || appointment.companyId))
     );
     
     return {
@@ -520,32 +551,74 @@ export class MemStorage implements IStorage {
     return this.getAppointment(id, companyId);
   }
 
-  async getRoom(id: number): Promise<Room | undefined> {
-    return this.rooms.get(id);
+  async deleteAppointment(id: number, companyId: number): Promise<boolean> {
+    const appointment = this.appointments.get(id);
+    if (!appointment || appointment.companyId !== companyId) {
+      return false;
+    }
+
+    // Remove appointment
+    this.appointments.delete(id);
+
+    // Remove associated appointment procedures
+    const appointmentProcedures = Array.from(this.appointmentProcedures.values())
+      .filter(ap => ap.appointmentId === id);
+
+    for (const ap of appointmentProcedures) {
+      this.appointmentProcedures.delete(ap.id);
+    }
+
+    return true;
   }
 
-  private createRoom(room: any): Room {
-    const id = this.roomIdCounter++;
-    const newRoom: Room = {
-      ...room,
-      id
-    };
-    this.rooms.set(id, newRoom);
-    return newRoom;
-  }
+  async checkAppointmentConflicts(
+    companyId: number,
+    startTime: Date,
+    endTime: Date,
+    options: {
+      professionalId?: number;
+      roomId?: number;
+      excludeAppointmentId?: number;
+    } = {}
+  ): Promise<any[]> {
+    const { professionalId, roomId, excludeAppointmentId } = options;
 
-  async getProcedure(id: number): Promise<Procedure | undefined> {
-    return this.procedures.get(id);
-  }
+    // Filter appointments from memory
+    const conflicts = Array.from(this.appointments.values()).filter((apt) => {
+      // Check company
+      if (apt.companyId !== companyId) return false;
 
-  private createProcedure(procedure: any): Procedure {
-    const id = this.procedureIdCounter++;
-    const newProcedure: Procedure = {
-      ...procedure,
-      id
-    };
-    this.procedures.set(id, newProcedure);
-    return newProcedure;
+      // Exclude specific appointment
+      if (excludeAppointmentId && apt.id === excludeAppointmentId) return false;
+
+      // Check professional or room
+      if (professionalId && apt.professionalId !== professionalId) return false;
+      if (roomId && apt.roomId !== roomId) return false;
+
+      // Check time overlap: (start < end AND end > start)
+      const aptStart = new Date(apt.startTime);
+      const aptEnd = new Date(apt.endTime);
+      return aptStart < endTime && aptEnd > startTime;
+    });
+
+    // Enrich with names
+    return conflicts.map((conflict) => {
+      const patient = conflict.patientId
+        ? this.patients.get(conflict.patientId)
+        : null;
+      const professional = conflict.professionalId
+        ? this.users.get(conflict.professionalId)
+        : null;
+      const room = conflict.roomId ? this.rooms.get(conflict.roomId) : null;
+
+      return {
+        ...conflict,
+        patientName: patient?.fullName || 'Unknown',
+        professionalName: professional?.fullName || null,
+        roomName: room?.name || null,
+        conflictType: professionalId ? 'professional' : 'room',
+      };
+    });
   }
 
   // Appointment procedure methods
@@ -1052,7 +1125,7 @@ export class MemStorage implements IStorage {
   }
 
   async getTransactions(companyId: number): Promise<Transaction[]> {
-    return Array.from(this.transactions.values()).filter(txn => txn.companyId === companyId);
+    return Array.from(this.transactions.values()).filter((txn: any) => txn.companyId === companyId);
   }
 
   async createTransaction(transaction: any, companyId: number): Promise<Transaction> {
@@ -1076,11 +1149,147 @@ export class MemStorage implements IStorage {
   }
 
   async getRooms(companyId: number): Promise<Room[]> {
-    return Array.from(this.rooms.values()).filter(room => room.companyId === companyId);
+    return Array.from(this.rooms.values()).filter((room: any) =>
+      room.companyId === companyId && room.active !== false
+    );
+  }
+
+  async getRoom(id: number, companyId: number): Promise<Room | undefined> {
+    const room = this.rooms.get(id);
+    if (!room || (room as any).companyId !== companyId) {
+      return undefined;
+    }
+    return room;
+  }
+
+  async createRoom(data: any, companyId: number): Promise<Room> {
+    const id = this.roomIdCounter++;
+    const now = new Date();
+    const room: Room = {
+      ...data,
+      id,
+      companyId,
+      active: data.active !== undefined ? data.active : true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.rooms.set(id, room);
+    return room;
+  }
+
+  async updateRoom(id: number, data: any, companyId: number): Promise<Room> {
+    const room = this.rooms.get(id);
+    if (!room || (room as any).companyId !== companyId) {
+      throw new Error('Room not found or access denied');
+    }
+
+    const now = new Date();
+    const updatedRoom: Room = {
+      ...room,
+      ...data,
+      id,
+      companyId,
+      updatedAt: now,
+    };
+    this.rooms.set(id, updatedRoom);
+    return updatedRoom;
+  }
+
+  async deleteRoom(id: number, companyId: number): Promise<boolean> {
+    const room = this.rooms.get(id);
+    if (!room || (room as any).companyId !== companyId) {
+      return false;
+    }
+
+    // Soft delete
+    const updatedRoom: Room = {
+      ...room,
+      active: false,
+      updatedAt: new Date(),
+    };
+    this.rooms.set(id, updatedRoom);
+    return true;
   }
 
   async getProcedures(companyId: number): Promise<Procedure[]> {
-    return Array.from(this.procedures.values()).filter(procedure => procedure.companyId === companyId);
+    return Array.from(this.procedures.values()).filter((procedure: any) =>
+      procedure.companyId === companyId && procedure.active !== false
+    );
+  }
+
+  async getProcedure(id: number, companyId: number): Promise<Procedure | undefined> {
+    const procedure = this.procedures.get(id);
+    if (!procedure || (procedure as any).companyId !== companyId) {
+      return undefined;
+    }
+    return procedure;
+  }
+
+  async createProcedure(data: any, companyId: number): Promise<Procedure> {
+    const id = this.procedureIdCounter++;
+    const now = new Date();
+    const procedure: Procedure = {
+      ...data,
+      id,
+      companyId,
+      active: data.active !== undefined ? data.active : true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.procedures.set(id, procedure);
+    return procedure;
+  }
+
+  async updateProcedure(id: number, data: any, companyId: number): Promise<Procedure> {
+    const procedure = this.procedures.get(id);
+    if (!procedure || (procedure as any).companyId !== companyId) {
+      throw new Error('Procedure not found or access denied');
+    }
+
+    const now = new Date();
+    const updatedProcedure: Procedure = {
+      ...procedure,
+      ...data,
+      id,
+      companyId,
+      updatedAt: now,
+    };
+    this.procedures.set(id, updatedProcedure);
+    return updatedProcedure;
+  }
+
+  async deleteProcedure(id: number, companyId: number): Promise<boolean> {
+    const procedure = this.procedures.get(id);
+    if (!procedure || (procedure as any).companyId !== companyId) {
+      return false;
+    }
+
+    // Soft delete
+    const updatedProcedure: Procedure = {
+      ...procedure,
+      active: false,
+      updatedAt: new Date(),
+    };
+    this.procedures.set(id, updatedProcedure);
+    return true;
+  }
+
+  // Clinic Settings (MemStorage stub - não implementado)
+  async getClinicSettings(companyId: number): Promise<any | undefined> {
+    return undefined; // MemStorage doesn't support clinic settings
+  }
+
+  async createClinicSettings(data: any): Promise<any> {
+    throw new Error("MemStorage doesn't support clinic settings");
+  }
+
+  async updateClinicSettings(companyId: number, data: any): Promise<any> {
+    throw new Error("MemStorage doesn't support clinic settings");
+  }
+
+  // Automation Logs (MemStorage stub - não implementado)
+  async createAutomationLog(data: any): Promise<any> {
+    throw new Error("MemStorage doesn't support automation logs");
   }
 }
 
@@ -1293,6 +1502,7 @@ export class DatabaseStorage implements IStorage {
       fullName: patients.fullName,
       email: patients.email,
       phone: patients.phone,
+      whatsappPhone: patients.whatsappPhone,
       cpf: patients.cpf,
       birthDate: patients.birthDate,
       gender: patients.gender,
@@ -1319,7 +1529,11 @@ export class DatabaseStorage implements IStorage {
       active: patients.active,
       notes: patients.notes,
       insuranceInfo: patients.insuranceInfo,
-      createdAt: patients.createdAt
+      createdAt: patients.createdAt,
+      updatedAt: patients.updatedAt,
+      nationality: patients.nationality,
+      maritalStatus: patients.maritalStatus,
+      profilePhoto: patients.profilePhoto
     }).from(patients).where(
       and(eq(patients.id, id), eq(patients.companyId, companyId))
     );
@@ -1434,11 +1648,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAppointment(id: number): Promise<any | undefined> {
+  async getAppointment(id: number, companyId?: number): Promise<any | undefined> {
+    const conditions = [eq(appointments.id, id)];
+    if (companyId !== undefined) {
+      conditions.push(eq(appointments.companyId, companyId));
+    }
+
     const [appointment] = await db
       .select()
       .from(appointments)
-      .where(eq(appointments.id, id));
+      .where(and(...conditions));
     
     if (!appointment) return undefined;
     
@@ -1540,7 +1759,7 @@ export class DatabaseStorage implements IStorage {
     return this.getAppointment(appointment.id);
   }
 
-  async updateAppointment(id: number, data: any): Promise<any> {
+  async updateAppointment(id: number, data: any, companyId?: number): Promise<any> {
     // Extract procedures to update appointment procedures
     const procedures = data.procedures;
     delete data.procedures;
@@ -1583,22 +1802,257 @@ export class DatabaseStorage implements IStorage {
     return this.getAppointment(id);
   }
 
+  async deleteAppointment(id: number, companyId: number): Promise<boolean> {
+    // Verify appointment belongs to company
+    const appointment = await this.getAppointment(id, companyId);
+
+    if (!appointment) {
+      throw new Error("Appointment not found or does not belong to this company");
+    }
+
+    // Delete appointment procedures first (foreign key constraint)
+    await db
+      .delete(appointmentProcedures)
+      .where(eq(appointmentProcedures.appointmentId, id));
+
+    // Delete appointment
+    const result = await db
+      .delete(appointments)
+      .where(and(
+        eq(appointments.id, id),
+        eq(appointments.companyId, companyId)
+      ))
+      .returning();
+
+    return result.length > 0;
+  }
+
+  async checkAppointmentConflicts(
+    companyId: number,
+    startTime: Date,
+    endTime: Date,
+    options: {
+      professionalId?: number;
+      roomId?: number;
+      excludeAppointmentId?: number;
+    } = {}
+  ): Promise<any[]> {
+    const { professionalId, roomId, excludeAppointmentId } = options;
+
+    // Build the where clause
+    const conditions = [
+      eq(appointments.companyId, companyId),
+      // Check for time overlap: (start < end AND end > start)
+      and(
+        lte(appointments.startTime, endTime),
+        gte(appointments.endTime, startTime)
+      )
+    ];
+
+    // Add professional or room filter
+    if (professionalId) {
+      conditions.push(eq(appointments.professionalId, professionalId));
+    }
+    if (roomId) {
+      conditions.push(eq(appointments.roomId, roomId));
+    }
+
+    // Exclude specific appointment (useful for updates)
+    if (excludeAppointmentId) {
+      conditions.push(sql`${appointments.id} != ${excludeAppointmentId}`);
+    }
+
+    const conflicts = await db
+      .select({
+        id: appointments.id,
+        startTime: appointments.startTime,
+        endTime: appointments.endTime,
+        professionalId: appointments.professionalId,
+        roomId: appointments.roomId,
+        patientId: appointments.patientId,
+      })
+      .from(appointments)
+      .where(and(...conditions));
+
+    // Enrich with patient, professional, and room names
+    const enrichedConflicts = await Promise.all(
+      conflicts.map(async (conflict) => {
+        const patient = conflict.patientId
+          ? await db
+              .select({ fullName: patients.fullName })
+              .from(patients)
+              .where(eq(patients.id, conflict.patientId))
+              .limit(1)
+          : [];
+
+        const professional = conflict.professionalId
+          ? await db
+              .select({ fullName: users.fullName })
+              .from(users)
+              .where(eq(users.id, conflict.professionalId))
+              .limit(1)
+          : [];
+
+        const room = conflict.roomId
+          ? await db
+              .select({ name: rooms.name })
+              .from(rooms)
+              .where(eq(rooms.id, conflict.roomId))
+              .limit(1)
+          : [];
+
+        return {
+          ...conflict,
+          patientName: patient[0]?.fullName || 'Unknown',
+          professionalName: professional[0]?.fullName || null,
+          roomName: room[0]?.name || null,
+          conflictType: professionalId ? 'professional' : 'room',
+        };
+      })
+    );
+
+    return enrichedConflicts;
+  }
+
   // Professional methods
-  async getProfessionals(): Promise<User[]> {
+  async getProfessionals(companyId: number): Promise<User[]> {
     return db
       .select()
       .from(users)
-      .where(eq(users.role, "dentist"));
+      .where(and(
+        eq(users.companyId, companyId),
+        eq(users.role, "dentist")
+      ));
   }
 
   // Room methods
-  async getRooms(): Promise<Room[]> {
-    return db.select().from(rooms);
+  async getRooms(companyId: number): Promise<Room[]> {
+    return db.select().from(rooms)
+      .where(and(
+        eq(rooms.companyId, companyId),
+        eq(rooms.active, true)
+      ))
+      .orderBy(rooms.name);
   }
 
-  // Procedures
-  async getProcedures(): Promise<Procedure[]> {
-    return db.select().from(procedures);
+  async getRoom(id: number, companyId: number): Promise<Room | undefined> {
+    const [room] = await db.select().from(rooms)
+      .where(and(
+        eq(rooms.id, id),
+        eq(rooms.companyId, companyId)
+      ));
+    return room || undefined;
+  }
+
+  async createRoom(data: any, companyId: number): Promise<Room> {
+    const [room] = await db.insert(rooms)
+      .values({
+        ...data,
+        companyId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return room;
+  }
+
+  async updateRoom(id: number, data: any, companyId: number): Promise<Room> {
+    const [room] = await db.update(rooms)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(rooms.id, id),
+        eq(rooms.companyId, companyId)
+      ))
+      .returning();
+
+    if (!room) {
+      throw new Error('Room not found or access denied');
+    }
+    return room;
+  }
+
+  async deleteRoom(id: number, companyId: number): Promise<boolean> {
+    // Soft delete - marca como inativo
+    const [room] = await db.update(rooms)
+      .set({
+        active: false,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(rooms.id, id),
+        eq(rooms.companyId, companyId)
+      ))
+      .returning();
+
+    return !!room;
+  }
+
+  // Procedure methods
+  async getProcedures(companyId: number): Promise<Procedure[]> {
+    return db.select().from(procedures)
+      .where(and(
+        eq(procedures.companyId, companyId),
+        eq(procedures.active, true)
+      ))
+      .orderBy(procedures.name);
+  }
+
+  async getProcedure(id: number, companyId: number): Promise<Procedure | undefined> {
+    const [procedure] = await db.select().from(procedures)
+      .where(and(
+        eq(procedures.id, id),
+        eq(procedures.companyId, companyId)
+      ));
+    return procedure || undefined;
+  }
+
+  async createProcedure(data: any, companyId: number): Promise<Procedure> {
+    const [procedure] = await db.insert(procedures)
+      .values({
+        ...data,
+        companyId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return procedure;
+  }
+
+  async updateProcedure(id: number, data: any, companyId: number): Promise<Procedure> {
+    const [procedure] = await db.update(procedures)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(procedures.id, id),
+        eq(procedures.companyId, companyId)
+      ))
+      .returning();
+
+    if (!procedure) {
+      throw new Error('Procedure not found or access denied');
+    }
+    return procedure;
+  }
+
+  async deleteProcedure(id: number, companyId: number): Promise<boolean> {
+    // Soft delete - marca como inativo
+    const [procedure] = await db.update(procedures)
+      .set({
+        active: false,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(procedures.id, id),
+        eq(procedures.companyId, companyId)
+      ))
+      .returning();
+
+    return !!procedure;
   }
 
   // Patient records
@@ -1714,8 +2168,27 @@ export class DatabaseStorage implements IStorage {
   async seedInitialData() {
     // Check if we have any users
     const userCount = await db.select({ count: count() }).from(users);
-    
+
     if (userCount[0].count === 0) {
+      // First, create a default company if it doesn't exist
+      const existingCompanies = await db.select({ count: count() }).from(companies);
+
+      if (existingCompanies[0].count === 0) {
+        await db.insert(companies).values({
+          id: 1,
+          name: "Clínica Odontológica Demo",
+          cnpj: "00.000.000/0000-00",
+          phone: "(00) 0000-0000",
+          email: "contato@clinicademo.com",
+          address: "Rua Demo, 123",
+          city: "São Paulo",
+          state: "SP",
+          zipCode: "00000-000",
+          active: true,
+        });
+        console.log('✅ Empresa padrão criada com ID 1');
+      }
+
       // Create admin user
       await this.createUser({
         username: "admin",
@@ -1741,39 +2214,39 @@ export class DatabaseStorage implements IStorage {
       // Create rooms
       const room1 = await db
         .insert(rooms)
-        .values({ name: "Sala 01", description: "Consultório principal", active: true })
+        .values({ name: "Sala 01", description: "Consultório principal", active: true, companyId: 1 })
         .returning();
-      
+
       const room2 = await db
         .insert(rooms)
-        .values({ name: "Sala 02", description: "Consultório secundário", active: true })
+        .values({ name: "Sala 02", description: "Consultório secundário", active: true, companyId: 1 })
         .returning();
-      
+
       const room3 = await db
         .insert(rooms)
-        .values({ name: "Sala 03", description: "Sala de procedimentos", active: true })
+        .values({ name: "Sala 03", description: "Sala de procedimentos", active: true, companyId: 1 })
         .returning();
       
       // Create procedures
       await db
         .insert(procedures)
-        .values({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2" });
-      
+        .values({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2", companyId: 1 });
+
       await db
         .insert(procedures)
-        .values({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047" });
-      
+        .values({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047", companyId: 1 });
+
       await db
         .insert(procedures)
-        .values({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722" });
-      
+        .values({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722", companyId: 1 });
+
       await db
         .insert(procedures)
-        .values({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0" });
-      
+        .values({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0", companyId: 1 });
+
       await db
         .insert(procedures)
-        .values({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336" });
+        .values({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336", companyId: 1 });
     }
   }
   // Prosthesis Labels Methods
@@ -2414,12 +2887,61 @@ export class DatabaseStorage implements IStorage {
           sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${prescriptions.patientId} AND ${patients.companyId} = ${companyId})`
         ))
         .returning();
-      
+
       return result;
     } catch (error) {
       console.error('Erro ao atualizar receita:', error);
       throw error;
     }
+  }
+
+  // Clinic Settings - tenant-aware
+  async getClinicSettings(companyId: number): Promise<any | undefined> {
+    const { clinicSettings } = await import('@shared/schema');
+    const [settings] = await db
+      .select()
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, companyId));
+    return settings || undefined;
+  }
+
+  async createClinicSettings(data: any): Promise<any> {
+    const { clinicSettings } = await import('@shared/schema');
+    const [settings] = await db
+      .insert(clinicSettings)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return settings;
+  }
+
+  async updateClinicSettings(companyId: number, data: any): Promise<any> {
+    const { clinicSettings } = await import('@shared/schema');
+    const [settings] = await db
+      .update(clinicSettings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(clinicSettings.companyId, companyId))
+      .returning();
+
+    if (!settings) throw new Error('Clinic settings not found');
+    return settings;
+  }
+
+  // Automation Logs - tenant-aware
+  async createAutomationLog(data: any): Promise<any> {
+    const { automationLogs } = await import('@shared/schema');
+    const [log] = await db
+      .insert(automationLogs)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return log;
   }
 
   sessionStore: any = null;

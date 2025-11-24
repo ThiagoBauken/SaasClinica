@@ -1,5 +1,4 @@
 import express from 'express';
-import httpProxy from 'http-proxy-middleware';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 interface ServerInstance {
@@ -33,10 +32,15 @@ class LoadBalancer {
 
   private async checkServerHealth(server: ServerInstance): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(`${server.url}/health`, {
         method: 'GET',
-        timeout: 5000
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       console.error(`Health check failed for ${server.url}:`, error);
@@ -70,7 +74,7 @@ class LoadBalancer {
     return createProxyMiddleware({
       target: 'http://localhost:5000', // Default fallback
       changeOrigin: true,
-      router: (req) => {
+      router: (req: any) => {
         const server = this.getNextServer();
         if (server) {
           server.connections++;
@@ -80,11 +84,13 @@ class LoadBalancer {
         }
         throw new Error('No healthy servers available');
       },
-      onError: (err, req, res) => {
-        console.error('Proxy error:', err);
-        res.status(503).json({ error: 'Service temporarily unavailable' });
+      on: {
+        error: (err: any, req: any, res: any) => {
+          console.error('Proxy error:', err);
+          res.status(503).json({ error: 'Service temporarily unavailable' });
+        }
       }
-    });
+    } as any);
   }
 }
 

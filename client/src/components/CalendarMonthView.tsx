@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { 
-  format, 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  isSameMonth, 
-  isToday, 
-  addMonths, 
-  subMonths, 
+import { useState, useEffect } from "react";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+  addMonths,
+  subMonths,
   getDay,
   startOfWeek,
   endOfWeek,
@@ -41,17 +41,27 @@ interface CalendarMonthViewProps {
   appointments?: Appointment[];
   onDateSelect?: (date: Date) => void;
   onAddAppointment?: () => void;
+  selectedDate?: Date;
 }
 
 export default function CalendarMonthView({
   appointments = [],
   onDateSelect,
   onAddAppointment,
+  selectedDate: externalSelectedDate,
 }: CalendarMonthViewProps) {
   // Estado para a data atual sendo visualizada
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(externalSelectedDate || new Date());
   const [viewMode, setViewMode] = useState<"dia" | "semana" | "mes" | "dentistas">("mes");
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(externalSelectedDate || new Date());
+
+  // Sincronizar com a data externa quando ela mudar
+  useEffect(() => {
+    if (externalSelectedDate) {
+      setCurrentMonth(externalSelectedDate);
+      setSelectedDate(externalSelectedDate);
+    }
+  }, [externalSelectedDate]);
   
   // Estado para controlar as opções de visualização
   const [showBirthdays, setShowBirthdays] = useState(true);
@@ -119,18 +129,18 @@ export default function CalendarMonthView({
     const miniCalendarStart = startOfWeek(miniMonthStart, { locale: ptBR });
     const miniCalendarEnd = endOfWeek(miniMonthEnd, { locale: ptBR });
     const miniCalendarDays = eachDayOfInterval({ start: miniCalendarStart, end: miniCalendarEnd });
-    
-    const weeks = [];
-    let week = [];
-    
+
+    const weeks: Date[][] = [];
+    let week: Date[] = [];
+
     miniCalendarDays.forEach((day, i) => {
       if (i % 7 === 0 && i !== 0) {
         weeks.push(week);
         week = [];
       }
-      
+
       week.push(day);
-      
+
       if (i === miniCalendarDays.length - 1) {
         weeks.push(week);
       }

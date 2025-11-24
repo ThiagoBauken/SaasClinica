@@ -4,14 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Building2, 
-  Calendar, 
-  Users, 
-  DollarSign, 
-  Package, 
-  Scissors, 
-  Activity, 
+import {
+  Building2,
+  Calendar,
+  Users,
+  DollarSign,
+  Package,
+  Scissors,
+  Activity,
   Bot,
   CheckCircle,
   XCircle,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { ModulesByCategory } from "@/types";
 
 const moduleIcons = {
   clinica: Building2,
@@ -35,7 +36,7 @@ export default function ClinicModulesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: modulesData, isLoading } = useQuery({
+  const { data: modulesData, isLoading } = useQuery<ModulesByCategory>({
     queryKey: ["/api/clinic/modules"],
     staleTime: 30000
   });

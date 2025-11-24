@@ -6,7 +6,7 @@ import { log } from './vite';
 const PgSession = ConnectPgSimple(session);
 
 class SessionManager {
-  private sessionPool: Pool;
+  private sessionPool!: Pool;
   private sessionStore: any;
 
   constructor() {

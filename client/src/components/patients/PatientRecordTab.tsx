@@ -55,7 +55,10 @@ interface PatientRecordTabProps {
 export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
   const { toast } = useToast();
   const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
-  const [newRecord, setNewRecord] = useState({
+  const [newRecord, setNewRecord] = useState<{
+    recordType: string;
+    content: any;
+  }>({
     recordType: "evolution",
     content: {
       title: "",
@@ -186,7 +189,7 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
       setNewRecord((prev) => ({
         ...prev,
         [parent]: {
-          ...prev[parent as keyof typeof prev],
+          ...(typeof prev[parent as keyof typeof prev] === 'object' ? prev[parent as keyof typeof prev] : {}),
           [child]: value,
         },
       }));

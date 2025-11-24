@@ -11,12 +11,16 @@ import * as paymentHandlers from "./payments";
 import * as clinicHandlers from "./clinic-apis";
 import * as backupHandlers from "./backup";
 import * as websiteHandlers from "./website-apis";
+import * as dashboardHandlers from "./dashboard-apis";
+import { queueApi } from "./queue";
+import { billingApi, checkPatientsLimit, checkUsersLimit, checkAppointmentsLimit, registerStripeRoutes } from "./billing";
 import { eq, desc, sql } from "drizzle-orm";
 import { tenantIsolationMiddleware, resourceAccessMiddleware } from "./tenantMiddleware";
 import { createDefaultCompany, migrateUsersToDefaultCompany } from "./seedCompany";
 import { requireModulePermission, getUserModulePermissions, grantModulePermission } from "./permissions";
 import { moduleRegistry } from "../modules/index";
 import { registerProtesesRoutes } from "./modules/clinica/proteses";
+import { registerModularRoutes } from "./routes/index";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -25,9 +29,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Criar empresa padrão e migrar usuários existentes
     await migrateUsersToDefaultCompany();
   }
-  
+
   // Set up authentication routes
   setupAuth(app);
+
+  // Register new modular routes (v1 API with validation and pagination)
+  registerModularRoutes(app);
 
   // Função auxiliar para tratamento de erros assíncrono
   const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
@@ -62,11 +69,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // === ROTAS SaaS TEMPORÁRIAS (SEM AUTENTICAÇÃO) ===
+  // Listar todas as empresas
   app.get("/api/saas/companies", (req: Request, res: Response) => {
-    db.$client.query('SELECT * FROM companies ORDER BY name')
+    db.$client.query(`
+      SELECT c.*,
+        (SELECT COUNT(*) FROM company_modules WHERE company_id = c.id AND is_enabled = true) as module_count
+      FROM companies c
+      ORDER BY c.name
+    `)
       .then(result => res.json(result.rows))
       .catch(err => res.status(500).json({ error: err.message }));
   });
+
+  // Criar nova empresa
+  app.post("/api/saas/companies", asyncHandler(async (req: Request, res: Response) => {
+    const { name, email, phone, address, cnpj, active } = req.body;
+
+    // Validação básica
+    if (!name) {
+      return res.status(400).json({ error: 'Nome da empresa é obrigatório' });
+    }
+
+    const result = await db.$client.query(`
+      INSERT INTO companies (name, email, phone, address, cnpj, active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING *
+    `, [name, email, phone, address, cnpj, active !== false]);
+
+    res.status(201).json(result.rows[0]);
+  }));
 
   app.get("/api/saas/companies/:companyId/modules", (req: Request, res: Response) => {
     const { companyId } = req.params;
@@ -92,29 +123,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", (req: Request, res: Response) => {
     const { companyId, moduleId } = req.params;
     const { enabled } = req.body;
-    
+
     if (enabled) {
       // Inserir ou atualizar para ativado
-      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
-                     VALUES ($1, $2, true, NOW(), NOW()) 
-                     ON CONFLICT (company_id, module_id) 
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
+                     VALUES ($1, $2, true, NOW(), NOW())
+                     ON CONFLICT (company_id, module_id)
                      DO UPDATE SET is_enabled = true, updated_at = NOW()`;
-      
+
       db.$client.query(query, [companyId, moduleId])
         .then(() => res.json({ success: true, message: 'Módulo ativado' }))
         .catch(err => res.status(500).json({ error: err.message }));
     } else {
       // Inserir ou atualizar para desativado
-      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at) 
-                     VALUES ($1, $2, false, NOW(), NOW()) 
-                     ON CONFLICT (company_id, module_id) 
+      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
+                     VALUES ($1, $2, false, NOW(), NOW())
+                     ON CONFLICT (company_id, module_id)
                      DO UPDATE SET is_enabled = false, updated_at = NOW()`;
-      
+
       db.$client.query(query, [companyId, moduleId])
         .then(() => res.json({ success: true, message: 'Módulo desativado' }))
         .catch(err => res.status(500).json({ error: err.message }));
     }
   });
+
+  // === ROTAS DE GERENCIAMENTO DE USUÁRIOS SaaS ===
+  // Listar todos os usuários do SaaS (todas as empresas)
+  app.get("/api/saas/users", asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`
+      SELECT
+        u.id, u.username, u.full_name, u.email, u.phone, u.role,
+        u.speciality, u.active, u.created_at, u.company_id,
+        c.name as company_name
+      FROM users u
+      LEFT JOIN companies c ON u.company_id = c.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  }));
+
+  // Criar novo usuário
+  app.post("/api/saas/users", asyncHandler(async (req: Request, res: Response) => {
+    const { companyId, username, password, fullName, role, email, phone } = req.body;
+
+    // Validação básica
+    if (!companyId || !username || !password || !fullName || !email) {
+      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    // Hash da senha (simplificado - em produção usar bcrypt)
+    const hashedPassword = password; // TODO: implementar hash adequado
+
+    const result = await db.$client.query(`
+      INSERT INTO users (company_id, username, password, full_name, role, email, phone, active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())
+      RETURNING id, username, full_name, email, phone, role, active, created_at
+    `, [companyId, username, hashedPassword, fullName, role || 'staff', email, phone]);
+
+    res.status(201).json(result.rows[0]);
+  }));
+
+  // Atualizar usuário
+  app.put("/api/saas/users/:userId", asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { fullName, email, phone, role, active } = req.body;
+
+    const result = await db.$client.query(`
+      UPDATE users
+      SET full_name = COALESCE($1, full_name),
+          email = COALESCE($2, email),
+          phone = COALESCE($3, phone),
+          role = COALESCE($4, role),
+          active = COALESCE($5, active),
+          updated_at = NOW()
+      WHERE id = $6
+      RETURNING id, username, full_name, email, phone, role, active
+    `, [fullName, email, phone, role, active, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json(result.rows[0]);
+  }));
+
+  // Desativar/deletar usuário
+  app.delete("/api/saas/users/:userId", asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+
+    const result = await db.$client.query(`
+      UPDATE users
+      SET active = false, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id
+    `, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ success: true, message: 'Usuário desativado com sucesso' });
+  }));
+
+  // Deletar usuário permanentemente
+  app.delete("/api/saas/users/:userId/permanent", asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+
+    const result = await db.$client.query(`
+      DELETE FROM users
+      WHERE id = $1
+      RETURNING id
+    `, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ success: true, message: 'Usuário deletado permanentemente' });
+  }));
+
+  // Resetar senha de usuário
+  app.post("/api/saas/users/:userId/reset-password", asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'Nova senha é obrigatória' });
+    }
+
+    // TODO: Implementar hash adequado da senha em produção
+    const result = await db.$client.query(`
+      UPDATE users
+      SET password = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING id, username, full_name
+    `, [newPassword, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ success: true, message: 'Senha resetada com sucesso', user: result.rows[0] });
+  }));
+
+  // === ROTAS DE ASSINATURAS E PLANOS SaaS ===
+  // Listar todas as assinaturas
+  app.get("/api/saas/subscriptions", asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`
+      SELECT
+        s.id, s.status, s.billing_cycle, s.current_period_start,
+        s.current_period_end, s.trial_ends_at, s.created_at,
+        c.id as company_id, c.name as company_name, c.email as company_email,
+        p.id as plan_id, p.name as plan_name, p.display_name as plan_display_name,
+        p.monthly_price, p.yearly_price
+      FROM subscriptions s
+      LEFT JOIN companies c ON s.company_id = c.id
+      LEFT JOIN plans p ON s.plan_id = p.id
+      ORDER BY s.created_at DESC
+    `);
+    res.json(result.rows);
+  }));
+
+  // Listar todos os planos disponíveis
+  app.get("/api/saas/plans", asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`
+      SELECT
+        id, name, display_name, description, monthly_price, yearly_price,
+        trial_days, max_users, max_patients, max_appointments_per_month,
+        max_automations, max_storage_gb, features, is_active, is_popular, sort_order
+      FROM plans
+      WHERE is_active = true
+      ORDER BY sort_order ASC, monthly_price ASC
+    `);
+    res.json(result.rows);
+  }));
+
+  // Listar todas as faturas
+  app.get("/api/saas/invoices", asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`
+      SELECT
+        i.id, i.amount, i.status, i.due_date, i.paid_at, i.payment_method,
+        i.invoice_url, i.created_at,
+        c.id as company_id, c.name as company_name, c.email as company_email,
+        s.id as subscription_id
+      FROM subscription_invoices i
+      LEFT JOIN companies c ON i.company_id = c.id
+      LEFT JOIN subscriptions s ON i.subscription_id = s.id
+      ORDER BY i.created_at DESC
+    `);
+    res.json(result.rows);
+  }));
 
   // Middleware para verificar autenticação em todas as rotas API
   const authCheck = (req: Request, res: Response, next: NextFunction) => {
@@ -202,6 +400,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
+  // === ROTAS DE DASHBOARD ===
+  app.get("/api/dashboard/stats", tenantAwareAuth, asyncHandler(dashboardHandlers.getDashboardStats));
+  app.get("/api/dashboard/appointments-week", tenantAwareAuth, asyncHandler(dashboardHandlers.getWeeklyAppointments));
+  app.get("/api/dashboard/revenue-monthly", tenantAwareAuth, asyncHandler(dashboardHandlers.getMonthlyRevenue));
+  app.get("/api/dashboard/procedures-distribution", tenantAwareAuth, asyncHandler(dashboardHandlers.getProceduresDistribution));
+  app.get("/api/recent-activities", tenantAwareAuth, asyncHandler(dashboardHandlers.getRecentActivities));
+
+  // === ROTAS DE MONITORAMENTO DE FILAS ===
+  app.get("/api/queue/health", authCheck, asyncHandler(queueApi.getQueueHealth));
+  app.get("/api/queue/stats", authCheck, asyncHandler(queueApi.getQueueStats));
+  app.get("/api/queue/:queueName/jobs", authCheck, asyncHandler(queueApi.getQueueJobs));
+  app.post("/api/queue/:queueName/retry/:jobId", authCheck, asyncHandler(queueApi.retryJob));
+  app.post("/api/queue/:queueName/clean", authCheck, asyncHandler(queueApi.cleanQueue));
+
+  // === ROTAS DE BILLING E ASSINATURAS ===
+  app.get("/api/billing/plans", asyncHandler(billingApi.getPlans)); // Público
+  app.get("/api/billing/subscription", authCheck, asyncHandler(billingApi.getMySubscription));
+  app.post("/api/billing/subscription", authCheck, asyncHandler(billingApi.createSubscription));
+  app.put("/api/billing/subscription/plan", authCheck, asyncHandler(billingApi.changePlan));
+  app.delete("/api/billing/subscription", authCheck, asyncHandler(billingApi.cancelSubscription));
+  app.get("/api/billing/invoices", authCheck, asyncHandler(billingApi.getInvoices));
+  app.get("/api/billing/usage", authCheck, asyncHandler(billingApi.getUsage));
+  app.get("/api/billing/check-limit/:metricType", authCheck, asyncHandler(billingApi.checkLimit));
+
+  // Registrar rotas do Stripe (webhook + checkout)
+  registerStripeRoutes(app);
+
   // === ROTAS DE USUÁRIO NORMAL ===
   // Esta rota foi movida para a seção de APIs de módulos mais abaixo
 
@@ -223,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(patient);
   }));
 
-  app.post("/api/patients", authCheck, asyncHandler(async (req, res) => {
+  app.post("/api/patients", authCheck, checkPatientsLimit, asyncHandler(async (req, res) => {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patient = await storage.createPatient(req.body, companyId);
@@ -255,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patientId = parseInt(req.params.id);
-    const anamnesis = await storage.createPatientAnamnesis(patientId, req.body, companyId);
+    const anamnesis = await storage.createPatientAnamnesis({ ...req.body, patientId, companyId });
     res.status(201).json(anamnesis);
   }));
 
@@ -272,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patientId = parseInt(req.params.id);
-    const exam = await storage.createPatientExam(patientId, req.body, companyId);
+    const exam = await storage.createPatientExam({ ...req.body, patientId, companyId });
     res.status(201).json(exam);
   }));
 
@@ -289,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patientId = parseInt(req.params.id);
-    const plan = await storage.createPatientTreatmentPlan(patientId, req.body, companyId);
+    const plan = await storage.createPatientTreatmentPlan({ ...req.body, patientId, companyId });
     res.status(201).json(plan);
   }));
 
@@ -306,7 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patientId = parseInt(req.params.id);
-    const evolution = await storage.createPatientEvolution(patientId, req.body, companyId);
+    const evolution = await storage.createPatientEvolution({ ...req.body, patientId, companyId });
     res.status(201).json(evolution);
   }));
 
@@ -323,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
     const patientId = parseInt(req.params.id);
-    const prescription = await storage.createPatientPrescription(patientId, req.body, companyId);
+    const prescription = await storage.createPatientPrescription({ ...req.body, patientId, companyId });
     res.status(201).json(prescription);
   }));
 
@@ -355,9 +580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/appointments", async (req, res, next) => {
+  app.post("/api/appointments", authCheck, checkAppointmentsLimit, async (req, res, next) => {
     try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       const appointment = await storage.createAppointment(req.body, req.user!.companyId);
       res.status(201).json(appointment);
     } catch (error) {
@@ -379,7 +603,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/professionals", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const professionals = await storage.getProfessionals();
+      const user = req.user as any;
+      const companyId = user?.companyId;
+      if (!companyId) return res.status(403).json({ message: "User not associated with any company" });
+      const professionals = await storage.getProfessionals(companyId);
       res.json(professionals);
     } catch (error) {
       next(error);
@@ -390,7 +617,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rooms", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const rooms = await storage.getRooms();
+      const user = req.user as any;
+      const companyId = user?.companyId || 1;
+      const rooms = await storage.getRooms(companyId);
       res.json(rooms);
     } catch (error) {
       next(error);
@@ -401,7 +630,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/procedures", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const procedures = await storage.getProcedures();
+      const user = req.user as any;
+      const companyId = user?.companyId || 1;
+      const procedures = await storage.getProcedures(companyId);
       res.json(procedures);
     } catch (error) {
       next(error);
@@ -1101,9 +1332,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!prosthesisId || isNaN(prosthesisId)) {
         return res.status(400).json({ error: 'ID de prótese inválido' });
       }
-      
-      const prosthesis = await storage.getProsthesisById(prosthesisId, companyId);
-      
+
+
+      const allProsthesis = await storage.getProsthesis(companyId);
+      const prosthesis = allProsthesis.find((p: any) => p.id === prosthesisId);
+
       if (!prosthesis) {
         return res.status(404).json({ error: 'Prótese não encontrada' });
       }
@@ -1813,9 +2046,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as any;
       const appointmentId = parseInt(req.params.id);
-      
+
+
       // Update appointment status to completed
-      await storage.updateAppointment(appointmentId, { status: 'completed' }, user.companyId);
+      await storage.updateAppointment(appointmentId, { status: 'completed', companyId: user.companyId });
       
       // Automatically create financial transactions
       try {
