@@ -12,7 +12,7 @@ RUN apk add --no-cache python3 make g++ libc6-compat
 COPY package*.json ./
 
 # Instalar TODAS as dependências (incluindo devDependencies para build)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # ===========================================
 # STAGE 2: Builder
@@ -64,7 +64,7 @@ RUN apk add --no-cache curl libc6-compat
 COPY package*.json ./
 
 # Instalar apenas dependências de produção
-RUN npm ci --only=production && \
+RUN npm ci --omit=dev --legacy-peer-deps && \
     npm cache clean --force
 
 # Copiar arquivos buildados
