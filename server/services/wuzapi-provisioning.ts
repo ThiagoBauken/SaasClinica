@@ -72,7 +72,7 @@ function generateSlug(name: string): string {
 
 /**
  * Cria uma nova instancia/usuario no Wuzapi via API Admin
- * Configura: webhook, events, S3, HMAC e message history
+ * Estratégia: criar primeiro com campos mínimos, depois atualizar com S3/HMAC
  */
 async function createWuzapiUser(name: string, token: string, webhookUrl: string): Promise<{
   success: boolean;
@@ -83,63 +83,65 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
   }
 
   try {
-    // Corpo completo conforme documentação Wuzapi 3.0
-    const body: any = {
+    // PASSO 1: Criar usuário apenas com campos obrigatórios
+    const basicBody = {
       name,
       token,
-      // Webhook para receber eventos
-      webhook: webhookUrl,
-      events: ALL_WEBHOOK_EVENTS,
-      // Histórico de 1000 mensagens
-      messagehistory: 1000,
     };
 
-    // Adicionar configuração S3 se disponível
-    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-      body.s3 = {
-        endpoint: S3_ENDPOINT,
-        access_key: S3_ACCESS_KEY,
-        secret_key: S3_SECRET_KEY,
-        bucket: S3_BUCKET,
-        region: S3_REGION,
-        force_path_style: true,
-      };
-      console.log(`[Wuzapi] S3 configurado: ${S3_ENDPOINT}/${S3_BUCKET}`);
+    const apiUrl = `${WUZAPI_BASE_URL}/admin/users`;
+    console.log(`[Wuzapi] PASSO 1: Criando usuario basico: ${name}`);
+    console.log(`[Wuzapi] Admin API URL: ${apiUrl}`);
+    console.log(`[Wuzapi] Admin Token: ${WUZAPI_ADMIN_TOKEN ? WUZAPI_ADMIN_TOKEN.substring(0, 10) + '...' : 'NAO CONFIGURADO'}`);
+    console.log(`[Wuzapi] Request body:`, JSON.stringify(basicBody));
+
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': WUZAPI_ADMIN_TOKEN,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(basicBody),
+      });
+    } catch (fetchError: any) {
+      console.error(`[Wuzapi] ERRO DE REDE ao conectar em ${apiUrl}: ${fetchError.message}`);
+      return { success: false, error: `Erro de rede: ${fetchError.message}` };
     }
 
-    // Adicionar HMAC para segurança do webhook
-    if (WUZAPI_HMAC_KEY) {
-      body.hmac = WUZAPI_HMAC_KEY;
-      console.log('[Wuzapi] HMAC configurado para webhook');
+    console.log(`[Wuzapi] Response status: ${response.status}`);
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      const text = await response.text();
+      console.error(`[Wuzapi] Response não é JSON: ${text}`);
+      data = { error: text };
     }
-
-    console.log(`[Wuzapi] Criando usuario: ${name} com webhook: ${webhookUrl}`);
-
-    const response = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
-      method: 'POST',
-      headers: {
-        'Authorization': WUZAPI_ADMIN_TOKEN,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
+    console.log(`[Wuzapi] Response data:`, JSON.stringify(data));
 
     if (!response.ok) {
-      // Se ja existe, consideramos sucesso
+      // Se ja existe, consideramos sucesso e atualizamos
       if (data.error?.includes('already exists') || response.status === 409) {
         console.log(`[Wuzapi] Usuario ${name} já existe, atualizando configurações...`);
-        // Atualizar usuário existente com as novas configurações
         await updateWuzapiUserConfig(name, token, webhookUrl);
         return { success: true };
       }
+      console.error(`[Wuzapi] ERRO ao criar usuario: ${data.error || `HTTP ${response.status}`}`);
       return { success: false, error: data.error || `HTTP ${response.status}` };
     }
 
-    console.log(`[Wuzapi] Usuario ${name} criado com sucesso`);
+    console.log(`[Wuzapi] Usuario ${name} criado com sucesso!`);
+
+    // PASSO 2: Adicionar webhook, S3, HMAC via update
+    console.log(`[Wuzapi] PASSO 2: Configurando webhook, S3 e HMAC...`);
+    await updateWuzapiUserConfig(name, token, webhookUrl);
+
     return { success: true };
   } catch (error: any) {
+    console.error(`[Wuzapi] EXCEPTION ao criar usuario: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
