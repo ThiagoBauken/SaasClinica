@@ -63,7 +63,8 @@ import { ptBR } from "date-fns/locale";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter, Download } from "lucide-react";
+import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter, Download, Plus as PlusIcon, Minus } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { InventoryItem, InventoryCategory, InventoryTransaction } from "@shared/schema";
 
@@ -207,6 +208,10 @@ export default function InventoryPage() {
   const [standardProducts, setStandardProducts] = useState<any[]>([]);
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>("all");
+
+  // Quick adjustment state
+  const [quickAdjustItem, setQuickAdjustItem] = useState<InventoryItem | null>(null);
+  const [quickAdjustValue, setQuickAdjustValue] = useState<number>(0);
 
   // Buscar dados do estoque
   const { data: inventoryItems, isLoading: isLoadingItems, error: itemsError } = useQuery<InventoryItem[]>({
@@ -411,6 +416,48 @@ export default function InventoryPage() {
       });
     }
   });
+
+  // Mutation para ajuste rápido de estoque
+  const quickAdjustMutation = useMutation({
+    mutationFn: async ({ item, delta }: { item: InventoryItem; delta: number }) => {
+      const newStock = Math.max(0, (item.currentStock || 0) + delta);
+      const transactionData: Partial<InventoryTransaction> = {
+        itemId: item.id,
+        type: delta > 0 ? "entrada" : delta < 0 ? "saida" : "ajuste",
+        quantity: Math.abs(delta),
+        reason: delta > 0 ? "compra" : "consumo",
+        notes: "Ajuste rápido",
+        previousStock: item.currentStock || 0,
+        newStock: newStock,
+        userId: 1
+      };
+      const res = await apiRequest("POST", "/api/inventory/transactions", transactionData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/items"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: `Falha ao ajustar estoque: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handler para ajuste rápido (+1 ou -1)
+  const handleQuickAdjust = (item: InventoryItem, delta: number) => {
+    if (delta < 0 && (item.currentStock || 0) + delta < 0) {
+      toast({
+        title: "Atenção",
+        description: "Estoque não pode ficar negativo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    quickAdjustMutation.mutate({ item, delta });
+  };
 
   // Abrir modal de edição de item
   const handleEditItem = (item: InventoryItem) => {
@@ -815,8 +862,45 @@ export default function InventoryPage() {
                     </TableCell>
                     <TableCell>{item.sku}</TableCell>
                     <TableCell>
-                      <div className={isLowStock ? "text-red-500 font-medium" : ""}>
-                        {item.currentStock || 0} {(item.currentStock || 0) !== 1 ? getPluralUnit(unit) : unit}
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleQuickAdjust(item, -1)}
+                                disabled={(item.currentStock || 0) <= 0 || quickAdjustMutation.isPending}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Diminuir 1</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className={`min-w-[40px] text-center font-medium ${isLowStock ? "text-red-500" : ""}`}>
+                          {item.currentStock || 0}
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleQuickAdjust(item, 1)}
+                                disabled={quickAdjustMutation.isPending}
+                              >
+                                <PlusIcon className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Adicionar 1</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                          {(item.currentStock || 0) !== 1 ? getPluralUnit(unit) : unit}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>{item.minimumStock || 0} {(item.minimumStock || 0) !== 1 ? getPluralUnit(unit) : unit}</TableCell>

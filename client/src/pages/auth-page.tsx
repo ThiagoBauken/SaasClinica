@@ -4,6 +4,15 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -42,6 +51,12 @@ const registerSchema = insertUserSchema.extend({
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -123,8 +138,6 @@ export default function AuthPage() {
                             <FormLabel>Usuário</FormLabel>
                             <FormControl>
                               <Input
-                                id="username"
-                                name="username"
                                 placeholder="Seu nome de usuário"
                                 autoComplete="username"
                                 {...field}
@@ -141,44 +154,112 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Senha</FormLabel>
                             <FormControl>
-                              <Input
-                                id="password"
-                                name="password"
-                                type="password"
-                                placeholder="Sua senha"
-                                autoComplete="current-password"
-                                {...field}
-                              />
+                              <div className="relative">
+                                <Input
+                                  type={showLoginPassword ? "text" : "password"}
+                                  placeholder="Sua senha"
+                                  autoComplete="current-password"
+                                  {...field}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                >
+                                  {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={loginForm.control}
-                        name="rememberMe"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <input
-                                type="checkbox"
-                                checked={field.value}
-                                onChange={field.onChange}
-                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                            </FormControl>
-                            <FormLabel className="text-sm font-normal cursor-pointer">
-                              Manter conectado
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
+                      <div className="flex items-center justify-between">
+                        <FormField
+                          control={loginForm.control}
+                          name="rememberMe"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal cursor-pointer">
+                                Manter conectado
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                        <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+                          <DialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-sm text-primary hover:underline"
+                            >
+                              Esqueceu a senha?
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Recuperar senha</DialogTitle>
+                              <DialogDescription>
+                                {forgotPasswordSent
+                                  ? "Um email foi enviado com as instruções para recuperar sua senha."
+                                  : "Informe seu email para receber as instruções de recuperação de senha."
+                                }
+                              </DialogDescription>
+                            </DialogHeader>
+                            {!forgotPasswordSent ? (
+                              <div className="space-y-4 pt-4">
+                                <Input
+                                  type="email"
+                                  placeholder="Seu e-mail"
+                                  value={forgotPasswordEmail}
+                                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                                />
+                                <Button
+                                  className="w-full"
+                                  onClick={() => {
+                                    // TODO: Implement actual password reset API call
+                                    setForgotPasswordSent(true);
+                                  }}
+                                  disabled={!forgotPasswordEmail}
+                                >
+                                  Enviar instruções
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="pt-4">
+                                <Button
+                                  className="w-full"
+                                  onClick={() => {
+                                    setForgotPasswordOpen(false);
+                                    setForgotPasswordSent(false);
+                                    setForgotPasswordEmail("");
+                                  }}
+                                >
+                                  Fechar
+                                </Button>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                       <Button
                         type="submit"
                         className="w-full"
                         disabled={loginMutation.isPending}
                       >
-                        {loginMutation.isPending ? "Entrando..." : "Entrar"}
+                        {loginMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Entrando...
+                          </>
+                        ) : "Entrar"}
                       </Button>
                       
                       <div className="relative my-4">
@@ -280,7 +361,20 @@ export default function AuthPage() {
                             <FormItem>
                               <FormLabel>Senha</FormLabel>
                               <FormControl>
-                                <Input type="password" placeholder="Crie uma senha" {...field} />
+                                <div className="relative">
+                                  <Input
+                                    type={showRegisterPassword ? "text" : "password"}
+                                    placeholder="Crie uma senha"
+                                    {...field}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                                  >
+                                    {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </button>
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -293,7 +387,20 @@ export default function AuthPage() {
                             <FormItem>
                               <FormLabel>Confirmar Senha</FormLabel>
                               <FormControl>
-                                <Input type="password" placeholder="Confirme sua senha" {...field} />
+                                <div className="relative">
+                                  <Input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    placeholder="Confirme sua senha"
+                                    {...field}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  >
+                                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </button>
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -305,7 +412,12 @@ export default function AuthPage() {
                         className="w-full"
                         disabled={registerMutation.isPending}
                       >
-                        {registerMutation.isPending ? "Registrando..." : "Registrar"}
+                        {registerMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Registrando...
+                          </>
+                        ) : "Registrar"}
                       </Button>
                       
                       <div className="relative my-4">

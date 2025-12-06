@@ -7,6 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatDistanceToNow, differenceInDays, differenceInMonths, differenceInYears, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Phone, Mail, Calendar, ChevronRight, Clock, FileText } from "lucide-react";
@@ -68,14 +69,54 @@ function formatLastVisitTime(lastVisitDate: string | null | undefined): { text: 
 interface PatientsListProps {
   patients: any[];
   onPatientClick: (patient: any) => void;
+  selectedPatients?: number[];
+  onSelectionChange?: (selectedIds: number[]) => void;
+  selectionMode?: boolean;
 }
 
-export default function PatientsList({ patients, onPatientClick }: PatientsListProps) {
+export default function PatientsList({
+  patients,
+  onPatientClick,
+  selectedPatients = [],
+  onSelectionChange,
+  selectionMode = false
+}: PatientsListProps) {
+  const allSelected = patients.length > 0 && patients.every(p => selectedPatients.includes(p.id));
+  const someSelected = patients.some(p => selectedPatients.includes(p.id));
+
+  const handleSelectAll = () => {
+    if (!onSelectionChange) return;
+    if (allSelected) {
+      onSelectionChange([]);
+    } else {
+      onSelectionChange(patients.map(p => p.id));
+    }
+  };
+
+  const handleSelectPatient = (patientId: number) => {
+    if (!onSelectionChange) return;
+    if (selectedPatients.includes(patientId)) {
+      onSelectionChange(selectedPatients.filter(id => id !== patientId));
+    } else {
+      onSelectionChange([...selectedPatients, patientId]);
+    }
+  };
+
   return (
     <div className="bg-card rounded-lg shadow-sm border overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
+            {selectionMode && (
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Selecionar todos"
+                  className={someSelected && !allSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                />
+              </TableHead>
+            )}
             <TableHead className="w-1/4">Nome</TableHead>
             <TableHead className="w-1/5">Contato</TableHead>
             <TableHead className="w-1/6">Idade</TableHead>
@@ -87,13 +128,25 @@ export default function PatientsList({ patients, onPatientClick }: PatientsListP
         <TableBody>
           {patients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={selectionMode ? 7 : 6} className="text-center py-8 text-muted-foreground">
                 Nenhum paciente encontrado
               </TableCell>
             </TableRow>
           ) : (
             patients.map((patient, index) => (
-              <TableRow key={`patient-${patient.id}-${index}`}>
+              <TableRow
+                key={`patient-${patient.id}-${index}`}
+                className={selectedPatients.includes(patient.id) ? "bg-primary/5" : ""}
+              >
+                {selectionMode && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedPatients.includes(patient.id)}
+                      onCheckedChange={() => handleSelectPatient(patient.id)}
+                      aria-label={`Selecionar ${patient.fullName}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <div 
                     className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"

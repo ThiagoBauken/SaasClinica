@@ -14,12 +14,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Settings, 
-  Building2, 
-  FileText, 
-  Users2, 
-  Paperclip, 
+import {
+  Settings,
+  Building2,
+  FileText,
+  Users2,
+  Paperclip,
   CreditCard,
   BarChart,
   Wrench,
@@ -37,7 +37,15 @@ import {
   Globe,
   Stethoscope,
   User,
-  Calendar
+  Calendar,
+  Bell,
+  Database,
+  Palette,
+  MessageSquare,
+  DollarSign,
+  ClipboardList,
+  Lock,
+  Printer
 } from "lucide-react";
 
 export default function ConfiguracoesPage() {
@@ -51,16 +59,107 @@ export default function ConfiguracoesPage() {
     {
       title: "Dados da Clínica",
       description: "Informações básicas e contato",
-      icon: <Building2 className="h-5 w-5" />,
-      path: "/configuracoes/clinica"
+      icon: <Building2 className="h-5 w-5 text-blue-500" />,
+      path: "/configuracoes/clinica",
+      category: "geral"
+    },
+    {
+      title: "Horários de Funcionamento",
+      description: "Dias e horários de atendimento",
+      icon: <Clock className="h-5 w-5 text-green-500" />,
+      path: "/configuracoes/horarios",
+      category: "geral"
     },
     {
       title: "Integrações",
-      description: "Wuzapi, Google Calendar e N8N",
-      icon: <Wrench className="h-5 w-5" />,
-      path: "/configuracoes/integracoes"
+      description: "WhatsApp, Google Calendar e N8N",
+      icon: <Wrench className="h-5 w-5 text-orange-500" />,
+      path: "/configuracoes/integracoes",
+      category: "sistema"
+    },
+    {
+      title: "Usuários e Permissões",
+      description: "Gerenciar equipe e acessos",
+      icon: <Users2 className="h-5 w-5 text-purple-500" />,
+      path: "/configuracoes/usuarios",
+      category: "sistema"
+    },
+    {
+      title: "Procedimentos",
+      description: "Catálogo de serviços e preços",
+      icon: <ClipboardList className="h-5 w-5 text-cyan-500" />,
+      path: "/configuracoes/procedimentos",
+      category: "clinico"
+    },
+    {
+      title: "Salas e Consultórios",
+      description: "Recursos físicos da clínica",
+      icon: <MapPin className="h-5 w-5 text-teal-500" />,
+      path: "/configuracoes/salas",
+      category: "clinico"
+    },
+    {
+      title: "Notificações",
+      description: "Alertas e lembretes automáticos",
+      icon: <Bell className="h-5 w-5 text-yellow-500" />,
+      path: "/configuracoes/notificacoes",
+      category: "comunicacao"
+    },
+    {
+      title: "Mensagens Automáticas",
+      description: "Templates de WhatsApp e SMS",
+      icon: <MessageSquare className="h-5 w-5 text-green-600" />,
+      path: "/configuracoes/chat",
+      category: "comunicacao"
+    },
+    {
+      title: "Financeiro",
+      description: "Formas de pagamento e taxas",
+      icon: <DollarSign className="h-5 w-5 text-emerald-500" />,
+      path: "/configuracoes/financeiro",
+      category: "financeiro"
+    },
+    {
+      title: "Impressão",
+      description: "Modelos de documentos e recibos",
+      icon: <Printer className="h-5 w-5 text-gray-500" />,
+      path: "/configuracoes/impressao",
+      category: "documentos"
+    },
+    {
+      title: "Aparência",
+      description: "Tema e personalização visual",
+      icon: <Palette className="h-5 w-5 text-pink-500" />,
+      path: "/configuracoes/aparencia",
+      category: "sistema"
+    },
+    {
+      title: "Backup e Dados",
+      description: "Exportação e restauração",
+      icon: <Database className="h-5 w-5 text-indigo-500" />,
+      path: "/configuracoes/backup",
+      category: "sistema"
     }
   ];
+
+  // Agrupar cards por categoria
+  const cardsByCategory = {
+    geral: configCards.filter(c => c.category === "geral"),
+    clinico: configCards.filter(c => c.category === "clinico"),
+    comunicacao: configCards.filter(c => c.category === "comunicacao"),
+    financeiro: configCards.filter(c => c.category === "financeiro"),
+    sistema: configCards.filter(c => c.category === "sistema"),
+    documentos: configCards.filter(c => c.category === "documentos"),
+  };
+
+  const categoryLabels: Record<string, string> = {
+    geral: "Geral",
+    clinico: "Clínico",
+    comunicacao: "Comunicação",
+    financeiro: "Financeiro",
+    sistema: "Sistema",
+    documentos: "Documentos",
+  };
 
   // Mock data for demonstration
   const [clinicData, setClinicData] = useState({
@@ -106,32 +205,186 @@ export default function ConfiguracoesPage() {
 
   return (
     <DashboardLayout title="Configurações" currentPath="/configuracoes">
-      <div className="flex flex-col space-y-6 p-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {configCards.map((card: any, index: number) => (
-            <Link key={index} href={card.path}>
-              <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-muted hover:border-primary">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    {card.icon}
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <CardTitle className="text-xl mt-2">{card.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm">{card.description}</CardDescription>
-                  <span className="text-primary text-sm font-medium mt-2 inline-block">
-                    Configurar →
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+      <div className="flex flex-col space-y-8">
+        {/* Seção Geral */}
+        {cardsByCategory.geral.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.geral}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.geral.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Seção Clínico */}
+        {cardsByCategory.clinico.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.clinico}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.clinico.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Seção Comunicação */}
+        {cardsByCategory.comunicacao.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.comunicacao}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.comunicacao.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Seção Financeiro */}
+        {cardsByCategory.financeiro.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.financeiro}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.financeiro.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Seção Documentos */}
+        {cardsByCategory.documentos.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.documentos}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.documentos.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Seção Sistema */}
+        {cardsByCategory.sistema.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-muted-foreground" />
+              {categoryLabels.sistema}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {cardsByCategory.sistema.map((card: any, index: number) => (
+                <Link key={index} href={card.path}>
+                  <Card className="h-full hover:shadow-md transition-all cursor-pointer border-muted hover:border-primary group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                          {card.icon}
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <CardTitle className="text-lg mt-3">{card.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{card.description}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </DashboardLayout>
   );

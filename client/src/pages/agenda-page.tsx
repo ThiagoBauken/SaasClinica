@@ -1648,9 +1648,9 @@ export default function AgendaPage() {
           onViewRecord={handleViewRecord}
         />
 
-        {/* FAB para criar novo agendamento */}
+        {/* FAB para criar novo agendamento - usa o mesmo dialog */}
         <FloatingActionButton
-          onClick={() => navigate('/novo-agendamento')}
+          onClick={handleAddAppointment}
           label="Novo Agendamento"
           variant="primary"
           size="lg"

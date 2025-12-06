@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   LineChart,
   Line,
@@ -25,6 +26,16 @@ import { useAuth } from "@/core/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Link } from "wouter";
+import {
+  CalendarPlus,
+  UserPlus,
+  Calendar,
+  Users,
+  DollarSign,
+  BarChart3,
+  Activity
+} from "lucide-react";
 
 // Dashboard types
 interface MetricData {
@@ -107,6 +118,36 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout title="Dashboard" currentPath="/">
+      {/* Quick Actions */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-3">
+          <Link href="/agenda/novo">
+            <Button className="gap-2">
+              <CalendarPlus className="h-4 w-4" />
+              Novo Agendamento
+            </Button>
+          </Link>
+          <Link href="/pacientes?action=new">
+            <Button variant="outline" className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Novo Paciente
+            </Button>
+          </Link>
+          <Link href="/agenda">
+            <Button variant="outline" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Ver Agenda
+            </Button>
+          </Link>
+          <Link href="/financeiro">
+            <Button variant="outline" className="gap-2">
+              <DollarSign className="h-4 w-4" />
+              Financeiro
+            </Button>
+          </Link>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
@@ -192,7 +233,7 @@ export default function DashboardPage() {
               <div className="h-80 flex items-center justify-center">
                 <div className="text-muted-foreground">Carregando dados...</div>
               </div>
-            ) : (
+            ) : weeklyAppointments && weeklyAppointments.length > 0 && weeklyAppointments.some(d => d.agendamentos > 0) ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -213,6 +254,20 @@ export default function DashboardPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            ) : (
+              <div className="h-80 flex flex-col items-center justify-center text-center p-4">
+                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="font-medium text-lg mb-2">Nenhum agendamento esta semana</h3>
+                <p className="text-muted-foreground mb-4">
+                  Comece agendando consultas para visualizar os dados aqui.
+                </p>
+                <Link href="/agenda/novo">
+                  <Button size="sm" className="gap-2">
+                    <CalendarPlus className="h-4 w-4" />
+                    Criar Agendamento
+                  </Button>
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -228,7 +283,7 @@ export default function DashboardPage() {
               <div className="h-80 flex items-center justify-center">
                 <div className="text-muted-foreground">Carregando dados...</div>
               </div>
-            ) : (
+            ) : monthlyRevenue && monthlyRevenue.length > 0 && monthlyRevenue.some(d => d.valor > 0) ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -256,6 +311,20 @@ export default function DashboardPage() {
                     />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex flex-col items-center justify-center text-center p-4">
+                <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="font-medium text-lg mb-2">Sem dados de receita</h3>
+                <p className="text-muted-foreground mb-4">
+                  Registre pagamentos para visualizar a evolução da receita.
+                </p>
+                <Link href="/financeiro">
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Ir para Financeiro
+                  </Button>
+                </Link>
               </div>
             )}
           </CardContent>
@@ -297,8 +366,15 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-64 flex items-center justify-center">
-                <div className="text-gray-500">Nenhum dado disponível</div>
+              <div className="h-64 flex flex-col items-center justify-center text-center p-4">
+                <BarChart3 className="h-10 w-10 text-muted-foreground mb-3" />
+                <h3 className="font-medium mb-2">Sem procedimentos</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Registre procedimentos nos agendamentos.
+                </p>
+                <Link href="/agenda">
+                  <Button size="sm" variant="outline">Ver Agenda</Button>
+                </Link>
               </div>
             )}
           </CardContent>
@@ -343,8 +419,26 @@ export default function DashboardPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-neutral-medium">
-                    <p>Nenhuma atividade recente encontrada</p>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Activity className="h-10 w-10 text-muted-foreground mb-3" />
+                    <h3 className="font-medium mb-2">Nenhuma atividade recente</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      As atividades aparecerão aqui conforme você usar o sistema.
+                    </p>
+                    <div className="flex gap-2">
+                      <Link href="/agenda/novo">
+                        <Button size="sm" className="gap-2">
+                          <CalendarPlus className="h-4 w-4" />
+                          Agendar
+                        </Button>
+                      </Link>
+                      <Link href="/pacientes?action=new">
+                        <Button size="sm" variant="outline" className="gap-2">
+                          <UserPlus className="h-4 w-4" />
+                          Novo Paciente
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>

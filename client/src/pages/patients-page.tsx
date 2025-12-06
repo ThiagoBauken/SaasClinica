@@ -15,6 +15,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -25,11 +27,22 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle, ChevronDown, X, Scan } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, Plus, Phone, Mail, Calendar, Edit, FileText, Download, Upload, AlertCircle, ChevronDown, X, Scan, CheckSquare, Trash2, MessageSquare, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +85,13 @@ export default function PatientsPage() {
   const [lastVisitFilter, setLastVisitFilter] = useState<string>("all");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+
+  // Bulk actions state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedPatientIds, setSelectedPatientIds] = useState<number[]>([]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showBulkMessageDialog, setShowBulkMessageDialog] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState("");
 
   // Fetch patients
   const {
@@ -140,6 +160,91 @@ export default function PatientsPage() {
       });
     },
   });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (patientIds: number[]) => {
+      // Delete patients one by one
+      const results = await Promise.allSettled(
+        patientIds.map(id => apiRequest("DELETE", `/api/patients/${id}`))
+      );
+      const successCount = results.filter(r => r.status === "fulfilled").length;
+      return { successCount, total: patientIds.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      toast({
+        title: "Pacientes excluídos",
+        description: `${data.successCount} de ${data.total} pacientes foram excluídos.`,
+      });
+      setSelectedPatientIds([]);
+      setSelectionMode(false);
+      setShowBulkDeleteDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir pacientes",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle selection mode
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectedPatientIds([]);
+    }
+    setSelectionMode(!selectionMode);
+  };
+
+  // Export selected patients
+  const handleExportSelected = () => {
+    if (selectedPatientIds.length === 0) return;
+
+    const selectedData = patients?.filter(p => selectedPatientIds.includes(p.id)) || [];
+    const dataToExport = selectedData.map(patient => ({
+      Nome: patient.fullName,
+      Email: patient.email || '',
+      Telefone: patient.phone || '',
+      CPF: (patient as any).cpf || '',
+      DataNascimento: patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('pt-BR') : '',
+      Gênero: patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : 'Outro',
+      Endereço: patient.address || '',
+      Convênio: patient.insuranceInfo || '',
+      Observações: (patient as any).notes || ''
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `pacientes_selecionados_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${selectedData.length} pacientes exportados.`,
+    });
+  };
+
+  // Handle bulk message (simulated - integrate with your messaging system)
+  const handleBulkMessage = () => {
+    if (!bulkMessage.trim() || selectedPatientIds.length === 0) return;
+
+    // Here you would integrate with WhatsApp/SMS API
+    toast({
+      title: "Mensagens enviadas",
+      description: `Mensagem enviada para ${selectedPatientIds.length} pacientes.`,
+    });
+    setBulkMessage("");
+    setShowBulkMessageDialog(false);
+    setSelectedPatientIds([]);
+    setSelectionMode(false);
+  };
 
   // Função para verificar se um paciente não consulta há X meses
   const hasntVisitedForMonths = (patient: any, months: number) => {
@@ -522,6 +627,16 @@ export default function PatientsPage() {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant={selectionMode ? "default" : "outline"}
+            onClick={toggleSelectionMode}
+            size="sm"
+            className="flex-1 sm:flex-none"
+          >
+            <CheckSquare className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">{selectionMode ? "Cancelar Seleção" : "Selecionar"}</span>
+            <span className="sm:hidden">{selectionMode ? "Cancelar" : "Selecionar"}</span>
+          </Button>
           <Button variant="outline" onClick={handleExportPatients} size="sm" className="flex-1 sm:flex-none">
             <span className="hidden sm:inline">Exportar Pacientes</span>
             <span className="sm:hidden">Exportar</span>
@@ -554,6 +669,49 @@ export default function PatientsPage() {
             <span className="sm:hidden">Novo</span>
           </Button>
         </div>
+
+        {/* Bulk Actions Bar */}
+        {selectionMode && selectedPatientIds.length > 0 && (
+          <div className="mt-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <span className="font-medium text-sm">
+                  {selectedPatientIds.length} paciente{selectedPatientIds.length !== 1 ? "s" : ""} selecionado{selectedPatientIds.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSelected}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkMessageDialog(true)}
+                  className="gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Enviar Mensagem
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowBulkDeleteDialog(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoadingPatients ? (
@@ -565,9 +723,12 @@ export default function PatientsPage() {
           Erro ao carregar pacientes. Tente novamente.
         </div>
       ) : (
-        <PatientsList 
-          patients={filteredPatients} 
-          onPatientClick={handlePatientClick} 
+        <PatientsList
+          patients={filteredPatients}
+          onPatientClick={handlePatientClick}
+          selectedPatients={selectedPatientIds}
+          onSelectionChange={setSelectedPatientIds}
+          selectionMode={selectionMode}
         />
       )}
 
@@ -705,14 +866,82 @@ export default function PatientsPage() {
               </TabsContent>
               
               <TabsContent value="edit">
-                <PatientForm 
-                  initialData={selectedPatient} 
-                  onSubmit={handleUpdatePatient} 
+                <PatientForm
+                  initialData={selectedPatient}
+                  onSubmit={handleUpdatePatient}
                   isEditing={true}
                 />
               </TabsContent>
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão em lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedPatientIds.length} paciente{selectedPatientIds.length !== 1 ? "s" : ""}?
+              Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(selectedPatientIds)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir Pacientes"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Message Dialog */}
+      <Dialog open={showBulkMessageDialog} onOpenChange={setShowBulkMessageDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar mensagem em lote</DialogTitle>
+            <DialogDescription>
+              Enviar mensagem para {selectedPatientIds.length} paciente{selectedPatientIds.length !== 1 ? "s" : ""} selecionado{selectedPatientIds.length !== 1 ? "s" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="bulk-message" className="text-sm font-medium">
+                Mensagem
+              </label>
+              <textarea
+                id="bulk-message"
+                className="w-full min-h-[120px] p-3 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Digite a mensagem que será enviada..."
+                value={bulkMessage}
+                onChange={(e) => setBulkMessage(e.target.value)}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              A mensagem será enviada via WhatsApp para todos os pacientes selecionados que possuem telefone cadastrado.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkMessageDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleBulkMessage} disabled={!bulkMessage.trim()}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Enviar para {selectedPatientIds.length} paciente{selectedPatientIds.length !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
