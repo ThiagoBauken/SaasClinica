@@ -488,6 +488,7 @@ export async function getWuzapiStatus(companyId: number): Promise<{
 /**
  * Obtem QR Code para conectar WhatsApp
  * IMPORTANTE: Primeiro inicia a sessao com /session/connect, depois busca o QR
+ * Inclui retry automatico quando a instância acabou de ser criada
  */
 export async function getWuzapiQrCode(companyId: number): Promise<{
   success: boolean;
@@ -505,12 +506,58 @@ export async function getWuzapiQrCode(companyId: number): Promise<{
     };
   }
 
+  // Se a instância acabou de ser criada, aguardar um pouco
+  const isNewInstance = instance.message === 'Instancia criada automaticamente';
+  if (isNewInstance) {
+    console.log('[Wuzapi QR] Instancia recem-criada, aguardando 2s para inicializar...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+
+  // Tentar obter QR Code com retry
+  const maxRetries = isNewInstance ? 3 : 1;
+  let lastError = '';
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`[Wuzapi QR] Tentativa ${attempt}/${maxRetries}...`);
+
+    try {
+      const result = await attemptGetQrCode(instance.baseUrl, instance.token);
+      if (result.success && (result.qrCode || result.connected)) {
+        return result;
+      }
+      lastError = result.message;
+    } catch (error: any) {
+      lastError = error.message;
+    }
+
+    // Se não é a última tentativa, aguardar antes de tentar novamente
+    if (attempt < maxRetries) {
+      console.log(`[Wuzapi QR] QR Code nao encontrado, aguardando 1.5s para retry...`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+
+  return {
+    success: false,
+    message: lastError || 'QR Code não disponível. Tente novamente.',
+  };
+}
+
+/**
+ * Tenta obter QR Code uma vez
+ */
+async function attemptGetQrCode(baseUrl: string, token: string): Promise<{
+  success: boolean;
+  connected?: boolean;
+  qrCode?: string;
+  message: string;
+}> {
   try {
     // PASSO 1: Iniciar sessao primeiro (obrigatório no Wuzapi 3.0)
-    const connectResponse = await fetch(`${instance.baseUrl}/session/connect`, {
+    const connectResponse = await fetch(`${baseUrl}/session/connect`, {
       method: 'POST',
       headers: {
-        'Token': instance.token,
+        'Token': token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -546,9 +593,9 @@ export async function getWuzapiQrCode(companyId: number): Promise<{
 
     // Se retornou erro (ex: "already connected"), verificar status para pegar QR code
     if (!connectResponse.ok || errorMessage.toLowerCase().includes('already connected')) {
-      const statusCheck = await fetch(`${instance.baseUrl}/session/status`, {
+      const statusCheck = await fetch(`${baseUrl}/session/status`, {
         method: 'GET',
-        headers: { 'Token': instance.token },
+        headers: { 'Token': token },
       });
       const statusData = await statusCheck.json().catch(() => ({}));
       console.log('[Wuzapi Status Check] Response:', JSON.stringify(statusData));
@@ -586,10 +633,10 @@ export async function getWuzapiQrCode(companyId: number): Promise<{
     }
 
     // PASSO 2: Buscar QR Code separadamente
-    const qrResponse = await fetch(`${instance.baseUrl}/session/qr`, {
+    const qrResponse = await fetch(`${baseUrl}/session/qr`, {
       method: 'GET',
       headers: {
-        'Token': instance.token,
+        'Token': token,
       },
     });
 
