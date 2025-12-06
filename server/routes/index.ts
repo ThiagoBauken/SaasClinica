@@ -33,6 +33,7 @@ import n8nConversationRoutes from './n8n-conversation.routes';
 import riskAlertsRoutes from './risk-alerts.routes';
 import publicAnamnesisRoutes from './public-anamnesis.routes';
 import crmRoutes from './crm.routes';
+import storageRoutes from './storage.routes';
 import { auditLogMiddleware } from '../middleware/auditLog';
 
 /**
@@ -81,6 +82,7 @@ export function registerModularRoutes(app: Express) {
   apiV1Router.use('/risk-alerts', riskAlertsRoutes); // Risk alerts for patients (clinical safety)
   apiV1Router.use('/public-anamnesis', publicAnamnesisRoutes); // Public anamnesis links and management
   apiV1Router.use('/crm', crmRoutes); // CRM - Funil de Vendas
+  apiV1Router.use('/storage', storageRoutes); // Storage API (S3/MinIO)
 
   // Registrar o router v1 na aplicação
   app.use('/api/v1', apiV1Router);
@@ -98,4 +100,5 @@ export function registerModularRoutes(app: Express) {
   console.log('✓ Canned responses API available at /api/v1/canned-responses');
   console.log('✓ Admin phones API available at /api/v1/admin-phones');
   console.log('✓ N8N Tools API available at /api/v1/n8n/tools');
+  console.log('✓ Storage API available at /api/v1/storage');
 }

@@ -13,6 +13,7 @@ import xlsx from 'xlsx';
 import { eq, and, or, like, sql } from 'drizzle-orm';
 import AdmZip from 'adm-zip';
 import { authCheck, asyncHandler } from '../middleware/auth';
+import { storageService } from '../services/storage.service';
 
 const router = Router();
 
@@ -268,39 +269,53 @@ async function getDirectorySize(dirPath: string): Promise<number> {
   return size;
 }
 
-// Export data to different formats
-async function exportData(patients: any[], format: string): Promise<string> {
+// Export data to different formats - returns S3 key or local path
+async function exportData(patientsData: any[], format: string, companyId?: number): Promise<{ key: string; isS3: boolean }> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const filename = `patients-export-${timestamp}`;
+
+  let buffer: Buffer;
+  let finalFilename: string;
 
   switch (format) {
     case 'xlsx': {
       const wb = xlsx.utils.book_new();
-      const ws = xlsx.utils.json_to_sheet(patients);
+      const ws = xlsx.utils.json_to_sheet(patientsData);
       xlsx.utils.book_append_sheet(wb, ws, 'Patients');
-      const filepath = path.join(PROCESSED_DIR, `${filename}.xlsx`);
-      xlsx.writeFile(wb, filepath);
-      return filepath;
+      buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      finalFilename = `${filename}.xlsx`;
+      break;
     }
 
     case 'csv': {
       const wb = xlsx.utils.book_new();
-      const ws = xlsx.utils.json_to_sheet(patients);
+      const ws = xlsx.utils.json_to_sheet(patientsData);
       xlsx.utils.book_append_sheet(wb, ws, 'Patients');
-      const filepath = path.join(PROCESSED_DIR, `${filename}.csv`);
-      xlsx.writeFile(wb, filepath, { bookType: 'csv' });
-      return filepath;
+      buffer = xlsx.write(wb, { type: 'buffer', bookType: 'csv' });
+      finalFilename = `${filename}.csv`;
+      break;
     }
 
     case 'json': {
-      const filepath = path.join(PROCESSED_DIR, `${filename}.json`);
-      await fs.writeFile(filepath, JSON.stringify(patients, null, 2));
-      return filepath;
+      buffer = Buffer.from(JSON.stringify(patientsData, null, 2));
+      finalFilename = `${filename}.json`;
+      break;
     }
 
     default:
       throw new Error(`Unsupported export format: ${format}`);
   }
+
+  // Upload to S3/MinIO if available
+  if (storageService.isCloudStorageAvailable()) {
+    const result = await storageService.upload(buffer, finalFilename, 'documents', companyId);
+    return { key: result.key, isS3: true };
+  }
+
+  // Local fallback
+  const filepath = path.join(PROCESSED_DIR, finalFilename);
+  await fs.writeFile(filepath, buffer);
+  return { key: filepath, isS3: false };
 }
 
 // POST /api/v1/patients/digitization - Process images/ZIP and extract patient data
@@ -479,8 +494,8 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
         }
       }
     } else {
-      // Export to file
-      const exportPath = await exportData(
+      // Export to file (S3 or local)
+      const exportResult = await exportData(
         extractedPatients.map(p => ({
           Nome: p.name,
           Telefone: p.phone || '',
@@ -490,9 +505,13 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
           Endereço: p.address || '',
           Status: p.status,
         })),
-        outputFormat
+        outputFormat,
+        companyId
       );
-      downloadUrl = `/downloads/digitization/${path.basename(exportPath)}`;
+      // Store the key (S3 key or local path) for later retrieval
+      downloadUrl = exportResult.isS3
+        ? `s3://${exportResult.key}`
+        : `/downloads/digitization/${path.basename(exportResult.key)}`;
     }
 
     // Save history with patient data for reprocessing
@@ -593,6 +612,20 @@ router.get('/history/:id/download', authCheck, asyncHandler(async (req, res) => 
     return res.status(404).json({ error: 'Arquivo não encontrado' });
   }
 
+  // Check if file is stored in S3
+  if (historyRecord.downloadUrl.startsWith('s3://')) {
+    const s3Key = historyRecord.downloadUrl.replace('s3://', '');
+    try {
+      // Generate presigned URL for direct download
+      const presignedUrl = await storageService.getPresignedUrl(s3Key, 3600); // 1 hour
+      return res.redirect(presignedUrl);
+    } catch (error) {
+      console.error('Error generating presigned URL:', error);
+      return res.status(500).json({ error: 'Erro ao gerar link de download' });
+    }
+  }
+
+  // Local file fallback
   const filePath = path.join(process.cwd(), historyRecord.downloadUrl);
 
   if (!fsSync.existsSync(filePath)) {
@@ -698,8 +731,8 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
       errorCount
     });
   } else if (action === 'export') {
-    // Export to specified format
-    const exportPath = await exportData(
+    // Export to specified format (S3 or local)
+    const exportResult = await exportData(
       extractedPatients.map(p => ({
         Nome: p.name,
         Telefone: p.phone || '',
@@ -709,15 +742,19 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
         Endereço: p.address || '',
         Status: p.status,
       })),
-      format || 'xlsx'
+      format || 'xlsx',
+      companyId
     );
 
-    const downloadUrl = `/downloads/digitization/${path.basename(exportPath)}`;
+    const downloadUrl = exportResult.isS3
+      ? `s3://${exportResult.key}`
+      : `/downloads/digitization/${path.basename(exportResult.key)}`;
 
     return res.json({
       success: true,
       message: `Dados exportados em ${format}`,
-      downloadUrl
+      downloadUrl,
+      isS3: exportResult.isS3
     });
   } else {
     return res.status(400).json({ error: 'Ação inválida. Use "database" ou "export"' });
