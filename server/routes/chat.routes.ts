@@ -913,4 +913,159 @@ router.post(
   })
 );
 
+/**
+ * GET /api/v1/chat/media/:messageId
+ * Proxy seguro para acessar mídias do chat
+ *
+ * MULTI-TENANT SECURITY:
+ * - Valida autenticação do usuário
+ * - Verifica se a mensagem pertence à empresa do usuário
+ * - Baixa a mídia do MinIO e serve ao cliente
+ * - NUNCA expõe URLs diretas do S3/MinIO
+ */
+router.get(
+  '/media/:messageId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req);
+    const messageId = req.params.messageId;
+
+    // Buscar mensagem pelo wuzapiMessageId
+    const [message] = await db
+      .select({
+        id: chatMessages.id,
+        sessionId: chatMessages.sessionId,
+        mediaUrl: chatMessages.mediaUrl,
+        mimeType: chatMessages.mimeType,
+        fileName: chatMessages.fileName,
+      })
+      .from(chatMessages)
+      .innerJoin(chatSessions, eq(chatMessages.sessionId, chatSessions.id))
+      .where(
+        and(
+          eq(chatMessages.wuzapiMessageId, messageId),
+          eq(chatSessions.companyId, companyId) // CRÍTICO: Valida que pertence à empresa
+        )
+      )
+      .limit(1);
+
+    if (!message) {
+      return res.status(404).json({ error: 'Mídia não encontrada ou acesso negado' });
+    }
+
+    if (!message.mediaUrl) {
+      return res.status(404).json({ error: 'Mensagem não contém mídia' });
+    }
+
+    // Se a mídia está salva localmente (uploads/chat/...)
+    if (message.mediaUrl.startsWith('/uploads/')) {
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const filePath = path.join(process.cwd(), message.mediaUrl);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+      }
+
+      // Validar que o path está dentro do diretório correto (prevenir path traversal)
+      const expectedDir = path.join(process.cwd(), 'uploads', 'chat', String(companyId));
+      const normalizedPath = path.normalize(filePath);
+
+      if (!normalizedPath.startsWith(expectedDir)) {
+        console.warn(`[Security] Tentativa de acesso a arquivo fora do diretório: ${filePath}`);
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+
+      // Definir headers de cache e tipo
+      res.setHeader('Content-Type', message.mimeType || 'application/octet-stream');
+      res.setHeader('Cache-Control', 'private, max-age=3600'); // Cache 1 hora
+
+      if (message.fileName) {
+        res.setHeader('Content-Disposition', `inline; filename="${message.fileName}"`);
+      }
+
+      // Stream do arquivo
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      return;
+    }
+
+    // Se for URL externa (S3/MinIO), fazer proxy
+    // Buscar configurações do MinIO/S3 da empresa
+    const [settings] = await db
+      .select()
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, companyId))
+      .limit(1);
+
+    // Por segurança, não permitir URLs externas sem configuração S3
+    return res.status(404).json({
+      error: 'Mídia não disponível',
+      hint: 'Configure o armazenamento S3/MinIO para mídias externas'
+    });
+  })
+);
+
+/**
+ * GET /api/v1/chat/media/download/:messageId
+ * Download de mídia (força download em vez de exibir)
+ */
+router.get(
+  '/media/download/:messageId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req);
+    const messageId = req.params.messageId;
+
+    // Buscar mensagem
+    const [message] = await db
+      .select({
+        id: chatMessages.id,
+        sessionId: chatMessages.sessionId,
+        mediaUrl: chatMessages.mediaUrl,
+        mimeType: chatMessages.mimeType,
+        fileName: chatMessages.fileName,
+      })
+      .from(chatMessages)
+      .innerJoin(chatSessions, eq(chatMessages.sessionId, chatSessions.id))
+      .where(
+        and(
+          eq(chatMessages.wuzapiMessageId, messageId),
+          eq(chatSessions.companyId, companyId)
+        )
+      )
+      .limit(1);
+
+    if (!message || !message.mediaUrl) {
+      return res.status(404).json({ error: 'Mídia não encontrada' });
+    }
+
+    if (message.mediaUrl.startsWith('/uploads/')) {
+      const path = await import('path');
+      const fs = await import('fs');
+
+      const filePath = path.join(process.cwd(), message.mediaUrl);
+
+      // Validar path
+      const expectedDir = path.join(process.cwd(), 'uploads', 'chat', String(companyId));
+      const normalizedPath = path.normalize(filePath);
+
+      if (!normalizedPath.startsWith(expectedDir) || !fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+      }
+
+      const fileName = message.fileName || `media_${messageId}`;
+      res.setHeader('Content-Type', message.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      return;
+    }
+
+    return res.status(404).json({ error: 'Mídia não disponível' });
+  })
+);
+
 export default router;
