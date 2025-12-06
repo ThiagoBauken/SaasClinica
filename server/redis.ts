@@ -1,23 +1,57 @@
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
-  retryStrategy(times: number) {
-    // Limita tentativas de reconexão
-    if (times > 3) {
-      console.warn('❌ Erro no Redis: Máximo de tentativas atingido');
-      return null; // Para de tentar reconectar
+// Parse REDIS_URL if provided, otherwise use individual vars
+function getRedisConfig(): RedisOptions {
+  const redisUrl = process.env.REDIS_URL;
+
+  if (redisUrl) {
+    // Parse redis:// URL format
+    try {
+      const url = new URL(redisUrl);
+      console.log(`[Redis] Usando REDIS_URL: ${url.host}`);
+      return {
+        host: url.hostname,
+        port: parseInt(url.port) || 6379,
+        password: url.password || undefined,
+        username: url.username !== 'default' ? url.username : undefined,
+        retryStrategy(times: number) {
+          if (times > 3) {
+            console.warn('❌ Erro no Redis: Máximo de tentativas atingido');
+            return null;
+          }
+          return Math.min(times * 50, 2000);
+        },
+        maxRetriesPerRequest: 1,
+        enableReadyCheck: false,
+        lazyConnect: true,
+        showFriendlyErrorStack: false,
+      };
+    } catch (e) {
+      console.error('[Redis] Erro ao parsear REDIS_URL:', e);
     }
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-  maxRetriesPerRequest: 1,
-  enableReadyCheck: false,
-  lazyConnect: true, // Não conecta automaticamente
-  showFriendlyErrorStack: false,
-};
+  }
+
+  // Fallback to individual variables
+  console.log(`[Redis] Usando REDIS_HOST: ${process.env.REDIS_HOST || 'localhost'}`);
+  return {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD,
+    retryStrategy(times: number) {
+      if (times > 3) {
+        console.warn('❌ Erro no Redis: Máximo de tentativas atingido');
+        return null;
+      }
+      return Math.min(times * 50, 2000);
+    },
+    maxRetriesPerRequest: 1,
+    enableReadyCheck: false,
+    lazyConnect: true,
+    showFriendlyErrorStack: false,
+  };
+}
+
+const redisConfig = getRedisConfig();
 
 // Client para sessões
 export const redisClient = new Redis(redisConfig);
