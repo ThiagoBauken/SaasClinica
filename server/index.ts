@@ -29,7 +29,8 @@ import { cdnManager } from './cdnManager';
 import { queueSystem } from './queueSystem';
 import session from 'express-session';
 import { RedisStore } from 'connect-redis';
-import { redisClient, isRedisAvailable } from './redis';
+import { createClient } from 'redis';
+import { isRedisAvailable } from './redis';
 import { startBillingCronJobs } from './jobs/billing-cron';
 
 // Determina quantos workers serão usados (customizável via .env)
@@ -177,8 +178,20 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     try {
       const available = await isRedisAvailable();
       if (available) {
+        // Cria cliente redis (node-redis) para connect-redis v9
+        // connect-redis v9 NÃO é compatível com ioredis, apenas com node-redis
+        const redisUrl = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
+        const sessionRedisClient = createClient({ url: redisUrl });
+
+        sessionRedisClient.on('error', (err) => {
+          console.error('Session Redis error:', err);
+        });
+
+        await sessionRedisClient.connect();
+        console.log('✓ Session Redis client connected');
+
         sessionConfig.store = new RedisStore({
-          client: redisClient,
+          client: sessionRedisClient,
           prefix: 'dental:sess:',
           ttl: 86400, // 24 horas em segundos
         });
