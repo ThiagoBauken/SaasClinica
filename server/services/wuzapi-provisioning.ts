@@ -16,8 +16,8 @@ import { clinicSettings, companies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
-// URL base do Wuzapi (da VPS)
-const WUZAPI_BASE_URL = process.env.WUZAPI_BASE_URL || 'https://private-wuzapi.pbzgje.easypanel.host';
+// URL base do Wuzapi (usa URL interna no Easypanel para comunicação entre containers)
+const WUZAPI_BASE_URL = process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080';
 const WUZAPI_ADMIN_TOKEN = process.env.WUZAPI_ADMIN_TOKEN || '';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
