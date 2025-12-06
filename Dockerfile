@@ -70,31 +70,35 @@ RUN npm ci --omit=dev --legacy-peer-deps && \
 # Copiar arquivos buildados
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
-# Copiar arquivos necessários
+# Copiar arquivos necessários em runtime
 COPY --from=builder --chown=nodejs:nodejs /app/shared ./shared
+COPY --from=builder --chown=nodejs:nodejs /app/modules ./modules
 COPY --from=builder --chown=nodejs:nodejs /app/server/migrations ./server/migrations
-COPY --chown=nodejs:nodejs server/healthcheck.js ./server/healthcheck.js
-
-# Copiar config para credenciais (opcional)
 COPY --from=builder --chown=nodejs:nodejs /app/config ./config
 
-# Criar diretórios necessários
-RUN mkdir -p uploads processed && \
-    chown -R nodejs:nodejs uploads processed
+# Copiar healthcheck
+COPY --chown=nodejs:nodejs server/healthcheck.js ./server/healthcheck.js
+
+# Criar diretórios necessários com permissões
+RUN mkdir -p uploads processed /tmp/dental-digitization && \
+    chown -R nodejs:nodejs uploads processed /tmp/dental-digitization
 
 # Mudar para usuário não-root
 USER nodejs
 
-# Variáveis de ambiente padrão
+# Variáveis de ambiente padrão (podem ser sobrescritas por Easypanel)
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV MAX_WORKERS=1
+ENV DB_POOL_MAX=10
+ENV DB_POOL_MIN=2
 
 # Expor porta
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD node server/healthcheck.js || exit 1
+# Health check mais tolerante (120s start period, usa curl)
+HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=5 \
+  CMD curl -f http://localhost:5000/health/live || exit 1
 
 # Comando de inicialização
 CMD ["npm", "start"]
