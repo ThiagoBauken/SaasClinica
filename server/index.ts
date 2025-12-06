@@ -75,13 +75,23 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
 
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // Health check endpoints devem bypassar CORS (são chamados pelo Docker/Easypanel sem Origin)
+  app.use('/health', (req, res, next) => {
+    // Permitir health checks sem Origin header
+    next();
+  });
+
   app.use(cors({
     origin: (origin, callback) => {
-      // Em produção, exigir origin. Em desenvolvimento, permitir requisições sem origin (Postman, etc)
+      // Permitir requisições sem origin para:
+      // 1. Health checks (já tratados acima)
+      // 2. Webhooks de serviços externos (N8N, Stripe, etc)
+      // 3. Requisições server-to-server
       if (!origin) {
+        // Em produção, logar mas permitir (necessário para webhooks e health checks)
         if (isProduction) {
-          console.warn('⚠️  CORS: Blocked request without origin in production');
-          return callback(new Error('Origin header required'));
+          // Não bloquear, apenas logar em debug se necessário
+          // console.debug('Request without Origin header (health check/webhook)');
         }
         return callback(null, true);
       }

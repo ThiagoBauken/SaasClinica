@@ -11,8 +11,18 @@ const router = Router();
 // Importar Redis se disponível
 let redisClient: any = null;
 try {
-  const { getRedisClient } = require('../redis');
-  redisClient = getRedisClient();
+  const { redisClient: client, isRedisAvailable } = require('../redis');
+  // Verificar se Redis está disponível antes de usar
+  isRedisAvailable().then((available: boolean) => {
+    if (available) {
+      redisClient = client;
+      console.log('[N8N Conversation] Usando Redis para contexto de conversas');
+    } else {
+      console.log('[N8N Conversation] Redis não disponível, usando memória local');
+    }
+  }).catch(() => {
+    console.log('[N8N Conversation] Redis não disponível, usando memória local');
+  });
 } catch (e) {
   console.log('[N8N Conversation] Redis não disponível, usando memória local');
 }
