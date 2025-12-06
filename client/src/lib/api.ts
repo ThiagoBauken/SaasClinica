@@ -162,6 +162,7 @@ export const integrationsApi = {
   logoutWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/logout", "POST"),
   reconnectWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/reconnect", "POST"),
   reconfigureWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/reconfigure", "POST"),
+  resetWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/reset", "POST"),
   // Wuzapi 3.0 - Webhook
   getWuzapiWebhookInfo: () => apiRequest<any>("/api/v1/integrations/wuzapi/webhook-info"),
   configureWuzapiWebhook: (data?: { webhookUrl?: string }) =>

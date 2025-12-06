@@ -223,6 +223,28 @@ export function useIntegrations() {
     },
   });
 
+  // Wuzapi Reset Mutation (reseta completamente a instância)
+  const resetWuzapiMutation = useMutation({
+    mutationFn: integrationsApi.resetWuzapi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/wuzapi/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/wuzapi/webhook-info"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations"] });
+      toast({
+        title: data.success ? "Instância resetada!" : "Falha ao resetar",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao resetar instância",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Wuzapi Webhook Info Query
   const {
     data: webhookInfo,
@@ -324,6 +346,9 @@ export function useIntegrations() {
     // Wuzapi Reconfigure (força reconfiguração de webhook, S3, HMAC)
     reconfigureWuzapi: reconfigureWuzapiMutation.mutateAsync,
     isReconfiguring: reconfigureWuzapiMutation.isPending,
+    // Wuzapi Reset (reseta completamente a instância)
+    resetWuzapi: resetWuzapiMutation.mutateAsync,
+    isResetting: resetWuzapiMutation.isPending,
     // Wuzapi Webhook
     webhookInfo,
     isLoadingWebhookInfo,

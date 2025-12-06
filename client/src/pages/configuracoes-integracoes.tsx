@@ -63,6 +63,9 @@ export default function ConfiguracoesIntegracoesPage() {
     // Wuzapi Reconfigure
     reconfigureWuzapi,
     isReconfiguring,
+    // Wuzapi Reset
+    resetWuzapi,
+    isResetting,
     // N8N API Key
     n8nApiKeyInfo,
     isLoadingN8nApiKey,
@@ -365,6 +368,26 @@ export default function ConfiguracoesIntegracoesPage() {
                               )}
                               Desconectar
                             </Button>
+                            {/* Botão Deletar - reseta completamente a instância */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                              onClick={() => {
+                                if (confirm('Tem certeza que deseja deletar a instância? Você precisará reconectar via QR Code.')) {
+                                  resetWuzapi();
+                                }
+                              }}
+                              disabled={isResetting}
+                              title="Deleta a instância e limpa o banco. Use quando deletou a instância no dashboard do Wuzapi."
+                            >
+                              {isResetting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              )}
+                              Deletar
+                            </Button>
                           </>
                         ) : (
                           <>
@@ -396,6 +419,26 @@ export default function ConfiguracoesIntegracoesPage() {
                                 <QrCode className="mr-2 h-4 w-4" />
                               )}
                               Novo QR Code
+                            </Button>
+                            {/* Botão Deletar - reseta completamente a instância */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                              onClick={() => {
+                                if (confirm('Tem certeza que deseja deletar a instância? Isso limpará todas as configurações.')) {
+                                  resetWuzapi();
+                                }
+                              }}
+                              disabled={isResetting}
+                              title="Deleta a instância e limpa o banco. Use quando deletou a instância no dashboard do Wuzapi."
+                            >
+                              {isResetting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              )}
+                              Deletar
                             </Button>
                           </>
                         )}

@@ -1045,3 +1045,125 @@ export async function deleteWuzapiInstance(instanceId: string): Promise<{
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Reseta completamente a instancia Wuzapi de uma empresa
+ * - Faz logout no Wuzapi
+ * - Tenta deletar a instancia via Admin API
+ * - Limpa TODOS os campos do banco de dados
+ *
+ * Usar quando: usuario deletou a instancia no dashboard do Wuzapi
+ * ou quer comecar do zero
+ */
+export async function resetWuzapiInstance(companyId: number): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  console.log(`[Wuzapi Reset] Resetando instancia da empresa ${companyId}...`);
+
+  try {
+    // 1. Buscar configuracoes atuais
+    const [settings] = await db
+      .select()
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, companyId))
+      .limit(1);
+
+    // 2. Tentar fazer logout se tiver token
+    if (settings?.wuzapiApiKey) {
+      try {
+        console.log('[Wuzapi Reset] Tentando logout...');
+        const logoutResponse = await fetch(`${WUZAPI_BASE_URL}/session/logout`, {
+          method: 'POST',
+          headers: {
+            'Token': settings.wuzapiApiKey,
+          },
+        });
+        console.log(`[Wuzapi Reset] Logout response: ${logoutResponse.status}`);
+      } catch (e) {
+        console.log('[Wuzapi Reset] Logout falhou (instancia pode nao existir mais)');
+      }
+    }
+
+    // 3. Tentar deletar via Admin API (buscar pelo nome da empresa)
+    if (WUZAPI_ADMIN_TOKEN) {
+      try {
+        console.log('[Wuzapi Reset] Buscando instancia via Admin API...');
+        const listResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
+          method: 'GET',
+          headers: {
+            'Authorization': WUZAPI_ADMIN_TOKEN,
+          },
+        });
+
+        if (listResponse.ok) {
+          const listData = await listResponse.json();
+          const users = listData.users || listData.data || [];
+
+          // Buscar pelo nome que contem o companyId
+          const user = users.find((u: any) => {
+            const name = u.name || u.Name || '';
+            return name.endsWith(`-${companyId}`) || name === `clinica-${companyId}`;
+          });
+
+          if (user) {
+            const userId = user.id || user.Id;
+            console.log(`[Wuzapi Reset] Deletando usuario ${user.name} (ID: ${userId})...`);
+
+            // Tentar DELETE /admin/users/{id}/full primeiro (remove tudo)
+            let deleteResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}/full`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': WUZAPI_ADMIN_TOKEN,
+              },
+            });
+
+            // Se nao funcionar, tentar DELETE /admin/users/{id}
+            if (!deleteResponse.ok) {
+              deleteResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': WUZAPI_ADMIN_TOKEN,
+                },
+              });
+            }
+
+            console.log(`[Wuzapi Reset] Delete response: ${deleteResponse.status}`);
+          } else {
+            console.log('[Wuzapi Reset] Instancia nao encontrada na Admin API');
+          }
+        }
+      } catch (e: any) {
+        console.log(`[Wuzapi Reset] Erro ao deletar via Admin API: ${e.message}`);
+      }
+    }
+
+    // 4. SEMPRE limpar o banco de dados (mesmo se falhar no Wuzapi)
+    console.log('[Wuzapi Reset] Limpando banco de dados...');
+    await db
+      .update(clinicSettings)
+      .set({
+        wuzapiApiKey: null,
+        wuzapiBaseUrl: null,
+        wuzapiInstanceId: null,
+        wuzapiStatus: 'disconnected',
+        wuzapiConnectedPhone: null,
+        wuzapiWebhookUrl: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicSettings.companyId, companyId));
+
+    console.log('[Wuzapi Reset] Concluido! Banco de dados limpo.');
+
+    return {
+      success: true,
+      message: 'Instancia resetada. Clique em "Conectar" para criar uma nova instancia.',
+    };
+  } catch (error: any) {
+    console.error('[Wuzapi Reset] Erro:', error);
+    return {
+      success: false,
+      message: `Erro ao resetar: ${error.message}`,
+    };
+  }
+}

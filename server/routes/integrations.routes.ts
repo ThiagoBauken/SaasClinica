@@ -1238,4 +1238,43 @@ router.post(
   })
 );
 
+/**
+ * POST /api/v1/integrations/wuzapi/reset
+ * Reseta completamente a instância Wuzapi
+ * - Faz logout
+ * - Deleta a instância do Wuzapi
+ * - Limpa TODOS os campos do banco de dados
+ * Usar quando: usuario deletou a instância no dashboard do Wuzapi
+ */
+router.post(
+  '/wuzapi/reset',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 1;
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Apenas administradores podem resetar a instância',
+      });
+    }
+
+    console.log(`[API Reset] Resetando instância Wuzapi para company ${companyId}`);
+    const result = await WuzapiService.resetWuzapiInstance(companyId);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: result.message,
+      });
+    }
+  })
+);
+
 export default router;
