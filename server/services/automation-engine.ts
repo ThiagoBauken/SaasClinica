@@ -95,7 +95,7 @@ export class AutomationEngine {
 
     if (settings) {
       this.config = {
-        wuzapiBaseUrl: settings.wuzapiBaseUrl || 'https://wuzapi.cloud/api/v2',
+        wuzapiBaseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
         wuzapiApiKey: settings.wuzapiApiKey || '',
         wuzapiInstanceId: settings.wuzapiInstanceId || '',
         googleCalendarEnabled: !!settings.defaultGoogleCalendarId,

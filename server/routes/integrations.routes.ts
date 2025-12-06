@@ -178,7 +178,7 @@ router.post(
     const whatsappService = createWhatsAppService({
       instanceId: settings.wuzapiInstanceId,
       apiKey: settings.wuzapiApiKey,
-      baseUrl: settings.wuzapiBaseUrl || 'https://wuzapi.cloud/api/v2',
+      baseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
     });
 
     const result = await whatsappService.checkConnection();
@@ -449,7 +449,7 @@ router.post(
     const whatsappService = createWhatsAppService({
       instanceId: settings.wuzapiInstanceId,
       apiKey: settings.wuzapiApiKey,
-      baseUrl: settings.wuzapiBaseUrl || 'https://wuzapi.cloud/api/v2',
+      baseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
     });
 
     const result = await whatsappService.sendMessage({

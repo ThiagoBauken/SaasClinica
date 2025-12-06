@@ -319,15 +319,15 @@ export async function getOrCreateWuzapiInstance(companyId: number): Promise<{
     .limit(1);
 
   // Se ja tem token configurado, verificar se a instancia ainda existe no Wuzapi
+  // IMPORTANTE: Sempre usar WUZAPI_BASE_URL da variavel de ambiente (ignora valor do banco)
   if (settings?.wuzapiApiKey && settings.wuzapiApiKey !== WUZAPI_ADMIN_TOKEN) {
-    const baseUrl = settings.wuzapiBaseUrl || WUZAPI_BASE_URL;
-    const instanceExists = await verifyWuzapiInstanceExists(settings.wuzapiApiKey, baseUrl);
+    const instanceExists = await verifyWuzapiInstanceExists(settings.wuzapiApiKey, WUZAPI_BASE_URL);
 
     if (instanceExists) {
       return {
         success: true,
         token: settings.wuzapiApiKey,
-        baseUrl: baseUrl,
+        baseUrl: WUZAPI_BASE_URL,
         message: 'Instancia ja configurada',
       };
     }

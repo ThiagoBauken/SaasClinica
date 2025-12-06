@@ -70,7 +70,7 @@ router.get(
             address: settings.address,
             // Wuzapi (WhatsApp) - API 3.0 usa token ao invés de instance_id
             wuzapiApiKey: settings.wuzapiApiKey, // Token do usuário Wuzapi
-            wuzapiBaseUrl: settings.wuzapiBaseUrl || 'https://wuzapi.cloud',
+            wuzapiBaseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
             // WhatsApp Admin
             adminWhatsappPhone: settings.adminWhatsappPhone,
             // Google
@@ -228,7 +228,7 @@ router.get(
           phone: matchedSettings.phone,
           address: matchedSettings.address,
           wuzapiApiKey: matchedSettings.wuzapiApiKey,
-          wuzapiBaseUrl: matchedSettings.wuzapiBaseUrl || 'https://wuzapi.cloud',
+          wuzapiBaseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
           adminWhatsappPhone: matchedSettings.adminWhatsappPhone,
           googleReviewLink: matchedSettings.googleReviewLink,
         },

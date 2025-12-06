@@ -1073,7 +1073,7 @@ router.post(
         // Se tem mídia, tentar baixar
         if (mediaType && messageId && settings.wuzapiApiKey) {
           try {
-            const baseUrl = settings.wuzapiBaseUrl || 'https://wuzapi.cloud';
+            const baseUrl = process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080';
             const downloadResponse = await fetch(`${baseUrl}/chat/download/media`, {
               method: 'POST',
               headers: {
