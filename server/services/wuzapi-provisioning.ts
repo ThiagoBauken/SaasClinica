@@ -61,11 +61,9 @@ async function createWuzapiUser(name: string, token: string, webhookUrl?: string
   }
 
   try {
-    const body: any = { name, token };
-    if (webhookUrl) {
-      body.webhook = webhookUrl;
-      body.events = ['Message', 'ReadReceipt', 'Presence', 'HistorySync', 'Call'];
-    }
+    // IMPORTANTE: Wuzapi 3.0 usa campos com PascalCase (Name, Token, etc)
+    const body: any = { Name: name, Token: token };
+    // Nota: Webhook e Events são configurados depois via /webhook endpoint
 
     const response = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
       method: 'POST',
