@@ -52,6 +52,21 @@ interface PatientRecordTabProps {
   patientId: number;
 }
 
+interface PatientRecord {
+  id: number;
+  patientId: number;
+  recordType: string;
+  content: {
+    title: string;
+    description?: string;
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt?: string;
+  professionalId?: number;
+  createdByName?: string;
+}
+
 export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
   const { toast } = useToast();
   const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
@@ -72,73 +87,16 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
     data: records,
     isLoading,
     error,
-  } = useQuery({
+  } = useQuery<PatientRecord[]>({
     queryKey: ["/api/patients", patientId, "records"],
     queryFn: async () => {
-      // For demonstration, we're returning mock data
-      return [
-        {
-          id: 1,
-          patientId,
-          recordType: "anamnesis",
-          content: {
-            title: "Anamnese Inicial",
-            allergies: "Penicilina",
-            medicalHistory: "Hipertensão controlada com medicação",
-            currentMedications: "Losartana 50mg 1x ao dia",
-            familyHistory: "Pai com diabetes tipo 2",
-          },
-          createdBy: 1,
-          createdAt: "2023-04-10T14:30:00Z",
-          user: {
-            fullName: "Dr. Ana Silva",
-          },
-        },
-        {
-          id: 2,
-          patientId,
-          recordType: "evolution",
-          content: {
-            title: "Consulta de Avaliação",
-            description: "Paciente apresenta cárie no dente 16 e sensibilidade no dente 26. Recomendado restauração e aplicação de flúor.",
-          },
-          createdBy: 1,
-          createdAt: "2023-05-15T10:20:00Z",
-          user: {
-            fullName: "Dr. Ana Silva",
-          },
-        },
-        {
-          id: 3,
-          patientId,
-          recordType: "prescription",
-          content: {
-            title: "Prescrição de Analgésico",
-            medication: "Dipirona 500mg",
-            dosage: "1 comprimido a cada 6 horas em caso de dor",
-            duration: "3 dias",
-          },
-          createdBy: 2,
-          createdAt: "2023-05-15T11:00:00Z",
-          user: {
-            fullName: "Dr. Carlos Mendes",
-          },
-        },
-        {
-          id: 4,
-          patientId,
-          recordType: "evolution",
-          content: {
-            title: "Procedimento: Restauração",
-            description: "Realizada restauração de resina composta no dente 16. Procedimento sem intercorrências.",
-          },
-          createdBy: 1,
-          createdAt: "2023-06-02T09:15:00Z",
-          user: {
-            fullName: "Dr. Ana Silva",
-          },
-        },
-      ];
+      const res = await fetch(`/api/patients/${patientId}/records`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch patient records");
+      }
+      return res.json();
     },
   });
 
@@ -606,7 +564,7 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
                       </div>
                       <div className="flex items-center justify-end mt-1">
                         <User className="h-3.5 w-3.5 mr-1.5" />
-                        {record.user?.fullName}
+                        {record.createdByName || "Desconhecido"}
                       </div>
                     </div>
                   </div>

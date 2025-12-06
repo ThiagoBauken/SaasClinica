@@ -44,9 +44,9 @@ export function ToothPeriodontalInput({
 
   // Determinar cor baseada na profundidade
   const getColor = () => {
-    if (maxProbingDepth >= 6) return 'bg-red-100 border-red-500';
-    if (maxProbingDepth >= 4) return 'bg-yellow-100 border-yellow-500';
-    return 'bg-green-50 border-green-300';
+    if (maxProbingDepth >= 6) return 'bg-red-500/20 border-red-500';
+    if (maxProbingDepth >= 4) return 'bg-yellow-500/20 border-yellow-500';
+    return 'bg-green-500/10 border-green-500/50';
   };
 
   // Verificar se há sangramento
@@ -80,7 +80,7 @@ export function ToothPeriodontalInput({
 
         {/* Mobilidade */}
         {tooth.mobility > 0 && (
-          <div className="text-center text-xs text-orange-700">
+          <div className="text-center text-xs text-orange-700 dark:text-orange-400">
             M: {tooth.mobility}
           </div>
         )}
@@ -88,7 +88,7 @@ export function ToothPeriodontalInput({
 
       {/* Modal expandido para entrada detalhada */}
       {expanded && !readOnly && (
-        <div className="absolute z-50 mt-2 bg-white border-2 border-blue-400 rounded-lg shadow-xl p-4 w-80"
+        <div className="absolute z-50 mt-2 bg-popover border-2 border-blue-400 rounded-lg shadow-xl p-4 w-80"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-2">
@@ -96,7 +96,7 @@ export function ToothPeriodontalInput({
               <h4 className="font-bold">Dente {tooth.toothNumber}</h4>
               <button
                 onClick={() => setExpanded(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
@@ -115,7 +115,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.mesialBuccal}
                   onChange={(e) => handleProbingDepthChange('mesialBuccal', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -126,7 +126,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.buccal}
                   onChange={(e) => handleProbingDepthChange('buccal', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -137,7 +137,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.distalBuccal}
                   onChange={(e) => handleProbingDepthChange('distalBuccal', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -148,7 +148,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.mesialLingual}
                   onChange={(e) => handleProbingDepthChange('mesialLingual', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.lingual}
                   onChange={(e) => handleProbingDepthChange('lingual', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -170,7 +170,7 @@ export function ToothPeriodontalInput({
                   max="15"
                   value={tooth.probingDepth.distalLingual}
                   onChange={(e) => handleProbingDepthChange('distalLingual', parseInt(e.target.value) || 0)}
-                  className="w-full border rounded px-1 py-0.5"
+                  className="w-full border border-border rounded px-1 py-0.5 bg-background text-foreground"
                 />
               </div>
             </div>
@@ -187,7 +187,7 @@ export function ToothPeriodontalInput({
                   className={`p-1 rounded ${
                     tooth.bleeding[pos]
                       ? 'bg-red-500 text-white'
-                      : 'bg-gray-200'
+                      : 'bg-muted'
                   }`}
                 >
                   {pos.substring(0, 1).toUpperCase()}
@@ -203,7 +203,7 @@ export function ToothPeriodontalInput({
               <select
                 value={tooth.mobility}
                 onChange={(e) => handleMobilityChange(parseInt(e.target.value) as 0 | 1 | 2 | 3)}
-                className="w-full border rounded px-2 py-1 text-sm"
+                className="w-full border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
               >
                 <option value={0}>0 - Normal</option>
                 <option value={1}>1 - Leve</option>
@@ -216,7 +216,7 @@ export function ToothPeriodontalInput({
               <select
                 value={tooth.furcation}
                 onChange={(e) => onChange({ ...tooth, furcation: parseInt(e.target.value) as 0 | 1 | 2 | 3 })}
-                className="w-full border rounded px-2 py-1 text-sm"
+                className="w-full border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
               >
                 <option value={0}>0 - Sem lesão</option>
                 <option value={1}>1 - Incipiente</option>

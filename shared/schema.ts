@@ -15,6 +15,9 @@ export const companies = pgTable("companies", {
   // Configurações de Automação/Integrações
   openaiApiKey: text("openai_api_key"), // Chave da OpenAI para automações N8N
   n8nWebhookUrl: text("n8n_webhook_url"), // URL do webhook N8N (opcional)
+  // API Key para autenticação de integrações externas (N8N, webhooks, etc.)
+  n8nApiKey: text("n8n_api_key").unique(), // Chave única para autenticação via header X-API-Key
+  n8nApiKeyCreatedAt: timestamp("n8n_api_key_created_at"), // Data de criação da API Key
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -162,6 +165,34 @@ export const patients = pgTable("patients", {
   profilePhoto: text("profile_photo"),
   lastVisit: timestamp("last_visit"),
   insuranceInfo: jsonb("insurance_info").$type<Record<string, any>>(),
+
+  // LGPD - Consentimentos e Privacidade
+  dataProcessingConsent: boolean("data_processing_consent").notNull().default(false), // Consentimento para processar dados
+  marketingConsent: boolean("marketing_consent").notNull().default(false), // Consentimento para marketing
+  whatsappConsent: boolean("whatsapp_consent").notNull().default(false), // Consentimento para WhatsApp
+  emailConsent: boolean("email_consent").notNull().default(false), // Consentimento para e-mail
+  smsConsent: boolean("sms_consent").notNull().default(false), // Consentimento para SMS
+  consentDate: timestamp("consent_date"), // Data do consentimento
+  consentIpAddress: text("consent_ip_address"), // IP de onde veio o consentimento
+  consentMethod: text("consent_method"), // online, paper, verbal
+  dataRetentionPeriod: integer("data_retention_period").default(730), // Período de retenção em dias (2 anos)
+  dataAnonymizationDate: timestamp("data_anonymization_date"), // Data para anonimizar os dados
+
+  // Avaliação/Follow-up
+  lastReviewRequestedAt: timestamp("last_review_requested_at"), // Última vez que pediu avaliação no Google
+  totalAppointments: integer("total_appointments").default(0), // Total de consultas realizadas
+
+  // Tags e Tratamentos Especiais
+  tags: jsonb("tags").$type<string[]>().default([]), // ["ortodontia", "vip", "idoso", "gestante", "diabetico", etc]
+  treatmentType: text("treatment_type"), // ortodontia, implante, protese, geral
+  isOrthodonticPatient: boolean("is_orthodontic_patient").default(false), // Atalho para filtrar pacientes de ortodontia
+  orthodonticStartDate: timestamp("orthodontic_start_date"), // Data início tratamento ortodôntico
+  orthodonticExpectedEndDate: timestamp("orthodontic_expected_end_date"), // Previsão término
+  nextRecurringAppointment: timestamp("next_recurring_appointment"), // Próxima consulta recorrente agendada
+  recurringIntervalDays: integer("recurring_interval_days").default(30), // Intervalo padrão em dias (30 = mensal)
+  preferredDayOfWeek: integer("preferred_day_of_week"), // 0-6 (domingo-sábado) - dia preferido
+  preferredTimeSlot: text("preferred_time_slot"), // "morning", "afternoon", "evening"
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -234,6 +265,21 @@ export const procedures = pgTable("procedures", {
   description: text("description"),
   color: text("color"),
   active: boolean("active").notNull().default(true),
+
+  // Categorização para automação
+  category: text("category"), // ortodontia, prevencao, estetica, cirurgia, emergencia, geral
+
+  // Configuração de Recorrência
+  isRecurring: boolean("is_recurring").default(false), // Procedimento é recorrente?
+  defaultRecurrenceIntervalDays: integer("default_recurrence_interval_days"), // Intervalo padrão (30 = mensal, 7 = semanal)
+  requiresFollowUp: boolean("requires_follow_up").default(false), // Requer acompanhamento?
+  followUpIntervalDays: integer("follow_up_interval_days"), // Intervalo para retorno
+
+  // Automação
+  autoScheduleNext: boolean("auto_schedule_next").default(false), // Agendar próxima automaticamente?
+  sendReminder: boolean("send_reminder").default(true), // Enviar lembrete?
+  reminderHoursBefore: integer("reminder_hours_before").default(24), // Horas antes para lembrete
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -246,6 +292,14 @@ export const insertProcedureSchema = createInsertSchema(procedures).pick({
   description: true,
   color: true,
   active: true,
+  category: true,
+  isRecurring: true,
+  defaultRecurrenceIntervalDays: true,
+  requiresFollowUp: true,
+  followUpIntervalDays: true,
+  autoScheduleNext: true,
+  sendReminder: true,
+  reminderHoursBefore: true,
 });
 
 // AppointmentProcedures - many-to-many relationship
@@ -1143,12 +1197,85 @@ export const clinicSettings = pgTable("clinic_settings", {
   receiptPrintEnabled: boolean("receipt_print_enabled").default(false),
   receiptHeader: text("receipt_header"),
   receiptFooter: text("receipt_footer"),
-  // Integrações
+  // Integrações WhatsApp/Wuzapi
   wuzapiInstanceId: text("wuzapi_instance_id"),
-  wuzapiApiKey: text("wuzapi_api_key"),
-  defaultGoogleCalendarId: text("default_google_calendar_id"),
-  n8nWebhookBaseUrl: text("n8n_webhook_base_url"),
+  wuzapiApiKey: text("wuzapi_api_key"), // Token único da empresa no Wuzapi
+  wuzapiBaseUrl: text("wuzapi_base_url").default("https://private-wuzapi.pbzgje.easypanel.host"), // URL base do Wuzapi compartilhado
+  wuzapiWebhookUrl: text("wuzapi_webhook_url"), // URL do webhook configurada no Wuzapi
+  wuzapiWebhookSecret: text("wuzapi_webhook_secret"), // Secret para validar webhooks
+  wuzapiConnectedPhone: text("wuzapi_connected_phone"), // Número do WhatsApp conectado
+  wuzapiStatus: text("wuzapi_status").default("disconnected"), // Status: disconnected, connecting, connected
+  wuzapiLastSyncAt: timestamp("wuzapi_last_sync_at"), // Última sincronização
+
+  // Integrações Evolution API (alternativa)
+  evolutionApiBaseUrl: text("evolution_api_base_url"), // URL da API Evolution
+  evolutionInstanceName: text("evolution_instance_name"), // Nome da instância
+  evolutionApiKey: text("evolution_api_key"), // API Key da Evolution
   adminWhatsappPhone: text("admin_whatsapp_phone"),
+
+  // Integrações Google
+  defaultGoogleCalendarId: text("default_google_calendar_id"),
+
+  // Integrações N8N/Automação
+  n8nWebhookBaseUrl: text("n8n_webhook_base_url"),
+
+  // Integrações Flowise/AI
+  flowiseBaseUrl: text("flowise_base_url"), // URL do Flowise
+  flowiseChatflowId: text("flowise_chatflow_id"), // ID do chatflow
+
+  // Integrações Baserow (caso use)
+  baserowApiKey: text("baserow_api_key"),
+  baserowDatabaseId: integer("baserow_database_id"),
+  baserowPatientsTableId: integer("baserow_patients_table_id"),
+  baserowAppointmentsTableId: integer("baserow_appointments_table_id"),
+
+  // Chat e Automação - Novos campos para SaaS
+  chatEnabled: boolean("chat_enabled").default(true), // Habilitar/desabilitar chatbot
+  chatWelcomeMessage: text("chat_welcome_message"), // Mensagem de boas-vindas personalizada
+  chatFallbackMessage: text("chat_fallback_message"), // Mensagem quando não entende
+  emergencyPhone: text("emergency_phone"), // Telefone de emergência
+  googleReviewLink: text("google_review_link"), // Link para avaliação no Google
+  googleMapsLink: text("google_maps_link"), // Link do Google Maps
+  workingHoursJson: jsonb("working_hours_json").$type<Record<string, {open: string, close: string, lunchStart?: string, lunchEnd?: string}>>(), // Horários por dia da semana
+  slotDurationMinutes: integer("slot_duration_minutes").default(30), // Duração padrão dos slots
+  appointmentBufferMinutes: integer("appointment_buffer_minutes").default(0), // Intervalo entre consultas
+
+  // Personalização de mensagens automáticas
+  confirmationMessageTemplate: text("confirmation_message_template"), // Template de confirmação de agendamento
+  reminderMessageTemplate: text("reminder_message_template"), // Template de lembrete 24h
+  cancellationMessageTemplate: text("cancellation_message_template"), // Template de cancelamento
+  birthdayMessageTemplate: text("birthday_message_template"), // Template de aniversário
+  reviewRequestTemplate: text("review_request_template"), // Template de pedido de avaliação
+
+  // Estilo de Conversa do Bot (NOVO)
+  conversationStyle: text("conversation_style").default("menu"), // "menu" = com opções numeradas, "humanized" = conversa natural
+  botPersonality: text("bot_personality").default("professional"), // "professional", "friendly", "casual"
+  botName: text("bot_name").default("Assistente"), // Nome do bot (ex: "Carol", "Atendente Virtual")
+  useEmojis: boolean("use_emojis").default(true), // Usar emojis nas respostas?
+  greetingStyle: text("greeting_style").default("time_based"), // "time_based" = bom dia/tarde/noite, "simple" = olá
+  customGreetingMorning: text("custom_greeting_morning"), // Saudação personalizada manhã
+  customGreetingAfternoon: text("custom_greeting_afternoon"), // Saudação personalizada tarde
+  customGreetingEvening: text("custom_greeting_evening"), // Saudação personalizada noite
+  humanizedPromptContext: text("humanized_prompt_context"), // Contexto extra para IA no modo humanizado
+
+  // Regras de Negócio do Bot
+  priceDisclosurePolicy: text("price_disclosure_policy").default("always"), // "always", "never_chat", "only_general"
+  schedulingPolicy: text("scheduling_policy").default("immediate"), // "immediate", "appointment_required", "callback"
+  paymentMethods: jsonb("payment_methods").$type<string[]>().default(['pix', 'credit_card', 'debit_card', 'cash']),
+
+  // Especialidades e Serviços
+  clinicType: text("clinic_type").default("consultorio_individual"), // consultorio_individual, clinica_pequena, clinica_media, clinica_grande, franquia
+  servicesOffered: jsonb("services_offered").$type<string[]>().default([]), // Array de códigos de especialidades CFO
+  clinicContextForBot: text("clinic_context_for_bot"), // Contexto geral da clínica para o bot
+
+  // ===== REATIVAÇÃO DE PACIENTES =====
+  reactivationEnabled: boolean("reactivation_enabled").default(true), // Habilitar reativação automática
+  reactivation3MonthsTemplate: text("reactivation_3_months_template"), // Mensagem 3 meses
+  reactivation6MonthsTemplate: text("reactivation_6_months_template"), // Mensagem 6 meses
+  reactivation9MonthsTemplate: text("reactivation_9_months_template"), // Mensagem 9 meses
+  reactivation12MonthsTemplate: text("reactivation_12_months_template"), // Mensagem 12 meses
+  reactivationHourToSend: integer("reactivation_hour_to_send").default(10), // Hora do dia para enviar (0-23)
+
   updatedAt: timestamp("updated_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1175,6 +1302,61 @@ export const insertClinicSettingsSchema = createInsertSchema(clinicSettings).pic
   receiptPrintEnabled: true,
   receiptHeader: true,
   receiptFooter: true,
+  // Campos de integrações
+  wuzapiInstanceId: true,
+  wuzapiApiKey: true,
+  evolutionApiBaseUrl: true,
+  evolutionInstanceName: true,
+  evolutionApiKey: true,
+  adminWhatsappPhone: true,
+  defaultGoogleCalendarId: true,
+  n8nWebhookBaseUrl: true,
+  flowiseBaseUrl: true,
+  flowiseChatflowId: true,
+  baserowApiKey: true,
+  baserowDatabaseId: true,
+  baserowPatientsTableId: true,
+  baserowAppointmentsTableId: true,
+  // Novos campos de chat e automação
+  chatEnabled: true,
+  chatWelcomeMessage: true,
+  chatFallbackMessage: true,
+  emergencyPhone: true,
+  googleReviewLink: true,
+  googleMapsLink: true,
+  workingHoursJson: true,
+  slotDurationMinutes: true,
+  appointmentBufferMinutes: true,
+  confirmationMessageTemplate: true,
+  reminderMessageTemplate: true,
+  cancellationMessageTemplate: true,
+  birthdayMessageTemplate: true,
+  reviewRequestTemplate: true,
+  // Estilo de conversa
+  conversationStyle: true,
+  botPersonality: true,
+  botName: true,
+  useEmojis: true,
+  greetingStyle: true,
+  customGreetingMorning: true,
+  customGreetingAfternoon: true,
+  customGreetingEvening: true,
+  humanizedPromptContext: true,
+  // Regras de negócio
+  priceDisclosurePolicy: true,
+  schedulingPolicy: true,
+  paymentMethods: true,
+  // Especialidades
+  clinicType: true,
+  servicesOffered: true,
+  clinicContextForBot: true,
+  // Reativação de Pacientes
+  reactivationEnabled: true,
+  reactivation3MonthsTemplate: true,
+  reactivation6MonthsTemplate: true,
+  reactivation9MonthsTemplate: true,
+  reactivation12MonthsTemplate: true,
+  reactivationHourToSend: true,
 });
 
 // Permissões dos Usuários
@@ -1338,6 +1520,63 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   netAmount: true,
   notes: true,
 });
+
+// Configurações de Comissão por Profissional
+export const professionalCommissions = pgTable("professional_commissions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  professionalId: integer("professional_id").notNull().references(() => users.id),
+
+  // Taxa de comissão padrão (em porcentagem - ex: 50 = 50%)
+  defaultCommissionRate: decimal("default_commission_rate", { precision: 5, scale: 2 }).notNull().default("50.00"),
+
+  // Comissões por categoria de procedimento (JSON)
+  // Ex: { "implante": 60, "ortodontia": 45, "limpeza": 50 }
+  categoryRates: jsonb("category_rates").$type<Record<string, number>>(),
+
+  // Valor fixo mensal (para profissionais com salário fixo + comissão)
+  fixedMonthlyAmount: integer("fixed_monthly_amount").default(0), // em centavos
+
+  // Modelo de comissão: percentage, fixed, hybrid
+  commissionModel: text("commission_model").notNull().default("percentage"),
+
+  // Deduções automáticas (%)
+  taxDeductionRate: decimal("tax_deduction_rate", { precision: 5, scale: 2 }).default("0.00"), // ISS, etc
+  materialDeductionRate: decimal("material_deduction_rate", { precision: 5, scale: 2 }).default("0.00"), // Materiais
+
+  // Configurações de pagamento
+  paymentDay: integer("payment_day").default(5), // Dia do mês para pagamento
+  minimumPayout: integer("minimum_payout").default(0), // Valor mínimo para pagamento em centavos
+
+  // Status e datas
+  isActive: boolean("is_active").notNull().default(true),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validUntil: timestamp("valid_until"),
+
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProfessionalCommissionSchema = createInsertSchema(professionalCommissions).pick({
+  companyId: true,
+  professionalId: true,
+  defaultCommissionRate: true,
+  categoryRates: true,
+  fixedMonthlyAmount: true,
+  commissionModel: true,
+  taxDeductionRate: true,
+  materialDeductionRate: true,
+  paymentDay: true,
+  minimumPayout: true,
+  isActive: true,
+  validFrom: true,
+  validUntil: true,
+  notes: true,
+});
+
+export type ProfessionalCommission = typeof professionalCommissions.$inferSelect;
+export type InsertProfessionalCommission = z.infer<typeof insertProfessionalCommissionSchema>;
 
 // Treatment Plans
 export const treatmentPlans = pgTable("treatment_plans", {
@@ -1946,7 +2185,7 @@ export const plans = pgTable("plans", {
   description: text("description"),
   monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }).notNull(),
   yearlyPrice: decimal("yearly_price", { precision: 10, scale: 2 }),
-  trialDays: integer("trial_days").notNull().default(14),
+  trialDays: integer("trial_days").notNull().default(7), // Consistente com a landing page
   maxUsers: integer("max_users").notNull().default(5),
   maxPatients: integer("max_patients").notNull().default(100),
   maxAppointmentsPerMonth: integer("max_appointments_per_month").notNull().default(500),
@@ -2039,6 +2278,35 @@ export const subscriptionHistory = pgTable("subscription_history", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Cupons e Descontos
+export const coupons = pgTable("coupons", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(), // Código do cupom (ex: "PROMO20", "BLACKFRIDAY")
+  description: text("description"), // Descrição do cupom
+  discountType: text("discount_type").notNull(), // "percentage" ou "fixed"
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(), // Valor ou percentual
+  maxUses: integer("max_uses"), // Máximo de usos permitidos (null = ilimitado)
+  usedCount: integer("used_count").notNull().default(0), // Quantas vezes foi usado
+  validFrom: timestamp("valid_from").notNull(), // Data de início da validade
+  validUntil: timestamp("valid_until"), // Data de fim da validade (null = sem expiração)
+  planIds: jsonb("plan_ids").$type<number[]>(), // IDs dos planos que podem usar (null = todos)
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id), // Quem criou o cupom
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Histórico de uso de cupons
+export const couponUsages = pgTable("coupon_usages", {
+  id: serial("id").primaryKey(),
+  couponId: integer("coupon_id").notNull().references(() => coupons.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(), // Desconto aplicado
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert Schemas para Billing
 export const insertPlanSchema = createInsertSchema(plans).omit({
   id: true,
@@ -2070,6 +2338,17 @@ export const insertUsageMetricSchema = createInsertSchema(usageMetrics).omit({
 });
 
 export const insertSubscriptionHistorySchema = createInsertSchema(subscriptionHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCouponUsageSchema = createInsertSchema(couponUsages).omit({
   id: true,
   createdAt: true,
 });
@@ -2167,6 +2446,39 @@ export const insertDigitalizationLogSchema = createInsertSchema(digitalizationLo
   createdAt: true,
 });
 
+// Histórico de Digitalizações
+export const digitizationHistory = pgTable("digitization_history", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  userId: integer("user_id").notNull().references(() => users.id), // Usuário que executou a digitalização
+
+  // Informações do processamento
+  totalFiles: integer("total_files").notNull(), // Total de arquivos processados
+  successCount: integer("success_count").notNull().default(0), // Quantos foram processados com sucesso
+  errorCount: integer("error_count").notNull().default(0), // Quantos tiveram erro
+  duplicateCount: integer("duplicate_count").notNull().default(0), // Quantas duplicatas foram encontradas
+
+  // Formato de saída
+  outputFormat: text("output_format").notNull(), // database, xlsx, csv, json
+  downloadUrl: text("download_url"), // URL para download do arquivo gerado (se aplicável)
+
+  // Armazenamento
+  uploadedFilesPath: text("uploaded_files_path"), // Caminho onde os arquivos foram armazenados
+  processedFilesSize: integer("processed_files_size"), // Tamanho total em bytes
+
+  // Metadata adicional
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+
+  // Timestamps
+  processedAt: timestamp("processed_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Quando os arquivos temporários foram deletados
+});
+
+export const insertDigitizationHistorySchema = createInsertSchema(digitizationHistory).omit({
+  id: true,
+  processedAt: true,
+});
+
 // Faturas de digitalização
 export const digitalizationInvoices = pgTable("digitalization_invoices", {
   id: serial("id").primaryKey(),
@@ -2198,7 +2510,576 @@ export type InsertDigitalizationLog = z.infer<typeof insertDigitalizationLogSche
 export type DigitalizationInvoice = typeof digitalizationInvoices.$inferSelect;
 
 // =============================================
-// CLINIC SETTINGS & AUTOMATION
+// WHATSAPP MESSAGES HISTORY
+// =============================================
+
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+
+  // Identificadores do WhatsApp
+  messageId: text("message_id").notNull(), // ID único da mensagem no WhatsApp
+  chatId: text("chat_id").notNull(), // ID do chat (número de telefone)
+
+  // Conteúdo da mensagem
+  content: text("content").notNull(), // Conteúdo da mensagem
+  type: text("type").notNull().default("text"), // text, image, video, audio, document, location
+  direction: text("direction").notNull(), // inbound (recebida), outbound (enviada)
+
+  // Metadata
+  from: text("from").notNull(), // Número de quem enviou
+  to: text("to").notNull(), // Número de quem recebeu
+  timestamp: timestamp("timestamp").notNull(), // Timestamp da mensagem
+  status: text("status").notNull().default("sent"), // sent, delivered, read, failed
+  mediaUrl: text("media_url"), // URL da mídia (se aplicável)
+  error: text("error"), // Mensagem de erro (se falhou)
+
+  // Automação
+  isAutomated: boolean("is_automated").default(false), // Se foi enviada automaticamente
+  automationType: text("automation_type"), // reminder, confirmation, follow_up
+  templateId: text("template_id"), // ID do template usado (se aplicável)
+
+  // Contexto
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+// =============================================
+// AUDIT LOGS - LGPD COMPLIANCE
+// =============================================
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  userId: integer("user_id").references(() => users.id),
+
+  // Informações do evento
+  action: text("action").notNull(), // create, update, delete, read, export, anonymize
+  resource: text("resource").notNull(), // patients, appointments, users, etc
+  resourceId: integer("resource_id"), // ID do recurso afetado
+
+  // Dados sensíveis
+  sensitiveData: boolean("sensitive_data").default(false), // Se envolve dados sensíveis (LGPD)
+  dataCategory: text("data_category"), // personal, health, financial, etc
+
+  // Contexto da ação
+  description: text("description"), // Descrição da ação
+  changes: jsonb("changes").$type<Record<string, any>>(), // Mudanças realizadas (before/after)
+  reason: text("reason"), // Motivo da ação (especialmente para delete/export)
+
+  // Informações técnicas
+  ipAddress: text("ip_address"), // IP de onde veio a ação
+  userAgent: text("user_agent"), // User Agent do navegador
+  method: text("method"), // GET, POST, PUT, DELETE
+  url: text("url"), // URL acessada
+  statusCode: integer("status_code"), // HTTP status code
+
+  // Compliance
+  lgpdJustification: text("lgpd_justification"), // Justificativa LGPD para processamento
+  consentGiven: boolean("consent_given"), // Se havia consentimento
+
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types para WhatsApp e Audit Logs
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+// =============================================
+// NOTIFICATIONS (Real-time System)
+// =============================================
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  userId: integer("user_id").notNull().references(() => users.id), // Destinatário da notificação
+
+  // Informações da notificação
+  type: text("type").notNull(), // appointment, payment, patient, system, alert, reminder
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+
+  // Dados relacionados
+  relatedResource: text("related_resource"), // appointments, patients, payments, etc
+  relatedResourceId: integer("related_resource_id"), // ID do recurso relacionado
+
+  // Estado
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at"),
+
+  // Ação (link para navegar)
+  actionUrl: text("action_url"), // URL para onde a notificação leva quando clicada
+
+  // Prioridade
+  priority: text("priority").notNull().default("normal"), // low, normal, high, urgent
+
+  // Metadata adicional
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Para notificações temporárias
+});
+
+// Schema para inserir notificação
+export const insertNotificationSchema = z.object({
+  companyId: z.number(),
+  userId: z.number(),
+  type: z.enum(['appointment', 'payment', 'patient', 'system', 'alert', 'reminder']),
+  title: z.string().min(1).max(200),
+  message: z.string().min(1).max(1000),
+  relatedResource: z.string().optional(),
+  relatedResourceId: z.number().optional(),
+  actionUrl: z.string().optional(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  metadata: z.record(z.any()).optional(),
+  expiresAt: z.date().optional(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// =============================================
+// MENU PERMISSIONS (Configurable by Admin)
+// =============================================
+
+export const menuPermissions = pgTable("menu_permissions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+
+  // Papel do usuário
+  role: text("role").notNull(), // admin, dentist, staff
+
+  // Item do menu
+  menuItem: text("menu_item").notNull(), // Ex: 'schedule', 'patients', 'financial', 'automation', etc
+  label: text("label").notNull(), // Label personalizada (ex: "Agenda", "Pacientes")
+  path: text("path").notNull(), // Caminho da rota (ex: '/schedule', '/patients')
+  icon: text("icon").notNull(), // Nome do ícone Lucide (ex: 'Calendar', 'Users')
+
+  // Controle de acesso
+  canView: boolean("can_view").notNull().default(true), // Se pode ver o item no menu
+  canCreate: boolean("can_create").notNull().default(false), // Se pode criar novos registros
+  canEdit: boolean("can_edit").notNull().default(false), // Se pode editar registros
+  canDelete: boolean("can_delete").notNull().default(false), // Se pode deletar registros
+
+  // Ordenação no menu
+  order: integer("order").notNull().default(0), // Ordem de exibição no menu
+
+  // Metadata adicional
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMenuPermissionSchema = createInsertSchema(menuPermissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MenuPermission = typeof menuPermissions.$inferSelect;
+export type InsertMenuPermission = z.infer<typeof insertMenuPermissionSchema>;
+
+// =============================================
+// CHAT & AUTOMATION SYSTEM (Código Primeiro)
+// =============================================
+
+// Chat Sessions - Gerencia conversas de WhatsApp
+export const chatSessions = pgTable("chat_sessions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  phone: varchar("phone", { length: 20 }).notNull(), // Telefone do usuário
+  userType: varchar("user_type", { length: 20 }).notNull().default("unknown"), // 'patient', 'dentist', 'admin', 'unknown'
+  patientId: integer("patient_id").references(() => patients.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  status: varchar("status", { length: 20 }).default("active"), // 'active', 'waiting_human', 'closed'
+  currentState: varchar("current_state", { length: 50 }), // Estado atual da state machine
+  stateData: jsonb("state_data").$type<Record<string, any>>(), // Dados do estado atual
+  context: jsonb("context").$type<Record<string, any>>(), // Contexto adicional
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
+
+// Chat Messages - Histórico de mensagens
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").references(() => companies.id),
+  role: varchar("role", { length: 20 }), // 'user', 'assistant', 'system' (deprecated, use direction)
+  direction: varchar("direction", { length: 20 }).default("incoming"), // 'incoming', 'outgoing'
+  content: text("content").notNull(),
+  messageType: varchar("message_type", { length: 20 }).default("text"), // 'text', 'audio', 'voice', 'image', 'video', 'document', 'sticker', 'location', 'contact'
+  // Campos para mídia (imagens, áudios, vídeos, documentos)
+  mediaUrl: varchar("media_url", { length: 500 }), // URL local do arquivo de mídia
+  mimeType: varchar("mime_type", { length: 100 }), // 'image/jpeg', 'audio/ogg', etc.
+  fileName: varchar("file_name", { length: 255 }), // Nome original do arquivo (para documentos)
+  // Status da mensagem
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'sent', 'delivered', 'read', 'failed', 'received'
+  readAt: timestamp("read_at"), // Quando foi lida pelo destinatário
+  // Análise e processamento
+  intent: varchar("intent", { length: 50 }), // Intent detectado (para analytics)
+  processedBy: varchar("processed_by", { length: 20 }), // 'code', 'state_machine', 'ai'
+  tokensUsed: integer("tokens_used").default(0),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  wuzapiMessageId: varchar("wuzapi_message_id", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+
+// Canned Responses - Respostas prontas por intenção
+export const cannedResponses = pgTable("canned_responses", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  intent: varchar("intent", { length: 50 }).notNull(), // 'greeting', 'location', 'hours', 'price_limpeza', etc.
+  template: text("template").notNull(), // Template com variáveis {{var}}
+  variables: jsonb("variables").$type<Record<string, string>>(), // Mapeamento de variáveis
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0), // Para ordenação
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCannedResponseSchema = createInsertSchema(cannedResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CannedResponse = typeof cannedResponses.$inferSelect;
+export type InsertCannedResponse = z.infer<typeof insertCannedResponseSchema>;
+
+// Admin Phones - Telefones de administradores para notificações
+export const adminPhones = pgTable("admin_phones", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  name: varchar("name", { length: 100 }),
+  role: varchar("role", { length: 50 }).default("admin"), // 'owner', 'manager', 'receptionist', 'admin'
+  receiveDailyReport: boolean("receive_daily_report").default(true),
+  receiveUrgencies: boolean("receive_urgencies").default(true),
+  receiveNewAppointments: boolean("receive_new_appointments").default(true),
+  receiveCancellations: boolean("receive_cancellations").default(true),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAdminPhoneSchema = createInsertSchema(adminPhones).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AdminPhone = typeof adminPhones.$inferSelect;
+export type InsertAdminPhone = z.infer<typeof insertAdminPhoneSchema>;
+
+// Intent Patterns - Padrões regex para classificar intenções
+export const intentPatterns = pgTable("intent_patterns", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id), // NULL = padrão global
+  intent: varchar("intent", { length: 50 }).notNull(), // 'confirm', 'cancel', 'schedule', 'price', etc.
+  pattern: text("pattern").notNull(), // Padrão regex
+  priority: integer("priority").default(0), // Maior = mais prioritário
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertIntentPatternSchema = createInsertSchema(intentPatterns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type IntentPattern = typeof intentPatterns.$inferSelect;
+export type InsertIntentPattern = z.infer<typeof insertIntentPatternSchema>;
+
+// =============================================
+// REATIVAÇÃO DE PACIENTES
+// =============================================
+
+// Logs de reativação - rastreia mensagens enviadas para não enviar duplicado
+export const reactivationLogs = pgTable("reactivation_logs", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  periodMonths: integer("period_months").notNull(), // 3, 6, 9 ou 12
+  sentAt: timestamp("sent_at").defaultNow(),
+  messageTemplate: text("message_template"), // Template usado
+  whatsappMessageId: text("whatsapp_message_id"), // ID da mensagem no WhatsApp
+  status: text("status").default("sent"), // sent, delivered, read, failed
+  errorMessage: text("error_message"), // Mensagem de erro se falhou
+  patientLastVisit: timestamp("patient_last_visit"), // Snapshot da última visita na hora do envio
+});
+
+export const insertReactivationLogSchema = createInsertSchema(reactivationLogs).omit({
+  id: true,
+  sentAt: true,
+});
+
+export type ReactivationLog = typeof reactivationLogs.$inferSelect;
+export type InsertReactivationLog = z.infer<typeof insertReactivationLogSchema>;
+
+// =============================================
+// ALERTAS DE RISCO CLÍNICO
+// =============================================
+
+// Tipos de alertas de risco configuráveis por empresa
+export const riskAlertTypes = pgTable("risk_alert_types", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id), // NULL = global
+  code: text("code").notNull(), // "allergy", "cardiac", "diabetes", "anticoagulant", "pregnancy", etc
+  name: text("name").notNull(), // "Alergia", "Cardiopatia", "Diabetes", etc
+  color: text("color").notNull().default("#EF4444"), // Cor do badge (vermelho por padrão)
+  icon: text("icon").default("alert-triangle"), // Ícone lucide-react
+  severity: text("severity").notNull().default("high"), // "low", "medium", "high", "critical"
+  description: text("description"), // Descrição do alerta
+  clinicalWarning: text("clinical_warning"), // Aviso clínico (ex: "Suspender AAS 7 dias antes de procedimentos")
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRiskAlertTypeSchema = createInsertSchema(riskAlertTypes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type RiskAlertType = typeof riskAlertTypes.$inferSelect;
+export type InsertRiskAlertType = z.infer<typeof insertRiskAlertTypeSchema>;
+
+// Alertas ativos por paciente
+export const patientRiskAlerts = pgTable("patient_risk_alerts", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  alertTypeId: integer("alert_type_id").notNull().references(() => riskAlertTypes.id),
+  details: text("details"), // Detalhes específicos (ex: "Penicilina", "AAS 100mg/dia")
+  notes: text("notes"), // Observações adicionais
+  detectedAt: timestamp("detected_at").defaultNow(), // Quando foi detectado
+  resolvedAt: timestamp("resolved_at"), // Se foi resolvido (ex: gestação terminou)
+  isActive: boolean("is_active").default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPatientRiskAlertSchema = createInsertSchema(patientRiskAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PatientRiskAlert = typeof patientRiskAlerts.$inferSelect;
+export type InsertPatientRiskAlert = z.infer<typeof insertPatientRiskAlertSchema>;
+
+// =============================================
+// ANAMNESE VIA LINK PÚBLICO
+// =============================================
+
+// Links públicos de anamnese
+export const publicAnamnesisLinks = pgTable("public_anamnesis_links", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id), // Pode ser null se for link genérico
+  appointmentId: integer("appointment_id").references(() => appointments.id), // Opcional - vincula a agendamento
+  templateId: integer("template_id").references(() => anamnesisTemplates.id), // Template a usar
+  token: text("token").notNull().unique(), // Token único para URL
+  expiresAt: timestamp("expires_at"), // Quando expira (null = não expira)
+  usedAt: timestamp("used_at"), // Quando foi preenchido
+  isActive: boolean("is_active").default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPublicAnamnesisLinkSchema = createInsertSchema(publicAnamnesisLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PublicAnamnesisLink = typeof publicAnamnesisLinks.$inferSelect;
+export type InsertPublicAnamnesisLink = z.infer<typeof insertPublicAnamnesisLinkSchema>;
+
+// Respostas de anamnese pública (quando paciente novo preenche sem cadastro prévio)
+export const publicAnamnesisResponses = pgTable("public_anamnesis_responses", {
+  id: serial("id").primaryKey(),
+  linkId: integer("link_id").notNull().references(() => publicAnamnesisLinks.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id), // Vincula depois de criar paciente
+  // Dados básicos do paciente (se não existe ainda)
+  fullName: text("full_name"),
+  email: text("email"),
+  phone: text("phone"),
+  cpf: text("cpf"),
+  dateOfBirth: date("date_of_birth"),
+  // Respostas da anamnese
+  responses: jsonb("responses").$type<Record<string, any>>().notNull(), // { "tem_alergia": true, "qual_alergia": "Penicilina", ... }
+  // Alertas detectados automaticamente
+  detectedAlerts: jsonb("detected_alerts").$type<string[]>().default([]), // ["allergy", "cardiac", ...]
+  // Metadados
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  consentGiven: boolean("consent_given").default(false),
+  consentTimestamp: timestamp("consent_timestamp"),
+  processedAt: timestamp("processed_at"), // Quando foi processado/importado
+  status: text("status").default("pending"), // pending, processed, rejected
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPublicAnamnesisResponseSchema = createInsertSchema(publicAnamnesisResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PublicAnamnesisResponse = typeof publicAnamnesisResponses.$inferSelect;
+export type InsertPublicAnamnesisResponse = z.infer<typeof insertPublicAnamnesisResponseSchema>;
+
+// =============================================
+// CRM - FUNIL DE VENDAS
+// =============================================
+
+// Etapas do funil de vendas (configurável por empresa)
+export const salesFunnelStages = pgTable("sales_funnel_stages", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(), // "Lead Novo", "Orçamento Enviado", "Negociação", "Fechado Ganho", "Fechado Perdido"
+  code: text("code").notNull(), // "new_lead", "quote_sent", "negotiation", "won", "lost"
+  color: text("color").notNull().default("#3B82F6"), // Cor para o kanban
+  order: integer("order").notNull().default(0), // Ordem de exibição
+  isDefault: boolean("is_default").default(false), // Etapa padrão para novos leads
+  isWon: boolean("is_won").default(false), // É etapa de ganho?
+  isLost: boolean("is_lost").default(false), // É etapa de perda?
+  autoMoveAfterDays: integer("auto_move_after_days"), // Mover automaticamente após X dias
+  nextStageId: integer("next_stage_id"), // Para qual etapa mover automaticamente
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSalesFunnelStageSchema = createInsertSchema(salesFunnelStages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SalesFunnelStage = typeof salesFunnelStages.$inferSelect;
+export type InsertSalesFunnelStage = z.infer<typeof insertSalesFunnelStageSchema>;
+
+// Oportunidades de venda (leads no funil)
+export const salesOpportunities = pgTable("sales_opportunities", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id), // Pode ser null se for lead novo
+  stageId: integer("stage_id").notNull().references(() => salesFunnelStages.id),
+  // Dados do lead (se não for paciente ainda)
+  leadName: text("lead_name"),
+  leadPhone: text("lead_phone"),
+  leadEmail: text("lead_email"),
+  leadSource: text("lead_source"), // "whatsapp", "instagram", "google", "indicacao", "site"
+  // Dados da oportunidade
+  title: text("title").notNull(), // "Implante - Maria Silva"
+  description: text("description"),
+  treatmentType: text("treatment_type"), // "implante", "ortodontia", "protese", "clareamento", etc
+  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }), // Valor estimado
+  probability: integer("probability").default(50), // % de chance de fechar (0-100)
+  expectedCloseDate: date("expected_close_date"), // Data prevista de fechamento
+  // Responsável
+  assignedTo: integer("assigned_to").references(() => users.id), // Quem está cuidando
+  // Datas de movimentação
+  stageEnteredAt: timestamp("stage_entered_at").defaultNow(), // Quando entrou na etapa atual
+  lastContactAt: timestamp("last_contact_at"), // Último contato
+  nextFollowUpAt: timestamp("next_follow_up_at"), // Próximo follow-up agendado
+  // Resultado final
+  wonAt: timestamp("won_at"),
+  lostAt: timestamp("lost_at"),
+  lostReason: text("lost_reason"), // "preco", "concorrente", "desistiu", "sem_resposta"
+  // Metadados
+  notes: text("notes"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  customFields: jsonb("custom_fields").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSalesOpportunitySchema = createInsertSchema(salesOpportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type SalesOpportunity = typeof salesOpportunities.$inferSelect;
+export type InsertSalesOpportunity = z.infer<typeof insertSalesOpportunitySchema>;
+
+// Histórico de movimentações do funil
+export const salesOpportunityHistory = pgTable("sales_opportunity_history", {
+  id: serial("id").primaryKey(),
+  opportunityId: integer("opportunity_id").notNull().references(() => salesOpportunities.id),
+  fromStageId: integer("from_stage_id").references(() => salesFunnelStages.id),
+  toStageId: integer("to_stage_id").references(() => salesFunnelStages.id),
+  action: text("action").notNull(), // "stage_changed", "value_updated", "contact_made", "note_added"
+  description: text("description"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type SalesOpportunityHistory = typeof salesOpportunityHistory.$inferSelect;
+
+// Tarefas/Follow-ups do CRM
+export const salesTasks = pgTable("sales_tasks", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  opportunityId: integer("opportunity_id").references(() => salesOpportunities.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  assignedTo: integer("assigned_to").references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  taskType: text("task_type").notNull().default("follow_up"), // "follow_up", "call", "whatsapp", "email", "meeting"
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  priority: text("priority").default("normal"), // "low", "normal", "high", "urgent"
+  status: text("status").default("pending"), // "pending", "completed", "cancelled"
+  result: text("result"), // Resultado do contato
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSalesTaskSchema = createInsertSchema(salesTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SalesTask = typeof salesTasks.$inferSelect;
+export type InsertSalesTask = z.infer<typeof insertSalesTaskSchema>;
+
+// =============================================
+// EXPORT TYPES
 // =============================================
 
 export type InsertDigitalizationInvoice = z.infer<typeof insertDigitalizationInvoiceSchema>;

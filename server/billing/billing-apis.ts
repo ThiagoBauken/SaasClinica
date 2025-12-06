@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { subscriptionService } from './subscription-service';
 import { db } from '../db';
-import { plans, subscriptions, subscriptionInvoices, usageMetrics, planFeatures } from '@shared/schema';
+import { plans, subscriptions, subscriptionInvoices, usageMetrics, planFeatures, companies, users } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
+import { sendEmail, getPlanChangedTemplate } from '../services/email-service';
 
 /**
  * APIs de Billing e Assinaturas
@@ -21,8 +22,9 @@ export async function getPlans(req: Request, res: Response) {
       .orderBy(plans.sortOrder);
 
     // Buscar features de cada plano
+    type Plan = typeof plans.$inferSelect;
     const plansWithFeatures = await Promise.all(
-      allPlans.map(async (plan) => {
+      allPlans.map(async (plan: Plan) => {
         const features = await db
           .select()
           .from(planFeatures)
@@ -134,6 +136,44 @@ export async function changePlan(req: Request, res: Response) {
       reason,
     });
 
+    // Enviar email de notificação de mudança de plano
+    try {
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, user.companyId))
+        .limit(1);
+
+      const [admin] = await db
+        .select()
+        .from(users)
+        .where(eq(users.companyId, user.companyId))
+        .limit(1);
+
+      const [oldPlan] = await db
+        .select()
+        .from(plans)
+        .where(eq(plans.id, updatedSubscription.fromPlanId!))
+        .limit(1);
+
+      const [newPlan] = await db
+        .select()
+        .from(plans)
+        .where(eq(plans.id, updatedSubscription.toPlanId!))
+        .limit(1);
+
+      if (company && admin && admin.email && oldPlan && newPlan) {
+        await sendEmail({
+          to: admin.email,
+          subject: '🔄 Plano Alterado com Sucesso - DentalSystem',
+          html: getPlanChangedTemplate(company.name || 'Clínica', oldPlan.name, newPlan.name),
+        });
+      }
+    } catch (emailError) {
+      console.error('Erro ao enviar email de mudança de plano:', emailError);
+      // Não falhar a operação se o email falhar
+    }
+
     res.json(updatedSubscription);
   } catch (error: any) {
     console.error('Erro ao alterar plano:', error);
@@ -208,7 +248,8 @@ export async function getUsage(req: Request, res: Response) {
     const limits = await subscriptionService.getCompanyLimits(user.companyId);
 
     // Formatar resposta com porcentagem de uso
-    const formattedUsage = usage.map((metric) => {
+    interface UsageMetric { metricType: string; currentValue: number; periodStart: Date; periodEnd: Date }
+    const formattedUsage = usage.map((metric: UsageMetric) => {
       let limit: number;
       switch (metric.metricType) {
         case 'users':

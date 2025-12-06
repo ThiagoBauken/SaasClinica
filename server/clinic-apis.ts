@@ -256,7 +256,8 @@ export async function getUsers(req: Request, res: Response) {
     });
 
     // Remover senhas da resposta
-    const safeUsers = userList.map(user => {
+    type User = typeof users.$inferSelect;
+    const safeUsers = userList.map((user: User) => {
       const { password, ...safeUser } = user;
       return safeUser;
     });

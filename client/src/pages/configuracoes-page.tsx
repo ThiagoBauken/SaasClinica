@@ -124,9 +124,9 @@ export default function ConfiguracoesPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-sm">{card.description}</CardDescription>
-                  <Button variant="link" className="p-0 h-auto mt-2 text-primary" asChild>
-                    <Link href={card.path}>Configurar</Link>
-                  </Button>
+                  <span className="text-primary text-sm font-medium mt-2 inline-block">
+                    Configurar →
+                  </span>
                 </CardContent>
               </Card>
             </Link>

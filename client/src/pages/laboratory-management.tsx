@@ -36,7 +36,7 @@ import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/core/AuthProvider";
 
 interface Laboratory {
   id: number;
@@ -55,18 +55,10 @@ interface Laboratory {
 
 export default function LaboratoryManagementPage() {
   const { toast } = useToast();
-  const { user, isLoading: authLoading, loginMutation } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingLaboratory, setEditingLaboratory] = useState<Laboratory | null>(null);
   const [laboratoryToDelete, setLaboratoryToDelete] = useState<Laboratory | null>(null);
-
-  // Auto-login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      loginMutation.mutate({ username: "admin", password: "admin123" });
-    }
-  }, [authLoading, user, loginMutation]);
   
   // Query para buscar laboratórios
   const { data: laboratories, isLoading, error } = useQuery<Laboratory[]>({

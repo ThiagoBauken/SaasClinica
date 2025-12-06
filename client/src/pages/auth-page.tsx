@@ -28,6 +28,8 @@ import { Redirect } from "wouter";
 const loginSchema = insertUserSchema.pick({
   username: true,
   password: true,
+}).extend({
+  rememberMe: z.boolean().optional(),
 });
 
 const registerSchema = insertUserSchema.extend({
@@ -44,8 +46,9 @@ export default function AuthPage() {
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "admin", // Preenchido com admin para facilitar o acesso
-      password: "admin123", // Preenchido com admin123 para facilitar o acesso
+      username: "",
+      password: "",
+      rememberMe: false,
     },
   });
 
@@ -79,8 +82,8 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-lightest flex flex-col sm:flex-row items-center justify-center p-4">
-      <div className="w-full max-w-5xl flex flex-col sm:flex-row bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="min-h-screen bg-muted/50 flex flex-col sm:flex-row items-center justify-center p-4">
+      <div className="w-full max-w-5xl flex flex-col sm:flex-row bg-card rounded-lg shadow-lg overflow-hidden">
         {/* Left side - Auth forms */}
         <div className="w-full sm:w-1/2 p-6">
           <div className="mb-8">
@@ -106,7 +109,12 @@ export default function AuthPage() {
                 </CardHeader>
                 <CardContent>
                   <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                    <form
+                      onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+                      action="/api/auth/login"
+                      method="POST"
+                      className="space-y-4"
+                    >
                       <FormField
                         control={loginForm.control}
                         name="username"
@@ -114,7 +122,13 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Usuário</FormLabel>
                             <FormControl>
-                              <Input placeholder="Seu nome de usuário" {...field} />
+                              <Input
+                                id="username"
+                                name="username"
+                                placeholder="Seu nome de usuário"
+                                autoComplete="username"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -127,9 +141,35 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Senha</FormLabel>
                             <FormControl>
-                              <Input type="password" placeholder="Sua senha" {...field} />
+                              <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                placeholder="Sua senha"
+                                autoComplete="current-password"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={loginForm.control}
+                        name="rememberMe"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                            <FormControl>
+                              <input
+                                type="checkbox"
+                                checked={field.value}
+                                onChange={field.onChange}
+                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm font-normal cursor-pointer">
+                              Manter conectado
+                            </FormLabel>
                           </FormItem>
                         )}
                       />
@@ -146,7 +186,7 @@ export default function AuthPage() {
                           <span className="w-full border-t border-neutral-light"></span>
                         </div>
                         <div className="relative flex justify-center text-sm">
-                          <span className="px-2 bg-white text-neutral-medium">ou continue com</span>
+                          <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
                         </div>
                       </div>
                       
@@ -273,7 +313,7 @@ export default function AuthPage() {
                           <span className="w-full border-t border-neutral-light"></span>
                         </div>
                         <div className="relative flex justify-center text-sm">
-                          <span className="px-2 bg-white text-neutral-medium">ou continue com</span>
+                          <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
                         </div>
                       </div>
                       

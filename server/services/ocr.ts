@@ -7,11 +7,36 @@ import path from 'path';
  * Extrai texto de imagens de fichas físicas de pacientes
  */
 
-// Inicializa o cliente do Google Cloud Vision
-// Usa as credenciais do arquivo JSON especificado na variável de ambiente
-const client = new vision.ImageAnnotatorClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-});
+type ImageAnnotatorClient = InstanceType<typeof vision.ImageAnnotatorClient>;
+
+// Cliente do Google Cloud Vision (lazy initialization)
+let client: ImageAnnotatorClient | null = null;
+
+/**
+ * Inicializa o cliente do Google Cloud Vision apenas quando necessário
+ */
+function getVisionClient(): ImageAnnotatorClient {
+  if (!client) {
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      throw new Error(
+        'Google Cloud Vision não configurado. Configure GOOGLE_APPLICATION_CREDENTIALS no arquivo .env'
+      );
+    }
+
+    // Verifica se o arquivo de credenciais existe
+    if (!fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+      throw new Error(
+        `Arquivo de credenciais não encontrado: ${process.env.GOOGLE_APPLICATION_CREDENTIALS}`
+      );
+    }
+
+    client = new vision.ImageAnnotatorClient({
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    });
+  }
+
+  return client;
+}
 
 export interface OcrResult {
   text: string;
@@ -39,8 +64,9 @@ export async function extractTextFromImage(
       imageContent = imagePath;
     }
 
-    // Faz a detecção de texto na imagem
-    const [result] = await client.textDetection(imageContent);
+    // Faz a detecção de texto na imagem usando o cliente
+    const visionClient = getVisionClient();
+    const [result] = await visionClient.textDetection(imageContent);
     const detections = result.textAnnotations;
 
     if (!detections || detections.length === 0) {

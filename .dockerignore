@@ -1,63 +1,116 @@
-# Dependencies
+# ===========================================
+# DEPENDENCIES
+# ===========================================
 node_modules
-npm-debug.log
-yarn-error.log
-package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Environment
+# ===========================================
+# ENVIRONMENT
+# ===========================================
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+# Manter apenas .env.example e .env.easypanel como referência
 
-# IDE
+# ===========================================
+# IDE & EDITOR
+# ===========================================
 .vscode
 .idea
 *.swp
 *.swo
 *.swn
 .DS_Store
+Thumbs.db
 
-# Git
+# ===========================================
+# GIT
+# ===========================================
 .git
 .gitignore
 .gitattributes
 
-# Documentation
-README.md
-CHANGELOG.md
-*.md
-docs/
+# ===========================================
+# BUILD OUTPUT (será recriado no Docker)
+# ===========================================
+dist/
+build/
+.cache/
+.temp/
+.next/
+out/
 
-# Tests
+# ===========================================
+# TESTS
+# ===========================================
 **/*.test.ts
+**/*.test.tsx
 **/*.test.js
 **/*.spec.ts
+**/*.spec.tsx
 **/*.spec.js
 test/
 tests/
 __tests__/
 coverage/
 .nyc_output/
+jest.config.*
 
-# Build
-dist/
-build/
-.cache/
-.temp/
-
-# Logs
+# ===========================================
+# LOGS & TEMP FILES
+# ===========================================
 logs/
 *.log
 *.log.*
+tmp/
+temp/
 
-# Docker
-Dockerfile
-docker-compose.yml
-docker-compose.*.yml
+# ===========================================
+# DOCKER (não precisa copiar para dentro)
+# ===========================================
+Dockerfile*
+docker-compose*.yml
 .dockerignore
 
-# Misc
+# ===========================================
+# DOCUMENTATION (desnecessário em prod)
+# ===========================================
+*.md
+!README.md
+docs/
+CHANGELOG*
+LICENSE*
+
+# ===========================================
+# CI/CD
+# ===========================================
 .github/
 .gitlab/
 .circleci/
 .travis.yml
+azure-pipelines.yml
+
+# ===========================================
+# UPLOADS LOCAIS (volume separado em prod)
+# ===========================================
+uploads/*
+!uploads/.gitkeep
+processed/*
+!processed/.gitkeep
+
+# ===========================================
+# OUTROS
+# ===========================================
+*.sql
+*.sh
+!server/migrations/*.sql
+dentistav1/
+*.jpg
+*.png
+*.jpeg
+nul
+*.json.bak

@@ -43,6 +43,25 @@ import PatientRecordTab from "@/components/patients/PatientRecordTab";
 import OdontogramChart from "@/components/odontogram/OdontogramChart";
 import Papa from "papaparse";
 
+interface Patient {
+  id: number;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  lastVisit?: string;
+  dateOfBirth?: string;
+  birthDate?: string;
+  cpf?: string;
+  address?: string;
+  healthInsurance?: string;
+  healthInsuranceNumber?: string;
+  insuranceInfo?: string;
+  gender?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export default function PatientsPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,107 +78,16 @@ export default function PatientsPage() {
     data: patients,
     isLoading: isLoadingPatients,
     error,
-  } = useQuery({
+  } = useQuery<Patient[]>({
     queryKey: ["/api/patients"],
     queryFn: async () => {
-      // Dados de pacientes com informações de última consulta
-      const today = new Date();
-      return [
-        {
-          id: 1,
-          fullName: "Ricardo Almeida",
-          email: "ricardo@example.com",
-          phone: "11987654321",
-          birthDate: "1985-05-15T00:00:00Z",
-          gender: "male",
-          address: "Rua das Flores, 123 - São Paulo/SP",
-          insuranceInfo: "Amil Dental - Plano Premium",
-          createdAt: "2023-01-10T10:00:00Z",
-          lastVisit: format(addMonths(today, -2), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 2 meses atrás
-        },
-        {
-          id: 2,
-          fullName: "Mariana Santos",
-          email: "mariana@example.com",
-          phone: "11976543210",
-          birthDate: "1990-02-20T00:00:00Z",
-          gender: "female",
-          address: "Av. Paulista, 1000 - São Paulo/SP",
-          insuranceInfo: "",
-          createdAt: "2023-01-15T14:30:00Z",
-          lastVisit: format(addMonths(today, -13), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 13 meses atrás (mais de 1 ano)
-        },
-        {
-          id: 3,
-          fullName: "Pedro Oliveira",
-          email: "pedro@example.com",
-          phone: "11965432109",
-          birthDate: "1978-11-08T00:00:00Z",
-          gender: "male",
-          address: "Rua Augusta, 500 - São Paulo/SP",
-          insuranceInfo: "Bradesco Saúde - Plano Standard",
-          createdAt: "2023-02-05T09:15:00Z",
-          lastVisit: format(addMonths(today, -8), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 8 meses atrás
-        },
-        {
-          id: 4,
-          fullName: "Sofia Martins",
-          email: "sofia@example.com",
-          phone: "11954321098",
-          birthDate: "2001-07-30T00:00:00Z",
-          gender: "female",
-          address: "Alameda Santos, 200 - São Paulo/SP",
-          insuranceInfo: "SulAmérica Odonto - Plano Básico",
-          createdAt: "2023-02-20T16:45:00Z",
-          lastVisit: format(addMonths(today, -4), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 4 meses atrás
-        },
-        {
-          id: 5,
-          fullName: "Lucas Ferreira",
-          email: "lucas@example.com",
-          phone: "11943210987",
-          birthDate: "1995-09-12T00:00:00Z",
-          gender: "male",
-          address: "Rua Oscar Freire, 300 - São Paulo/SP",
-          insuranceInfo: "",
-          createdAt: "2023-03-08T11:30:00Z",
-          lastVisit: format(addMonths(today, -0.5), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 15 dias atrás
-        },
-        {
-          id: 6,
-          fullName: "Ana Costa",
-          email: "ana.costa@example.com",
-          phone: "11987123456",
-          birthDate: "1982-04-12T00:00:00Z",
-          gender: "female",
-          address: "Rua Augusta, 500 - São Paulo/SP",
-          insuranceInfo: "Bradesco Dental - Plano Premium",
-          createdAt: "2023-03-05T09:15:00Z",
-          lastVisit: format(addMonths(today, -5), "yyyy-MM-dd'T'HH:mm:ss'Z'"), // 5 meses atrás
-        },
-        {
-          id: 4,
-          fullName: "Sofia Martins",
-          email: "sofia@example.com",
-          phone: "11954321098",
-          birthDate: "1995-04-18T00:00:00Z",
-          gender: "female",
-          address: "Rua Oscar Freire, 200 - São Paulo/SP",
-          insuranceInfo: "Não possui",
-          createdAt: "2023-03-20T16:45:00Z",
-        },
-        {
-          id: 5,
-          fullName: "Lucas Ferreira",
-          email: "lucas@example.com",
-          phone: "11943210987",
-          birthDate: "1982-09-30T00:00:00Z",
-          gender: "male",
-          address: "Av. Brigadeiro Faria Lima, 3000 - São Paulo/SP",
-          insuranceInfo: "Porto Seguro Odonto - Plano Master",
-          createdAt: "2023-04-12T11:20:00Z",
-        },
-      ];
+      const res = await fetch("/api/patients", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch patients");
+      }
+      return res.json();
     },
   });
 
@@ -513,17 +441,17 @@ export default function PatientsPage() {
           
           {/* Search Suggestions */}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
               {suggestions.map((patient, index) => (
                 <div
                   key={patient.id}
-                  className={`px-4 py-2 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
-                    index === selectedSuggestionIndex ? 'bg-blue-50' : ''
+                  className={`px-4 py-2 cursor-pointer hover:bg-muted border-b border-border last:border-b-0 ${
+                    index === selectedSuggestionIndex ? 'bg-primary/10' : ''
                   }`}
                   onClick={() => selectSuggestion(patient)}
                 >
                   <div className="font-medium text-sm">{patient.fullName}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     {patient.email && <span>{patient.email}</span>}
                     {patient.email && patient.phone && <span> • </span>}
                     {patient.phone && <span>{patient.phone}</span>}

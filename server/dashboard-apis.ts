@@ -296,8 +296,9 @@ export async function getRecentActivities(req: Request, res: Response) {
       .limit(limit);
 
     // Buscar informações dos pacientes
+    type Appointment = typeof appointments.$inferSelect;
     const activities = await Promise.all(
-      recentAppointments.map(async (apt) => {
+      recentAppointments.map(async (apt: Appointment) => {
         const [patient] = await db
           .select({ name: patients.fullName })
           .from(patients)

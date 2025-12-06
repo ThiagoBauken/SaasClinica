@@ -40,7 +40,8 @@ export async function createBackup(req: Request, res: Response) {
     const companyProcedures = await db.query.procedures.findMany();
 
     // Remover senhas dos usuários
-    const safeUsers = companyUsers.map(user => {
+    type User = typeof users.$inferSelect;
+    const safeUsers = companyUsers.map((user: User) => {
       const { password, ...safeUser } = user;
       return safeUser;
     });

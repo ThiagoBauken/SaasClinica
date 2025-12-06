@@ -8,70 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { MessageCircle, Phone, Loader2 } from "lucide-react";
 
-// Dados de exemplo para os profissionais 
-const mockProfessionals = [
-  { 
-    id: 1, 
-    name: "Dra. Flávia Costa", 
-    email: "flavia.costa@example.com",
-    role: "Dentista administrador(a)",
-    active: true,
-    workingHours: {
-      mon: { enabled: true, start: "07:00", end: "22:00" },
-      tue: { enabled: true, start: "07:00", end: "22:00" },
-      wed: { enabled: true, start: "07:00", end: "22:00" },
-      thu: { enabled: true, start: "07:00", end: "22:00" },
-      fri: { enabled: true, start: "07:00", end: "22:00" },
-      sat: { enabled: false, start: "07:00", end: "12:00" },
-      sun: { enabled: false, start: "07:00", end: "22:00" }
-    },
-    lunchBreak: {
-      enabled: true,
-      start: "12:00",
-      end: "13:30"
-    },
-    appointmentDuration: 30,
-    permissions: ["agenda", "financial", "patients", "settings"],
-    commission: {
-      type: "percentage",
-      value: 50,
-      when: "on_payment",
-      plans: ["all"]
-    }
-  },
-  { 
-    id: 2, 
-    name: "Dr. Ricardo Almeida", 
-    email: "ricardo.almeida@example.com",
-    role: "Dentista",
-    active: true,
-    workingHours: {
-      mon: { enabled: true, start: "08:00", end: "18:00" },
-      tue: { enabled: true, start: "08:00", end: "18:00" },
-      wed: { enabled: true, start: "08:00", end: "18:00" },
-      thu: { enabled: true, start: "08:00", end: "18:00" },
-      fri: { enabled: true, start: "08:00", end: "18:00" },
-      sat: { enabled: false, start: "08:00", end: "12:00" },
-      sun: { enabled: false, start: "08:00", end: "12:00" }
-    },
-    lunchBreak: {
-      enabled: true,
-      start: "12:00",
-      end: "13:00"
-    },
-    appointmentDuration: 45,
-    permissions: ["agenda", "patients"],
-    commission: {
-      type: "percentage",
-      value: 40,
-      when: "on_payment",
-      plans: ["all"]
-    }
-  }
-];
+// REMOVED: mockProfessionals - now fetched from backend API
 
 // Tipos para os horários de atendimento
 type DayCode = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -102,12 +43,15 @@ interface Professional {
   id: number;
   name: string;
   email: string;
+  phone?: string;
   role: string;
   active: boolean;
   workingHours: WorkingHours;
   lunchBreak: LunchBreak;
   appointmentDuration: number;
   permissions: string[];
+  wuzapiPhone?: string; // WhatsApp do profissional para notificações
+  googleCalendarId?: string;
   commission: {
     type: string;
     value: number;
@@ -119,13 +63,48 @@ interface Professional {
 export default function HorariosProfissionaisPage() {
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
   const [activeTab, setActiveTab] = useState("horarios");
-  
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const queryClient = useQueryClient();
+
+  // Mutation para salvar WhatsApp do profissional
+  const saveWhatsappMutation = useMutation({
+    mutationFn: async ({ professionalId, phone }: { professionalId: number; phone: string }) => {
+      const response = await fetch(`/api/v1/professionals/${professionalId}/integrations`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ wuzapiPhone: phone || null }),
+      });
+      if (!response.ok) throw new Error("Erro ao salvar WhatsApp");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "WhatsApp salvo",
+        description: "O número de WhatsApp do profissional foi atualizado.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/professionals'] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o WhatsApp.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Query para buscar profissionais
-  const { data: professionals = [] } = useQuery({
+  const { data: professionals = [] } = useQuery<Professional[]>({
     queryKey: ['/api/professionals'],
     queryFn: async () => {
-      // Em um ambiente real, isso seria uma chamada de API
-      return mockProfessionals;
+      const res = await fetch('/api/professionals', {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to fetch professionals');
+      }
+      return res.json();
     }
   });
   
@@ -133,6 +112,7 @@ export default function HorariosProfissionaisPage() {
   const handleSelectProfessional = (professionalId: string) => {
     const professional = professionals.find(p => p.id === parseInt(professionalId));
     setSelectedProfessional(professional || null);
+    setWhatsappPhone(professional?.wuzapiPhone || "");
   };
   
   // Salvar alterações
@@ -237,16 +217,17 @@ export default function HorariosProfissionaisPage() {
             
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-3 w-[400px]">
-                  <TabsTrigger value="horarios">Horários de Atendimento</TabsTrigger>
+                <TabsList className="grid grid-cols-4 w-[520px]">
+                  <TabsTrigger value="horarios">Horários</TabsTrigger>
+                  <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
                   <TabsTrigger value="permissoes">Permissões</TabsTrigger>
                   <TabsTrigger value="comissoes">Comissões</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="horarios" className="mt-6">
                   <div className="grid gap-6">
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="grid grid-cols-8 gap-4 items-center font-medium bg-gray-100 p-2 rounded mb-2">
+                    <div className="bg-muted/50 p-4 rounded">
+                      <div className="grid grid-cols-8 gap-4 items-center font-medium bg-muted p-2 rounded mb-2">
                         <div></div>
                         {daysOfWeek.map(day => (
                           <div key={day.code} className="text-center">{day.label}</div>
@@ -296,7 +277,7 @@ export default function HorariosProfissionaisPage() {
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 p-4 rounded">
+                    <div className="bg-muted/50 p-4 rounded">
                       <h3 className="font-medium mb-4">Horário de almoço fixo</h3>
                       
                       <div className="flex items-center mb-4">
@@ -340,7 +321,7 @@ export default function HorariosProfissionaisPage() {
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 p-4 rounded">
+                    <div className="bg-muted/50 p-4 rounded">
                       <h3 className="font-medium mb-4">Duração padrão de consultas</h3>
                       
                       <div className="w-64">
@@ -361,7 +342,85 @@ export default function HorariosProfissionaisPage() {
                     </div>
                   </div>
                 </TabsContent>
-                
+
+                <TabsContent value="whatsapp" className="mt-6">
+                  <div className="space-y-6">
+                    <div className="bg-muted/50 p-6 rounded-lg">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-green-500/10 p-3 rounded-full">
+                          <MessageCircle className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">WhatsApp do Profissional</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Configure o número de WhatsApp para receber notificações e resumos diários
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="whatsapp-phone">Número do WhatsApp</Label>
+                          <div className="flex gap-2 mt-1">
+                            <div className="relative flex-1">
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="whatsapp-phone"
+                                type="tel"
+                                placeholder="5511999999999"
+                                value={whatsappPhone}
+                                onChange={(e) => setWhatsappPhone(e.target.value)}
+                                className="pl-10"
+                              />
+                            </div>
+                            <Button
+                              onClick={() => {
+                                if (selectedProfessional) {
+                                  saveWhatsappMutation.mutate({
+                                    professionalId: selectedProfessional.id,
+                                    phone: whatsappPhone,
+                                  });
+                                }
+                              }}
+                              disabled={saveWhatsappMutation.isPending}
+                            >
+                              {saveWhatsappMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Salvar"
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Formato: código do país + DDD + número (ex: 5511999999999)
+                          </p>
+                        </div>
+
+                        <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
+                          <h4 className="font-medium text-blue-700 dark:text-blue-400 mb-2">
+                            O que o profissional receberá:
+                          </h4>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Resumo diário da agenda às 7h da manhã</li>
+                            <li>• Notificações de novos agendamentos</li>
+                            <li>• Alertas de cancelamentos</li>
+                            <li>• Lembretes de consultas importantes</li>
+                          </ul>
+                        </div>
+
+                        {selectedProfessional?.wuzapiPhone && (
+                          <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                            <MessageCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-sm text-green-700 dark:text-green-400">
+                              WhatsApp configurado: {selectedProfessional.wuzapiPhone}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="permissoes" className="mt-6">
                   <div className="space-y-4">
                     <p className="text-muted-foreground">As permissões são pré-definidas, mas podem ser alteradas abaixo:</p>
@@ -379,9 +438,9 @@ export default function HorariosProfissionaisPage() {
                         { id: "marketing", label: "Marketing" },
                         { id: "sales", label: "Vendas" }
                       ].map(permission => (
-                        <div 
-                          key={permission.id} 
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded"
+                        <div
+                          key={permission.id}
+                          className="flex items-center justify-between p-4 bg-muted/50 rounded"
                         >
                           <div className="flex items-center">
                             <span className="font-medium">{permission.label}</span>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../client/src/components/ui/card';
 import { Button } from '../../../client/src/components/ui/button';
@@ -69,12 +69,16 @@ export function N8NIntegration() {
     select: (data: WhatsAppTemplate[]) => data || []
   });
 
-  const { data: currentSettings, isLoading: settingsLoading } = useQuery({
+  const { data: currentSettings, isLoading: settingsLoading } = useQuery<IntegrationSettings>({
     queryKey: ['/api/integrations/settings'],
-    onSuccess: (data) => {
-      if (data) setSettings(data);
-    }
   });
+
+  // Update settings when data is loaded (React Query v5 pattern)
+  useEffect(() => {
+    if (currentSettings) {
+      setSettings(currentSettings);
+    }
+  }, [currentSettings]);
 
   const saveSettingsMutation = useMutation({
     mutationFn: async (newSettings: IntegrationSettings) => {

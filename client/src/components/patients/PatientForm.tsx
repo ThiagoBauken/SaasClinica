@@ -17,9 +17,9 @@ import { insertPatientSchema } from "@shared/schema";
 
 const patientFormSchema = insertPatientSchema.extend({
   fullName: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  email: z.string().email("Email inválido").or(z.string().length(0)),
-  phone: z.string().min(8, "Telefone deve ter pelo menos 8 dígitos").or(z.string().length(0)),
-  cpf: z.string().min(11, "CPF inválido").max(14, "CPF inválido").or(z.string().length(0)),
+  email: z.union([z.string().email("Email inválido"), z.literal(""), z.null()]).optional(),
+  phone: z.union([z.string().min(8, "Telefone deve ter pelo menos 8 dígitos"), z.literal(""), z.null()]).optional(),
+  cpf: z.union([z.string().min(11, "CPF inválido").max(14, "CPF inválido"), z.literal(""), z.null()]).optional(),
   birthDate: z.string().refine(val => !val || !isNaN(Date.parse(val)), {
     message: "Data de nascimento inválida",
   }),
@@ -44,7 +44,13 @@ export default function PatientForm({
   const defaultValues = initialData
     ? {
         ...initialData,
-        birthDate: initialData.birthDate 
+        email: initialData.email || "",
+        phone: initialData.phone || "",
+        cpf: initialData.cpf || "",
+        address: initialData.address || "",
+        insuranceInfo: initialData.insuranceInfo || "",
+        notes: initialData.notes || "",
+        birthDate: initialData.birthDate
           ? new Date(initialData.birthDate).toISOString().split('T')[0]
           : "",
       }

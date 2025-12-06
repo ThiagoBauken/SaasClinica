@@ -102,12 +102,19 @@ export interface IStorage {
   updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory>;
   deleteLaboratory(id: number, companyId: number): Promise<boolean>;
   
+  // Prosthesis - tenant-aware
+  getProsthesis(companyId: number): Promise<any[]>;
+  getProsthesisById(id: number, companyId: number): Promise<any | undefined>;
+  createProsthesis(data: any): Promise<any>;
+  updateProsthesis(id: number, data: any, companyId: number): Promise<any>;
+  deleteProsthesis(id: number, companyId: number): Promise<void>;
+
   // Prosthesis Labels - tenant-aware
   getProsthesisLabels(companyId: number): Promise<any[]>;
   createProsthesisLabel(label: any): Promise<any>;
   updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any>;
   deleteProsthesisLabel(id: number, companyId: number): Promise<boolean>;
-  
+
   // Inventory - tenant-aware
   getInventoryCategories(companyId: number): Promise<any[]>;
   createInventoryCategory(data: any): Promise<any>;
@@ -781,9 +788,61 @@ export class MemStorage implements IStorage {
     if (!label || label.companyId !== companyId) {
       return false;
     }
-    
+
     this.prosthesisLabels.delete(id);
     return true;
+  }
+
+  // Prosthesis methods (missing implementations)
+  private prosthesesMap: Map<number, any> = new Map();
+  private prosthesisIdCounter: number = 1;
+
+  async getProsthesis(companyId: number): Promise<any[]> {
+    return Array.from(this.prosthesesMap.values()).filter(p => p.companyId === companyId);
+  }
+
+  async getProsthesisById(id: number, companyId: number): Promise<any | undefined> {
+    const prosthesis = this.prosthesesMap.get(id);
+    if (prosthesis && prosthesis.companyId === companyId) {
+      return prosthesis;
+    }
+    return undefined;
+  }
+
+  async createProsthesis(data: any): Promise<any> {
+    const id = this.prosthesisIdCounter++;
+    const now = new Date();
+    const newProsthesis = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.prosthesesMap.set(id, newProsthesis);
+    return newProsthesis;
+  }
+
+  async updateProsthesis(id: number, data: any, companyId: number): Promise<any> {
+    const prosthesis = this.prosthesesMap.get(id);
+    if (!prosthesis || prosthesis.companyId !== companyId) {
+      throw new Error("Prosthesis not found");
+    }
+
+    const updatedProsthesis = {
+      ...prosthesis,
+      ...data,
+      updatedAt: new Date()
+    };
+
+    this.prosthesesMap.set(id, updatedProsthesis);
+    return updatedProsthesis;
+  }
+
+  async deleteProsthesis(id: number, companyId: number): Promise<void> {
+    const prosthesis = this.prosthesesMap.get(id);
+    if (prosthesis && prosthesis.companyId === companyId) {
+      this.prosthesesMap.delete(id);
+    }
   }
 
   // Inventory methods (missing implementations)
@@ -1332,8 +1391,39 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(prosthesis.professionalId, users.id))
       .where(eq(prosthesis.companyId, companyId))
       .orderBy(prosthesis.sortOrder, desc(prosthesis.createdAt));
-    
+
     return results;
+  }
+
+  async getProsthesisById(id: number, companyId: number): Promise<any | undefined> {
+    const [result] = await db
+      .select({
+        id: prosthesis.id,
+        patientId: prosthesis.patientId,
+        patientName: patients.fullName,
+        professionalId: prosthesis.professionalId,
+        professionalName: users.fullName,
+        type: prosthesis.type,
+        description: prosthesis.description,
+        laboratory: prosthesis.laboratory,
+        status: prosthesis.status,
+        sentDate: prosthesis.sentDate,
+        expectedReturnDate: prosthesis.expectedReturnDate,
+        returnDate: prosthesis.returnDate,
+        observations: prosthesis.observations,
+        labels: prosthesis.labels,
+        price: prosthesis.price,
+        cost: prosthesis.cost,
+        sortOrder: prosthesis.sortOrder,
+        createdAt: prosthesis.createdAt,
+        updatedAt: prosthesis.updatedAt,
+      })
+      .from(prosthesis)
+      .leftJoin(patients, eq(prosthesis.patientId, patients.id))
+      .leftJoin(users, eq(prosthesis.professionalId, users.id))
+      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)));
+
+    return result;
   }
 
   async createProsthesis(data: any): Promise<any> {
@@ -1572,8 +1662,9 @@ export class DatabaseStorage implements IStorage {
       const appointmentsList = await db.select().from(appointments).where(eq(appointments.companyId, companyId));
     
       // Enrich with related data
+    type AppointmentRow = typeof appointments.$inferSelect;
     const enrichedAppointments = await Promise.all(
-      appointmentsList.map(async (appointment) => {
+      appointmentsList.map(async (appointment: AppointmentRow) => {
         // Get patient info
         let patient;
         if (appointment.patientId) {
@@ -1621,8 +1712,9 @@ export class DatabaseStorage implements IStorage {
           .from(appointmentProcedures)
           .where(eq(appointmentProcedures.appointmentId, appointment.id));
         
+        type AppointmentProcedureRow = typeof appointmentProcedures.$inferSelect;
         const proceduresList = await Promise.all(
-          appointmentProceduresList.map(async (ap) => {
+          appointmentProceduresList.map(async (ap: AppointmentProcedureRow) => {
             const [procedure] = await db
               .select()
               .from(procedures)
@@ -1630,7 +1722,7 @@ export class DatabaseStorage implements IStorage {
             return procedure;
           })
         );
-        
+
         return {
           ...appointment,
           patient,
@@ -1640,7 +1732,7 @@ export class DatabaseStorage implements IStorage {
         };
       })
     );
-    
+
       return enrichedAppointments;
     } catch (error) {
       console.error('Database error in getAppointments:', error);
@@ -1709,8 +1801,9 @@ export class DatabaseStorage implements IStorage {
       .from(appointmentProcedures)
       .where(eq(appointmentProcedures.appointmentId, appointment.id));
     
+    type AppointmentProcedureRow = typeof appointmentProcedures.$inferSelect;
     const proceduresList = await Promise.all(
-      appointmentProceduresList.map(async (ap) => {
+      appointmentProceduresList.map(async (ap: AppointmentProcedureRow) => {
         const [procedure] = await db
           .select()
           .from(procedures)
@@ -1718,7 +1811,7 @@ export class DatabaseStorage implements IStorage {
         return procedure;
       })
     );
-    
+
     return {
       ...appointment,
       patient,
@@ -1875,8 +1968,9 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
 
     // Enrich with patient, professional, and room names
+    type ConflictRow = typeof conflicts[0];
     const enrichedConflicts = await Promise.all(
-      conflicts.map(async (conflict) => {
+      conflicts.map(async (conflict: ConflictRow) => {
         const patient = conflict.patientId
           ? await db
               .select({ fullName: patients.fullName })
@@ -2721,7 +2815,7 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(desc(patientExams.examDate));
       
-      return result.map(r => r.patient_exams);
+      return result.map((r: typeof result[0]) => r.patient_exams);
     } catch (error) {
       console.error('Erro ao buscar exames:', error);
       return [];
@@ -2772,7 +2866,7 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(desc(detailedTreatmentPlans.createdAt));
       
-      return result.map(r => r.detailed_treatment_plans);
+      return result.map((r: typeof result[0]) => r.detailed_treatment_plans);
     } catch (error) {
       console.error('Erro ao buscar planos de tratamento:', error);
       return [];
@@ -2823,7 +2917,8 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(desc(treatmentEvolution.sessionDate));
       
-      return result.map(r => r.treatment_evolution);
+      type EvolutionRow = { treatment_evolution: TreatmentEvolution; patients: typeof patients.$inferSelect };
+      return result.map((r: EvolutionRow) => r.treatment_evolution);
     } catch (error) {
       console.error('Erro ao buscar evolução:', error);
       return [];
@@ -2856,7 +2951,8 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(desc(prescriptions.createdAt));
       
-      return result.map(r => r.prescriptions);
+      type PrescriptionRow = { prescriptions: Prescription; patients: typeof patients.$inferSelect };
+      return result.map((r: PrescriptionRow) => r.prescriptions);
     } catch (error) {
       console.error('Erro ao buscar receitas:', error);
       return [];

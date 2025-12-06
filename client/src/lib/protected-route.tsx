@@ -16,12 +16,8 @@ export function ProtectedRoute({
   const user = authContext?.user || null;
   const isLoading = authContext?.isLoading || false;
   
-  // Modo de desenvolvimento - para bypass de autenticação
-  const BYPASS_AUTH = true; // Remova ou defina como false em produção
-  
-  if (BYPASS_AUTH) {
-    return <Route path={path} component={Component} />;
-  }
+  // Autenticação OBRIGATÓRIA - NUNCA use bypass em produção
+  const BYPASS_AUTH = false;
 
   return (
     <Route path={path}>

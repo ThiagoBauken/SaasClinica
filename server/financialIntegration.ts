@@ -96,8 +96,9 @@ export class FinancialIntegrationService {
         .where(eq(appointmentProcedures.appointmentId, appointmentId));
 
       // Get procedure details
+      type AppointmentProcedure = typeof appointmentProcedures.$inferSelect;
       const procedureDetails = await Promise.all(
-        appointmentProceduresList.map(async (ap) => {
+        appointmentProceduresList.map(async (ap: AppointmentProcedure) => {
           const [procedure] = await db
             .select()
             .from(procedures)
@@ -225,23 +226,24 @@ export class FinancialIntegrationService {
         .orderBy(desc(treatmentPlans.createdAt));
 
       // Calculate totals
-      const totalTreatmentValue = treatmentPlansList.reduce((sum, plan) => sum + (plan.totalAmount || 0), 0);
+      type TreatmentPlan = typeof treatmentPlans.$inferSelect;
+      const totalTreatmentValue = treatmentPlansList.reduce((sum: number, plan: TreatmentPlan) => sum + (plan.totalAmount || 0), 0);
       const totalPaid = transactions
-        .filter(t => t.type === 'income' && t.status === 'paid')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
+        .filter((t: FinancialTransaction) => t.type === 'income' && t.status === 'paid')
+        .reduce((sum: number, t: FinancialTransaction) => sum + t.amount, 0);
+
       const remainingBalance = totalTreatmentValue - totalPaid;
-      
+
       // Calculate overdue amount
       const today = new Date();
       const overdueAmount = transactions
-        .filter(t => t.status === 'pending' && t.dueDate && new Date(t.dueDate) < today)
-        .reduce((sum, t) => sum + t.amount, 0);
+        .filter((t: FinancialTransaction) => t.status === 'pending' && t.dueDate && new Date(t.dueDate) < today)
+        .reduce((sum: number, t: FinancialTransaction) => sum + t.amount, 0);
 
       // Find next payment due
       const upcomingTransactions = transactions
-        .filter(t => t.status === 'pending' && t.dueDate && new Date(t.dueDate) >= today)
-        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+        .filter((t: FinancialTransaction) => t.status === 'pending' && t.dueDate && new Date(t.dueDate) >= today)
+        .sort((a: FinancialTransaction, b: FinancialTransaction) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
       const nextPaymentDue = upcomingTransactions.length > 0 ? upcomingTransactions[0].dueDate : null;
 
@@ -253,7 +255,7 @@ export class FinancialIntegrationService {
         overdueAmount,
         nextPaymentDue,
         treatmentPlans: treatmentPlansList,
-        paymentHistory: transactions.filter(t => t.status === 'paid'),
+        paymentHistory: transactions.filter((t: typeof transactions[0]) => t.status === 'paid'),
         upcomingPayments: upcomingTransactions.slice(0, 5) // Next 5 payments
       };
     } catch (error) {

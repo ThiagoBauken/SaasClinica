@@ -1,5 +1,63 @@
 import { queryClient } from "./queryClient";
 
+// API client com métodos HTTP convenientes (axios-like interface)
+export const api = {
+  get: async <T = any>(url: string): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+      throw new Error(error.message || `Erro ${response.status}`);
+    }
+    const data = await response.json();
+    return { data };
+  },
+  post: async <T = any>(url: string, data?: any): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+      throw new Error(error.message || `Erro ${response.status}`);
+    }
+    const responseData = await response.json();
+    return { data: responseData };
+  },
+  put: async <T = any>(url: string, data?: any): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+      throw new Error(error.message || `Erro ${response.status}`);
+    }
+    const responseData = await response.json();
+    return { data: responseData };
+  },
+  delete: async <T = any>(url: string): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+      throw new Error(error.message || `Erro ${response.status}`);
+    }
+    const data = await response.json();
+    return { data };
+  },
+};
+
 // Função genérica para fazer requisições à API
 export async function apiRequest<T>(
   url: string,
@@ -96,4 +154,19 @@ export const integrationsApi = {
   testN8N: () => apiRequest<any>("/api/v1/integrations/test-n8n", "POST"),
   sendTestWhatsApp: (data: { phone: string; message?: string }) =>
     apiRequest<any>("/api/v1/integrations/send-test-whatsapp", "POST", data),
+  // Wuzapi 3.0 - Status e Conexão
+  getWuzapiStatus: () => apiRequest<any>("/api/v1/integrations/wuzapi/status"),
+  getWuzapiQrCode: () => apiRequest<any>("/api/v1/integrations/wuzapi/qrcode"),
+  connectWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/connect", "POST"),
+  disconnectWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/disconnect", "POST"),
+  logoutWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/logout", "POST"),
+  reconnectWuzapi: () => apiRequest<any>("/api/v1/integrations/wuzapi/reconnect", "POST"),
+  // Wuzapi 3.0 - Webhook
+  getWuzapiWebhookInfo: () => apiRequest<any>("/api/v1/integrations/wuzapi/webhook-info"),
+  configureWuzapiWebhook: (data?: { webhookUrl?: string }) =>
+    apiRequest<any>("/api/v1/integrations/wuzapi/webhook", "POST", data || {}),
+  // N8N API Key
+  getN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key"),
+  generateN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key/generate", "POST"),
+  revokeN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key", "DELETE"),
 };

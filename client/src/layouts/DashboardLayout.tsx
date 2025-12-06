@@ -2,7 +2,6 @@ import { ReactNode, useState } from "react";
 import Header from "@/components/dashboard/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/core/AuthProvider";
-import { User } from "@shared/schema";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,39 +10,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, title, currentPath }: DashboardLayoutProps) {
-  // Try to get auth context safely
-  let user: User | null = null;
-  try {
-    const auth = useAuth();
-    user = auth.user;
-  } catch (error) {
-    // AuthContext not available, use mock user for development
-    user = {
-      id: 1,
-      username: "admin",
-      password: "admin123",
-      fullName: "Administrador",
-      email: "admin@dentalsys.com",
-      role: "admin",
-      phone: null,
-      profileImageUrl: null,
-      speciality: null,
-      active: true,
-      googleId: null,
-      googleCalendarId: null,
-      googleAccessToken: null,
-      googleRefreshToken: null,
-      googleTokenExpiry: null,
-      wuzapiPhone: null,
-      cfoRegistrationNumber: null,
-      cfoState: null,
-      digitalCertificatePath: null,
-      companyId: 3,
-      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    } as User;
-  }
+  const { user } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -58,14 +25,14 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
   return (
     <div className="min-h-screen flex flex-col">
       <Header user={user!} onMenuToggle={handleMenuToggle} />
-      
+
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
-          currentPath={currentPath} 
+        <Sidebar
+          currentPath={currentPath}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={handleMobileMenuClose}
         />
-        
+
         <main className="flex-1 overflow-y-auto bg-background">
           <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">{title}</h1>

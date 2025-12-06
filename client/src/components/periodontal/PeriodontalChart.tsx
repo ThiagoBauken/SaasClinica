@@ -208,7 +208,7 @@ export function PeriodontalChart({
                   type="date"
                   value={chartDate}
                   onChange={(e) => setChartDate(e.target.value)}
-                  className="border rounded px-2 py-1"
+                  className="border border-border rounded px-2 py-1 bg-background text-foreground"
                 />
               </div>
               <Button onClick={handleSave} disabled={saving}>

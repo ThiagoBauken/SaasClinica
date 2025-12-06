@@ -106,6 +106,13 @@ export function createQueueEvents(queueName: string) {
  */
 export async function checkQueuesHealth() {
   try {
+    if (!redisConnection) {
+      return {
+        status: 'disabled',
+        redis: 'not configured',
+        message: 'Redis is not configured',
+      };
+    }
     await redisConnection.ping();
     return {
       status: 'healthy',

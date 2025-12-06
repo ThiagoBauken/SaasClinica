@@ -137,13 +137,13 @@ export default function SchedulePage() {
   // Função para obter o código de cor com base no status do agendamento
   const getAppointmentColor = (status: string): string => {
     switch(status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'in_progress': return 'bg-purple-100 text-purple-800';
-      case 'completed': return 'bg-slate-100 text-slate-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'no_show': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'scheduled': return 'bg-blue-500/20 text-blue-700 dark:text-blue-300';
+      case 'confirmed': return 'bg-green-500/20 text-green-700 dark:text-green-300';
+      case 'in_progress': return 'bg-purple-500/20 text-purple-700 dark:text-purple-300';
+      case 'completed': return 'bg-slate-500/20 text-slate-700 dark:text-slate-300';
+      case 'cancelled': return 'bg-red-500/20 text-red-700 dark:text-red-300';
+      case 'no_show': return 'bg-muted text-muted-foreground';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -152,150 +152,14 @@ export default function SchedulePage() {
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery<AppointmentWithRelations[]>({
     queryKey: ["/api/appointments", formattedDate],
     queryFn: async () => {
-      // For demonstration purposes, we're returning mock data
-      // In a real app, this would come from the API with the date parameter
-      return [
-        {
-          id: 1,
-          title: "Consulta inicial",
-          patientId: 1,
-          patient: { id: 1, fullName: "Ricardo Almeida", phone: "11987654321" },
-          professionalId: 2,
-          professional: { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista" },
-          roomId: 2,
-          room: { id: 2, name: "Sala 02" },
-          startTime: "2023-08-10T08:00:00Z",
-          endTime: "2023-08-10T08:30:00Z",
-          status: "confirmed",
-          type: "appointment",
-          procedures: [{ id: 1, name: "Consulta inicial", duration: 30, price: 12000 }],
-          color: "bg-blue-100 border-l-4 border-primary",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-01T10:00:00Z",
-          updatedAt: "2023-08-01T10:00:00Z"
-        },
-        {
-          id: 2,
-          title: "Limpeza dental",
-          patientId: 2,
-          patient: { id: 2, fullName: "Mariana Santos", phone: "11976543210" },
-          professionalId: 1,
-          professional: { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista" },
-          roomId: 1,
-          room: { id: 1, name: "Sala 01" },
-          startTime: "2023-08-10T08:30:00Z",
-          endTime: "2023-08-10T09:30:00Z",
-          status: "confirmed",
-          type: "appointment",
-          procedures: [{ id: 2, name: "Limpeza dental", duration: 60, price: 15000 }],
-          color: "bg-green-100 border-l-4 border-secondary",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-01T11:00:00Z",
-          updatedAt: "2023-08-01T11:00:00Z"
-        },
-        {
-          id: 3,
-          title: "Avaliação de dor",
-          patientId: 3,
-          patient: { id: 3, fullName: "Pedro Oliveira", phone: "11965432109" },
-          professionalId: 3,
-          professional: { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista" },
-          roomId: 3,
-          room: { id: 3, name: "Sala 03" },
-          startTime: "2023-08-10T08:30:00Z",
-          endTime: "2023-08-10T09:00:00Z",
-          status: "scheduled",
-          type: "appointment",
-          procedures: [{ id: 3, name: "Avaliação de dor", duration: 30, price: 10000 }],
-          color: "bg-orange-100 border-l-4 border-accent",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-02T09:00:00Z",
-          updatedAt: "2023-08-02T09:00:00Z"
-        },
-        {
-          id: 4,
-          title: "Ortodontia",
-          patientId: 4,
-          patient: { id: 4, fullName: "Sofia Martins", phone: "11954321098" },
-          professionalId: 2,
-          professional: { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista" },
-          roomId: 2,
-          room: { id: 2, name: "Sala 02" },
-          startTime: "2023-08-10T09:00:00Z",
-          endTime: "2023-08-10T10:00:00Z",
-          status: "confirmed",
-          type: "appointment",
-          procedures: [{ id: 4, name: "Ortodontia", duration: 60, price: 20000 }],
-          color: "bg-purple-100 border-l-4 border-purple-600",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-02T10:00:00Z",
-          updatedAt: "2023-08-02T10:00:00Z"
-        },
-        {
-          id: 5,
-          title: "Extração",
-          patientId: 5,
-          patient: { id: 5, fullName: "Lucas Ferreira", phone: "11943210987" },
-          professionalId: 1,
-          professional: { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista" },
-          roomId: 1,
-          room: { id: 1, name: "Sala 01" },
-          startTime: "2023-08-10T09:30:00Z",
-          endTime: "2023-08-10T10:30:00Z",
-          status: "cancelled",
-          type: "appointment",
-          procedures: [{ id: 5, name: "Extração", duration: 60, price: 18000 }],
-          color: "bg-red-100 border-l-4 border-red-600",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-03T09:00:00Z",
-          updatedAt: "2023-08-03T14:00:00Z"
-        },
-        {
-          id: 6,
-          title: "Bloqueado",
-          patientId: null,
-          professionalId: 2,
-          professional: { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista" },
-          roomId: 2,
-          room: { id: 2, name: "Sala 02" },
-          startTime: "2023-08-10T10:00:00Z",
-          endTime: "2023-08-10T11:00:00Z",
-          status: "confirmed",
-          type: "block",
-          notes: "Reunião de equipe",
-          color: "bg-gray-200 border-l-4 border-gray-400",
-          recurring: false,
-          automationEnabled: false,
-          createdAt: "2023-08-03T10:00:00Z",
-          updatedAt: "2023-08-03T10:00:00Z"
-        },
-        {
-          id: 7,
-          title: "Tratamento de canal",
-          patientId: 6,
-          patient: { id: 6, fullName: "Bianca Lima", phone: "11932109876" },
-          professionalId: 3,
-          professional: { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista" },
-          roomId: 3,
-          room: { id: 3, name: "Sala 03" },
-          startTime: "2023-08-10T10:00:00Z",
-          endTime: "2023-08-10T11:30:00Z",
-          status: "confirmed",
-          type: "appointment",
-          procedures: [{ id: 6, name: "Tratamento de canal", duration: 90, price: 30000 }],
-          color: "bg-green-100 border-l-4 border-secondary",
-          recurring: false,
-          automationEnabled: true,
-          createdAt: "2023-08-04T09:00:00Z",
-          updatedAt: "2023-08-04T09:00:00Z"
-        }
-      ];
-    }
+      const res = await fetch(`/api/appointments?date=${formattedDate}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch appointments");
+      }
+      return res.json();
+    },
   });
 
   // Generate time slots for the timeline view
@@ -738,7 +602,7 @@ export default function SchedulePage() {
                       return (
                         <div 
                           key={i} 
-                          className={`border-r last:border-r-0 py-2 ${isToday ? 'bg-primary/5' : ''} ${isSelectedDay ? 'bg-blue-100/50' : ''}`}
+                          className={`border-r last:border-r-0 py-2 ${isToday ? 'bg-primary/5' : ''} ${isSelectedDay ? 'bg-primary/10' : ''}`}
                           onClick={() => setSelectedDate(day)}
                           style={{cursor: 'pointer'}}
                         >

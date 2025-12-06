@@ -120,20 +120,16 @@ export default function OdontogramChart({ patientId }: OdontogramChartProps) {
   const [activeTab, setActiveTab] = useState<string>("adult");
 
   // Fetch tooth status data for the patient
-  const { data: toothStatusData, isLoading } = useQuery({
+  const { data: toothStatusData, isLoading } = useQuery<ToothStatus[]>({
     queryKey: ["/api/patients", patientId, "odontogram"],
     queryFn: async () => {
-      // For demonstration, we're returning mock data
-      return [
-        { toothId: "16", status: "caries", notes: "Cavity on occlusal surface" },
-        { toothId: "26", status: "filled", notes: "Amalgam filling" },
-        { toothId: "36", status: "crown", notes: "Porcelain-fused-to-metal crown" },
-        { toothId: "46", status: "rootcanal", notes: "Root canal treatment completed" },
-        { toothId: "11", faceId: "distal", status: "caries", notes: "Early stage cavity" },
-        { toothId: "21", faceId: "mesial", status: "filled", notes: "Composite filling" },
-        { toothId: "32", status: "missing", notes: "Extracted due to severe decay" },
-        { toothId: "47", status: "bridge", notes: "Part of 3-unit bridge" },
-      ];
+      const res = await fetch(`/api/patients/${patientId}/odontogram`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch odontogram");
+      }
+      return res.json();
     },
   });
 
@@ -425,8 +421,8 @@ export default function OdontogramChart({ patientId }: OdontogramChartProps) {
         </TabsContent>
         
         <TabsContent value="child">
-          <div className="flex justify-center items-center h-64 bg-neutral-lightest rounded-md">
-            <p className="text-neutral-medium">Visualização infantil em desenvolvimento</p>
+          <div className="flex justify-center items-center h-64 bg-muted/50 rounded-md">
+            <p className="text-muted-foreground">Visualização infantil em desenvolvimento</p>
           </div>
         </TabsContent>
       </Tabs>
@@ -435,7 +431,7 @@ export default function OdontogramChart({ patientId }: OdontogramChartProps) {
         <h4 className="font-medium mb-2">Legenda</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-white border border-gray-300 mr-2"></div>
+            <div className="w-4 h-4 bg-background border border-border mr-2"></div>
             <span className="text-sm">Saudável</span>
           </div>
           <div className="flex items-center">

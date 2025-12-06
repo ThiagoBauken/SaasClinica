@@ -48,6 +48,7 @@ interface AuthContextType {
 interface LoginCredentials {
   username: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,10 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Verificar se usuário está autenticado
   const { data: currentUser, isLoading, error } = useQuery({
-    queryKey: ['/api/user/me'],
+    queryKey: ['/api/user'],
     queryFn: async () => {
       try {
-        const response = await fetch('/api/user/me', {
+        const response = await fetch('/api/user', {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json'
@@ -90,11 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
     } else if (error || currentUser === null) {
       setUser(null);
-      // Auto-login para desenvolvimento
-      if (!isLoading && !currentUser) {
-        console.log("Tentando auto-login...");
-        login({ username: "admin", password: "admin123" }).catch(console.error);
-      }
     }
   }, [currentUser, error, isLoading]);
 
@@ -109,17 +105,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Login failed');
       }
-      
+
       const data = await response.json();
       setUser(data);
-      
+
+      // Tentar salvar credenciais no navegador usando Credential Management API
+      if (window.PasswordCredential && credentials.rememberMe !== false) {
+        try {
+          const passwordCredential = new window.PasswordCredential({
+            id: credentials.username,
+            password: credentials.password,
+            name: data.fullName || credentials.username,
+          });
+          await navigator.credentials.store(passwordCredential);
+        } catch (credError) {
+          // Silenciar erros da API de credenciais - não é crítico
+          console.debug('Credential API not available or failed:', credError);
+        }
+      }
+
       // Invalidate and refetch the user query
-      queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+
       // Redirecionamento baseado no role
       const userRole = data.role;
       if (userRole === 'superadmin') {
@@ -140,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (data: any) => {
     setIsRegisterPending(true);
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,11 +159,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(data),
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Registration failed');
       }
-      
+
       const result = await response.json();
       setUser(result.user || result);
       setLocation('/saas-admin');
@@ -174,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Erro no logout:', error);
     } finally {
       setUser(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/user/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       setLocation('/auth');
     }
   };
@@ -218,78 +229,36 @@ export function useAuth() {
   return context;
 }
 
-// Componente para proteger rotas
-export function ProtectedRoute({ 
-  children, 
-  requiredRole,
-  requiredPermission 
-}: { 
+// ProtectedRoute component para uso no DynamicRouter
+interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: string;
-  requiredPermission?: string;
-}) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  requiredRole?: 'superadmin' | 'admin' | 'dentist' | 'receptionist' | 'assistant';
+}
+
+export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        setLocation('/login');
-        return;
-      }
-
-      if (requiredRole && user?.role !== requiredRole) {
-        setLocation('/unauthorized');
-        return;
-      }
-    }
-  }, [isAuthenticated, isLoading, user, requiredRole, setLocation]);
-
+  // Mostrar loading enquanto verifica autenticação
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">Verificando autenticação...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
+  // Redirecionar para login se não autenticado
   if (!isAuthenticated) {
+    setLocation('/login');
     return null;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
+  // Verificar role se especificado
+  if (requiredRole && user?.role !== requiredRole && user?.role !== 'superadmin') {
+    setLocation('/unauthorized');
     return null;
   }
 
   return <>{children}</>;
-}
-
-// Hook para verificar permissões
-export function usePermissions() {
-  const { user } = useAuth();
-
-  const hasRole = (role: string) => {
-    return user?.role === role;
-  };
-
-  const isSuperAdmin = () => {
-    return user?.role === 'superadmin';
-  };
-
-  const isAdmin = () => {
-    return user?.role === 'admin' || user?.role === 'superadmin';
-  };
-
-  const canAccessModule = (moduleId: string) => {
-    // Implementar verificação de acesso ao módulo baseado na empresa do usuário
-    return true; // Placeholder
-  };
-
-  return {
-    hasRole,
-    isSuperAdmin,
-    isAdmin,
-    canAccessModule,
-    user
-  };
 }

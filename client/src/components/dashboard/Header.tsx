@@ -1,9 +1,9 @@
 import { Link } from "wouter";
-import { Bell, ChevronDown, Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { User } from "@shared/schema";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/core/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { ThemeToggle } from "@/components/theme/theme-toggle";
+
+// Tipo local para usuário do header (compatível com AuthProvider)
+interface HeaderUser {
+  id: number;
+  fullName?: string;
+  email?: string;
+  role?: string;
+  profileImageUrl?: string | null;
+  trialEndsAt?: Date | string | null;
+}
 
 interface HeaderProps {
-  user: User;
+  user: HeaderUser;
   onMenuToggle?: () => void;
 }
 
@@ -37,8 +46,8 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
     if (logoutMutation) {
       logoutMutation.mutate();
     } else {
-      // Fallback logout - redirect to auth page
-      window.location.href = '/auth';
+      // Fallback logout - redirect to login page
+      window.location.href = '/login';
     }
   };
 
@@ -64,10 +73,10 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
         <div className="flex items-center space-x-2 md:space-x-4">
           {user?.trialEndsAt && new Date(user.trialEndsAt) > new Date() && (
             <div className="hidden md:flex items-center mr-2">
-              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">
+              <span className="bg-blue-500/20 text-blue-700 dark:text-blue-300 text-xs px-2 py-1 rounded-full mr-2">
                 Teste Gratuito
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted-foreground">
                 Expira em{" "}
                 {Math.ceil((new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}{" "}
                 dias
@@ -75,10 +84,8 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
             </div>
           )}
           
-          <Button variant="ghost" size="icon" className="text-neutral-dark hover:bg-neutral-lightest rounded-full">
-            <Bell className="h-6 w-6" />
-          </Button>
-          
+          <NotificationBell />
+
           {/* Temporariamente removido tema */}
           <ThemeToggle />
 

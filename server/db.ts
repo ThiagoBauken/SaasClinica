@@ -18,6 +18,17 @@ const isNeonDatabase = process.env.DATABASE_URL.includes('neon.tech');
 let pool: any;
 let db: any;
 
+// Configurações do pool (customizáveis via .env)
+const isProduction = process.env.NODE_ENV === 'production';
+const poolSettings = {
+  max: parseInt(process.env.DB_POOL_MAX || (isProduction ? '100' : '10')),
+  min: parseInt(process.env.DB_POOL_MIN || (isProduction ? '10' : '2')),
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
+};
+
+console.log(`[DB] Pool config: max=${poolSettings.max}, min=${poolSettings.min}, idle=${poolSettings.idleTimeoutMillis}ms`);
+
 if (isNeonDatabase) {
   console.log('[DB] Usando driver Neon (WebSocket)');
   // Usar driver Neon para bancos Neon.tech
@@ -27,10 +38,7 @@ if (isNeonDatabase) {
 
   const poolConfig = {
     connectionString: process.env.DATABASE_URL,
-    max: process.env.NODE_ENV === 'production' ? 100 : 10,
-    min: process.env.NODE_ENV === 'production' ? 10 : 2,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    ...poolSettings,
     maxUses: 7500,
     allowExitOnIdle: false,
   };
@@ -48,10 +56,7 @@ if (isNeonDatabase) {
 
   const poolConfig = {
     connectionString: process.env.DATABASE_URL,
-    max: process.env.NODE_ENV === 'production' ? 100 : 10,
-    min: process.env.NODE_ENV === 'production' ? 10 : 2,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    ...poolSettings,
     allowExitOnIdle: false,
   };
 

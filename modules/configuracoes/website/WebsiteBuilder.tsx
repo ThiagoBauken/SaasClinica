@@ -72,6 +72,12 @@ interface WebsiteData {
     description: string;
     keywords: string;
   };
+  social?: {
+    instagram?: string;
+    facebook?: string;
+    linkedin?: string;
+    youtube?: string;
+  };
   published: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -283,17 +289,17 @@ export default function WebsiteBuilder() {
 
   const updateWebsiteData = (path: string, value: any) => {
     setWebsiteData(prev => {
-      const newData = { ...prev };
+      const newData = { ...prev } as Record<string, any>;
       const keys = path.split('.');
-      let current = newData;
-      
+      let current: Record<string, any> = newData;
+
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
+        current = current[keys[i]] as Record<string, any>;
       }
-      
+
       current[keys[keys.length - 1]] = value;
-      return newData;
+      return newData as typeof prev;
     });
   };
 

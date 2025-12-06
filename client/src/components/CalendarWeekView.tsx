@@ -184,7 +184,7 @@ export default function CalendarWeekView({
       >
         <div className="text-xs font-medium truncate">{appointment.patientName}</div>
         <div className="text-xs truncate">{appointment.procedure}</div>
-        <div className="text-xs text-gray-500 truncate">
+        <div className="text-xs text-muted-foreground truncate">
           {appointment.startTime} - {appointment.endTime}
         </div>
       </div>
@@ -217,7 +217,7 @@ export default function CalendarWeekView({
       >
         <div className="p-2 text-xs">
           <div className="font-medium">Novo Agendamento</div>
-          <div className="text-gray-600">
+          <div className="text-muted-foreground">
             {startDisplay} - {endDisplay}
           </div>
         </div>
@@ -274,9 +274,9 @@ export default function CalendarWeekView({
         <div className="grid grid-cols-8 border-b">
           <div className="p-2 font-medium text-sm text-muted-foreground">Horário</div>
           {weekDays.map((day, i) => (
-            <div 
-              key={i} 
-              className={`p-2 text-center font-medium ${isToday(day) ? 'bg-blue-50 text-blue-600' : ''}`}
+            <div
+              key={i}
+              className={`p-2 text-center font-medium ${isToday(day) ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : ''}`}
             >
               <div>{format(day, "EEE", { locale: ptBR })}</div>
               <div>{format(day, "dd/MM")}</div>
@@ -293,7 +293,7 @@ export default function CalendarWeekView({
           {/* Coluna de horários */}
           <div>
             {timeSlots.map((time, i) => (
-              <div key={i} className="h-10 border-b border-r p-1 font-medium text-sm text-gray-500">
+              <div key={i} className="h-10 border-b border-r p-1 font-medium text-sm text-muted-foreground">
                 {time}
               </div>
             ))}

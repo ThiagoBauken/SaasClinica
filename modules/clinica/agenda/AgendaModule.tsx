@@ -66,18 +66,18 @@ function AgendaModule() {
   const [workHours, setWorkHours] = useState({
     startHour: 7,
     endHour: 19,
-    weekDays: [
-      { enabled: false, startHour: 7, endHour: 19 }, // Sunday
-      { enabled: true, startHour: 7, endHour: 19 },  // Monday
-      { enabled: true, startHour: 7, endHour: 19 },  // Tuesday
-      { enabled: true, startHour: 7, endHour: 19 },  // Wednesday
-      { enabled: true, startHour: 7, endHour: 19 },  // Thursday
-      { enabled: true, startHour: 7, endHour: 19 },  // Friday
-      { enabled: false, startHour: 7, endHour: 19 }, // Saturday
-    ],
+    weekDays: {
+      0: { enabled: false, startHour: 7, endHour: 19 }, // Sunday
+      1: { enabled: true, startHour: 7, endHour: 19 },  // Monday
+      2: { enabled: true, startHour: 7, endHour: 19 },  // Tuesday
+      3: { enabled: true, startHour: 7, endHour: 19 },  // Wednesday
+      4: { enabled: true, startHour: 7, endHour: 19 },  // Thursday
+      5: { enabled: true, startHour: 7, endHour: 19 },  // Friday
+      6: { enabled: false, startHour: 7, endHour: 19 }, // Saturday
+    } as { [key: number]: { enabled: boolean; startHour: number; endHour: number } },
     lunchBreak: {
       enabled: true,
-      startHour: 12, 
+      startHour: 12,
       endHour: 13
     }
   });

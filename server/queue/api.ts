@@ -73,7 +73,7 @@ export async function getQueueJobs(req: Request, res: Response) {
       queue: queueName,
       status,
       count: jobs.length,
-      jobs: jobs.map(job => ({
+      jobs: jobs.map((job: any) => ({
         id: job.id,
         name: job.name,
         data: job.data,

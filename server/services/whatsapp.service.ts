@@ -312,6 +312,6 @@ export async function getWhatsAppConfig(
   return {
     instanceId: process.env.WUZAPI_INSTANCE_ID || '',
     apiKey: process.env.WUZAPI_API_KEY || '',
-    baseUrl: process.env.WUZAPI_BASE_URL || 'https://wuzapi.cloud/api/v2',
+    baseUrl: process.env.WUZAPI_BASE_URL || 'https://private-wuzapi.pbzgje.easypanel.host',
   };
 }

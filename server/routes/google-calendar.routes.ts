@@ -273,14 +273,8 @@ router.post(
       const event = {
         summary: `${appointment.patientName} - ${appointment.procedureName || 'Consulta'}`,
         description: appointment.notes || '',
-        start: {
-          dateTime: appointment.startTime,
-          timeZone: 'America/Sao_Paulo',
-        },
-        end: {
-          dateTime: appointment.endTime,
-          timeZone: 'America/Sao_Paulo',
-        },
+        startTime: new Date(appointment.startTime),
+        endTime: new Date(appointment.endTime),
       };
 
       let eventId;

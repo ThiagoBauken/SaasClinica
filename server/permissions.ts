@@ -118,7 +118,7 @@ export async function getUserModulePermissions(userId: number, companyId: number
       ORDER BY m.display_name
     `, [userId, companyId]);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row: any) => ({
       moduleName: row.module_name,
       displayName: row.display_name,
       description: row.description,

@@ -1,0 +1,208 @@
+/*
+ * Touch Optimizations for Mobile Devices
+ * Ensures all interactive elements meet WCAG 2.1 AAA touch target size (44x44px minimum)
+ */
+
+/* Base touch target size for buttons */
+@media (max-width: 768px) {
+  /* Buttons */
+  button:not(.no-touch-optimize) {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Small buttons get adjusted */
+  button[data-size="sm"]:not(.no-touch-optimize),
+  button.h-8:not(.no-touch-optimize),
+  button.h-9:not(.no-touch-optimize) {
+    min-height: 44px;
+    padding: 0.625rem 0.875rem;
+  }
+
+  /* Icon-only buttons */
+  button[data-size="icon"]:not(.no-touch-optimize),
+  button[role="button"][aria-label]:not(.no-touch-optimize) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Input fields */
+  input:not([type="checkbox"]):not([type="radio"]):not(.no-touch-optimize),
+  select:not(.no-touch-optimize),
+  textarea:not(.no-touch-optimize) {
+    min-height: 44px;
+    padding: 0.75rem;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Checkboxes and radio buttons */
+  input[type="checkbox"]:not(.no-touch-optimize),
+  input[type="radio"]:not(.no-touch-optimize) {
+    min-height: 24px;
+    min-width: 24px;
+    cursor: pointer;
+  }
+
+  /* Links */
+  a:not(.no-touch-optimize) {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.25rem;
+  }
+
+  /* Calendar cells and time slots */
+  .calendar-cell:not(.no-touch-optimize),
+  .time-slot:not(.no-touch-optimize) {
+    min-height: 50px;
+    padding: 0.5rem;
+  }
+
+  /* Dropdown menu items */
+  [role="menuitem"]:not(.no-touch-optimize),
+  [role="option"]:not(.no-touch-optimize) {
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Tabs */
+  [role="tab"]:not(.no-touch-optimize) {
+    min-height: 48px;
+    padding: 0.75rem 1.25rem;
+  }
+
+  /* Cards and clickable areas */
+  .clickable-card:not(.no-touch-optimize) {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Increase spacing between stacked buttons */
+  .button-group:not(.no-touch-optimize) > * + * {
+    margin-top: 0.75rem;
+  }
+
+  /* Increase spacing in forms */
+  .form-group:not(.no-touch-optimize) > * + * {
+    margin-top: 1rem;
+  }
+}
+
+/* Prevent text selection on touch devices for better UX */
+@media (hover: none) and (pointer: coarse) {
+  .touch-prevent-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth scrolling on mobile */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Improve active states on touch */
+  button:active:not(:disabled),
+  a:active,
+  [role="button"]:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+}
+
+/* Touch-friendly scroll areas */
+.touch-scroll-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Larger hit areas for small icons */
+.touch-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+/* Better spacing for mobile navigation */
+@media (max-width: 768px) {
+  nav a:not(.no-touch-optimize),
+  nav button:not(.no-touch-optimize) {
+    padding: 1rem;
+    min-height: 48px;
+  }
+
+  /* Mobile-friendly table rows */
+  table tr:not(.no-touch-optimize) {
+    min-height: 56px;
+  }
+
+  table td:not(.no-touch-optimize),
+  table th:not(.no-touch-optimize) {
+    padding: 1rem 0.75rem;
+  }
+}
+
+/* Improve focus visibility on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  *:focus-visible {
+    outline: 3px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}
+
+/* Pull-to-refresh prevention for specific areas */
+.prevent-pull-refresh {
+  overscroll-behavior-y: contain;
+}
+
+/* Safe area padding for devices with notches */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-left {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+  }
+
+  .safe-area-right {
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* Utility classes for touch optimization */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.touch-target-lg {
+  min-height: 56px;
+  min-width: 56px;
+}
+
+.touch-spacing {
+  margin: 0.75rem 0;
+}
+
+.touch-spacing-lg {
+  margin: 1rem 0;
+}
+
+/* Prevent double-tap zoom on specific elements */
+.no-double-tap-zoom {
+  touch-action: manipulation;
+}

@@ -41,11 +41,11 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Índice de Placa */}
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg">
-            <Activity className="h-6 w-6 text-blue-600" />
+          <div className="p-3 bg-blue-500/20 rounded-lg">
+            <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="flex-1">
-            <div className="text-sm text-gray-600 mb-1">Índice de Placa</div>
+            <div className="text-sm text-muted-foreground mb-1">Índice de Placa</div>
             <div className={`text-3xl font-bold ${getPlaqueColor(plaqueIndex)}`}>
               {plaqueIndex.toFixed(1)}%
             </div>
@@ -55,7 +55,7 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
                 {getPlaqueLevel(plaqueIndex)}
               </span>
             </div>
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-muted-foreground">
               Percentual de dentes com placa bacteriana visível
             </div>
           </div>
@@ -63,11 +63,11 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
 
         {/* Índice de Sangramento */}
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-red-100 rounded-lg">
-            <Droplets className="h-6 w-6 text-red-600" />
+          <div className="p-3 bg-red-500/20 rounded-lg">
+            <Droplets className="h-6 w-6 text-red-600 dark:text-red-400" />
           </div>
           <div className="flex-1">
-            <div className="text-sm text-gray-600 mb-1">Índice de Sangramento</div>
+            <div className="text-sm text-muted-foreground mb-1">Índice de Sangramento</div>
             <div className={`text-3xl font-bold ${getBleedingColor(bleedingIndex)}`}>
               {bleedingIndex.toFixed(1)}%
             </div>
@@ -77,7 +77,7 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
                 {getBleedingLevel(bleedingIndex)}
               </span>
             </div>
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-muted-foreground">
               Percentual de sítios com sangramento à sondagem
             </div>
           </div>
@@ -91,7 +91,7 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
             <span>Índice de Placa</span>
             <span>{plaqueIndex.toFixed(1)}%</span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className={`h-full transition-all ${
                 plaqueIndex >= 70
@@ -110,7 +110,7 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
             <span>Índice de Sangramento</span>
             <span>{bleedingIndex.toFixed(1)}%</span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className={`h-full transition-all ${
                 bleedingIndex >= 50
@@ -126,7 +126,7 @@ export function PeriodontalIndices({ plaqueIndex, bleedingIndex }: PeriodontalIn
       </div>
 
       {/* Interpretação */}
-      <div className="mt-6 p-3 bg-gray-50 rounded-lg text-sm">
+      <div className="mt-6 p-3 bg-muted/50 rounded-lg text-sm">
         <div className="font-semibold mb-2">Interpretação:</div>
         <div className="space-y-1 text-xs">
           <div>

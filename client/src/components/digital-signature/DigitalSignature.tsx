@@ -87,23 +87,23 @@ export function DigitalSignature({
     return (
       <Card className="p-6">
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg">
-            <Shield className="h-6 w-6 text-blue-600" />
+          <div className="p-3 bg-blue-500/20 rounded-lg">
+            <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
 
           <div className="flex-1">
             <h3 className="text-lg font-semibold mb-2">Assinatura Digital CFO</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Assine este documento digitalmente para gerar uma prescrição válida conforme
               as normas do Conselho Federal de Odontologia (CFO).
             </p>
 
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-red-800">Erro ao assinar</p>
-                  <p className="text-sm text-red-600">{error}</p>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">Erro ao assinar</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </div>
               </div>
             )}
@@ -111,7 +111,7 @@ export function DigitalSignature({
             <div className="space-y-2 mb-4">
               <div className="text-sm">
                 <span className="font-medium">O documento incluirá:</span>
-                <ul className="ml-4 mt-2 space-y-1 text-gray-600">
+                <ul className="ml-4 mt-2 space-y-1 text-muted-foreground">
                   <li>• Assinatura digital válida</li>
                   <li>• QR Code para validação</li>
                   <li>• Hash de segurança SHA-256</li>
@@ -129,7 +129,7 @@ export function DigitalSignature({
               {loading ? 'Assinando...' : 'Assinar Digitalmente'}
             </Button>
 
-            <p className="text-xs text-gray-500 mt-3">
+            <p className="text-xs text-muted-foreground mt-3">
               ⚠️ Certifique-se de que seus dados de CRO estão configurados corretamente
               em suas configurações de perfil.
             </p>
@@ -142,8 +142,8 @@ export function DigitalSignature({
   return (
     <Card className="p-6">
       <div className="flex items-start gap-4">
-        <div className="p-3 bg-green-100 rounded-lg">
-          <CheckCircle2 className="h-6 w-6 text-green-600" />
+        <div className="p-3 bg-green-500/20 rounded-lg">
+          <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
         </div>
 
         <div className="flex-1">
@@ -155,7 +155,7 @@ export function DigitalSignature({
             </Badge>
           </div>
 
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Este documento foi assinado digitalmente e possui validade legal conforme CFO.
           </p>
 
@@ -193,13 +193,13 @@ export function DigitalSignature({
 
             {validation && (
               <div className="mb-2">
-                <label className="text-xs text-gray-600">URL de Validação:</label>
+                <label className="text-xs text-muted-foreground">URL de Validação:</label>
                 <div className="flex items-center gap-2 mt-1">
                   <input
                     type="text"
                     value={validation}
                     readOnly
-                    className="flex-1 text-sm bg-gray-50 border rounded px-3 py-2 font-mono"
+                    className="flex-1 text-sm bg-muted border border-border rounded px-3 py-2 font-mono text-foreground"
                   />
                   <Button
                     size="sm"
@@ -215,7 +215,7 @@ export function DigitalSignature({
               </div>
             )}
 
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               💡 O QR Code impresso no documento pode ser escaneado para validar
               a autenticidade da assinatura.
             </p>

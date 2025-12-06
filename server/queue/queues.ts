@@ -25,6 +25,30 @@ export const automationsQueue = {
   },
   add: function(...args: any[]) {
     return this.queue?.add(...args) || Promise.resolve(null);
+  },
+  getJobs: function(...args: any[]) {
+    return this.queue?.getJobs(...args) || Promise.resolve([]);
+  },
+  getJob: function(jobId: string) {
+    return this.queue?.getJob(jobId) || Promise.resolve(null);
+  },
+  clean: function(...args: any[]) {
+    return this.queue?.clean(...args) || Promise.resolve([]);
+  },
+  getWaitingCount: function() {
+    return this.queue?.getWaitingCount() || Promise.resolve(0);
+  },
+  getActiveCount: function() {
+    return this.queue?.getActiveCount() || Promise.resolve(0);
+  },
+  getCompletedCount: function() {
+    return this.queue?.getCompletedCount() || Promise.resolve(0);
+  },
+  getFailedCount: function() {
+    return this.queue?.getFailedCount() || Promise.resolve(0);
+  },
+  getDelayedCount: function() {
+    return this.queue?.getDelayedCount() || Promise.resolve(0);
   }
 };
 
@@ -42,6 +66,30 @@ export const notificationsQueue = {
   },
   add: function(...args: any[]) {
     return this.queue?.add(...args) || Promise.resolve(null);
+  },
+  getJobs: function(...args: any[]) {
+    return this.queue?.getJobs(...args) || Promise.resolve([]);
+  },
+  getJob: function(jobId: string) {
+    return this.queue?.getJob(jobId) || Promise.resolve(null);
+  },
+  clean: function(...args: any[]) {
+    return this.queue?.clean(...args) || Promise.resolve([]);
+  },
+  getWaitingCount: function() {
+    return this.queue?.getWaitingCount() || Promise.resolve(0);
+  },
+  getActiveCount: function() {
+    return this.queue?.getActiveCount() || Promise.resolve(0);
+  },
+  getCompletedCount: function() {
+    return this.queue?.getCompletedCount() || Promise.resolve(0);
+  },
+  getFailedCount: function() {
+    return this.queue?.getFailedCount() || Promise.resolve(0);
+  },
+  getDelayedCount: function() {
+    return this.queue?.getDelayedCount() || Promise.resolve(0);
   }
 };
 
@@ -59,6 +107,30 @@ export const emailsQueue = {
   },
   add: function(...args: any[]) {
     return this.queue?.add(...args) || Promise.resolve(null);
+  },
+  getJobs: function(...args: any[]) {
+    return this.queue?.getJobs(...args) || Promise.resolve([]);
+  },
+  getJob: function(jobId: string) {
+    return this.queue?.getJob(jobId) || Promise.resolve(null);
+  },
+  clean: function(...args: any[]) {
+    return this.queue?.clean(...args) || Promise.resolve([]);
+  },
+  getWaitingCount: function() {
+    return this.queue?.getWaitingCount() || Promise.resolve(0);
+  },
+  getActiveCount: function() {
+    return this.queue?.getActiveCount() || Promise.resolve(0);
+  },
+  getCompletedCount: function() {
+    return this.queue?.getCompletedCount() || Promise.resolve(0);
+  },
+  getFailedCount: function() {
+    return this.queue?.getFailedCount() || Promise.resolve(0);
+  },
+  getDelayedCount: function() {
+    return this.queue?.getDelayedCount() || Promise.resolve(0);
   }
 };
 
@@ -76,6 +148,30 @@ export const whatsappQueue = {
   },
   add: function(...args: any[]) {
     return this.queue?.add(...args) || Promise.resolve(null);
+  },
+  getJobs: function(...args: any[]) {
+    return this.queue?.getJobs(...args) || Promise.resolve([]);
+  },
+  getJob: function(jobId: string) {
+    return this.queue?.getJob(jobId) || Promise.resolve(null);
+  },
+  clean: function(...args: any[]) {
+    return this.queue?.clean(...args) || Promise.resolve([]);
+  },
+  getWaitingCount: function() {
+    return this.queue?.getWaitingCount() || Promise.resolve(0);
+  },
+  getActiveCount: function() {
+    return this.queue?.getActiveCount() || Promise.resolve(0);
+  },
+  getCompletedCount: function() {
+    return this.queue?.getCompletedCount() || Promise.resolve(0);
+  },
+  getFailedCount: function() {
+    return this.queue?.getFailedCount() || Promise.resolve(0);
+  },
+  getDelayedCount: function() {
+    return this.queue?.getDelayedCount() || Promise.resolve(0);
   }
 };
 
@@ -93,6 +189,30 @@ export const reportsQueue = {
   },
   add: function(...args: any[]) {
     return this.queue?.add(...args) || Promise.resolve(null);
+  },
+  getJobs: function(...args: any[]) {
+    return this.queue?.getJobs(...args) || Promise.resolve([]);
+  },
+  getJob: function(jobId: string) {
+    return this.queue?.getJob(jobId) || Promise.resolve(null);
+  },
+  clean: function(...args: any[]) {
+    return this.queue?.clean(...args) || Promise.resolve([]);
+  },
+  getWaitingCount: function() {
+    return this.queue?.getWaitingCount() || Promise.resolve(0);
+  },
+  getActiveCount: function() {
+    return this.queue?.getActiveCount() || Promise.resolve(0);
+  },
+  getCompletedCount: function() {
+    return this.queue?.getCompletedCount() || Promise.resolve(0);
+  },
+  getFailedCount: function() {
+    return this.queue?.getFailedCount() || Promise.resolve(0);
+  },
+  getDelayedCount: function() {
+    return this.queue?.getDelayedCount() || Promise.resolve(0);
   }
 };
 

@@ -67,16 +67,10 @@ import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package
 
 import type { InventoryItem, InventoryCategory, InventoryTransaction } from "@shared/schema";
 
-// Dados para testar a interface
-const mockCategories: InventoryCategory[] = [
-  { id: 1, companyId: 1, name: "Materiais Dentários", description: "Materiais diversos para procedimentos", color: "#3498db", createdAt: new Date() },
-  { id: 2, companyId: 1, name: "Anestésicos", description: "Produtos anestésicos", color: "#e74c3c", createdAt: new Date() },
-  { id: 3, companyId: 1, name: "Higiene", description: "Produtos para limpeza e higiene", color: "#2ecc71", createdAt: new Date() },
-  { id: 4, companyId: 1, name: "Instrumentos", description: "Instrumentos odontológicos", color: "#f39c12", createdAt: new Date() },
-  { id: 5, companyId: 1, name: "Insumos", description: "Insumos gerais", color: "#9b59b6", createdAt: new Date() }
-];
+// REMOVED: mockCategories and generateMockItems - now using real API data
 
-const generateMockItems = (): InventoryItem[] => {
+// Kept for historical reference (remove if unused)
+const __UNUSED_generateMockItems_REMOVE_ME = (): InventoryItem[] => {
   return [
     {
       id: 1,
@@ -1226,7 +1220,7 @@ export default function InventoryPage() {
                     <div 
                       key={color}
                       className={`w-8 h-8 rounded-full cursor-pointer transition-all border-2 ${
-                        newCategoryColor === color ? 'ring-2 ring-offset-2 ring-primary border-primary' : 'border-gray-300 hover:border-gray-400'
+                        newCategoryColor === color ? 'ring-2 ring-offset-2 ring-primary border-primary' : 'border-border hover:border-muted-foreground'
                       }`}
                       style={{ backgroundColor: color }}
                       onClick={() => setNewCategoryColor(color)}
@@ -1243,7 +1237,7 @@ export default function InventoryPage() {
                       onChange={(e) => setNewCategoryColor(e.target.value)}
                       className="w-10 h-8 rounded border cursor-pointer"
                     />
-                    <span className="text-sm text-gray-600">{newCategoryColor}</span>
+                    <span className="text-sm text-muted-foreground">{newCategoryColor}</span>
                   </div>
                 </div>
               </div>

@@ -1,10 +1,11 @@
 import { Job } from 'bullmq';
 import { createWorker, QueueNames } from './config';
 import { db } from '../db';
-import { appointments, patients, payments, users, companies } from '@shared/schema';
+import { appointments, patients, payments, users, companies, clinicSettings } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { createEvolutionService, interpolateMessage } from '../services/evolution-api.service';
 
 /**
  * Workers para processar jobs das filas
@@ -158,15 +159,36 @@ ${company?.address ? `📍 Endereço: ${company.address}` : ''}
 Aguardamos você! Em caso de imprevistos, entre em contato conosco.
   `.trim();
 
-  console.log(`📱 [MOCK] Enviando WhatsApp para ${patient.phone}:`);
-  console.log(message);
+  // Tentar enviar via Evolution API
+  const evolutionService = await createEvolutionService(companyId);
 
-  // TODO: Implementar envio real
-  // await whatsappService.sendMessage(patient.phone, message);
+  if (evolutionService && patient.whatsappPhone) {
+    const result = await evolutionService.sendTextMessage({
+      phone: patient.whatsappPhone || patient.cellphone || patient.phone || '',
+      message,
+    });
+
+    if (result.success) {
+      console.log(`✅ Lembrete WhatsApp enviado para ${patient.whatsappPhone}`);
+      return {
+        success: true,
+        message: 'Lembrete enviado via Evolution API',
+        to: patient.whatsappPhone,
+        appointmentId,
+        messageId: result.messageId,
+      };
+    } else {
+      console.error(`❌ Falha ao enviar WhatsApp: ${result.error}`);
+    }
+  }
+
+  // Fallback: log apenas (Evolution não configurado)
+  console.log(`📱 [FALLBACK] Evolution não configurado. Mensagem para ${patient.phone}:`);
+  console.log(message);
 
   return {
     success: true,
-    message: 'Lembrete enviado (mock)',
+    message: 'Lembrete registrado (Evolution não configurado)',
     to: patient.phone,
     appointmentId,
   };
@@ -209,12 +231,35 @@ Sua consulta foi confirmada com sucesso!
 Até lá! 😊
   `.trim();
 
-  console.log(`📱 [MOCK] Enviando confirmação WhatsApp para ${patient.phone}:`);
+  // Tentar enviar via Evolution API
+  const evolutionService = await createEvolutionService(companyId);
+
+  if (evolutionService && patient.whatsappPhone) {
+    const result = await evolutionService.sendTextMessage({
+      phone: patient.whatsappPhone || patient.cellphone || patient.phone || '',
+      message,
+    });
+
+    if (result.success) {
+      console.log(`✅ Confirmação WhatsApp enviada para ${patient.whatsappPhone}`);
+      return {
+        success: true,
+        message: 'Confirmação enviada via Evolution API',
+        to: patient.whatsappPhone,
+        messageId: result.messageId,
+      };
+    } else {
+      console.error(`❌ Falha ao enviar confirmação: ${result.error}`);
+    }
+  }
+
+  // Fallback
+  console.log(`📱 [FALLBACK] Evolution não configurado. Confirmação para ${patient.phone}:`);
   console.log(message);
 
   return {
     success: true,
-    message: 'Confirmação enviada (mock)',
+    message: 'Confirmação registrada (Evolution não configurado)',
     to: patient.phone,
   };
 }

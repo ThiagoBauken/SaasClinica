@@ -1,3 +1,6 @@
+/* Touch optimizations for mobile devices */
+/* @import './styles/touch-optimizations.css'; */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

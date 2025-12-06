@@ -407,7 +407,7 @@ export default function SuperAdminPage() {
       case 'loading':
         return <AlertCircle className="h-4 w-4 text-yellow-600" />;
       default:
-        return <AlertCircle className="h-4 w-4 text-gray-400" />;
+        return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -898,11 +898,11 @@ export default function SuperAdminPage() {
                   {[...Array(8)].map((_, i) => (
                     <Card key={i} className="animate-pulse">
                       <CardHeader className="pb-3">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mt-2"></div>
+                        <div className="h-4 bg-muted rounded w-3/4"></div>
+                        <div className="h-3 bg-muted rounded w-1/2 mt-2"></div>
                       </CardHeader>
                       <CardContent>
-                        <div className="h-20 bg-gray-200 rounded"></div>
+                        <div className="h-20 bg-muted rounded"></div>
                       </CardContent>
                     </Card>
                   ))}
@@ -1136,8 +1136,8 @@ export default function SuperAdminPage() {
                 placeholder="Digite a nova senha"
               />
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300">
                 <strong>Atenção:</strong> Esta ação irá substituir a senha atual do usuário.
                 Certifique-se de informar a nova senha ao usuário.
               </p>

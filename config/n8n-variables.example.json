@@ -1,0 +1,35 @@
+{
+  "description": "Configuração de variáveis para workflows N8N - Copie para n8n-variables.json e preencha",
+  "variables": {
+    "company": {
+      "name": "Nome da sua Clínica",
+      "phone": "(11) 99999-9999",
+      "address": "Rua Exemplo, 123 - Bairro - Cidade/UF",
+      "googleReviewLink": "https://g.co/kgs/XXXXXXX",
+      "googleMapsLink": "https://maps.google.com/?q=..."
+    },
+    "evolution": {
+      "baseUrl": "https://sua-evolution.com",
+      "instanceName": "nome-da-instancia",
+      "apiKey": "sua-api-key-aqui"
+    },
+    "baserow": {
+      "databaseId": 0,
+      "patientsTableId": 0,
+      "appointmentsTableId": 0
+    },
+    "googleCalendar": {
+      "calendarId": "seu-calendar-id@group.calendar.google.com"
+    },
+    "flowise": {
+      "baseUrl": "https://seu-flowise.com",
+      "chatflowId": "seu-chatflow-id"
+    },
+    "messages": {
+      "confirmationReminder": "Olá, {{patientName}}! 😊 Este é um lembrete de que sua consulta na {{companyName}} está agendada para hoje, dia {{appointmentDate}}, às {{appointmentTime}}. Estamos prontos para cuidar do seu sorriso. Te aguardamos!",
+      "confirmationRequest": "Olá, Bom dia!😁 Identificamos sua consulta marcada para o dia {{appointmentDate}}. Posso confirmar a sua consulta marcada para dia {{appointmentDate}} às {{appointmentTime}}?",
+      "birthday": "Hoje é um dia especial! 🎉 Estamos comemorando seu aniversário e queremos aproveitar para desejar um ano cheio de felicidade, saúde e muitos sorrisos.\n\nAgradecemos por fazer parte da nossa família {{companyName}}. Que seu dia seja tão incrível quanto você! 🥳😁",
+      "reviewRequest": "Boa noite, {{patientName}}! Agradecemos por ter comparecido à sua consulta na {{companyName}}! Foi um prazer cuidar do seu sorriso. 😁\n\nQueremos continuar melhorando e oferecendo o melhor atendimento, por isso, sua opinião é muito importante para nós! Você pode avaliar a sua experiência clicando no link abaixo 👇\n\n{{googleReviewLink}}\n\nDesde já, muito obrigado pela sua colaboração! 💙"
+    }
+  }
+}

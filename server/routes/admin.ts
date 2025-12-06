@@ -56,7 +56,8 @@ router.get("/modules", requireSuperAdmin, async (req, res) => {
     const availableModules = await moduleManager.getAvailableModules();
     const dbModules = await db.select().from(modules);
     
-    const modulesList = dbModules.map(dbModule => {
+    type ModuleRow = typeof dbModules[0];
+    const modulesList = dbModules.map((dbModule: ModuleRow) => {
       const loadedModule = availableModules.find(m => m.name === dbModule.name);
       return {
         ...dbModule,

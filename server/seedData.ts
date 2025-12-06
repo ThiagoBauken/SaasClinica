@@ -8,8 +8,11 @@ import {
   appointmentProcedures,
   payments,
   inventoryItems,
-  inventoryTransactions
+  inventoryTransactions,
+  riskAlertTypes,
+  salesFunnelStages
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { addDays, subDays, subMonths, setHours, setMinutes, startOfMonth, endOfMonth } from "date-fns";
@@ -29,92 +32,121 @@ export async function seedDatabase() {
   try {
     console.log("🌱 Iniciando seed do banco de dados...\n");
 
-    // 1. Criar empresas de exemplo
+    // 1. Criar ou buscar empresas de exemplo
     console.log("📌 Criando empresas...");
-    const [company1, company2] = await db
-      .insert(companies)
-      .values([
-        {
-          name: "Clínica Odontológica Sorriso Perfeito",
-          email: "contato@sorrisoperfeito.com.br",
-          phone: "(11) 3456-7890",
-          address: "Av. Paulista, 1234 - Bela Vista, São Paulo - SP",
-          cnpj: "12.345.678/0001-90",
-          active: true,
-          trialEndsAt: addDays(new Date(), 30)
-        },
-        {
-          name: "DentalCare Plus",
-          email: "atendimento@dentalcareplus.com.br",
-          phone: "(21) 2345-6789",
-          address: "Rua das Laranjeiras, 567 - Laranjeiras, Rio de Janeiro - RJ",
-          cnpj: "98.765.432/0001-10",
-          active: true,
-          trialEndsAt: addDays(new Date(), 15)
-        }
-      ])
-      .returning()
-      .onConflictDoNothing();
+
+    // Verificar se empresas já existem
+    const existingCompanies = await db.select().from(companies).limit(2);
+
+    let company1, company2;
+    if (existingCompanies && existingCompanies.length > 0) {
+      console.log("ℹ️  Empresas já existem, usando existentes...");
+      company1 = existingCompanies[0];
+      company2 = existingCompanies[1];
+    } else {
+      // Criar novas empresas
+      const companiesResult = await db
+        .insert(companies)
+        .values([
+          {
+            name: "Clínica Odontológica Sorriso Perfeito",
+            email: "contato@sorrisoperfeito.com.br",
+            phone: "(11) 3456-7890",
+            address: "Av. Paulista, 1234 - Bela Vista, São Paulo - SP",
+            cnpj: "12.345.678/0001-90",
+            active: true,
+            trialEndsAt: addDays(new Date(), 30)
+          },
+          {
+            name: "DentalCare Plus",
+            email: "atendimento@dentalcareplus.com.br",
+            phone: "(21) 2345-6789",
+            address: "Rua das Laranjeiras, 567 - Laranjeiras, Rio de Janeiro - RJ",
+            cnpj: "98.765.432/0001-10",
+            active: true,
+            trialEndsAt: addDays(new Date(), 15)
+          }
+        ])
+        .returning();
+
+      [company1, company2] = companiesResult;
+    }
 
     const companyId = company1?.id || 1;
     console.log(`✅ Empresas criadas: ${company1?.name} (ID: ${companyId})\n`);
 
-    // 2. Criar usuários (dentistas, recepcionistas, admin)
+    // 2. Criar ou buscar usuários (dentistas, recepcionistas, admin)
     console.log("👥 Criando usuários...");
-    const [admin, dentist1, dentist2, receptionist] = await db
-      .insert(users)
-      .values([
-        {
-          username: "admin",
-          password: await hashPassword("admin123"),
-          fullName: "Dr. Carlos Administrador",
-          email: "admin@sorrisoperfeito.com.br",
-          role: "admin",
-          phone: "(11) 98765-4321",
-          speciality: "Gestão Clínica",
-          active: true,
-          companyId,
-          trialEndsAt: addDays(new Date(), 30)
-        },
-        {
-          username: "dra.ana",
-          password: await hashPassword("dentista123"),
-          fullName: "Dra. Ana Paula Silva",
-          email: "ana.silva@sorrisoperfeito.com.br",
-          role: "dentist",
-          phone: "(11) 98765-1111",
-          speciality: "Ortodontia",
-          active: true,
-          companyId,
-          trialEndsAt: addDays(new Date(), 30)
-        },
-        {
-          username: "dr.pedro",
-          password: await hashPassword("dentista123"),
-          fullName: "Dr. Pedro Henrique Costa",
-          email: "pedro.costa@sorrisoperfeito.com.br",
-          role: "dentist",
-          phone: "(11) 98765-2222",
-          speciality: "Implantodontia",
-          active: true,
-          companyId,
-          trialEndsAt: addDays(new Date(), 30)
-        },
-        {
-          username: "maria",
-          password: await hashPassword("recep123"),
-          fullName: "Maria Santos",
-          email: "maria@sorrisoperfeito.com.br",
-          role: "receptionist",
-          phone: "(11) 98765-3333",
-          speciality: null,
-          active: true,
-          companyId,
-          trialEndsAt: addDays(new Date(), 30)
-        }
-      ])
-      .returning()
-      .onConflictDoNothing();
+
+    // Verificar se usuários já existem para esta empresa
+    const existingUsers = await db.select().from(users).where(eq(users.companyId, companyId));
+
+    type UserRow = typeof users.$inferSelect;
+    let admin, dentist1, dentist2, receptionist;
+    if (existingUsers && existingUsers.length > 0) {
+      console.log("ℹ️  Usuários já existem, usando existentes...");
+      admin = existingUsers.find((u: UserRow) => u.role === 'admin');
+      dentist1 = existingUsers.find((u: UserRow) => u.username === 'dra.ana');
+      dentist2 = existingUsers.find((u: UserRow) => u.username === 'dr.pedro');
+      receptionist = existingUsers.find((u: UserRow) => u.role === 'receptionist');
+    } else {
+      // Criar novos usuários
+      const usersResult = await db
+        .insert(users)
+        .values([
+          {
+            username: "admin",
+            password: await hashPassword("admin123"),
+            fullName: "Dr. Carlos Administrador",
+            email: "admin@sorrisoperfeito.com.br",
+            role: "admin",
+            phone: "(11) 98765-4321",
+            speciality: "Gestão Clínica",
+            active: true,
+            companyId,
+            trialEndsAt: addDays(new Date(), 30)
+          },
+          {
+            username: "dra.ana",
+            password: await hashPassword("dentista123"),
+            fullName: "Dra. Ana Paula Silva",
+            email: "ana.silva@sorrisoperfeito.com.br",
+            role: "dentist",
+            phone: "(11) 98765-1111",
+            speciality: "Ortodontia",
+            active: true,
+            companyId,
+            trialEndsAt: addDays(new Date(), 30)
+          },
+          {
+            username: "dr.pedro",
+            password: await hashPassword("dentista123"),
+            fullName: "Dr. Pedro Henrique Costa",
+            email: "pedro.costa@sorrisoperfeito.com.br",
+            role: "dentist",
+            phone: "(11) 98765-2222",
+            speciality: "Implantodontia",
+            active: true,
+            companyId,
+            trialEndsAt: addDays(new Date(), 30)
+          },
+          {
+            username: "maria",
+            password: await hashPassword("recep123"),
+            fullName: "Maria Santos",
+            email: "maria@sorrisoperfeito.com.br",
+            role: "receptionist",
+            phone: "(11) 98765-3333",
+            speciality: null,
+            active: true,
+            companyId,
+            trialEndsAt: addDays(new Date(), 30)
+          }
+        ])
+        .returning();
+
+      [admin, dentist1, dentist2, receptionist] = usersResult;
+    }
 
     console.log(`✅ ${4} usuários criados\n`);
 
@@ -203,7 +235,8 @@ export async function seedDatabase() {
       const procedureId = createdProcedures[Math.floor(Math.random() * createdProcedures.length)]?.id;
 
       const startTime = setMinutes(setHours(subDays(new Date(), daysAgo), hour), minute);
-      const duration = createdProcedures.find(p => p.id === procedureId)?.duration || 30;
+      type ProcedureRow = typeof procedures.$inferSelect;
+      const duration = createdProcedures.find((p: ProcedureRow) => p.id === procedureId)?.duration || 30;
       const endTime = new Date(startTime.getTime() + duration * 60000);
 
       // Agendamentos passados são mais provavelmente completed ou confirmed
@@ -234,7 +267,8 @@ export async function seedDatabase() {
       const procedureId = createdProcedures[Math.floor(Math.random() * createdProcedures.length)]?.id;
 
       const startTime = setMinutes(setHours(addDays(new Date(), daysAhead), hour), minute);
-      const duration = createdProcedures.find(p => p.id === procedureId)?.duration || 30;
+      type ProcedureRow = typeof procedures.$inferSelect;
+      const duration = createdProcedures.find((p: ProcedureRow) => p.id === procedureId)?.duration || 30;
       const endTime = new Date(startTime.getTime() + duration * 60000);
 
       appointmentsData.push({
@@ -260,11 +294,12 @@ export async function seedDatabase() {
 
     // 6. Vincular procedimentos aos agendamentos
     console.log("🔗 Vinculando procedimentos aos agendamentos...");
-    const appointmentProceduresData = createdAppointments.map(apt => ({
+    type AppointmentRow = typeof appointments.$inferSelect;
+    const appointmentProceduresData = createdAppointments.map((apt: AppointmentRow) => ({
       appointmentId: apt.id,
       procedureId: createdProcedures[Math.floor(Math.random() * createdProcedures.length)]?.id!,
       quantity: 1,
-      price: createdProcedures.find(p => p.id)?.price || 150.00
+      price: createdProcedures.find((p: typeof procedures.$inferSelect) => p.id)?.price || 150.00
     }));
 
     await db
@@ -279,10 +314,11 @@ export async function seedDatabase() {
     const paymentsData = [];
 
     // Pagamentos para agendamentos completados
-    const completedAppointments = createdAppointments.filter(apt => apt.status === 'completed');
+    const completedAppointments = createdAppointments.filter((apt: AppointmentRow) => apt.status === 'completed');
 
     for (const apt of completedAppointments) {
-      const procedure = appointmentProceduresData.find(ap => ap.appointmentId === apt.id);
+      type AppointmentProcedureData = typeof appointmentProceduresData[0];
+      const procedure = appointmentProceduresData.find((ap: AppointmentProcedureData) => ap.appointmentId === apt.id);
       if (procedure) {
         paymentsData.push({
           appointmentId: apt.id,
@@ -372,6 +408,164 @@ export async function seedDatabase() {
       .onConflictDoNothing();
 
     console.log(`✅ ${transactionsData.length} transações criadas\n`);
+
+    // 9. Criar tipos de alertas de risco (globais)
+    console.log("⚠️  Criando tipos de alertas de risco...");
+
+    const riskAlertTypesData = [
+      {
+        companyId: null, // Global
+        code: 'allergy',
+        name: 'Alergia',
+        color: '#EF4444',
+        icon: 'pill',
+        severity: 'critical',
+        description: 'Paciente possui alergia a medicamentos ou materiais',
+        clinicalWarning: 'ATENÇÃO: Verificar histórico de alergias antes de administrar qualquer medicamento ou utilizar materiais.',
+      },
+      {
+        companyId: null,
+        code: 'cardiac',
+        name: 'Cardiopatia',
+        color: '#DC2626',
+        icon: 'heart',
+        severity: 'high',
+        description: 'Paciente possui condição cardíaca',
+        clinicalWarning: 'Evitar uso de anestésicos com vasoconstritor em doses altas. Monitorar pressão arterial. Consultar cardiologista se necessário.',
+      },
+      {
+        companyId: null,
+        code: 'diabetes',
+        name: 'Diabetes',
+        color: '#F59E0B',
+        icon: 'droplet',
+        severity: 'high',
+        description: 'Paciente diabético',
+        clinicalWarning: 'Agendar consultas pela manhã. Verificar glicemia. Atenção à cicatrização pós-procedimentos.',
+      },
+      {
+        companyId: null,
+        code: 'anticoagulant',
+        name: 'Anticoagulante',
+        color: '#EF4444',
+        icon: 'syringe',
+        severity: 'critical',
+        description: 'Paciente em uso de anticoagulantes',
+        clinicalWarning: 'SUSPENDER medicação 5-7 dias antes de procedimentos invasivos (com autorização médica). Risco de sangramento prolongado.',
+      },
+      {
+        companyId: null,
+        code: 'pregnancy',
+        name: 'Gestante',
+        color: '#EC4899',
+        icon: 'baby',
+        severity: 'high',
+        description: 'Paciente gestante',
+        clinicalWarning: 'Evitar radiografias no 1º trimestre. Usar apenas anestésicos seguros na gestação. Preferir 2º trimestre para tratamentos.',
+      },
+      {
+        companyId: null,
+        code: 'immunosuppressed',
+        name: 'Imunossuprimido',
+        color: '#7C3AED',
+        icon: 'shield-alert',
+        severity: 'critical',
+        description: 'Paciente com sistema imunológico comprometido',
+        clinicalWarning: 'Alto risco de infecções. Profilaxia antibiótica pode ser necessária. Ambiente estéril rigoroso.',
+      },
+      {
+        companyId: null,
+        code: 'bisphosphonate',
+        name: 'Bifosfonatos',
+        color: '#DC2626',
+        icon: 'activity',
+        severity: 'critical',
+        description: 'Paciente em uso de bifosfonatos (Fosamax, Zometa, etc.)',
+        clinicalWarning: 'RISCO DE OSTEONECROSE MANDIBULAR. Evitar extrações e procedimentos invasivos. Encaminhar para especialista.',
+      },
+      {
+        companyId: null,
+        code: 'hypertension',
+        name: 'Hipertensão',
+        color: '#F97316',
+        icon: 'activity',
+        severity: 'medium',
+        description: 'Paciente hipertenso',
+        clinicalWarning: 'Verificar pressão arterial antes do procedimento. Usar anestésico com vasoconstritor com cautela.',
+      },
+    ];
+
+    await db
+      .insert(riskAlertTypes)
+      .values(riskAlertTypesData as any)
+      .onConflictDoNothing();
+
+    console.log(`✅ ${riskAlertTypesData.length} tipos de alerta de risco criados\n`);
+
+    // 10. Criar etapas padrão do funil de vendas
+    console.log("📊 Criando etapas do funil de vendas...");
+
+    const funnelStagesData = [
+      {
+        companyId,
+        name: 'Lead Novo',
+        code: 'new_lead',
+        color: '#6B7280',
+        order: 1,
+        isDefault: true,
+      },
+      {
+        companyId,
+        name: 'Contato Realizado',
+        code: 'contacted',
+        color: '#3B82F6',
+        order: 2,
+      },
+      {
+        companyId,
+        name: 'Avaliação Agendada',
+        code: 'evaluation_scheduled',
+        color: '#8B5CF6',
+        order: 3,
+      },
+      {
+        companyId,
+        name: 'Orçamento Enviado',
+        code: 'quote_sent',
+        color: '#F59E0B',
+        order: 4,
+      },
+      {
+        companyId,
+        name: 'Negociação',
+        code: 'negotiation',
+        color: '#F97316',
+        order: 5,
+      },
+      {
+        companyId,
+        name: 'Fechado - Ganho',
+        code: 'won',
+        color: '#10B981',
+        order: 6,
+        isWon: true,
+      },
+      {
+        companyId,
+        name: 'Fechado - Perdido',
+        code: 'lost',
+        color: '#EF4444',
+        order: 7,
+        isLost: true,
+      },
+    ];
+
+    await db
+      .insert(salesFunnelStages)
+      .values(funnelStagesData)
+      .onConflictDoNothing();
+
+    console.log(`✅ ${funnelStagesData.length} etapas do funil criadas\n`);
 
     console.log("🎉 Seed do banco de dados concluído com sucesso!\n");
     console.log("📋 Resumo:");

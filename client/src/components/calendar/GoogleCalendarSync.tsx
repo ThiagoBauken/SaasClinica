@@ -30,7 +30,8 @@ export default function GoogleCalendarSync({
     try {
       // Em um ambiente real, aqui seria feita a chamada para a API
       // que iniciaria o processo de autenticação OAuth com o Google
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${window.location.origin}/auth/google/callback&scope=https://www.googleapis.com/auth/calendar&response_type=code&access_type=offline&prompt=consent&state=${professionalId}`;
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${window.location.origin}/auth/google/callback&scope=https://www.googleapis.com/auth/calendar&response_type=code&access_type=offline&prompt=consent&state=${professionalId}`;
       
       // Simulação para demonstração
       await new Promise(resolve => setTimeout(resolve, 1500));

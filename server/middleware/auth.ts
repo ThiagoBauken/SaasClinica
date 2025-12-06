@@ -41,3 +41,45 @@ export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunctio
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
+
+/**
+ * Alias para authCheck - mantido para compatibilidade com código existente
+ */
+export const requireAuth = authCheck;
+
+/**
+ * Extrai o companyId do usuário autenticado
+ * @throws Error se o usuário não tiver companyId
+ */
+export const getCompanyId = (req: Request): number => {
+  const user = req.user as { companyId?: number } | undefined;
+  if (!user?.companyId) {
+    throw new Error('User not associated with any company');
+  }
+  return user.companyId;
+};
+
+/**
+ * Middleware de validação usando Zod
+ */
+export const validate = (schemas: { body?: any; query?: any; params?: any }) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (schemas.body) {
+        req.body = schemas.body.parse(req.body);
+      }
+      if (schemas.query) {
+        req.query = schemas.query.parse(req.query);
+      }
+      if (schemas.params) {
+        req.params = schemas.params.parse(req.params);
+      }
+      next();
+    } catch (error: any) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors || error.message,
+      });
+    }
+  };
+};

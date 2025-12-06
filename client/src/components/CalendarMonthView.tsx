@@ -166,7 +166,7 @@ export default function CalendarMonthView({
         
         <div className="grid grid-cols-7 text-center mb-1">
           {weekDays.map((day, index) => (
-            <div key={index} className="text-xs text-gray-500 capitalize">
+            <div key={index} className="text-xs text-muted-foreground capitalize">
               {day}
             </div>
           ))}
@@ -180,12 +180,12 @@ export default function CalendarMonthView({
               const isSelected = isSameDay(day, selectedDate);
               
               return (
-                <div 
+                <div
                   key={dayIndex}
                   className={`
                     text-xs text-center py-1 cursor-pointer
-                    ${!isCurrentMonth ? "text-gray-300" : ""}
-                    ${isCurrentDay ? "bg-blue-100 rounded" : ""}
+                    ${!isCurrentMonth ? "text-muted-foreground/40" : ""}
+                    ${isCurrentDay ? "bg-blue-500/20 rounded" : ""}
                     ${isSelected ? "bg-blue-500 text-white rounded" : ""}
                   `}
                   onClick={() => handleDateClick(day)}
@@ -320,10 +320,10 @@ export default function CalendarMonthView({
             {weekDays.map((day, i) => {
               const isWeekend = i === 0 || i === 6;
               return (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={`py-2 px-3 text-center border-r uppercase ${
-                    isWeekend ? 'text-red-500' : 'text-gray-600'
+                    isWeekend ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
                   }`}
                 >
                   {day}
@@ -333,7 +333,7 @@ export default function CalendarMonthView({
           </div>
           
           {/* Grade do calendário */}
-          <div className="grid grid-cols-7 bg-white">
+          <div className="grid grid-cols-7 bg-card">
             {Array.from({ length: weekRows * 7 }).map((_, index) => {
               const dayIndex = index % 7;
               const weekIndex = Math.floor(index / 7);
@@ -343,15 +343,15 @@ export default function CalendarMonthView({
               const isWeekend = dayIndex === 0 || dayIndex === 6;
               const dayAppointments = getDayAppointments(day);
               const hasAppointments = dayAppointments.length > 0;
-              
+
               return (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={`
-                    min-h-[120px] p-2 border-r border-b relative 
-                    ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''}
-                    ${isCurrentDay ? 'bg-blue-50' : ''}
-                    ${isWeekend && !showWeekends ? 'bg-gray-100' : ''}
+                    min-h-[120px] p-2 border-r border-b relative
+                    ${!isCurrentMonth ? 'bg-muted/50 text-muted-foreground' : ''}
+                    ${isCurrentDay ? 'bg-blue-500/10' : ''}
+                    ${isWeekend && !showWeekends ? 'bg-muted' : ''}
                   `}
                   onClick={() => handleDateClick(day)}
                 >
@@ -367,7 +367,7 @@ export default function CalendarMonthView({
                   
                   {/* Feriados e dias especiais */}
                   {isCurrentMonth && dayIndex === 4 && weekIndex === 0 && showHolidays && (
-                    <div className="mt-1 text-xs text-gray-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Dia do Trabalho
                     </div>
                   )}
@@ -375,9 +375,9 @@ export default function CalendarMonthView({
                   {/* Agendamentos */}
                   <div className="mt-1 space-y-1">
                     {hasAppointments && dayAppointments.slice(0, 2).map((appt, i) => (
-                      <div 
-                        key={i} 
-                        className="text-xs p-1 bg-blue-100 rounded truncate"
+                      <div
+                        key={i}
+                        className="text-xs p-1 bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded truncate"
                         title={`${appt.patientName} - ${appt.procedure}`}
                       >
                         {appt.startTime && `${appt.startTime} `}
@@ -400,13 +400,13 @@ export default function CalendarMonthView({
       
       {/* Botão de ajuda flutuante */}
       <div className="fixed bottom-4 left-4 flex flex-col items-start space-y-2">
-        <Button 
+        <Button
           className="rounded-full bg-blue-600 text-white p-2 h-10 w-10"
           onClick={() => console.log("Ajuda")}
         >
           <HelpCircle className="h-5 w-5" />
         </Button>
-        <div className="text-xs text-blue-700 w-24">
+        <div className="text-xs text-blue-700 dark:text-blue-400 w-24">
           Precisa de ajuda?
         </div>
       </div>

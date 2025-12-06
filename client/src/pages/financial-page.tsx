@@ -67,25 +67,25 @@ import {
   Cell,
 } from "recharts";
 
-// Mock data for the charts
-const revenueByMonthData = [
-  { month: 'Jan', valor: 18500 },
-  { month: 'Fev', valor: 19800 },
-  { month: 'Mar', valor: 21200 },
-  { month: 'Abr', valor: 20100 },
-  { month: 'Mai', valor: 22400 },
-  { month: 'Jun', valor: 23500 },
-  { month: 'Jul', valor: 24500 },
-];
-
-const revenueByTypeData = [
-  { name: 'Consultas', value: 35 },
-  { name: 'Tratamentos', value: 45 },
-  { name: 'Estética', value: 15 },
-  { name: 'Outros', value: 5 },
-];
-
 const COLORS = ['#1976d2', '#43a047', '#ff5722', '#9c27b0'];
+
+interface Transaction {
+  id: number;
+  type: 'revenue' | 'expense';
+  date: string;
+  category: string;
+  description: string;
+  amount: number;
+  paymentMethod: string;
+  status: 'paid' | 'pending' | 'cancelled';
+  isFixedCost?: boolean;
+  frequency?: string;
+}
+
+interface ChartEntry {
+  name: string;
+  value: number;
+}
 
 export default function FinancialPage() {
   const { toast } = useToast();
@@ -106,82 +106,44 @@ export default function FinancialPage() {
   });
 
   // Fetch transactions
-  const { data: transactions, isLoading } = useQuery({
+  const { data: transactions, isLoading } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions", dateFilter],
     queryFn: async () => {
-      // For demonstration, we're returning mock data
-      return [
-        {
-          id: 1,
-          type: "revenue",
-          date: "2023-08-01",
-          category: "Consulta",
-          description: "Consulta inicial - Ricardo Almeida",
-          amount: 12000, // In cents
-          paymentMethod: "credit_card",
-          status: "paid",
-        },
-        {
-          id: 2,
-          type: "revenue",
-          date: "2023-08-03",
-          category: "Tratamento",
-          description: "Limpeza dental - Mariana Santos",
-          amount: 15000,
-          paymentMethod: "debit_card",
-          status: "paid",
-        },
-        {
-          id: 3,
-          type: "expense",
-          date: "2023-08-05",
-          category: "Material",
-          description: "Compra de material de consumo",
-          amount: 45000,
-          paymentMethod: "bank_transfer",
-          status: "paid",
-        },
-        {
-          id: 4,
-          type: "revenue",
-          date: "2023-08-07",
-          category: "Tratamento",
-          description: "Tratamento de canal - Bianca Lima",
-          amount: 30000,
-          paymentMethod: "cash",
-          status: "paid",
-        },
-        {
-          id: 5,
-          type: "revenue",
-          date: "2023-08-10",
-          category: "Ortodontia",
-          description: "Consulta de rotina - Sofia Martins",
-          amount: 20000,
-          paymentMethod: "credit_card",
-          status: "pending",
-        },
-        {
-          id: 6,
-          type: "expense",
-          date: "2023-08-12",
-          category: "Aluguel",
-          description: "Aluguel do mês",
-          amount: 250000,
-          paymentMethod: "bank_transfer",
-          status: "paid",
-        },
-        {
-          id: 7,
-          type: "expense",
-          date: "2023-08-15",
-          category: "Salários",
-          description: "Pagamento de funcionários",
-          amount: 380000,
-          paymentMethod: "bank_transfer",
-          status: "paid",
-        },
-      ];
+      const res = await fetch(`/api/transactions?filter=${dateFilter}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch transactions");
+      }
+      return res.json();
+    },
+  });
+
+  // Fetch revenue by month
+  const { data: revenueByMonthData = [] } = useQuery({
+    queryKey: ["/api/financial/revenue-by-month"],
+    queryFn: async () => {
+      const res = await fetch("/api/financial/revenue-by-month", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return [];
+      }
+      return res.json();
+    },
+  });
+
+  // Fetch revenue by type
+  const { data: revenueByTypeData = [] } = useQuery<ChartEntry[]>({
+    queryKey: ["/api/financial/revenue-by-type"],
+    queryFn: async () => {
+      const res = await fetch("/api/financial/revenue-by-type", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return [];
+      }
+      return res.json();
     },
   });
 

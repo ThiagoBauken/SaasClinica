@@ -1,8 +1,14 @@
 import Stripe from 'stripe';
 import { db } from '../db';
-import { subscriptions, subscriptionInvoices, plans } from '@shared/schema';
+import { subscriptions, subscriptionInvoices, plans, companies, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { subscriptionService } from './subscription-service';
+import {
+  sendEmail,
+  getTrialEndingSoonTemplate,
+  getPaymentFailedTemplate,
+  getInvoicePaidTemplate,
+} from '../services/email-service';
 
 /**
  * Serviço de Integração com Stripe
@@ -280,7 +286,49 @@ export class StripeService {
 
     console.log(`⚠️ Trial vai acabar para empresa ${companyId} em 3 dias`);
 
-    // TODO: Enviar email/notificação avisando que trial vai acabar
+    // Buscar informações da empresa e plano
+    const [subscriptionData] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.companyId, companyId))
+      .limit(1);
+
+    if (!subscriptionData) return;
+
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+
+    const [plan] = await db
+      .select()
+      .from(plans)
+      .where(eq(plans.id, subscriptionData.planId))
+      .limit(1);
+
+    // Buscar admin da empresa para enviar email
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(eq(users.companyId, companyId))
+      .limit(1);
+
+    if (!company || !plan || !admin || !admin.email) return;
+
+    // Calcular dias restantes
+    const daysLeft = subscriptionData.trialEndsAt
+      ? Math.ceil((new Date(subscriptionData.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 3;
+
+    // Enviar email de aviso
+    await sendEmail({
+      to: admin.email,
+      subject: `⏰ Seu período de teste expira em ${daysLeft} dias`,
+      html: getTrialEndingSoonTemplate(company.name || 'Clínica', daysLeft, plan.name),
+    });
+
+    console.log(`📧 Email de trial ending enviado para ${admin.email}`);
   }
 
   /**
@@ -298,7 +346,7 @@ export class StripeService {
     if (!subscription) return;
 
     // Registrar fatura como paga
-    await db
+    const [insertedInvoice] = await db
       .insert(subscriptionInvoices)
       .values({
         subscriptionId: subscription.id,
@@ -311,9 +359,38 @@ export class StripeService {
         paymentMethod: 'credit_card',
         invoiceUrl: invoice.hosted_invoice_url || undefined,
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning();
 
     console.log(`✅ Fatura ${invoice.id} paga: R$ ${invoice.amount_paid / 100}`);
+
+    // Enviar email de confirmação de pagamento
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, subscription.companyId))
+      .limit(1);
+
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(eq(users.companyId, subscription.companyId))
+      .limit(1);
+
+    if (company && admin && admin.email) {
+      await sendEmail({
+        to: admin.email,
+        subject: '✅ Pagamento Confirmado - DentalSystem',
+        html: getInvoicePaidTemplate(
+          company.name || 'Clínica',
+          invoice.amount_paid / 100,
+          invoice.number || invoice.id || 'N/A',
+          invoice.hosted_invoice_url || ''
+        ),
+      });
+
+      console.log(`📧 Email de pagamento confirmado enviado para ${admin.email}`);
+    }
   }
 
   /**
@@ -341,7 +418,38 @@ export class StripeService {
 
     console.log(`❌ Falha no pagamento da fatura ${invoice.id} para empresa ${subscription.companyId}`);
 
-    // TODO: Enviar email/notificação sobre falha no pagamento
+    // Enviar email sobre falha no pagamento
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, subscription.companyId))
+      .limit(1);
+
+    const [plan] = await db
+      .select()
+      .from(plans)
+      .where(eq(plans.id, subscription.planId))
+      .limit(1);
+
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(eq(users.companyId, subscription.companyId))
+      .limit(1);
+
+    if (company && plan && admin && admin.email) {
+      await sendEmail({
+        to: admin.email,
+        subject: '⚠️ Problema com o Pagamento - DentalSystem',
+        html: getPaymentFailedTemplate(
+          company.name || 'Clínica',
+          invoice.amount_due / 100,
+          plan.name
+        ),
+      });
+
+      console.log(`📧 Email de falha no pagamento enviado para ${admin.email}`);
+    }
   }
 }
 

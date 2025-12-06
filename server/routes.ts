@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, DatabaseStorage } from "./storage";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword } from "./auth";
 import { parse, formatISO, addDays } from "date-fns";
 import { cacheMiddleware } from "./simpleCache";
 import { invalidateClusterCache } from "./clusterCache";
@@ -12,6 +12,10 @@ import * as clinicHandlers from "./clinic-apis";
 import * as backupHandlers from "./backup";
 import * as websiteHandlers from "./website-apis";
 import * as dashboardHandlers from "./dashboard-apis";
+import * as financialHandlers from "./financial-apis";
+import * as patientRecordsHandlers from "./patient-records-apis";
+import * as odontogramHandlers from "./odontogram-apis";
+import * as calendarHandlers from "./calendar-apis";
 import { queueApi } from "./queue";
 import { billingApi, checkPatientsLimit, checkUsersLimit, checkAppointmentsLimit, registerStripeRoutes } from "./billing";
 import { eq, desc, sql } from "drizzle-orm";
@@ -21,6 +25,9 @@ import { requireModulePermission, getUserModulePermissions, grantModulePermissio
 import { moduleRegistry } from "../modules/index";
 import { registerProtesesRoutes } from "./modules/clinica/proteses";
 import { registerModularRoutes } from "./routes/index";
+import { notificationService } from "./services/notificationService";
+import { authCheck, adminOnly, asyncHandler, tenantAwareAuth } from "./middleware/auth";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -45,7 +52,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
   app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
-    const companyId = 3; // Dental Care Plus
+    // Usa o companyId do usuário autenticado, ou fallback para primeiro company disponível
+    const user = req.user as any;
+    const companyId = user?.companyId || 1;
     const activeModules = await db.$client.query(`
       SELECT 
         m.id, m.name, m.display_name, m.description,
@@ -68,38 +77,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }));
 
-  // === ROTAS SaaS TEMPORÁRIAS (SEM AUTENTICAÇÃO) ===
+  // === ROTAS SaaS (COM AUTENTICAÇÃO ADMIN) ===
   // Listar todas as empresas
-  app.get("/api/saas/companies", (req: Request, res: Response) => {
+  app.get("/api/saas/companies", authCheck, adminOnly, (req: Request, res: Response) => {
     db.$client.query(`
       SELECT c.*,
         (SELECT COUNT(*) FROM company_modules WHERE company_id = c.id AND is_enabled = true) as module_count
       FROM companies c
       ORDER BY c.name
     `)
-      .then(result => res.json(result.rows))
-      .catch(err => res.status(500).json({ error: err.message }));
+      .then((result: { rows: unknown[] }) => res.json(result.rows))
+      .catch((err: Error) => res.status(500).json({ error: err.message }));
+  });
+
+  // Schema de validação para criação de empresa
+  const createCompanySchema = z.object({
+    name: z.string().min(1, "Nome da empresa é obrigatório").max(255),
+    email: z.string().email("Email inválido").optional().or(z.literal("")),
+    phone: z.string().max(20).optional().or(z.literal("")),
+    address: z.string().max(500).optional().or(z.literal("")),
+    cnpj: z.string().regex(/^\d{14}$|^$/, "CNPJ deve ter 14 dígitos ou estar vazio").optional().or(z.literal("")),
+    active: z.boolean().optional().default(true),
   });
 
   // Criar nova empresa
-  app.post("/api/saas/companies", asyncHandler(async (req: Request, res: Response) => {
-    const { name, email, phone, address, cnpj, active } = req.body;
-
-    // Validação básica
-    if (!name) {
-      return res.status(400).json({ error: 'Nome da empresa é obrigatório' });
+  app.post("/api/saas/companies", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
+    // Validação com Zod
+    const validation = createCompanySchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Erro de validação',
+        details: validation.error.errors
+      });
     }
+
+    const { name, email, phone, address, cnpj, active } = validation.data;
 
     const result = await db.$client.query(`
       INSERT INTO companies (name, email, phone, address, cnpj, active, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING *
-    `, [name, email, phone, address, cnpj, active !== false]);
+    `, [name, email || null, phone || null, address || null, cnpj || null, active]);
 
     res.status(201).json(result.rows[0]);
   }));
 
-  app.get("/api/saas/companies/:companyId/modules", (req: Request, res: Response) => {
+  app.get("/api/saas/companies/:companyId/modules", authCheck, adminOnly, (req: Request, res: Response) => {
     const { companyId } = req.params;
     
     // Desabilitar cache para esta rota
@@ -116,11 +139,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
       ORDER BY m.display_name
     `, [companyId])
-      .then(result => res.json(result.rows))
-      .catch(err => res.status(500).json({ error: err.message }));
+      .then((result: { rows: unknown[] }) => res.json(result.rows))
+      .catch((err: Error) => res.status(500).json({ error: err.message }));
   });
 
-  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", (req: Request, res: Response) => {
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, adminOnly, (req: Request, res: Response) => {
     const { companyId, moduleId } = req.params;
     const { enabled } = req.body;
 
@@ -133,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       db.$client.query(query, [companyId, moduleId])
         .then(() => res.json({ success: true, message: 'Módulo ativado' }))
-        .catch(err => res.status(500).json({ error: err.message }));
+        .catch((err: Error) => res.status(500).json({ error: err.message }));
     } else {
       // Inserir ou atualizar para desativado
       const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
@@ -143,13 +166,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       db.$client.query(query, [companyId, moduleId])
         .then(() => res.json({ success: true, message: 'Módulo desativado' }))
-        .catch(err => res.status(500).json({ error: err.message }));
+        .catch((err: Error) => res.status(500).json({ error: err.message }));
     }
   });
 
   // === ROTAS DE GERENCIAMENTO DE USUÁRIOS SaaS ===
   // Listar todos os usuários do SaaS (todas as empresas)
-  app.get("/api/saas/users", asyncHandler(async (req: Request, res: Response) => {
+  app.get("/api/saas/users", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const result = await db.$client.query(`
       SELECT
         u.id, u.username, u.full_name, u.email, u.phone, u.role,
@@ -171,8 +194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
-    // Hash da senha (simplificado - em produção usar bcrypt)
-    const hashedPassword = password; // TODO: implementar hash adequado
+    // Hash da senha usando scrypt
+    const hashedPassword = await hashPassword(password);
 
     const result = await db.$client.query(`
       INSERT INTO users (company_id, username, password, full_name, role, email, phone, active, created_at, updated_at)
@@ -251,13 +274,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: 'Nova senha é obrigatória' });
     }
 
-    // TODO: Implementar hash adequado da senha em produção
+    // Hash da senha usando scrypt
+    const hashedPassword = await hashPassword(newPassword);
     const result = await db.$client.query(`
       UPDATE users
       SET password = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING id, username, full_name
-    `, [newPassword, userId]);
+    `, [hashedPassword, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -313,17 +337,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `);
     res.json(result.rows);
   }));
-
-  // Middleware para verificar autenticação em todas as rotas API
-  const authCheck = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-  };
-
-  // Middleware combinado: auth + tenant isolation
-  const tenantAwareAuth = [authCheck, tenantIsolationMiddleware, resourceAccessMiddleware];
 
   // Company info for current user
   app.get("/api/user/company", authCheck, asyncHandler(async (req, res) => {
@@ -407,6 +420,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/procedures-distribution", tenantAwareAuth, asyncHandler(dashboardHandlers.getProceduresDistribution));
   app.get("/api/recent-activities", tenantAwareAuth, asyncHandler(dashboardHandlers.getRecentActivities));
 
+  // === ROTAS FINANCEIRAS ===
+  app.get("/api/transactions", tenantAwareAuth, asyncHandler(financialHandlers.getTransactions));
+  app.post("/api/transactions", tenantAwareAuth, asyncHandler(financialHandlers.createTransaction));
+  app.get("/api/financial/revenue-by-month", tenantAwareAuth, asyncHandler(financialHandlers.getRevenueByMonth));
+  app.get("/api/financial/revenue-by-type", tenantAwareAuth, asyncHandler(financialHandlers.getRevenueByType));
+
+  // === ROTAS DE PRONTUÁRIO DO PACIENTE ===
+  app.get("/api/patients/:patientId/records", tenantAwareAuth, asyncHandler(patientRecordsHandlers.getPatientRecords));
+  app.post("/api/patients/:patientId/records", tenantAwareAuth, asyncHandler(patientRecordsHandlers.createPatientRecord));
+  app.put("/api/patients/:patientId/records/:recordId", tenantAwareAuth, asyncHandler(patientRecordsHandlers.updatePatientRecord));
+  app.delete("/api/patients/:patientId/records/:recordId", tenantAwareAuth, asyncHandler(patientRecordsHandlers.deletePatientRecord));
+
+  // === ROTAS DE ODONTOGRAMA ===
+  app.get("/api/patients/:patientId/odontogram", tenantAwareAuth, asyncHandler(odontogramHandlers.getPatientOdontogram));
+  app.post("/api/patients/:patientId/odontogram", tenantAwareAuth, asyncHandler(odontogramHandlers.saveToothStatus));
+  app.delete("/api/patients/:patientId/odontogram/:entryId", tenantAwareAuth, asyncHandler(odontogramHandlers.deleteToothStatus));
+
+  // === ROTAS DE CALENDÁRIO ===
+  app.get("/api/calendar/occupation-status", tenantAwareAuth, asyncHandler(calendarHandlers.getOccupationStatus));
+  app.get("/api/appointments/stats/procedures", tenantAwareAuth, asyncHandler(calendarHandlers.getProcedureStats));
+
   // === ROTAS DE MONITORAMENTO DE FILAS ===
   app.get("/api/queue/health", authCheck, asyncHandler(queueApi.getQueueHealth));
   app.get("/api/queue/stats", authCheck, asyncHandler(queueApi.getQueueStats));
@@ -415,13 +449,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/queue/:queueName/clean", authCheck, asyncHandler(queueApi.cleanQueue));
 
   // === ROTAS DE BILLING E ASSINATURAS ===
-  app.get("/api/billing/plans", asyncHandler(billingApi.getPlans)); // Público
-  app.get("/api/billing/subscription", authCheck, asyncHandler(billingApi.getMySubscription));
+  // Wrapped com try-catch para tabelas que podem não existir ainda
+  app.get("/api/billing/plans", asyncHandler(async (req, res) => {
+    try {
+      await billingApi.getPlans(req, res);
+    } catch (error: any) {
+      console.error('Error fetching plans:', error);
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return res.json([]);
+      }
+      throw error;
+    }
+  }));
+
+  app.get("/api/billing/subscription", authCheck, asyncHandler(async (req, res) => {
+    try {
+      await billingApi.getMySubscription(req, res);
+    } catch (error: any) {
+      console.error('Error fetching subscription:', error);
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return res.status(404).json({ error: 'Subscription not found - tables may not exist' });
+      }
+      throw error;
+    }
+  }));
+
   app.post("/api/billing/subscription", authCheck, asyncHandler(billingApi.createSubscription));
   app.put("/api/billing/subscription/plan", authCheck, asyncHandler(billingApi.changePlan));
   app.delete("/api/billing/subscription", authCheck, asyncHandler(billingApi.cancelSubscription));
-  app.get("/api/billing/invoices", authCheck, asyncHandler(billingApi.getInvoices));
-  app.get("/api/billing/usage", authCheck, asyncHandler(billingApi.getUsage));
+
+  app.get("/api/billing/invoices", authCheck, asyncHandler(async (req, res) => {
+    try {
+      await billingApi.getInvoices(req, res);
+    } catch (error: any) {
+      console.error('Error fetching invoices:', error);
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return res.json([]);
+      }
+      throw error;
+    }
+  }));
+
+  app.get("/api/billing/usage", authCheck, asyncHandler(async (req, res) => {
+    try {
+      await billingApi.getUsage(req, res);
+    } catch (error: any) {
+      console.error('Error fetching usage:', error);
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return res.json({ usage: [], limits: {} });
+      }
+      throw error;
+    }
+  }));
+
   app.get("/api/billing/check-limit/:metricType", authCheck, asyncHandler(billingApi.checkLimit));
 
   // Registrar rotas do Stripe (webhook + checkout)
@@ -434,8 +514,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const user = req.user as any;
     const companyId = user?.companyId || 3;
-    const patients = await storage.getPatients(companyId);
-    res.json(patients);
+    try {
+      const patients = await storage.getPatients(companyId);
+      res.json(patients);
+    } catch (error: any) {
+      console.error('Error fetching patients:', error);
+      // Se a tabela não existe, retornar array vazio
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        return res.json([]);
+      }
+      throw error;
+    }
   }));
 
   app.get("/api/patients/:id", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
@@ -639,76 +728,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Patient records
-  app.get("/api/patients/:id/records", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const records = await storage.getPatientRecords(parseInt(req.params.id));
-      res.json(records);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/patients/:id/records", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const record = await storage.createPatientRecord({
-        ...req.body,
-        patientId: parseInt(req.params.id),
-        createdBy: req.user?.id,
-      });
-      res.status(201).json(record);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // Odontogram
-  app.get("/api/patients/:id/odontogram", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const entries = await storage.getOdontogramEntries(parseInt(req.params.id));
-      res.json(entries);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/patients/:id/odontogram", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const entry = await storage.createOdontogramEntry({
-        ...req.body,
-        patientId: parseInt(req.params.id),
-        createdBy: req.user?.id,
-      });
-      res.status(201).json(entry);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  // Financial
-  app.get("/api/transactions", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const transactions = await storage.getTransactions();
-      res.json(transactions);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/api/transactions", async (req, res, next) => {
-    try {
-      if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-      const transaction = await storage.createTransaction(req.body);
-      res.status(201).json(transaction);
-    } catch (error) {
-      next(error);
-    }
-  });
+  // ✅ REMOVIDO: Rotas antigas duplicadas
+  // As novas rotas estão nas linhas 418-437 com implementação completa
+  // usando handlers especializados (financialHandlers, patientRecordsHandlers, odontogramHandlers)
 
   // Automations
   app.get("/api/automations", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
@@ -886,13 +908,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       where: eq(userPermissions.userId, userId)
     });
     
-    const permissionIds = userPerms.map(up => up.permissionId);
+    type UserPermission = typeof userPermissions.$inferSelect;
+    const permissionIds = userPerms.map((up: UserPermission) => up.permissionId);
     
     // Carrega os detalhes completos das permissões
     const permissionsDetails = await db.query.permissions.findMany({
-      where: (permissions, { inArray }) => inArray(permissions.id, permissionIds)
+      where: (perms: typeof permissions, { inArray }: { inArray: typeof import('drizzle-orm').inArray }) => inArray(perms.id, permissionIds)
     });
-    
+
     res.json(permissionsDetails);
   }));
 
@@ -920,12 +943,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updatedUserPerms = await db.query.userPermissions.findMany({
       where: eq(userPermissions.userId, userId)
     });
-    
-    const updatedPermissionIds = updatedUserPerms.map(up => up.permissionId);
-    
+
+    type UserPermission = typeof userPermissions.$inferSelect;
+    const updatedPermissionIds = updatedUserPerms.map((up: UserPermission) => up.permissionId);
+
     // Carrega os detalhes completos das permissões
     const permissionsDetails = await db.query.permissions.findMany({
-      where: (permissions, { inArray }) => inArray(permissions.id, updatedPermissionIds)
+      where: (perms: typeof permissions, { inArray }: { inArray: typeof import('drizzle-orm').inArray }) => inArray(perms.id, updatedPermissionIds)
     });
     
     invalidateClusterCache(`api:/api/users/${userId}/permissions`);
@@ -1080,9 +1104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const procedureId = parseInt(req.params.procedureId);
     
     const existingCommission = await db.query.procedureCommissions.findFirst({
-      where: (commissions, { and, eq }) => and(
-        eq(commissions.userId, userId),
-        eq(commissions.procedureId, procedureId)
+      where: (comms: typeof procedureCommissions, { and: andFn, eq: eqFn }: { and: typeof import('drizzle-orm').and, eq: typeof import('drizzle-orm').eq }) => andFn(
+        eqFn(comms.userId, userId),
+        eqFn(comms.procedureId, procedureId)
       )
     });
     
@@ -1544,22 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // === APIs PARA MÓDULOS DO USUÁRIO ===
-  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
-    // Retornar permissões baseadas nos módulos ativos da empresa
-    const companyId = 3; // Dental Care Plus
-    
-    const activeModules = await db.$client.query(`
-      SELECT 
-        m.id, m.name, m.display_name, m.description,
-        CASE WHEN cm.is_enabled = true THEN '["admin"]'::jsonb ELSE '[]'::jsonb END as permissions
-      FROM modules m
-      LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
-      WHERE cm.is_enabled = true
-      ORDER BY m.display_name
-    `, [companyId]);
-    
-    res.json(activeModules.rows);
-  }));
+  // REMOVIDO: Rota duplicada - já existe na linha ~48
 
   // === APIs PARA MÓDULOS DA CLÍNICA ===
   app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {
@@ -2257,5 +2266,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   const httpServer = createServer(app);
+
+  // Initialize WebSocket server for real-time notifications
+  notificationService.initialize(httpServer);
+
   return httpServer;
 }

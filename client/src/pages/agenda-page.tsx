@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import CalendarMonthView from "@/components/CalendarMonthView";
 import CalendarWeekView from "@/components/CalendarWeekView";
-import CalendarDayView from "@/components/CalendarDayView";
+import CalendarDayView, { type CalendarDayViewRef } from "@/components/CalendarDayView";
 import FindFreeTimeDialog from "@/components/FindFreeTimeDialog";
 import ScheduleSidebar from "@/components/calendar/ScheduleSidebar";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusIcon, BarChart, Calendar, Clock, Settings } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { PlusIcon, BarChart, Calendar, Clock, Settings, Filter, ChevronDown, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -37,14 +42,74 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import AppointmentQuickActions from "@/components/AppointmentQuickActions";
+import ConflictSuggestionsDialog from "@/components/ConflictSuggestionsDialog";
+import PaymentStatusBadge, { PaymentStatus } from "@/components/PaymentStatusBadge";
+import AppointmentDetailsDrawer from "@/components/AppointmentDetailsDrawer";
+import FloatingActionButton from "@/components/FloatingActionButton";
+import { useLocation } from "wouter";
 
-const mockProcedureStats = [
-  { name: "Consulta Inicial", count: 18, value: 2700 },
-  { name: "Limpeza", count: 15, value: 3000 },
-  { name: "Canal", count: 8, value: 3600 },
-  { name: "Extração", count: 12, value: 3000 },
-  { name: "Restauração", count: 22, value: 4400 },
-];
+// REMOVED: mockProcedureStats - now fetched from backend via useQuery
+
+// Types for API responses
+interface ApiAppointment {
+  id: number;
+  patientId: number;
+  patientName: string;
+  patientPhone?: string;
+  patientWhatsapp?: string;
+  professionalId: number;
+  professionalName: string;
+  procedureName?: string;
+  notes?: string;
+  status: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface ApiProfessional {
+  id: number;
+  fullName: string;
+  speciality?: string;
+}
+
+interface ApiRoom {
+  id: number;
+  name: string;
+}
+
+interface ApiPatient {
+  id: number;
+  fullName: string;
+  phone?: string;
+}
+
+interface ApiProcedure {
+  id: number;
+  name: string;
+  duration?: number;
+}
+
+interface ApiResponse<T> {
+  data: T[];
+  total?: number;
+}
+
+interface LocalAppointment {
+  id: number;
+  date: Date;
+  patientId: number;
+  patientName: string;
+  patientPhone?: string;
+  professionalName: string;
+  professionalId: number;
+  procedure: string;
+  status: string;
+  startTime: string;
+  endTime: string;
+  paymentStatus?: PaymentStatus;
+  paymentAmount: number;
+  paidAmount: number;
+}
 
 export default function AgendaPage() {
   const { toast } = useToast();
@@ -68,6 +133,36 @@ export default function AgendaPage() {
   const [dateRangeEnd, setDateRangeEnd] = useState<string>("");
   const [showDailyAppointments, setShowDailyAppointments] = useState(true);
 
+  // Estado para diálogo de conflitos
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictData, setConflictData] = useState<any>(null);
+
+  // Estado para Bottom Sheet de detalhes
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Estado para controlar área de filtros
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Ref para controlar o CalendarDayView
+  const calendarDayViewRef = useRef<CalendarDayViewRef>(null);
+
+  // Fetch procedure statistics from backend
+  const { data: procedureStats = [] } = useQuery({
+    queryKey: ["/api/appointments/stats/procedures"],
+    queryFn: async () => {
+      const res = await fetch("/api/appointments/stats/procedures", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return []; // Return empty array if fails
+      }
+      return res.json();
+    },
+  });
+
+  const [, navigate] = useLocation();
+
   // Form state for new appointment
   const [newAppointment, setNewAppointment] = useState({
     patientId: "",
@@ -80,45 +175,59 @@ export default function AgendaPage() {
   });
 
   // Query para buscar compromissos reais da API
-  const { data: appointmentsData, isLoading } = useQuery({
+  const { data: appointmentsData, isLoading } = useQuery<ApiResponse<ApiAppointment>>({
     queryKey: ["/api/v1/appointments", {
       limit: 1000, // Buscar muitos para ter dados suficientes
     }],
   });
 
   // Query para buscar profissionais reais
-  const { data: professionalsData } = useQuery({
+  const { data: professionalsData } = useQuery<ApiResponse<ApiProfessional>>({
     queryKey: ["/api/v1/professionals"],
   });
 
   // Query para buscar salas reais
-  const { data: roomsData } = useQuery({
+  const { data: roomsData } = useQuery<ApiResponse<ApiRoom>>({
     queryKey: ["/api/v1/rooms"],
   });
 
-  const appointments = useMemo(() => {
+  const appointments: LocalAppointment[] = useMemo(() => {
     if (!appointmentsData?.data) return [];
 
     // Transformar dados da API para o formato esperado pelo componente
-    return appointmentsData.data.map((appt: any) => ({
-      id: appt.id,
-      date: new Date(appt.startTime), // startTime já é um ISO timestamp
-      patientId: appt.patientId,
-      patientName: appt.patientName,
-      patientPhone: appt.patientPhone || appt.patientWhatsapp,
-      professionalName: appt.professionalName,
-      professionalId: appt.professionalId,
-      procedure: appt.procedureName || appt.notes || "Consulta",
-      status: appt.status,
-      startTime: format(new Date(appt.startTime), "HH:mm"),
-      endTime: format(new Date(appt.endTime), "HH:mm"),
-    }));
+    return appointmentsData.data.map((appt: ApiAppointment, index: number) => {
+      // Gerar status de pagamento mock baseado no índice
+      const paymentStatuses: PaymentStatus[] = ['paid', 'pending', 'partial', 'overdue', 'not_required'];
+      const paymentStatus: PaymentStatus = paymentStatuses[index % paymentStatuses.length];
+
+      // Gerar valores mock
+      const paymentAmount = paymentStatus === 'not_required' ? 0 : 150 + (index * 50);
+      const paidAmount = paymentStatus === 'partial' ? paymentAmount * 0.5 :
+                         paymentStatus === 'paid' ? paymentAmount : 0;
+
+      return {
+        id: appt.id,
+        date: new Date(appt.startTime),
+        patientId: appt.patientId,
+        patientName: appt.patientName,
+        patientPhone: appt.patientPhone || appt.patientWhatsapp,
+        professionalName: appt.professionalName,
+        professionalId: appt.professionalId,
+        procedure: appt.procedureName || appt.notes || "Consulta",
+        status: appt.status,
+        startTime: format(new Date(appt.startTime), "HH:mm"),
+        endTime: format(new Date(appt.endTime), "HH:mm"),
+        paymentStatus,
+        paymentAmount,
+        paidAmount,
+      };
+    });
   }, [appointmentsData]);
 
   // Transformar profissionais da API
   const mockProfessionals = useMemo(() => {
     if (!professionalsData?.data) return [];
-    return professionalsData.data.map((prof: any) => ({
+    return professionalsData.data.map((prof: ApiProfessional) => ({
       id: prof.id,
       name: prof.fullName,
       specialty: prof.speciality || "Dentista",
@@ -128,38 +237,38 @@ export default function AgendaPage() {
   // Transformar salas da API
   const mockRooms = useMemo(() => {
     if (!roomsData?.data) return [];
-    return roomsData.data.map((room: any) => ({
+    return roomsData.data.map((room: ApiRoom) => ({
       id: room.id,
       name: room.name,
     }));
   }, [roomsData]);
 
   // Query para buscar pacientes reais
-  const { data: patientsData } = useQuery({
+  const { data: patientsData } = useQuery<ApiResponse<ApiPatient>>({
     queryKey: ["/api/v1/patients"],
   });
 
   const mockPatients = useMemo(() => {
     if (!patientsData?.data) return [];
-    return patientsData.data.map((patient: any) => ({
+    return patientsData.data.map((patient: ApiPatient) => ({
       id: patient.id,
-      name: patient.name,
-      phone: patient.phone || patient.whatsapp || "",
+      name: patient.fullName,
+      phone: patient.phone || "",
     }));
   }, [patientsData]);
 
   // Query para buscar procedimentos reais
-  const { data: proceduresData } = useQuery({
+  const { data: proceduresData } = useQuery<ApiResponse<ApiProcedure>>({
     queryKey: ["/api/v1/procedures"],
   });
 
   const mockProcedures = useMemo(() => {
     if (!proceduresData?.data) return [];
-    return proceduresData.data.map((proc: any) => ({
+    return proceduresData.data.map((proc: ApiProcedure) => ({
       id: proc.id,
       name: proc.name,
       duration: proc.duration || 30,
-      price: proc.price || 0,
+      price: 0,
     }));
   }, [proceduresData]);
 
@@ -182,6 +291,15 @@ export default function AgendaPage() {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // Se for conflito (409), armazenar dados para exibir sugestões
+        if (response.status === 409) {
+          const conflictError: any = new Error(error.message || 'Conflito de agendamento');
+          conflictError.isConflict = true;
+          conflictError.conflictData = error;
+          throw conflictError;
+        }
+
         throw new Error(error.message || 'Erro ao criar agendamento');
       }
 
@@ -204,7 +322,16 @@ export default function AgendaPage() {
         notes: "",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      // Se for conflito, mostrar diálogo com sugestões
+      if (error.isConflict) {
+        setConflictData(error.conflictData);
+        setShowConflictDialog(true);
+        setIsNewAppointmentOpen(false); // Fechar diálogo de criação
+        return;
+      }
+
+      // Para outros erros, mostrar toast normal
       toast({
         title: 'Erro ao criar agendamento',
         description: error.message,
@@ -232,6 +359,15 @@ export default function AgendaPage() {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // Se for conflito (409), armazenar dados para exibir sugestões
+        if (response.status === 409) {
+          const conflictError: any = new Error(error.message || 'Conflito de agendamento');
+          conflictError.isConflict = true;
+          conflictError.conflictData = error;
+          throw conflictError;
+        }
+
         throw new Error(error.message || 'Erro ao atualizar agendamento');
       }
 
@@ -255,7 +391,16 @@ export default function AgendaPage() {
         notes: "",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      // Se for conflito, mostrar diálogo com sugestões
+      if (error.isConflict) {
+        setConflictData(error.conflictData);
+        setShowConflictDialog(true);
+        setIsEditAppointmentOpen(false); // Fechar diálogo de edição
+        return;
+      }
+
+      // Para outros erros, mostrar toast normal
       toast({
         title: 'Erro ao atualizar agendamento',
         description: error.message,
@@ -407,7 +552,75 @@ export default function AgendaPage() {
     });
   };
 
+  // Contar filtros ativos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedProfessionalFilter !== "all") count++;
+    if (selectedRoomFilter !== "all") count++;
+    if (selectedStatusFilter !== "all") count++;
+    if (selectedProcedureFilter !== "all") count++;
+    if (dateRangeStart) count++;
+    if (dateRangeEnd) count++;
+    return count;
+  }, [selectedProfessionalFilter, selectedRoomFilter, selectedStatusFilter, selectedProcedureFilter, dateRangeStart, dateRangeEnd]);
+
+  // Limpar todos os filtros
+  const clearAllFilters = () => {
+    setSelectedProfessionalFilter("all");
+    setSelectedRoomFilter("all");
+    setSelectedStatusFilter("all");
+    setSelectedProcedureFilter("all");
+    setDateRangeStart("");
+    setDateRangeEnd("");
+    toast({
+      title: "Filtros limpos",
+      description: "Todos os filtros foram removidos",
+    });
+  };
+
   // Função para lidar com a seleção de uma data (ao clicar no dia, muda para visualização diária)
+  // Handlers para sugestões de conflito
+  const handleSelectTimeSlot = (slot: { startTime: string; endTime: string }) => {
+    const startDate = new Date(slot.startTime);
+    const endDate = new Date(slot.endTime);
+
+    // Atualizar formulário com o novo horário sugerido
+    setNewAppointment({
+      ...newAppointment,
+      date: format(startDate, "yyyy-MM-dd"),
+      time: format(startDate, "HH:mm"),
+      endTime: format(endDate, "HH:mm"),
+    });
+
+    // Fechar diálogo de conflito e reabrir formulário
+    setShowConflictDialog(false);
+    setConflictData(null);
+    setIsNewAppointmentOpen(true);
+
+    toast({
+      title: "Horário atualizado",
+      description: `Horário alterado para ${format(startDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+    });
+  };
+
+  const handleSelectRoom = (room: { roomId: number; roomName: string }) => {
+    // Atualizar formulário com a nova sala sugerida
+    setNewAppointment({
+      ...newAppointment,
+      // Aqui você pode adicionar roomId quando adicionar campo de sala no formulário
+    });
+
+    // Fechar diálogo de conflito e reabrir formulário
+    setShowConflictDialog(false);
+    setConflictData(null);
+    setIsNewAppointmentOpen(true);
+
+    toast({
+      title: "Sala atualizada",
+      description: `Sala alterada para ${room.roomName}`,
+    });
+  };
+
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setActiveView("day"); // Muda automaticamente para visualização diária
@@ -447,8 +660,122 @@ export default function AgendaPage() {
 
   // Função para salvar novo agendamento
   const handleSaveAppointment = () => {
-    console.log("Novo agendamento:", newAppointment);
-    setIsNewAppointmentOpen(false);
+    if (!newAppointment.patientId || !newAppointment.professionalId) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha o paciente e o profissional',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    createAppointmentMutation.mutate(newAppointment);
+  };
+
+  // Função para abrir dialog de edição
+  const handleEditAppointment = (appointmentId: number) => {
+    // Buscar dados do agendamento para preencher o form
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (appointment) {
+      const dateStr = format(appointment.date, 'yyyy-MM-dd');
+      setNewAppointment({
+        patientId: appointment.patientId.toString(),
+        professionalId: appointment.professionalId?.toString() || "",
+        procedureId: "",
+        date: dateStr,
+        time: appointment.startTime,
+        endTime: appointment.endTime,
+        notes: "",
+      });
+      setEditingAppointmentId(appointmentId);
+      setIsEditAppointmentOpen(true);
+    }
+  };
+
+  // Função para salvar edição do agendamento
+  const handleSaveEdit = () => {
+    if (!editingAppointmentId) return;
+
+    updateAppointmentMutation.mutate({
+      id: editingAppointmentId,
+      data: newAppointment,
+    });
+  };
+
+  // Função para abrir confirmação de delete
+  const handleOpenDeleteConfirm = (appointmentId: number) => {
+    setAppointmentToDelete(appointmentId);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Função para confirmar delete
+  const handleConfirmDelete = () => {
+    if (appointmentToDelete) {
+      deleteAppointmentMutation.mutate(appointmentToDelete);
+    }
+  };
+
+  // Handlers para Bottom Sheet
+  const handleAppointmentClick = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setIsDrawerOpen(true);
+  };
+
+  const handleWhatsApp = (phone: string) => {
+    window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
+  };
+
+  const handleViewRecord = (appointmentId: number) => {
+    const appointment = appointments.find((a: any) => a.id === appointmentId);
+    if (appointment) {
+      navigate(`/prontuario/${appointment.patientId}`);
+    }
+  };
+
+  const handleConfirmAppointment = async (appointmentId: number) => {
+    try {
+      await updateAppointmentMutation.mutateAsync({
+        id: appointmentId,
+        data: { status: 'confirmed' },
+      });
+      toast({
+        title: "Agendamento confirmado",
+        description: "O status foi atualizado para confirmado.",
+      });
+    } catch (error) {
+      console.error("Erro ao confirmar:", error);
+    }
+  };
+
+  // Handler para Drag & Drop de reagendamento
+  const handleAppointmentDrop = async (
+    appointmentId: number,
+    newDate: Date,
+    newStartTime: string,
+    newEndTime: string
+  ) => {
+    try {
+      // Atualizar otimisticamente
+      const newDateStr = format(newDate, "yyyy-MM-dd");
+
+      // Chamar mutation de atualização
+      await updateAppointmentMutation.mutateAsync({
+        id: appointmentId,
+        data: {
+          date: newDateStr,
+          time: newStartTime,
+          endTime: newEndTime,
+        },
+      });
+
+      toast({
+        title: "Agendamento reagendado",
+        description: `Novo horário: ${format(newDate, "dd/MM/yyyy")} às ${newStartTime}`,
+      });
+    } catch (error: any) {
+      // Se houver erro de conflito (409), o toast de erro já será mostrado pela mutation
+      console.error("Erro ao reagendar:", error);
+    }
   };
 
   // Handler para filtros da sidebar
@@ -472,19 +799,19 @@ export default function AgendaPage() {
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'scheduled': // agendado
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30';
       case 'confirmed': // confirmado
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30';
       case 'in_progress': // em andamento
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30';
       case 'completed': // concluído
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        return 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
       case 'cancelled': // cancelado
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30';
       case 'no_show': // faltou
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -504,159 +831,125 @@ export default function AgendaPage() {
   return (
     <DashboardLayout title="Agenda" currentPath="/agenda">
       <div className="flex flex-col h-full">
-        {/* Header com controles */}
-        <div className="flex justify-between items-center mb-4 p-4 bg-card rounded-lg shadow-sm">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold">Agenda</h1>
-
-            {/* Botão Hoje */}
-            <Button
-              variant="outline"
-              onClick={handleGoToToday}
-              className="flex items-center gap-2"
-            >
-              <Calendar className="h-4 w-4" />
-              Hoje
-            </Button>
-
-            {/* Seletor de intervalo de tempo */}
-            <Select
-              value={timeInterval.toString()}
-              onValueChange={(value) => {
-                const interval = parseInt(value) as 15 | 20 | 30 | 60;
-                setTimeInterval(interval);
-                toast({
-                  title: `Intervalo alterado para ${interval} minutos`,
-                  description: `Os horários agora estão divididos em intervalos de ${interval} minutos.`,
-                });
-              }}
-            >
-              <SelectTrigger className="w-[140px]">
-                <Clock className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15">15 minutos</SelectItem>
-                <SelectItem value="20">20 minutos</SelectItem>
-                <SelectItem value="30">30 minutos</SelectItem>
-                <SelectItem value="60">60 minutos</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Filtro de profissional */}
-            <Select
-              value={selectedProfessionalFilter}
-              onValueChange={setSelectedProfessionalFilter}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por profissional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os profissionais</SelectItem>
-                {mockProfessionals.map((prof) => (
-                  <SelectItem key={prof.id} value={prof.id.toString()}>
-                    {prof.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Filtro de sala */}
-            <Select
-              value={selectedRoomFilter}
-              onValueChange={setSelectedRoomFilter}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por sala" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as salas</SelectItem>
-                {mockRooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id.toString()}>
-                    {room.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Filtro de status */}
-            <Select
-              value={selectedStatusFilter}
-              onValueChange={setSelectedStatusFilter}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="scheduled">Agendado</SelectItem>
-                <SelectItem value="confirmed">Confirmado</SelectItem>
-                <SelectItem value="in_progress">Em Andamento</SelectItem>
-                <SelectItem value="completed">Concluído</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
-                <SelectItem value="no_show">Faltou</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Filtro de procedimento */}
-            <Select
-              value={selectedProcedureFilter}
-              onValueChange={setSelectedProcedureFilter}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por procedimento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os procedimentos</SelectItem>
-                {mockProcedures.map((proc) => (
-                  <SelectItem key={proc.id} value={proc.name}>
-                    {proc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex space-x-2">
-            {/* Botão de configurações */}
-            <Link href="/settings/schedule">
-              <Button variant="outline" size="icon">
-                <Settings className="h-4 w-4" />
+        {/* Header Principal - Linha 1: Título e Ações */}
+        <div className="mb-4 p-4 bg-card rounded-lg shadow-sm space-y-3">
+          <div className="flex flex-wrap justify-between items-center gap-3">
+            {/* Título e botão Hoje */}
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">Agenda</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGoToToday}
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Hoje
               </Button>
-            </Link>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+              </span>
+            </div>
 
-            <Button
-              variant="outline"
-              onClick={toggleStats}
-              className={showStats ? "bg-blue-50" : ""}
-            >
-              <BarChart className="h-4 w-4 mr-2" />
-              Estatísticas
-            </Button>
+            {/* Botões de ação principais */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Intervalo de tempo */}
+              <Select
+                value={timeInterval.toString()}
+                onValueChange={(value) => {
+                  const interval = parseInt(value) as 15 | 20 | 30 | 60;
+                  setTimeInterval(interval);
+                }}
+              >
+                <SelectTrigger className="w-[110px] h-9">
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 min</SelectItem>
+                  <SelectItem value="20">20 min</SelectItem>
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="60">60 min</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <FindFreeTimeDialog
-              selectedDate={selectedDate}
-              onSelectTimeSlot={(date, startTime, endTime) => {
-                setSelectedDate(date);
-                setNewAppointment({
-                  ...newAppointment,
-                  date: format(date, "yyyy-MM-dd"),
-                  time: startTime,
-                  endTime: endTime
-                });
-                setIsNewAppointmentOpen(true);
-              }}
-            />
+              {/* Botão de filtros */}
+              <Button
+                variant={showFilters || activeFiltersCount > 0 ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+                {activeFiltersCount > 0 && (
+                  <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+                <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </Button>
 
-            <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  onClick={handleAddAppointment}
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 text-white"
-                >
-                  <PlusIcon className="mr-2 h-4 w-4" /> Criar
+              {/* Estatísticas */}
+              <Button
+                variant={showStats ? "secondary" : "outline"}
+                size="sm"
+                onClick={toggleStats}
+              >
+                <BarChart className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Estatísticas</span>
+              </Button>
+
+              {/* Encontrar horário */}
+              <FindFreeTimeDialog
+                selectedDate={selectedDate}
+                professionals={mockProfessionals}
+                onSelectTimeSlot={(date, startTime, endTime) => {
+                  setSelectedDate(date);
+                  setNewAppointment({
+                    ...newAppointment,
+                    date: format(date, "yyyy-MM-dd"),
+                    time: startTime,
+                    endTime: endTime
+                  });
+                  setIsNewAppointmentOpen(true);
+                }}
+              />
+
+              {/* Configurações */}
+              <Link href="/settings/schedule">
+                <Button variant="outline" size="icon" className="h-9 w-9">
+                  <Settings className="h-4 w-4" />
                 </Button>
-              </DialogTrigger>
+              </Link>
+
+              {/* Criar agendamento */}
+              <Dialog open={isNewAppointmentOpen} onOpenChange={(open) => {
+                setIsNewAppointmentOpen(open);
+                if (!open) {
+                  setNewAppointment({
+                    patientId: "",
+                    professionalId: "",
+                    procedureId: "",
+                    date: format(selectedDate, "yyyy-MM-dd"),
+                    time: "09:00",
+                    endTime: "09:30",
+                    notes: "",
+                  });
+                  calendarDayViewRef.current?.clearSelection();
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button
+                    onClick={handleAddAppointment}
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1.5" />
+                    <span className="hidden sm:inline">Novo</span>
+                    <span className="sm:hidden">+</span>
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Novo Agendamento</DialogTitle>
@@ -766,7 +1059,20 @@ export default function AgendaPage() {
                 </div>
 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsNewAppointmentOpen(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setIsNewAppointmentOpen(false);
+                    setNewAppointment({
+                      patientId: "",
+                      professionalId: "",
+                      procedureId: "",
+                      date: format(selectedDate, "yyyy-MM-dd"),
+                      time: "09:00",
+                      endTime: "09:30",
+                      notes: "",
+                    });
+                    // Limpar a seleção visual no CalendarDayView
+                    calendarDayViewRef.current?.clearSelection();
+                  }}>
                     Cancelar
                   </Button>
                   <Button onClick={handleSaveAppointment}>
@@ -775,7 +1081,164 @@ export default function AgendaPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* AlertDialog para confirmação de exclusão */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja deletar este agendamento? Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+                    Confirmar Exclusão
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Diálogo de Sugestões de Conflito */}
+            {conflictData && (
+              <ConflictSuggestionsDialog
+                open={showConflictDialog}
+                onOpenChange={setShowConflictDialog}
+                conflicts={conflictData.conflicts || []}
+                suggestions={conflictData.suggestions || { nextAvailableSlots: [], alternativeRooms: [] }}
+                onSelectTimeSlot={handleSelectTimeSlot}
+                onSelectRoom={handleSelectRoom}
+              />
+            )}
+            </div>
           </div>
+
+          {/* Área de Filtros Colapsável */}
+          {showFilters && (
+            <div className="mt-3 pt-3 border-t animate-in slide-in-from-top-2 duration-200">
+              <div className="flex flex-wrap gap-3 items-end">
+                {/* Filtro de profissional */}
+                <div className="flex-1 min-w-[150px] max-w-[200px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Profissional</Label>
+                  <Select
+                    value={selectedProfessionalFilter}
+                    onValueChange={setSelectedProfessionalFilter}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os profissionais</SelectItem>
+                      {mockProfessionals.map((prof) => (
+                        <SelectItem key={prof.id} value={prof.id.toString()}>
+                          {prof.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de sala */}
+                <div className="flex-1 min-w-[120px] max-w-[160px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Sala</Label>
+                  <Select
+                    value={selectedRoomFilter}
+                    onValueChange={setSelectedRoomFilter}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as salas</SelectItem>
+                      {mockRooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id.toString()}>
+                          {room.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de status */}
+                <div className="flex-1 min-w-[130px] max-w-[170px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
+                  <Select
+                    value={selectedStatusFilter}
+                    onValueChange={setSelectedStatusFilter}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      <SelectItem value="scheduled">Agendado</SelectItem>
+                      <SelectItem value="confirmed">Confirmado</SelectItem>
+                      <SelectItem value="in_progress">Em Andamento</SelectItem>
+                      <SelectItem value="completed">Concluído</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
+                      <SelectItem value="no_show">Faltou</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de procedimento */}
+                <div className="flex-1 min-w-[150px] max-w-[200px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Procedimento</Label>
+                  <Select
+                    value={selectedProcedureFilter}
+                    onValueChange={setSelectedProcedureFilter}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os procedimentos</SelectItem>
+                      {mockProcedures.map((proc) => (
+                        <SelectItem key={proc.id} value={proc.name}>
+                          {proc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de período */}
+                <div className="flex-1 min-w-[130px] max-w-[150px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Data Início</Label>
+                  <Input
+                    type="date"
+                    value={dateRangeStart}
+                    onChange={(e) => setDateRangeStart(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[130px] max-w-[150px]">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Data Fim</Label>
+                  <Input
+                    type="date"
+                    value={dateRangeEnd}
+                    onChange={(e) => setDateRangeEnd(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Botão limpar filtros */}
+                {activeFiltersCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="h-9 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpar ({activeFiltersCount})
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Contador de status dos agendamentos */}
@@ -784,22 +1247,22 @@ export default function AgendaPage() {
             <CardContent className="pt-4">
               <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100">
+                  <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:bg-blue-500/30">
                     Agendado: {statusCounts.scheduled}
                   </Badge>
-                  <Badge className="bg-green-100 text-green-800 border-green-300 hover:bg-green-100">
+                  <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30 hover:bg-green-500/30">
                     Confirmado: {statusCounts.confirmed}
                   </Badge>
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100">
+                  <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/30">
                     Em Andamento: {statusCounts.in_progress}
                   </Badge>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100">
+                  <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30">
                     Concluído: {statusCounts.completed}
                   </Badge>
-                  <Badge className="bg-red-100 text-red-800 border-red-300 hover:bg-red-100">
+                  <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30 hover:bg-red-500/30">
                     Cancelado: {statusCounts.cancelled}
                   </Badge>
-                  <Badge className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-100">
+                  <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30 hover:bg-orange-500/30">
                     Faltou: {statusCounts.no_show}
                   </Badge>
                 </div>
@@ -819,7 +1282,7 @@ export default function AgendaPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockProcedureStats.map((stat, index) => (
+                {procedureStats.map((stat: any, index: number) => (
                   <div key={index} className="space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">{stat.name}</span>
@@ -849,9 +1312,11 @@ export default function AgendaPage() {
 
               <TabsContent value="day" className="mt-4">
                 <CalendarDayView
+                  ref={calendarDayViewRef}
                   appointments={filteredAppointments}
-                  onAppointmentClick={(appointment) => console.log("Clicked:", appointment)}
+                  onAppointmentClick={handleAppointmentClick}
                   onDateSelect={handleTimeRangeSelect}
+                  onAppointmentDrop={handleAppointmentDrop}
                   professionals={mockProfessionals}
                   timeInterval={timeInterval}
                   selectedDate={selectedDate}
@@ -926,6 +1391,16 @@ export default function AgendaPage() {
                         <p className="text-xs font-medium text-primary">
                           {appt.procedure}
                         </p>
+                        {(appt as any).paymentStatus && (appt as any).paymentStatus !== 'not_required' && (
+                          <div className="mt-2">
+                            <PaymentStatusBadge
+                              status={(appt as any).paymentStatus}
+                              amount={(appt as any).paymentAmount}
+                              paidAmount={(appt as any).paidAmount}
+                              compact={true}
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
@@ -936,6 +1411,8 @@ export default function AgendaPage() {
                             patientPhone={appt.patientPhone}
                             patientId={appt.patientId}
                             currentStatus={appt.status}
+                            onEdit={handleEditAppointment}
+                            onDelete={handleOpenDeleteConfirm}
                           />
                         </div>
                       </div>
@@ -1002,6 +1479,8 @@ export default function AgendaPage() {
                               patientPhone={appt.patientPhone}
                               patientId={appt.patientId}
                               currentStatus={appt.status}
+                              onEdit={handleEditAppointment}
+                              onDelete={handleOpenDeleteConfirm}
                             />
                           </div>
                         </div>
@@ -1013,6 +1492,170 @@ export default function AgendaPage() {
             </Card>
           </div>
         </div>
+
+        {/* Edit Appointment Dialog */}
+        <Dialog open={isEditAppointmentOpen} onOpenChange={setIsEditAppointmentOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Agendamento</DialogTitle>
+              <DialogDescription>
+                Atualize os dados do agendamento
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Data</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={newAppointment.date}
+                    onChange={(e) => setNewAppointment({...newAppointment, date: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:col-span-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-time">Início</Label>
+                    <Input
+                      id="edit-time"
+                      type="time"
+                      value={newAppointment.time}
+                      onChange={(e) => setNewAppointment({...newAppointment, time: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-endTime">Fim</Label>
+                    <Input
+                      id="edit-endTime"
+                      type="time"
+                      value={newAppointment.endTime}
+                      onChange={(e) => setNewAppointment({...newAppointment, endTime: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient">Paciente</Label>
+                <Select
+                  value={newAppointment.patientId}
+                  onValueChange={(value) => setNewAppointment({...newAppointment, patientId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o paciente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockPatients.map((patient) => (
+                      <SelectItem key={patient.id} value={patient.id.toString()}>
+                        {patient.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-professional">Profissional</Label>
+                <Select
+                  value={newAppointment.professionalId}
+                  onValueChange={(value) => setNewAppointment({...newAppointment, professionalId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockProfessionals.map((professional) => (
+                      <SelectItem key={professional.id} value={professional.id.toString()}>
+                        {professional.name} ({professional.specialty})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-procedure">Procedimento</Label>
+                <Select
+                  value={newAppointment.procedureId}
+                  onValueChange={(value) => setNewAppointment({...newAppointment, procedureId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o procedimento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockProcedures.map((procedure) => (
+                      <SelectItem key={procedure.id} value={procedure.id.toString()}>
+                        {procedure.name} ({procedure.duration} min)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Observações</Label>
+                <Input
+                  id="edit-notes"
+                  value={newAppointment.notes}
+                  onChange={(e) => setNewAppointment({...newAppointment, notes: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditAppointmentOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={updateAppointmentMutation.isPending}>
+                {updateAppointmentMutation.isPending ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDelete}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={deleteAppointmentMutation.isPending}
+              >
+                {deleteAppointmentMutation.isPending ? 'Excluindo...' : 'Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bottom Sheet para detalhes do agendamento */}
+        <AppointmentDetailsDrawer
+          appointment={selectedAppointment}
+          open={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
+          onEdit={(appt) => handleEditAppointment(appt.id)}
+          onDelete={handleOpenDeleteConfirm}
+          onConfirm={handleConfirmAppointment}
+          onWhatsApp={handleWhatsApp}
+          onViewRecord={handleViewRecord}
+        />
+
+        {/* FAB para criar novo agendamento */}
+        <FloatingActionButton
+          onClick={() => navigate('/novo-agendamento')}
+          label="Novo Agendamento"
+          variant="primary"
+          size="lg"
+          showOnMobile={true}
+        />
       </div>
     </DashboardLayout>
   );

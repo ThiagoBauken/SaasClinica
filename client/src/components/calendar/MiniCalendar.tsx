@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { addMonths, subMonths, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
 
 type DayInfo = {
   date: Date;
@@ -12,15 +13,7 @@ type DayInfo = {
   occupationStatus?: 'available' | 'moderate' | 'busy' | 'full';
 };
 
-// Mock data for demonstration - in real app, this would come from an API
-const mockOccupationData: Record<string, { status: 'available' | 'moderate' | 'busy' | 'full' }> = {
-  '2023-08-08': { status: 'moderate' },
-  '2023-08-09': { status: 'busy' },
-  '2023-08-11': { status: 'full' },
-  '2023-08-15': { status: 'moderate' },
-  '2023-08-22': { status: 'busy' },
-  '2023-08-24': { status: 'full' },
-};
+// REMOVED: mockOccupationData - now fetched from backend API
 
 interface MiniCalendarProps {
   onSelectDate?: (date: Date) => void;
@@ -35,6 +28,20 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Fetch occupation data for the current month
+  const { data: occupationData = {} } = useQuery({
+    queryKey: ["/api/calendar/occupation-status", format(currentDate, "yyyy-MM")],
+    queryFn: async () => {
+      const res = await fetch(`/api/calendar/occupation-status?month=${format(currentDate, "yyyy-MM")}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return {}; // Return empty object if fails
+      }
+      return res.json();
+    },
+  });
   
   // Calculate days from previous month to fill first week
   const startDay = getDay(monthStart);
@@ -71,7 +78,7 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
       date,
       isCurrentMonth: true,
       isToday: isToday(date),
-      occupationStatus: mockOccupationData[dateString]?.status,
+      occupationStatus: occupationData[dateString]?.status,
     };
   });
   
