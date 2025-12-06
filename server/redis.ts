@@ -88,17 +88,33 @@ redisCacheClient.on('connect', () => {
 // Função para verificar se Redis está disponível
 export async function isRedisAvailable(): Promise<boolean> {
   try {
-    await redisClient.connect();
-    await redisClient.ping();
-    return true;
+    // Verifica se já está conectado
+    if (redisClient.status === 'ready') {
+      return true;
+    }
+
+    // Só conecta se não estiver conectado
+    if (redisClient.status === 'wait' || redisClient.status === 'close') {
+      await redisClient.connect();
+    }
+
+    // Aguarda conexão se estiver conectando
+    if (redisClient.status === 'connecting') {
+      await new Promise((resolve) => {
+        redisClient.once('ready', resolve);
+        redisClient.once('error', resolve);
+      });
+    }
+
+    // Testa a conexão
+    if (redisClient.status === 'ready') {
+      await redisClient.ping();
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.warn('Redis not available, falling back to memory store');
-    // Desconecta para evitar tentativas de reconexão
-    try {
-      await redisClient.disconnect();
-    } catch (e) {
-      // Ignora erros ao desconectar
-    }
     return false;
   }
 }
