@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
+import os from 'os';
 import { z } from 'zod';
 import { db } from '../db';
 import { patients, digitizationHistory } from '../../shared/schema';
@@ -15,10 +16,10 @@ import { authCheck, asyncHandler } from '../middleware/auth';
 
 const router = Router();
 
-// Directories
+// Directories - use system temp dir for temp files (works in Docker containers)
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'digitization');
 const PROCESSED_DIR = path.join(process.cwd(), 'processed', 'digitization');
-const TEMP_DIR = path.join(process.cwd(), 'temp', 'digitization');
+const TEMP_DIR = path.join(os.tmpdir(), 'dental-digitization');
 
 // Ensure directories exist
 (async () => {
