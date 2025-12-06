@@ -5,6 +5,7 @@ import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   Dialog,
   DialogContent,
@@ -97,13 +98,18 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/50 flex flex-col sm:flex-row items-center justify-center p-4">
+    <div className="min-h-screen bg-muted/50 flex flex-col sm:flex-row items-center justify-center p-4 relative">
+      {/* Theme Toggle - canto superior direito */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <div className="w-full max-w-5xl flex flex-col sm:flex-row bg-card rounded-lg shadow-lg overflow-hidden">
         {/* Left side - Auth forms */}
         <div className="w-full sm:w-1/2 p-6">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-primary">DentCare</h1>
-            <p className="text-neutral-medium mt-2">
+            <p className="text-muted-foreground mt-2">
               Sistema de Gerenciamento Odontológico
             </p>
           </div>

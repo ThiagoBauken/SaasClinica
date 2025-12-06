@@ -12,13 +12,37 @@ import {
 
 /**
  * Serviço de Integração com Stripe
+ * Só inicializa se STRIPE_SECRET_KEY estiver configurado
  */
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-04-30.basil',
-});
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const stripeEnabled = !!STRIPE_SECRET_KEY && STRIPE_SECRET_KEY !== 'sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+let stripe: Stripe | null = null;
+if (stripeEnabled) {
+  stripe = new Stripe(STRIPE_SECRET_KEY!, {
+    apiVersion: '2025-04-30.basil',
+  });
+  console.log('✓ Stripe initialized');
+} else {
+  console.log('⚠️  Stripe not configured - payment features disabled');
+}
+
+function requireStripe(): Stripe {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY environment variable.');
+  }
+  return stripe;
+}
 
 export class StripeService {
+  /**
+   * Verifica se Stripe está configurado
+   */
+  isEnabled(): boolean {
+    return stripeEnabled;
+  }
+
   /**
    * Criar cliente Stripe para uma empresa
    */
@@ -31,7 +55,7 @@ export class StripeService {
   }) {
     const { companyId, email, name, phone, metadata } = params;
 
-    const customer = await stripe.customers.create({
+    const customer = await requireStripe().customers.create({
       email,
       name,
       phone,
@@ -55,7 +79,7 @@ export class StripeService {
   }) {
     const { companyId, customerId, priceId, trialDays } = params;
 
-    const subscription = await stripe.subscriptions.create({
+    const subscription = await requireStripe().subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
       trial_period_days: trialDays,
@@ -75,10 +99,10 @@ export class StripeService {
    */
   async cancelSubscription(stripeSubscriptionId: string, immediately = false) {
     if (immediately) {
-      return await stripe.subscriptions.cancel(stripeSubscriptionId);
+      return await requireStripe().subscriptions.cancel(stripeSubscriptionId);
     } else {
       // Cancelar no final do período
-      return await stripe.subscriptions.update(stripeSubscriptionId, {
+      return await requireStripe().subscriptions.update(stripeSubscriptionId, {
         cancel_at_period_end: true,
       });
     }
@@ -95,10 +119,10 @@ export class StripeService {
     const { stripeSubscriptionId, newPriceId, prorationBehavior = 'create_prorations' } = params;
 
     // Buscar assinatura atual
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const subscription = await requireStripe().subscriptions.retrieve(stripeSubscriptionId);
 
     // Atualizar item da assinatura
-    return await stripe.subscriptions.update(stripeSubscriptionId, {
+    return await requireStripe().subscriptions.update(stripeSubscriptionId, {
       items: [
         {
           id: subscription.items.data[0].id,
@@ -121,7 +145,7 @@ export class StripeService {
   }) {
     const { companyId, priceId, successUrl, cancelUrl, trialDays } = params;
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await requireStripe().checkout.sessions.create({
       mode: 'subscription',
       line_items: [
         {
@@ -154,7 +178,7 @@ export class StripeService {
   }) {
     const { customerId, returnUrl } = params;
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await requireStripe().billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
     });
@@ -169,7 +193,7 @@ export class StripeService {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
     try {
-      const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      const event = requireStripe().webhooks.constructEvent(payload, signature, webhookSecret);
 
       console.log(`🔔 Stripe Webhook recebido: ${event.type}`);
 
