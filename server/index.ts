@@ -83,25 +83,23 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
 
   app.use(cors({
     origin: (origin, callback) => {
-      // Permitir requisições sem origin para:
-      // 1. Health checks (já tratados acima)
-      // 2. Webhooks de serviços externos (N8N, Stripe, etc)
-      // 3. Requisições server-to-server
+      // Permitir requisições sem origin (health checks, webhooks, server-to-server)
       if (!origin) {
-        // Em produção, logar mas permitir (necessário para webhooks e health checks)
-        if (isProduction) {
-          // Não bloquear, apenas logar em debug se necessário
-          // console.debug('Request without Origin header (health check/webhook)');
-        }
         return callback(null, true);
       }
 
+      // Lista explícita de origens permitidas
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`⚠️  CORS: Blocked request from origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+
+      // Auto-permitir domínios Easypanel (*.easypanel.host)
+      if (origin.endsWith('.easypanel.host')) {
+        return callback(null, true);
+      }
+
+      console.warn(`⚠️  CORS: Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true, // Permitir envio de cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
