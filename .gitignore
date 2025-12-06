@@ -88,3 +88,8 @@ nul
 # Large files
 *.tar.gz
 *.zip
+# Google Cloud credentials
+dentistav1/*.json
+dentistav1/segredo*.json
+**/client_secret*.json
+**/principal-fact*.json

@@ -200,6 +200,29 @@ export function useIntegrations() {
     },
   });
 
+  // Wuzapi Reconfigure Mutation (força reconfiguração de webhook, S3, HMAC)
+  const reconfigureWuzapiMutation = useMutation({
+    mutationFn: integrationsApi.reconfigureWuzapi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/wuzapi/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/wuzapi/webhook-info"] });
+      toast({
+        title: data.success ? "Reconfigurado!" : "Falha ao reconfigurar",
+        description: data.success
+          ? `Webhook: ${data.results?.webhook}, S3: ${data.results?.s3}, HMAC: ${data.results?.hmac}`
+          : data.message,
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao reconfigurar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Wuzapi Webhook Info Query
   const {
     data: webhookInfo,
@@ -298,6 +321,9 @@ export function useIntegrations() {
     // Wuzapi Reconnect
     reconnectWuzapi: reconnectWuzapiMutation.mutateAsync,
     isReconnecting: reconnectWuzapiMutation.isPending,
+    // Wuzapi Reconfigure (força reconfiguração de webhook, S3, HMAC)
+    reconfigureWuzapi: reconfigureWuzapiMutation.mutateAsync,
+    isReconfiguring: reconfigureWuzapiMutation.isPending,
     // Wuzapi Webhook
     webhookInfo,
     isLoadingWebhookInfo,

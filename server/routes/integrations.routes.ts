@@ -1084,7 +1084,7 @@ router.get(
     res.json({
       configured: !!settings?.wuzapiWebhookUrl,
       webhookUrl: settings?.wuzapiWebhookUrl || null,
-      expectedUrl: `${process.env.BASE_URL || 'https://seu-sistema.com'}/api/v1/webhooks/wuzapi/${companyId}`,
+      expectedUrl: `${process.env.BASE_URL || 'https://seu-sistema.com'}/api/webhooks/wuzapi/${companyId}`,
       instructions: {
         pt: [
           '1. Configure a URL do webhook no Wuzapi para receber mensagens',
@@ -1094,6 +1094,147 @@ router.get(
         ],
       },
     });
+  })
+);
+
+/**
+ * POST /api/v1/integrations/wuzapi/reconfigure
+ * Força reconfiguração de todas as configurações (webhook, S3, HMAC)
+ * Útil quando a instância já existe mas precisa atualizar configurações
+ */
+router.post(
+  '/wuzapi/reconfigure',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 1;
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Apenas administradores podem reconfigurar o Wuzapi',
+      });
+    }
+
+    const settings = await storage.getClinicSettings(companyId);
+
+    if (!settings?.wuzapiApiKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'Wuzapi não configurado. Configure primeiro via QR Code.',
+      });
+    }
+
+    const baseUrl = settings.wuzapiBaseUrl || process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080';
+    const webhookUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/api/webhooks/wuzapi/${companyId}`;
+
+    // S3/MinIO para armazenamento de mídia
+    const S3_ENDPOINT = process.env.S3_ENDPOINT || '';
+    const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || '';
+    const S3_SECRET_KEY = process.env.S3_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || '';
+    const S3_BUCKET = process.env.S3_BUCKET || 'whatsapp-media';
+    const S3_REGION = process.env.S3_REGION || 'us-east-1';
+
+    // HMAC para segurança
+    const WUZAPI_HMAC_KEY = process.env.WUZAPI_GLOBAL_HMAC_KEY || process.env.WUZAPI_WEBHOOK_SECRET || '';
+
+    const results: any = { webhook: false, s3: false, hmac: false };
+
+    try {
+      // 1. Configurar Webhook (formato correto da API Wuzapi 3.0)
+      console.log(`[Wuzapi Reconfigure] Configurando webhook: ${webhookUrl}`);
+      const webhookResponse = await fetch(`${baseUrl}/webhook`, {
+        method: 'PUT',
+        headers: {
+          'Token': settings.wuzapiApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          webhook: webhookUrl,
+          events: ['Message', 'ReadReceipt', 'Presence', 'ChatPresence', 'HistorySync', 'All'],
+          Active: true,
+        }),
+      });
+
+      const webhookData = await webhookResponse.json().catch(() => ({}));
+      console.log(`[Wuzapi Reconfigure] Webhook response:`, webhookData);
+      results.webhook = webhookResponse.ok;
+
+      // 2. Configurar S3 se disponível (endpoint correto: /session/s3/config)
+      if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+        console.log(`[Wuzapi Reconfigure] Configurando S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
+        const s3Response = await fetch(`${baseUrl}/session/s3/config`, {
+          method: 'POST',
+          headers: {
+            'Token': settings.wuzapiApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            enabled: true,
+            endpoint: S3_ENDPOINT,
+            region: S3_REGION,
+            bucket: S3_BUCKET,
+            access_key: S3_ACCESS_KEY,
+            secret_key: S3_SECRET_KEY,
+            path_style: true,
+            media_delivery: 'proxy', // ou 'direct' se o S3 for público
+            retention_days: 0, // 0 = sem limite
+          }),
+        });
+
+        const s3Data = await s3Response.json().catch(() => ({}));
+        console.log(`[Wuzapi Reconfigure] S3 response:`, s3Data);
+        results.s3 = s3Response.ok;
+      } else {
+        console.log('[Wuzapi Reconfigure] S3 não configurado no .env');
+        results.s3 = null; // não configurado
+      }
+
+      // 3. Configurar HMAC se disponível (endpoint correto: /session/hmac/config)
+      if (WUZAPI_HMAC_KEY) {
+        console.log('[Wuzapi Reconfigure] Configurando HMAC');
+        const hmacResponse = await fetch(`${baseUrl}/session/hmac/config`, {
+          method: 'POST',
+          headers: {
+            'Token': settings.wuzapiApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            hmac_key: WUZAPI_HMAC_KEY,
+          }),
+        });
+
+        const hmacData = await hmacResponse.json().catch(() => ({}));
+        console.log(`[Wuzapi Reconfigure] HMAC response:`, hmacData);
+        results.hmac = hmacResponse.ok;
+      } else {
+        console.log('[Wuzapi Reconfigure] HMAC não configurado no .env');
+        results.hmac = null;
+      }
+
+      // Salvar URL do webhook no banco
+      await storage.updateClinicSettings(companyId, {
+        wuzapiWebhookUrl: webhookUrl,
+      });
+
+      res.json({
+        success: true,
+        message: 'Configurações atualizadas',
+        results: {
+          webhook: results.webhook ? 'Configurado' : 'Falhou',
+          s3: results.s3 === null ? 'Não configurado no .env' : (results.s3 ? 'Configurado' : 'Falhou'),
+          hmac: results.hmac === null ? 'Não configurado no .env' : (results.hmac ? 'Configurado' : 'Falhou'),
+        },
+        webhookUrl,
+      });
+    } catch (error: any) {
+      console.error('[Wuzapi Reconfigure] Erro:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao reconfigurar',
+        error: error.message,
+      });
+    }
   })
 );
 

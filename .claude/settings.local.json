@@ -6,7 +6,13 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(cat:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 10)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run db:push:*)",
+      "Bash(timeout /t 5)"
     ],
     "deny": [],
     "ask": []

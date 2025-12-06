@@ -1,0 +1,1159 @@
+{
+  "name": "Escravo Virtual",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -416,
+        32
+      ],
+      "id": "0c54e047-d0d7-4f27-a96d-b6e323153e9c",
+      "name": "When chat message received",
+      "webhookId": "4b1e2297-4185-4ec2-bb97-0fff1144be38"
+    },
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "1. Receba o gatilho de verificação.\n2. Solicite ao agente AgenteVerificacao a lista atualizada dos status dos servidores:\n   - SSH_Mine\n   - Request_Proxy\n   - Request_easypanel\n\n3. Analise cada resposta:\n   • Se o servidor estiver “OK”, continue sem ação adicional.\n   • Se o servidor retornar “offline” ou erro, identifique qual agente de solução deve ser acionado:\n        – SSH_Mine → Agente_Mine\n        – Request_Proxy → Agente_Proxy\n        – Request_easypanel → Agente_easypanel\n\n4. Para cada servidor offline, invoque o respectivo agente de solução passando:\n   • Nome do servidor (ex.: \"SSH_Mine\")\n   • Data/hora atual ({{ $now }})\n   • Mensagem curta: “Servidor {{ nome }} está offline. Iniciar procedimento de recuperação.”\n\n5. Aguarde a confirmação de cada agente e registre o resultado.\n6. Ao concluir todas as chamadas, retorne um relatório resumido:\n   - Número total de servidores verificados\n   - Quantidade de servidores online\n   - Quantidade de servidores offline (e quais foram acionados)\nObservações:\n\nUse apenas texto legível; não inclua código de script.\nAs mensagens enviadas aos agentes de solução devem estar em HTML simples (<p>, <strong>), mas sem trechos de código."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -80
+      ],
+      "id": "7897c88a-b4f1-473f-a0f9-de91a6d9bbae",
+      "name": "AI Agent",
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "openai/gpt-oss-20b",
+          "mode": "list",
+          "cachedResultName": "openai/gpt-oss-20b"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        96
+      ],
+      "id": "083c0c67-d94f-41a7-a6f6-304be6b74283",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "jLS3EIuIY2FWQarm",
+          "name": "Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        144
+      ],
+      "id": "1b9ef21c-896f-435d-8f86-2347a5d04fc3",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "content": "## Servidor Mine\n",
+        "height": 544,
+        "width": 912,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        448
+      ],
+      "id": "78334c47-1185-4c5c-a1f0-150cecbc716e",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -416,
+        704
+      ],
+      "id": "7368e048-1ccf-4ca2-b6ac-7cc9bd672392",
+      "name": "HTTP Request1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"server_up\": true,\n  \"message\": \"message\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        544,
+        272
+      ],
+      "id": "9b3eb2b1-0d99-4d14-9218-98d2a0b5a15a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "chatId": "153959797",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        16
+      ],
+      "id": "89886ab7-75cc-45da-8a19-79e64315e0e8",
+      "name": "Send a text message",
+      "webhookId": "d1f5c8d0-eb5b-41e1-80f0-4f4a86be08b5",
+      "credentials": {
+        "telegramApi": {
+          "id": "DCtT5dmti0ZzHs8d",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "id": "811a9ae4-28cf-4b24-9afb-ee03735de6cf",
+      "name": "OpenAI Chat Model3",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        144,
+        672
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "jLS3EIuIY2FWQarm",
+          "name": "Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Verifica servidores",
+        "height": 576,
+        "width": 960,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        432
+      ],
+      "id": "8da3bba4-1e72-4eaf-b48b-948a923db4ab",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "description": "Use para verificar o estado do servidor de Minecraft Forge 1.19.4",
+        "workflowId": {
+          "__rl": true,
+          "value": "nONU9S0kiJ3WbXgW",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nONU9S0kiJ3WbXgW",
+          "cachedResultName": "SSH Command"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Command": "=timeout 5 bash -c \"echo > /dev/tcp/192.168.1.143/25565\" && echo 'online' || echo 'offline'"
+          },
+          "matchingColumns": [
+            "Command"
+          ],
+          "schema": [
+            {
+              "id": "Command",
+              "displayName": "Command",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        704
+      ],
+      "id": "2126e600-efab-4f33-8025-1b77e087cc50",
+      "name": "SSH_Mine"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use para verificar o servidor de Proxy",
+        "url": "https://patrickhirtrauch.com/",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        768,
+        704
+      ],
+      "id": "4bdce943-1d6f-49b4-81a8-faf744422012",
+      "name": "Request_Proxy"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use para verificar servidor Forgejo dentro do Easypanel",
+        "url": "https://git.rx1gpd.easypanel.host",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        704
+      ],
+      "id": "8cf034ff-c61d-47df-96d2-2548f7b4e503",
+      "name": "Request_easypanel"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Você é um assistente de gerenciamento de e-mails",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=Você atua como monitor de serviços críticos. Para cada endpoint, execute uma requisição simples (GET/HEAD). Se a resposta for 200 OK ou equivalente, retorne “OK”. Caso contrário, trate‑o como falha.\n\nEndpoints e agentes:\n- SSH_Mine          → AgentMine\n- SSH_Mine1          → AgentMine\n- SSH_Mine2          → AgentMine\n- Request_Proxy     → AgentProxy\n- Request_easypanel → AgentEasypanel\n\nPassos detalhados:\n\n1. **Checar status**  \n   - Envie uma requisição HTTP para o endpoint do serviço.  \n   - Se receber código 200‑299, registre “OK” e continue com o próximo.\n\n2. **Falha detectada**  \n   - Caso a resposta seja erro (códigos 4xx/5xx) ou não haja resposta dentro de 10 s, marque como offline.\n\n3. **Notificar agente**  \n   - Envie uma mensagem ao agente correspondente:\n     ```\n     <p>Alerta – Servidor {{ nome }} offline em {{ $now }}</p>\n     <p>Ação recomendada: Verifique logs e reinicie o serviço.</p>\n     ```\n\n4. **Log de auditoria**  \n   - Registre timestamp, endpoint, status e mensagem enviada.\n\n5. **Resultado**  \n   - Para cada servidor, retorne:\n     ```\n     { \"serviço\": \"<nome>\", \"status\": \"OK\" }\n     ```\n     ou\n     ```\n     { \"serviço\": \"<nome>\", \"status\": \"OFFLINE\", \"mensagem\": \"...HTML...\" }\n     ```\n\n**Observações**  \n- Não inclua código de script, apenas a lógica descrita.  \n- Use o horário atual `{{ $now }}` em todas as mensagens.  \n- Mantenha o formato HTML mínimo (p, strong) para legibilidade humana."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        144,
+        512
+      ],
+      "id": "ba93699d-64ee-4ee8-8959-4bc94070f4dd",
+      "name": "AgenteVerificacao"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Você é um assistente de gerenciamento de e-mails",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# Visão Geral\nVocê é um assistente de gerenciamento de e-mails. Todos os e-mails devem ser formatados profissionalmente em HTML e assinados como \"Salu Sparo\".\n\n**Ferramentas de Gerenciamento de E-mail**  \n- Use **\"enviarEmail\"** para enviar e-mails.  \n- Use **\"criarEsboco\"** se o usuário pedir um rascunho.  \n- Use **\"buscarEmails\"** para recuperar e-mails quando solicitado.  \n- Use **\"buscarEtiquetas\"** para recuperar etiquetas.  \n- Use **\"marcarComoNaoVisualizado\"** para marcar um e-mail como não lido. Você deve usar primeiro o \"Get Emails\" para obter o ID da mensagem a ser sinalizada. \n- Use **\"adicionarEtiqueta\"** para marcar um e-mail com uma etiqueta. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser sinalizada. Depois, deve usar \"buscarEtiquetas\" para obter o ID da etiqueta.  \n- Use **\"responderEmail\"** para responder a um e-mail. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser respondida.\n\n## Observações Finais\n- Aqui está a data/hora atual: {{ $now }}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        528
+      ],
+      "id": "c17aeb1c-6e81-48d7-a53c-8483562e2cf6",
+      "name": "Agente_Mine"
+    },
+    {
+      "parameters": {
+        "content": "## EasyPanel\n",
+        "height": 416,
+        "width": 384,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        448
+      ],
+      "id": "0b7364fa-3b18-40a3-8d29-0c2f088cdb54",
+      "name": "Sticky Note11"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -1024,
+        688
+      ],
+      "id": "8267ba95-686a-4bc8-ac8b-8914e5033896",
+      "name": "HTTP Request",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Servidor de Email",
+        "height": 560,
+        "width": 672,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1968,
+        448
+      ],
+      "id": "dea74923-86c6-4579-9f13-275bc575f235",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -1728,
+        672
+      ],
+      "id": "8774eccf-93a8-478a-8ee1-03747fd337ef",
+      "name": "HTTP Request2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "toolDescription": "Você é um assistente de gerenciamento de e-mails",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# Visão Geral\nVocê é um assistente de gerenciamento de e-mails. Todos os e-mails devem ser formatados profissionalmente em HTML e assinados como \"Salu Sparo\".\n\n**Ferramentas de Gerenciamento de E-mail**  \n- Use **\"enviarEmail\"** para enviar e-mails.  \n- Use **\"criarEsboco\"** se o usuário pedir um rascunho.  \n- Use **\"buscarEmails\"** para recuperar e-mails quando solicitado.  \n- Use **\"buscarEtiquetas\"** para recuperar etiquetas.  \n- Use **\"marcarComoNaoVisualizado\"** para marcar um e-mail como não lido. Você deve usar primeiro o \"Get Emails\" para obter o ID da mensagem a ser sinalizada. \n- Use **\"adicionarEtiqueta\"** para marcar um e-mail com uma etiqueta. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser sinalizada. Depois, deve usar \"buscarEtiquetas\" para obter o ID da etiqueta.  \n- Use **\"responderEmail\"** para responder a um e-mail. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser respondida.\n\n## Observações Finais\n- Aqui está a data/hora atual: {{ $now }}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1952,
+        512
+      ],
+      "id": "76ed2f64-2da6-4560-964b-5b2acd8c8c42",
+      "name": "Agente_Proxy"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Você é um assistente de gerenciamento de e-mails",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# Visão Geral\nVocê é um assistente de gerenciamento de e-mails. Todos os e-mails devem ser formatados profissionalmente em HTML e assinados como \"Salu Sparo\".\n\n**Ferramentas de Gerenciamento de E-mail**  \n- Use **\"enviarEmail\"** para enviar e-mails.  \n- Use **\"criarEsboco\"** se o usuário pedir um rascunho.  \n- Use **\"buscarEmails\"** para recuperar e-mails quando solicitado.  \n- Use **\"buscarEtiquetas\"** para recuperar etiquetas.  \n- Use **\"marcarComoNaoVisualizado\"** para marcar um e-mail como não lido. Você deve usar primeiro o \"Get Emails\" para obter o ID da mensagem a ser sinalizada. \n- Use **\"adicionarEtiqueta\"** para marcar um e-mail com uma etiqueta. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser sinalizada. Depois, deve usar \"buscarEtiquetas\" para obter o ID da etiqueta.  \n- Use **\"responderEmail\"** para responder a um e-mail. Você deve usar primeiro o \"buscarEmails\" para obter o ID da mensagem a ser respondida.\n\n## Observações Finais\n- Aqui está a data/hora atual: {{ $now }}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1200,
+        512
+      ],
+      "id": "7cce5680-8802-46d6-b564-d6829f5abadb",
+      "name": "Agente_easypanel"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1168,
+        -256
+      ],
+      "id": "1e752dcf-5fea-4102-9cdd-7576ef06a37f",
+      "name": "Schedule Trigger",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f516f9cd-2872-441d-a6ec-c04a22d6e74e",
+              "name": "chatInput",
+              "value": "Verifique o estado dos servidores e realize as ações nescessarias",
+              "type": "string"
+            },
+            {
+              "id": "852cd6eb-e3cb-4dd7-918a-0bae8be8bdef",
+              "name": "sessionId",
+              "value": "={{ $json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        -160
+      ],
+      "id": "821f8dd0-9350-4262-bf1f-54e220bed8f9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "81bb1132-f924-428f-8a8e-ca78d73d4cce",
+              "leftValue": "={{ $('Get row(s)').item.json.stado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -848,
+        -256
+      ],
+      "id": "439f1203-2a47-4aa2-b7fc-6a7838820847",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "RjRlIlk74hMQcR8i",
+          "mode": "list"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        -256
+      ],
+      "id": "493190d2-71c5-4502-a671-5dc4441e1b4b",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "RjRlIlk74hMQcR8i",
+          "mode": "list",
+          "cachedResultName": "Escravo",
+          "cachedResultUrl": "/projects/uLDirmjXAdDfr74P/datatables/RjRlIlk74hMQcR8i"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "1"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "stado": true
+          },
+          "matchingColumns": [
+            "stado"
+          ],
+          "schema": [
+            {
+              "id": "stado",
+              "displayName": "stado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -160
+      ],
+      "id": "cbc4b532-4684-4b31-bfc2-ca3c6d3e3ef7",
+      "name": "Update row(s)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "RjRlIlk74hMQcR8i",
+          "mode": "list",
+          "cachedResultName": "Escravo",
+          "cachedResultUrl": "/projects/uLDirmjXAdDfr74P/datatables/RjRlIlk74hMQcR8i"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "1"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "stado": false
+          },
+          "matchingColumns": [
+            "stado"
+          ],
+          "schema": [
+            {
+              "id": "stado",
+              "displayName": "stado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        400
+      ],
+      "id": "7bf5343f-d35e-4d19-8e94-ec55f179a608",
+      "name": "Update row(s)1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a0dccb9d-f8c2-4dbf-aa2f-955b0bae71de",
+              "leftValue": "={{ $json.output.server_up }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        -112
+      ],
+      "id": "bc729b71-c7d8-4dde-bc87-88c644ae11ad",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        96
+      ],
+      "id": "8a885bd5-1e6a-446e-8942-ce69304d3a44",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "u6sLKgL9prVw1AsQ",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "id": "612a45b0-d09d-405a-b243-e05bba042237",
+      "name": "Local",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        -1248,
+        672
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "jLS3EIuIY2FWQarm",
+          "name": "Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}1",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1136,
+        704
+      ],
+      "id": "30077c5c-552b-473e-9584-0f95661c06ab",
+      "name": "Simple"
+    },
+    {
+      "parameters": {
+        "description": "Use para verificar o estado do servidor de Minecraft Panda",
+        "workflowId": {
+          "__rl": true,
+          "value": "nONU9S0kiJ3WbXgW",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nONU9S0kiJ3WbXgW",
+          "cachedResultName": "SSH Command"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Command": "=timeout 5 bash -c \"echo > /dev/tcp/192.168.1.143/25566\" && echo 'online' || echo 'offline'"
+          },
+          "matchingColumns": [
+            "Command"
+          ],
+          "schema": [
+            {
+              "id": "Command",
+              "displayName": "Command",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        704
+      ],
+      "id": "96627edc-873b-442f-b908-e874d9b6d71a",
+      "name": "SSH_Mine1"
+    },
+    {
+      "parameters": {
+        "description": "Use para verificar o estado do servidor de Minecraft",
+        "workflowId": {
+          "__rl": true,
+          "value": "nONU9S0kiJ3WbXgW",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nONU9S0kiJ3WbXgW",
+          "cachedResultName": "SSH Command"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Command": "=timeout 5 bash -c \"echo > /dev/tcp/192.168.1.143/25565\" && echo 'online' || echo 'offline'"
+          },
+          "matchingColumns": [
+            "Command"
+          ],
+          "schema": [
+            {
+              "id": "Command",
+              "displayName": "Command",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        592,
+        704
+      ],
+      "id": "85b6a27a-1b5d-4029-9cf7-bd0fb579d734",
+      "name": "SSH_Mine2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}2",
+        "contextWindowLength": 7
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        768
+      ],
+      "id": "27745f0e-2db2-417f-8e1a-9418b86cd6a8",
+      "name": "Simple Memory1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente_Mine",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSH_Mine": {
+      "ai_tool": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request_Proxy": {
+      "ai_tool": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request_easypanel": {
+      "ai_tool": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AgenteVerificacao": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente_Mine": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente_easypanel",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente_Proxy",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente_easypanel": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente_Proxy": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Update row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row(s)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row(s)1": {
+      "main": [
+        []
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Local": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente_Proxy",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Agente_easypanel",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Agente_Mine",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente_Proxy",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Agente_easypanel",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Agente_Mine",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSH_Mine1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSH_Mine2": {
+      "ai_tool": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AgenteVerificacao",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "f83547c4-7c44-4487-ada7-092a1599f5a4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "46cbec6406e81d35a5b61ce4d8cc30b2bd37c15fc93c3b152734d068f3c1c362"
+  },
+  "id": "vnO1UGhk4EmeGo0j",
+  "tags": []
+}

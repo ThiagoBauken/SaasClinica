@@ -60,6 +60,9 @@ export default function ConfiguracoesIntegracoesPage() {
     // Wuzapi Reconnect
     reconnectWuzapi,
     isReconnecting,
+    // Wuzapi Reconfigure
+    reconfigureWuzapi,
+    isReconfiguring,
     // N8N API Key
     n8nApiKeyInfo,
     isLoadingN8nApiKey,
@@ -115,10 +118,12 @@ export default function ConfiguracoesIntegracoesPage() {
   }, [integrationSettings]);
 
   // Fechar dialog automaticamente quando conectado e atualizar status
+  // Observa tanto qrCodeData?.connected quanto wuzapiStatus?.loggedIn
   useEffect(() => {
-    if (qrCodeData?.connected) {
-      // Atualizar status imediatamente
-      refetchWuzapiStatus();
+    // Se o dialog está aberto e o WhatsApp foi conectado (via polling de status ou resposta do QR)
+    const isConnected = qrCodeData?.connected || wuzapiStatus?.loggedIn;
+
+    if (showQrCodeDialog && isConnected) {
       // Mostrar toast de sucesso
       toast({
         title: "WhatsApp Conectado!",
@@ -130,7 +135,18 @@ export default function ConfiguracoesIntegracoesPage() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [qrCodeData?.connected, refetchWuzapiStatus, toast]);
+  }, [qrCodeData?.connected, wuzapiStatus?.loggedIn, showQrCodeDialog, toast]);
+
+  // Polling mais frequente enquanto o dialog do QR Code está aberto
+  useEffect(() => {
+    if (showQrCodeDialog && !wuzapiStatus?.loggedIn) {
+      const pollInterval = setInterval(() => {
+        refetchWuzapiStatus();
+      }, 3000); // Poll a cada 3 segundos quando aguardando QR scan
+
+      return () => clearInterval(pollInterval);
+    }
+  }, [showQrCodeDialog, wuzapiStatus?.loggedIn, refetchWuzapiStatus]);
 
   const handleSave = () => {
     updateIntegrations(form);
@@ -318,20 +334,38 @@ export default function ConfiguracoesIntegracoesPage() {
                       </div>
                       <div className="flex gap-2">
                         {wuzapiStatus?.loggedIn ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
-                            onClick={() => disconnectWuzapi()}
-                            disabled={isDisconnecting}
-                          >
-                            {isDisconnecting ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <WifiOff className="mr-2 h-4 w-4" />
-                            )}
-                            Desconectar
-                          </Button>
+                          <>
+                            {/* Botão Reconfigurar - força atualização de webhook, S3 e HMAC */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                              onClick={() => reconfigureWuzapi()}
+                              disabled={isReconfiguring}
+                              title="Atualiza webhook, S3 e HMAC no Wuzapi"
+                            >
+                              {isReconfiguring ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                              )}
+                              Reconfigurar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                              onClick={() => disconnectWuzapi()}
+                              disabled={isDisconnecting}
+                            >
+                              {isDisconnecting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <WifiOff className="mr-2 h-4 w-4" />
+                              )}
+                              Desconectar
+                            </Button>
+                          </>
                         ) : (
                           <>
                             {/* Botão Reconectar - para quando já tem sessão salva */}
@@ -395,10 +429,11 @@ export default function ConfiguracoesIntegracoesPage() {
                           <Loader2 className="h-12 w-12 animate-spin text-primary" />
                           <p className="text-muted-foreground">Gerando QR Code...</p>
                         </div>
-                      ) : qrCodeData?.connected ? (
+                      ) : qrCodeData?.connected || wuzapiStatus?.loggedIn ? (
                         <div className="flex flex-col items-center gap-4">
                           <CheckCircle2 className="h-16 w-16 text-green-500" />
-                          <p className="text-lg font-medium text-green-700">WhatsApp já conectado!</p>
+                          <p className="text-lg font-medium text-green-700">WhatsApp conectado!</p>
+                          <p className="text-sm text-muted-foreground">Fechando automaticamente...</p>
                         </div>
                       ) : qrCodeData?.qrCode ? (
                         <div className="flex flex-col items-center gap-4">
@@ -410,6 +445,10 @@ export default function ConfiguracoesIntegracoesPage() {
                           <p className="text-sm text-muted-foreground text-center">
                             Abra o WhatsApp no seu celular, vá em Configurações {'>'} Dispositivos conectados {'>'} Conectar dispositivo
                           </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Aguardando leitura do QR Code...
+                          </div>
                           <Button
                             variant="outline"
                             onClick={() => getQrCode()}

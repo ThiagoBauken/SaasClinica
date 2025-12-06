@@ -145,13 +145,79 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
 }
 
 /**
- * Atualiza configurações de um usuário existente no Wuzapi
+ * Atualiza TODAS as configurações de um usuário existente no Wuzapi via Admin API
  */
 async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: string): Promise<void> {
   try {
-    // Atualizar webhook
-    await fetch(`${WUZAPI_BASE_URL}/webhook`, {
-      method: 'POST',
+    // Usar Admin API para atualizar usuário com todas as configurações
+    const body: any = {
+      webhook: webhookUrl,
+      events: ALL_WEBHOOK_EVENTS,
+      messagehistory: 1000,
+    };
+
+    // Adicionar configuração S3 se disponível
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      body.s3 = {
+        endpoint: S3_ENDPOINT,
+        access_key: S3_ACCESS_KEY,
+        secret_key: S3_SECRET_KEY,
+        bucket: S3_BUCKET,
+        region: S3_REGION,
+        force_path_style: true,
+      };
+      console.log(`[Wuzapi] Atualizando S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
+    }
+
+    // Adicionar HMAC para segurança do webhook
+    if (WUZAPI_HMAC_KEY) {
+      body.hmac = WUZAPI_HMAC_KEY;
+      console.log('[Wuzapi] Atualizando HMAC para webhook');
+    }
+
+    // Buscar o ID do usuário pelo nome
+    const listResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
+      method: 'GET',
+      headers: {
+        'Authorization': WUZAPI_ADMIN_TOKEN,
+      },
+    });
+
+    if (listResponse.ok) {
+      const listData = await listResponse.json();
+      const users = listData.users || listData.data || [];
+      const user = users.find((u: any) => u.name === name || u.Name === name);
+
+      if (user) {
+        const userId = user.id || user.Id;
+        console.log(`[Wuzapi] Atualizando usuário ${name} (ID: ${userId})`);
+
+        // PUT para atualizar via Admin API
+        const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': WUZAPI_ADMIN_TOKEN,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (updateResponse.ok) {
+          console.log(`[Wuzapi] Configurações atualizadas via Admin API para ${name}`);
+          return;
+        } else {
+          const errData = await updateResponse.json().catch(() => ({}));
+          console.error(`[Wuzapi] Erro Admin API: ${errData.error || updateResponse.status}`);
+        }
+      }
+    }
+
+    // Fallback: Atualizar via endpoints individuais com Token do usuário
+    console.log(`[Wuzapi] Fallback: atualizando via endpoints individuais`);
+
+    // Atualizar webhook (PUT para update, POST para criar)
+    const webhookResponse = await fetch(`${WUZAPI_BASE_URL}/webhook`, {
+      method: 'PUT',
       headers: {
         'Token': token,
         'Content-Type': 'application/json',
@@ -159,31 +225,80 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
       body: JSON.stringify({
         webhook: webhookUrl,
         events: ALL_WEBHOOK_EVENTS,
+        Active: true,
       }),
     });
+    console.log(`[Wuzapi] Webhook response: ${webhookResponse.status}`);
 
-    // Atualizar S3 se configurado
+    // Atualizar S3 se configurado (endpoint correto: /session/s3/config)
     if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-      await fetch(`${WUZAPI_BASE_URL}/settings/s3`, {
+      const s3Response = await fetch(`${WUZAPI_BASE_URL}/session/s3/config`, {
         method: 'POST',
         headers: {
           'Token': token,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          enabled: true,
           endpoint: S3_ENDPOINT,
+          region: S3_REGION,
+          bucket: S3_BUCKET,
           access_key: S3_ACCESS_KEY,
           secret_key: S3_SECRET_KEY,
-          bucket: S3_BUCKET,
-          region: S3_REGION,
-          force_path_style: true,
+          path_style: true,
+          media_delivery: 'proxy',
+          retention_days: 0,
         }),
       });
+      console.log(`[Wuzapi] S3 response: ${s3Response.status}`);
+    }
+
+    // Atualizar HMAC se configurado (endpoint correto: /session/hmac/config)
+    if (WUZAPI_HMAC_KEY) {
+      const hmacResponse = await fetch(`${WUZAPI_BASE_URL}/session/hmac/config`, {
+        method: 'POST',
+        headers: {
+          'Token': token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hmac_key: WUZAPI_HMAC_KEY,
+        }),
+      });
+      console.log(`[Wuzapi] HMAC response: ${hmacResponse.status}`);
     }
 
     console.log(`[Wuzapi] Configurações atualizadas para ${name}`);
   } catch (error: any) {
     console.error(`[Wuzapi] Erro ao atualizar configurações: ${error.message}`);
+  }
+}
+
+/**
+ * Verifica se uma instancia existe no Wuzapi testando o token
+ */
+async function verifyWuzapiInstanceExists(token: string, baseUrl: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${baseUrl}/session/status`, {
+      method: 'GET',
+      headers: {
+        'Token': token,
+      },
+    });
+
+    // 401/403 = token invalido (instancia nao existe)
+    // 404 = endpoint nao encontrado para este usuario
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      console.log(`[Wuzapi] Instancia nao existe mais (HTTP ${response.status})`);
+      return false;
+    }
+
+    // Qualquer outra resposta indica que a instancia existe
+    return true;
+  } catch (error: any) {
+    console.error(`[Wuzapi] Erro ao verificar instancia: ${error.message}`);
+    // Em caso de erro de rede, assumir que existe para nao perder dados
+    return true;
   }
 }
 
@@ -203,14 +318,31 @@ export async function getOrCreateWuzapiInstance(companyId: number): Promise<{
     .where(eq(clinicSettings.companyId, companyId))
     .limit(1);
 
-  // Se ja tem token configurado e valido, retornar
+  // Se ja tem token configurado, verificar se a instancia ainda existe no Wuzapi
   if (settings?.wuzapiApiKey && settings.wuzapiApiKey !== WUZAPI_ADMIN_TOKEN) {
-    return {
-      success: true,
-      token: settings.wuzapiApiKey,
-      baseUrl: settings.wuzapiBaseUrl || WUZAPI_BASE_URL,
-      message: 'Instancia ja configurada',
-    };
+    const baseUrl = settings.wuzapiBaseUrl || WUZAPI_BASE_URL;
+    const instanceExists = await verifyWuzapiInstanceExists(settings.wuzapiApiKey, baseUrl);
+
+    if (instanceExists) {
+      return {
+        success: true,
+        token: settings.wuzapiApiKey,
+        baseUrl: baseUrl,
+        message: 'Instancia ja configurada',
+      };
+    }
+
+    // Instancia foi deletada no Wuzapi, limpar token do banco para criar nova
+    console.log(`[Wuzapi] Instancia deletada externamente. Limpando token e criando nova...`);
+    await db
+      .update(clinicSettings)
+      .set({
+        wuzapiApiKey: null,
+        wuzapiStatus: 'disconnected',
+        wuzapiConnectedPhone: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicSettings.companyId, companyId));
   }
 
   // Se nao tem token admin configurado, erro
