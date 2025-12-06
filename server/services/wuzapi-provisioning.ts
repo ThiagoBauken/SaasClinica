@@ -292,19 +292,17 @@ export async function getWuzapiQrCode(companyId: number): Promise<{
     // Log para debug
     console.log('[Wuzapi Connect] Response:', JSON.stringify(connectData));
 
-    // Verificar se ja esta logado (pode vir como erro ou como dado)
-    // Wuzapi pode retornar de varias formas:
-    // 1. { data: { details: "Connected!", jid: "..." } } - Reconexao bem-sucedida
-    // 2. { error: "already logged in" } - Ja logado (erro HTTP)
-    // 3. { data: { LoggedIn: true } } - Status de logado
-    const errorMessage = connectData.error || connectData.message || '';
-    const isAlreadyLoggedIn = errorMessage.toLowerCase().includes('already logged in') ||
-                              errorMessage.toLowerCase().includes('already connected');
+    // IMPORTANTE: Diferenciar connected (websocket) de loggedIn (autenticado no WhatsApp)
+    // - connected: true = conectado ao servidor Wuzapi
+    // - loggedIn: true = autenticado com QR code no WhatsApp
+    // - jid com valor = tem sessão autenticada (ex: "5511999999999:0@s.whatsapp.net")
 
-    const isLoggedIn = connectData.data?.LoggedIn ||
-                       connectData.data?.jid || // Se tem JID, esta conectado
-                       connectData.data?.details === 'Connected!' || // Reconexao bem-sucedida
-                       isAlreadyLoggedIn;
+    const errorMessage = connectData.error || connectData.message || '';
+    const isAlreadyLoggedIn = errorMessage.toLowerCase().includes('already logged in');
+
+    // Só considera logado se tiver JID válido (não vazio) OU LoggedIn explícito
+    const hasValidJid = connectData.data?.jid && connectData.data.jid.includes('@');
+    const isLoggedIn = connectData.data?.LoggedIn === true || hasValidJid || isAlreadyLoggedIn;
 
     if (isLoggedIn) {
       return {
@@ -314,20 +312,33 @@ export async function getWuzapiQrCode(companyId: number): Promise<{
       };
     }
 
-    // Se retornou erro HTTP mas nao e "already logged in", verificar se ainda assim esta conectado
-    if (!connectResponse.ok && !isAlreadyLoggedIn) {
-      // Verificar status real antes de retornar erro
+    // Se retornou erro (ex: "already connected"), verificar status para pegar QR code
+    if (!connectResponse.ok || errorMessage.toLowerCase().includes('already connected')) {
       const statusCheck = await fetch(`${instance.baseUrl}/session/status`, {
         method: 'GET',
         headers: { 'Token': instance.token },
       });
       const statusData = await statusCheck.json().catch(() => ({}));
+      console.log('[Wuzapi Status Check] Response:', JSON.stringify(statusData));
 
-      if (statusData.data?.LoggedIn || statusData.LoggedIn) {
+      const statusInfo = statusData.data || statusData;
+
+      // Se está logado (autenticado no WhatsApp)
+      if (statusInfo?.loggedIn === true || statusInfo?.LoggedIn === true) {
         return {
           success: true,
           connected: true,
           message: 'WhatsApp ja conectado',
+        };
+      }
+
+      // Se está conectado mas não logado, retornar o QR code do status
+      if (statusInfo?.connected === true && statusInfo?.qrcode) {
+        return {
+          success: true,
+          connected: false,
+          qrCode: statusInfo.qrcode,
+          message: 'Escaneie o QR Code com seu WhatsApp',
         };
       }
     }
