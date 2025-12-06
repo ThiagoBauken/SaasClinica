@@ -10,7 +10,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupTestRoutes } from "./testRoutes";
-import { setupVite, serveStatic, log } from "./vite";
+import { serveStatic, log } from "./vite";
 import cluster from "cluster";
 import os from "os";
 import compression from "compression";
@@ -291,6 +291,8 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
 
     // Setup para desenvolvimento e produção
     if (app.get("env") === "development") {
+      // Dynamic import - vite-dev.ts is only used in development
+      const { setupVite } = await import("./vite-dev");
       await setupVite(app, server);
     } else {
       serveStatic(app);
