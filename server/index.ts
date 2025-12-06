@@ -180,7 +180,12 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
       if (available) {
         // Cria cliente redis (node-redis) para connect-redis v9
         // connect-redis v9 NÃO é compatível com ioredis, apenas com node-redis
-        const redisUrl = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
+        let redisUrl = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
+        // Garante que a URL tenha o protocolo redis://
+        if (redisUrl && !redisUrl.startsWith('redis://') && !redisUrl.startsWith('rediss://')) {
+          redisUrl = `redis://${redisUrl}`;
+        }
+        console.log(`[Session Redis] Connecting to: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
         const sessionRedisClient = createClient({ url: redisUrl });
 
         sessionRedisClient.on('error', (err) => {
