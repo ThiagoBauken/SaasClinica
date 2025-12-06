@@ -21,6 +21,27 @@ const WUZAPI_BASE_URL = process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:80
 const WUZAPI_ADMIN_TOKEN = process.env.WUZAPI_ADMIN_TOKEN || '';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
+// S3/MinIO para armazenamento de mídia do WhatsApp
+const S3_ENDPOINT = process.env.S3_ENDPOINT || '';
+const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || '';
+const S3_SECRET_KEY = process.env.S3_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || '';
+const S3_BUCKET = process.env.S3_BUCKET || 'whatsapp-media';
+const S3_REGION = process.env.S3_REGION || 'us-east-1';
+
+// HMAC para segurança dos webhooks
+const WUZAPI_HMAC_KEY = process.env.WUZAPI_GLOBAL_HMAC_KEY || process.env.WUZAPI_WEBHOOK_SECRET || '';
+
+// Todos os eventos disponíveis no Wuzapi
+const ALL_WEBHOOK_EVENTS = [
+  'Message',
+  'ReadReceipt',
+  'Presence',
+  'ChatPresence',
+  'HistorySync',
+  'Call',
+  'QRCode',
+];
+
 interface WuzapiResponse {
   success?: boolean;
   error?: string;
@@ -51,8 +72,9 @@ function generateSlug(name: string): string {
 
 /**
  * Cria uma nova instancia/usuario no Wuzapi via API Admin
+ * Configura: webhook, events, S3, HMAC e message history
  */
-async function createWuzapiUser(name: string, token: string, webhookUrl?: string): Promise<{
+async function createWuzapiUser(name: string, token: string, webhookUrl: string): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -61,8 +83,37 @@ async function createWuzapiUser(name: string, token: string, webhookUrl?: string
   }
 
   try {
-    // Wuzapi API usa campos minúsculos conforme documentação
-    const body: any = { name, token };
+    // Corpo completo conforme documentação Wuzapi 3.0
+    const body: any = {
+      name,
+      token,
+      // Webhook para receber eventos
+      webhook: webhookUrl,
+      events: ALL_WEBHOOK_EVENTS,
+      // Histórico de 1000 mensagens
+      messagehistory: 1000,
+    };
+
+    // Adicionar configuração S3 se disponível
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      body.s3 = {
+        endpoint: S3_ENDPOINT,
+        access_key: S3_ACCESS_KEY,
+        secret_key: S3_SECRET_KEY,
+        bucket: S3_BUCKET,
+        region: S3_REGION,
+        force_path_style: true,
+      };
+      console.log(`[Wuzapi] S3 configurado: ${S3_ENDPOINT}/${S3_BUCKET}`);
+    }
+
+    // Adicionar HMAC para segurança do webhook
+    if (WUZAPI_HMAC_KEY) {
+      body.hmac = WUZAPI_HMAC_KEY;
+      console.log('[Wuzapi] HMAC configurado para webhook');
+    }
+
+    console.log(`[Wuzapi] Criando usuario: ${name} com webhook: ${webhookUrl}`);
 
     const response = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
       method: 'POST',
@@ -78,14 +129,61 @@ async function createWuzapiUser(name: string, token: string, webhookUrl?: string
     if (!response.ok) {
       // Se ja existe, consideramos sucesso
       if (data.error?.includes('already exists') || response.status === 409) {
+        console.log(`[Wuzapi] Usuario ${name} já existe, atualizando configurações...`);
+        // Atualizar usuário existente com as novas configurações
+        await updateWuzapiUserConfig(name, token, webhookUrl);
         return { success: true };
       }
       return { success: false, error: data.error || `HTTP ${response.status}` };
     }
 
+    console.log(`[Wuzapi] Usuario ${name} criado com sucesso`);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Atualiza configurações de um usuário existente no Wuzapi
+ */
+async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: string): Promise<void> {
+  try {
+    // Atualizar webhook
+    await fetch(`${WUZAPI_BASE_URL}/webhook`, {
+      method: 'POST',
+      headers: {
+        'Token': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        webhook: webhookUrl,
+        events: ALL_WEBHOOK_EVENTS,
+      }),
+    });
+
+    // Atualizar S3 se configurado
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      await fetch(`${WUZAPI_BASE_URL}/settings/s3`, {
+        method: 'POST',
+        headers: {
+          'Token': token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: S3_ENDPOINT,
+          access_key: S3_ACCESS_KEY,
+          secret_key: S3_SECRET_KEY,
+          bucket: S3_BUCKET,
+          region: S3_REGION,
+          force_path_style: true,
+        }),
+      });
+    }
+
+    console.log(`[Wuzapi] Configurações atualizadas para ${name}`);
+  } catch (error: any) {
+    console.error(`[Wuzapi] Erro ao atualizar configurações: ${error.message}`);
   }
 }
 
