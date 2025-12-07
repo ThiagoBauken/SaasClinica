@@ -120,6 +120,9 @@ export default function ConfiguracoesIntegracoesPage() {
     }
   }, [integrationSettings]);
 
+  // Track se já configuramos para não chamar múltiplas vezes
+  const [hasConfigured, setHasConfigured] = useState(false);
+
   // Fechar dialog automaticamente quando LOGADO no WhatsApp (escaneou QR code)
   // IMPORTANTE: Verificar loggedIn, não connected!
   // connected = sessão ativa com Wuzapi server
@@ -128,27 +131,48 @@ export default function ConfiguracoesIntegracoesPage() {
     // Só considera conectado se loggedIn for true (escaneou QR code)
     const isLoggedIn = wuzapiStatus?.loggedIn === true;
 
-    if (showQrCodeDialog && isLoggedIn) {
+    if (showQrCodeDialog && isLoggedIn && !hasConfigured) {
+      // Marcar como configurado para não chamar novamente
+      setHasConfigured(true);
+
       // AUTO-CONFIGURAR S3, HMAC e Webhook após escanear QR code
       console.log('[QR Scan] Detectado login! Configurando S3, HMAC e Webhook...');
-      reconfigureWuzapi();
 
-      // Mostrar toast de sucesso
+      // Mostrar toast de progresso
       toast({
         title: "WhatsApp Conectado!",
         description: "Configurando webhook, S3 e segurança...",
       });
-      // Fechar dialog após breve delay para configuração completar
-      const timer = setTimeout(() => {
-        setShowQrCodeDialog(false);
-        toast({
-          title: "Configuração Completa!",
-          description: "WhatsApp, webhook, S3 e HMAC configurados com sucesso.",
+
+      // Chamar reconfigure e tratar resultado
+      reconfigureWuzapi()
+        .then((result) => {
+          console.log('[QR Scan] Resultado da configuração:', result);
+          setShowQrCodeDialog(false);
+          toast({
+            title: result.success ? "Configuração Completa!" : "Atenção",
+            description: result.success
+              ? "WhatsApp, webhook, S3 e HMAC configurados."
+              : result.message || "Algumas configurações podem ter falhado.",
+            variant: result.success ? "default" : "destructive",
+          });
+        })
+        .catch((error) => {
+          console.error('[QR Scan] Erro ao configurar:', error);
+          setShowQrCodeDialog(false);
+          toast({
+            title: "Erro na Configuração",
+            description: error.message || "Tente clicar em Reconfigurar manualmente.",
+            variant: "destructive",
+          });
         });
-      }, 2500);
-      return () => clearTimeout(timer);
     }
-  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, toast, reconfigureWuzapi]);
+
+    // Reset hasConfigured quando dialog fecha
+    if (!showQrCodeDialog && hasConfigured) {
+      setHasConfigured(false);
+    }
+  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, hasConfigured, toast, reconfigureWuzapi]);
 
   // Polling mais frequente enquanto o dialog do QR Code está aberto
   // Faz polling a cada 2 segundos para detectar quando usuário escanear o QR

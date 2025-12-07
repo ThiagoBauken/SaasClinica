@@ -156,7 +156,7 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
     const body: any = {
       webhook: webhookUrl,
       events: ALL_WEBHOOK_EVENTS,
-      messagehistory: 1000,
+      messagehistory: 100, // Reduzido para evitar SQLite BUSY no Wuzapi
     };
 
     // Adicionar configuração S3 se disponível
@@ -774,7 +774,7 @@ export async function configureWuzapiWebhook(companyId: number): Promise<boolean
       body: JSON.stringify({
         webhook: webhookUrl,
         events: ['Message', 'ReadReceipt', 'Presence', 'ChatPresence', 'HistorySync', 'Call'],
-        messagehistory: 1000,
+        messagehistory: 100, // Reduzido para evitar SQLite BUSY no Wuzapi
       }),
     });
 
