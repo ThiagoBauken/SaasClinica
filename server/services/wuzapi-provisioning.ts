@@ -837,11 +837,16 @@ export async function reconnectWuzapi(companyId: number): Promise<{
     const data = await response.json().catch(() => ({}));
     console.log('[Wuzapi Reconnect] Response:', JSON.stringify(data));
 
+    // "already connected" é um SUCESSO, não erro!
+    const isAlreadyConnected = data.error === 'already connected' ||
+                               data.error?.includes('already connected');
+
     // Verificar se conectou com sucesso
     const isConnected = data.data?.jid ||
                         data.data?.details === 'Connected!' ||
                         data.data?.LoggedIn ||
-                        data.success === true;
+                        data.success === true ||
+                        isAlreadyConnected;
 
     if (isConnected) {
       // Configurar webhook apos reconexao
@@ -850,8 +855,8 @@ export async function reconnectWuzapi(companyId: number): Promise<{
       return {
         success: true,
         connected: true,
-        loggedIn: true,
-        message: 'WhatsApp reconectado com sucesso!',
+        loggedIn: isAlreadyConnected ? true : !!data.data?.LoggedIn,
+        message: isAlreadyConnected ? 'WhatsApp já está conectado!' : 'WhatsApp reconectado com sucesso!',
       };
     }
 
