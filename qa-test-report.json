@@ -1,0 +1,4331 @@
+{
+  "timestamp": "2025-12-07T18:30:38.952Z",
+  "baseUrl": "http://localhost:5000",
+  "summary": {
+    "total": 14,
+    "passed": 0,
+    "failed": 14,
+    "warnings": 0
+  },
+  "pages": [
+    {
+      "name": "Fluxo de Login",
+      "route": "/auth",
+      "status": "failed",
+      "errors": [
+        "Campos de login não encontrados na página"
+      ],
+      "warnings": [],
+      "steps": [],
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\login_page.png"
+    },
+    {
+      "name": "Login/Registro",
+      "route": "/auth",
+      "status": "failed",
+      "errors": [
+        "7 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/auth",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5173/?token=EqzST9wqFIkX' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 814,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) localhost:5000/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) localhost:5000/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 829,
+            "columnNumber": 24
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/dashboard",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/agenda",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/patients",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/cadastros",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 879,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Login_Registro.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Dashboard Principal",
+      "route": "/dashboard",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/dashboard",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/agenda",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/patients",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/cadastros",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 222,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Dashboard_Principal.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Agenda de Consultas",
+      "route": "/agenda",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/agenda",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/patients",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/cadastros",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 190,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Agenda_de_Consultas.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Listagem de Pacientes",
+      "route": "/patients",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/patients",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/cadastros",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 187,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Listagem_de_Pacientes.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Cadastros Gerais",
+      "route": "/cadastros",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/cadastros",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 213,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Cadastros_Gerais.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Controle de Estoque",
+      "route": "/inventory",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/inventory",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 186,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Controle_de_Estoque.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Módulo Financeiro",
+      "route": "/financial",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/financial",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 183,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\M_dulo_Financeiro.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Configurações",
+      "route": "/configuracoes",
+      "status": "failed",
+      "errors": [
+        "5 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/configuracoes",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "WebSocket connection to 'ws://localhost:5000/?token=EqzST9wqFIkX' failed: Error during WebSocket handshake: Unexpected response code: 400",
+          "location": {
+            "url": "http://localhost:5000/@vite/client",
+            "lineNumber": 801,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 210,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Configura__es.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Schedule (Agenda Alternativa)",
+      "route": "/schedule",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/schedule",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 177,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Schedule__Agenda_Alternativa_.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Analytics/Relatórios",
+      "route": "/analytics",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/analytics",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 193,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Analytics_Relat_rios.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Automação",
+      "route": "/automation",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/automation",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 201,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Automa__o.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Controle de Próteses",
+      "route": "/prosthesis",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/prosthesis",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 188,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Controle_de_Pr_teses.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "CRM",
+      "route": "/crm",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/crm",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        },
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 162,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\CRM.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    },
+    {
+      "name": "Chat/Atendimento",
+      "route": "/atendimento",
+      "status": "failed",
+      "errors": [
+        "4 erros de console, 1 erros de rede"
+      ],
+      "warnings": [],
+      "consoleErrors": [
+        {
+          "text": "Loading the script 'https://replit.com/public/js/replit-dev-banner.js' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+          "location": {
+            "url": "http://localhost:5000/atendimento",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "location": {
+            "url": "http://localhost:5000/api/user/company",
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "https://replit.com/public/js/replit-dev-banner.js",
+          "failure": "csp"
+        }
+      ],
+      "loadTime": 186,
+      "screenshot": "C:\\Users\\Thiago\\Desktop\\site clinca dentista\\qa-screenshots\\Chat_Atendimento.png",
+      "pageTitle": "DentCare - Sistema de Gerenciamento Odontológico"
+    }
+  ]
+}
