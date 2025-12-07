@@ -152,33 +152,14 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
  */
 async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: string): Promise<void> {
   try {
-    // Usar Admin API para atualizar usuário com todas as configurações
-    const body: any = {
-      webhook: webhookUrl,
-      events: ALL_WEBHOOK_EVENTS,
-      messagehistory: 100, // Reduzido para evitar SQLite BUSY no Wuzapi
-    };
-
-    // Adicionar configuração S3 se disponível
-    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-      body.s3 = {
-        endpoint: S3_ENDPOINT,
-        access_key: S3_ACCESS_KEY,
-        secret_key: S3_SECRET_KEY,
-        bucket: S3_BUCKET,
-        region: S3_REGION,
-        force_path_style: true,
-      };
-      console.log(`[Wuzapi] Atualizando S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
-    }
-
-    // Adicionar HMAC para segurança do webhook
-    if (WUZAPI_HMAC_KEY) {
-      body.hmac = WUZAPI_HMAC_KEY;
-      console.log('[Wuzapi] Atualizando HMAC para webhook');
-    }
+    console.log(`[Wuzapi Config] Iniciando configuração para ${name}`);
+    console.log(`[Wuzapi Config] Webhook URL: ${webhookUrl}`);
+    console.log(`[Wuzapi Config] S3_ENDPOINT: ${S3_ENDPOINT || 'NÃO CONFIGURADO'}`);
+    console.log(`[Wuzapi Config] S3_BUCKET: ${S3_BUCKET || 'NÃO CONFIGURADO'}`);
+    console.log(`[Wuzapi Config] HMAC_KEY: ${WUZAPI_HMAC_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO'}`);
 
     // Buscar o ID do usuário pelo nome
+    console.log(`[Wuzapi Admin] Listando usuários...`);
     const listResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
       method: 'GET',
       headers: {
@@ -186,77 +167,157 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
       },
     });
 
-    if (listResponse.ok) {
-      const listData = await listResponse.json();
-      const users = listData.users || listData.data || [];
-      const user = users.find((u: any) => u.name === name || u.Name === name);
-
-      if (user) {
-        const userId = user.id || user.Id;
-        console.log(`[Wuzapi] Atualizando usuário ${name} (ID: ${userId})`);
-
-        // PUT para atualizar via Admin API
-        const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': WUZAPI_ADMIN_TOKEN,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (updateResponse.ok) {
-          console.log(`[Wuzapi] Configurações atualizadas via Admin API para ${name}`);
-          return;
-        } else {
-          const errData = await updateResponse.json().catch(() => ({}));
-          console.error(`[Wuzapi] Erro Admin API: ${errData.error || updateResponse.status}`);
-        }
-      }
+    if (!listResponse.ok) {
+      console.error(`[Wuzapi Admin] Erro ao listar: ${listResponse.status}`);
+      return;
     }
+
+    const listData = await listResponse.json();
+    const users = listData.users || listData.data || [];
+    console.log(`[Wuzapi Admin] ${users.length} usuários encontrados`);
+
+    const user = users.find((u: any) => u.name === name || u.Name === name);
+
+    if (!user) {
+      console.error(`[Wuzapi Admin] Usuário ${name} não encontrado`);
+      return;
+    }
+
+    const userId = user.id || user.Id;
+    console.log(`[Wuzapi Admin] Usuário encontrado: ${name} (ID: ${userId})`);
+
+    // Montar o body com TODOS os campos que queremos atualizar
+    // Formato Wuzapi 3.0 Admin API: campos em PascalCase
+    const body: any = {
+      Webhook: webhookUrl,
+      Events: ALL_WEBHOOK_EVENTS.join(','),
+      Messagehistory: 100,
+    };
+
+    // Adicionar S3 se configurado
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      body.S3Enabled = true;
+      body.S3Endpoint = S3_ENDPOINT;
+      body.S3AccessKey = S3_ACCESS_KEY;
+      body.S3SecretKey = S3_SECRET_KEY;
+      body.S3Bucket = S3_BUCKET;
+      body.S3Region = S3_REGION || 'us-east-1';
+      body.S3PathStyle = true;
+      console.log(`[Wuzapi Admin] S3 configurado: ${S3_ENDPOINT}/${S3_BUCKET}`);
+    }
+
+    // Adicionar HMAC
+    if (WUZAPI_HMAC_KEY) {
+      body.Hmac = WUZAPI_HMAC_KEY;
+      console.log('[Wuzapi Admin] HMAC configurado');
+    }
+
+    console.log(`[Wuzapi Admin] Atualizando via PUT /admin/users/${userId}...`);
+    console.log(`[Wuzapi Admin] Body:`, JSON.stringify({ ...body, S3SecretKey: '***', Hmac: '***' }));
+
+    // PUT para atualizar via Admin API
+    const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': WUZAPI_ADMIN_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const updateData = await updateResponse.json().catch(() => ({}));
+    console.log(`[Wuzapi Admin] Response: ${updateResponse.status}`, JSON.stringify(updateData));
+
+    if (updateResponse.ok) {
+      console.log(`[Wuzapi Admin] ✅ Configurações atualizadas via Admin API para ${name}`);
+      return;
+    }
+
+    // Se Admin API falhar, usar fallback individual
+    console.log(`[Wuzapi Admin] ❌ Admin API falhou, tentando endpoints individuais...`);
 
     // Fallback: Atualizar via endpoints individuais com Token do usuário
     console.log(`[Wuzapi] Fallback: atualizando via endpoints individuais`);
+    console.log(`[Wuzapi] Token: ${token.substring(0, 10)}...`);
+    console.log(`[Wuzapi] Webhook URL: ${webhookUrl}`);
 
-    // Atualizar webhook (PUT para update, POST para criar)
-    const webhookResponse = await fetch(`${WUZAPI_BASE_URL}/webhook`, {
-      method: 'PUT',
+    // Atualizar webhook - Wuzapi 3.0 usa POST /session/webhook
+    const webhookBody = {
+      webhookURL: webhookUrl,
+      events: ALL_WEBHOOK_EVENTS,
+    };
+    console.log(`[Wuzapi] Webhook body:`, JSON.stringify(webhookBody));
+
+    const webhookResponse = await fetch(`${WUZAPI_BASE_URL}/session/webhook`, {
+      method: 'POST',
       headers: {
         'Token': token,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        webhook: webhookUrl,
-        events: ALL_WEBHOOK_EVENTS,
-        Active: true,
-      }),
+      body: JSON.stringify(webhookBody),
     });
-    console.log(`[Wuzapi] Webhook response: ${webhookResponse.status}`);
+    const webhookData = await webhookResponse.json().catch(() => ({}));
+    console.log(`[Wuzapi] Webhook response: ${webhookResponse.status}`, JSON.stringify(webhookData));
 
-    // Atualizar S3 se configurado (endpoint correto: /session/s3/config)
-    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-      const s3Response = await fetch(`${WUZAPI_BASE_URL}/session/s3/config`, {
+    // Se /session/webhook falhar, tentar /webhook (formato antigo)
+    if (!webhookResponse.ok) {
+      console.log(`[Wuzapi] Tentando endpoint /webhook (formato antigo)...`);
+      const webhookResponse2 = await fetch(`${WUZAPI_BASE_URL}/webhook`, {
         method: 'POST',
         headers: {
           'Token': token,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          enabled: true,
-          endpoint: S3_ENDPOINT,
-          region: S3_REGION,
-          bucket: S3_BUCKET,
-          access_key: S3_ACCESS_KEY,
-          secret_key: S3_SECRET_KEY,
-          path_style: true,
-          media_delivery: 'proxy',
-          retention_days: 0,
+          webhook: webhookUrl,
+          events: ALL_WEBHOOK_EVENTS,
         }),
       });
-      console.log(`[Wuzapi] S3 response: ${s3Response.status}`);
+      const webhookData2 = await webhookResponse2.json().catch(() => ({}));
+      console.log(`[Wuzapi] Webhook (antigo) response: ${webhookResponse2.status}`, JSON.stringify(webhookData2));
     }
 
-    // Atualizar HMAC se configurado (endpoint correto: /session/hmac/config)
+    // Atualizar S3 se configurado - formato conforme documentação oficial
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      const s3Body = {
+        enabled: true,
+        endpoint: S3_ENDPOINT,
+        region: S3_REGION || 'us-east-1',
+        bucket: S3_BUCKET,
+        access_key: S3_ACCESS_KEY,
+        secret_key: S3_SECRET_KEY,
+        path_style: S3_FORCE_PATH_STYLE !== false, // true para MinIO
+        public_url: '',
+        media_delivery: 'both',
+        retention_days: 0,
+      };
+      console.log(`[Wuzapi S3] Configurando via /session/s3/config`);
+      console.log(`[Wuzapi S3] Body:`, JSON.stringify({ ...s3Body, secret_key: '***' }));
+
+      const s3Response = await fetch(`${WUZAPI_BASE_URL}/session/s3/config`, {
+        method: 'POST',
+        headers: {
+          'Token': token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(s3Body),
+      });
+      const s3Data = await s3Response.json().catch(() => ({}));
+      console.log(`[Wuzapi S3] Response: ${s3Response.status}`, JSON.stringify(s3Data));
+
+      if (s3Response.ok && s3Data.success !== false) {
+        console.log(`[Wuzapi S3] ✅ S3 configurado com sucesso!`);
+      } else {
+        console.error(`[Wuzapi S3] ❌ Falha: ${s3Data.data || s3Data.error || 'Erro desconhecido'}`);
+      }
+    } else {
+      console.log(`[Wuzapi S3] ⚠️ S3 não configurado - variáveis faltando:`);
+      console.log(`  - ENDPOINT: ${S3_ENDPOINT ? 'OK' : 'FALTANDO'}`);
+      console.log(`  - ACCESS_KEY: ${S3_ACCESS_KEY ? 'OK' : 'FALTANDO'}`);
+      console.log(`  - SECRET_KEY: ${S3_SECRET_KEY ? 'OK' : 'FALTANDO'}`);
+    }
+
+    // Atualizar HMAC se configurado
     if (WUZAPI_HMAC_KEY) {
       const hmacResponse = await fetch(`${WUZAPI_BASE_URL}/session/hmac/config`, {
         method: 'POST',
@@ -268,7 +329,8 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
           hmac_key: WUZAPI_HMAC_KEY,
         }),
       });
-      console.log(`[Wuzapi] HMAC response: ${hmacResponse.status}`);
+      const hmacData = await hmacResponse.json().catch(() => ({}));
+      console.log(`[Wuzapi] HMAC response: ${hmacResponse.status}`, JSON.stringify(hmacData));
     }
 
     console.log(`[Wuzapi] Configurações atualizadas para ${name}`);
@@ -327,6 +389,15 @@ export async function getOrCreateWuzapiInstance(companyId: number): Promise<{
     const instanceExists = await verifyWuzapiInstanceExists(settings.wuzapiApiKey, WUZAPI_BASE_URL);
 
     if (instanceExists) {
+      // IMPORTANTE: Sempre forçar reconfiguração de S3/HMAC/Webhook para garantir que estão corretos
+      const companyName = settings.name || `Clinica ${companyId}`;
+      const slug = generateSlug(companyName);
+      const instanceName = slug ? `${slug}-${companyId}` : `clinica-${companyId}`;
+      const webhookUrl = `${BASE_URL}/api/webhooks/wuzapi/${companyId}`;
+
+      console.log(`[Wuzapi] Instancia existe, verificando/atualizando configuracoes...`);
+      await updateWuzapiUserConfig(instanceName, settings.wuzapiApiKey, webhookUrl);
+
       return {
         success: true,
         token: settings.wuzapiApiKey,
@@ -754,33 +825,44 @@ export async function connectWuzapi(companyId: number): Promise<{
 
 /**
  * Configura webhook do Wuzapi para receber mensagens
+ * Wuzapi 3.0: POST /webhook com { webhookURL, events }
  */
 export async function configureWuzapiWebhook(companyId: number): Promise<boolean> {
   const instance = await getOrCreateWuzapiInstance(companyId);
 
   if (!instance.success) {
+    console.error(`[Wuzapi Webhook] Falha ao obter instância: ${instance.message}`);
     return false;
   }
 
   const webhookUrl = `${BASE_URL}/api/webhooks/wuzapi/${companyId}`;
 
   try {
+    console.log(`[Wuzapi Webhook] Configurando webhook: ${webhookUrl}`);
+    console.log(`[Wuzapi Webhook] Token: ${instance.token.substring(0, 10)}...`);
+
+    // Formato Wuzapi 3.0: webhookURL (não webhook)
+    const body = {
+      webhookURL: webhookUrl,
+      events: ALL_WEBHOOK_EVENTS,
+    };
+
+    console.log(`[Wuzapi Webhook] Body:`, JSON.stringify(body));
+
     const response = await fetch(`${instance.baseUrl}/webhook`, {
       method: 'POST',
       headers: {
         'Token': instance.token,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        webhook: webhookUrl,
-        events: ['Message', 'ReadReceipt', 'Presence', 'ChatPresence', 'HistorySync', 'Call'],
-        messagehistory: 100, // Reduzido para evitar SQLite BUSY no Wuzapi
-      }),
+      body: JSON.stringify(body),
     });
 
-    const data: WuzapiResponse = await response.json();
+    const data = await response.json().catch(() => ({}));
+    console.log(`[Wuzapi Webhook] Response: ${response.status}`, JSON.stringify(data));
 
-    if (data.success !== false && response.ok) {
+    if (response.ok && data.success !== false) {
+      console.log(`[Wuzapi Webhook] ✅ Webhook configurado com sucesso!`);
       // Atualizar URL do webhook no banco
       await db
         .update(clinicSettings)
@@ -794,8 +876,40 @@ export async function configureWuzapiWebhook(companyId: number): Promise<boolean
       return true;
     }
 
+    // Tentar formato alternativo (webhook ao invés de webhookURL)
+    console.log(`[Wuzapi Webhook] Tentando formato alternativo...`);
+    const response2 = await fetch(`${instance.baseUrl}/webhook`, {
+      method: 'POST',
+      headers: {
+        'Token': instance.token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        webhook: webhookUrl,
+        events: ALL_WEBHOOK_EVENTS,
+      }),
+    });
+
+    const data2 = await response2.json().catch(() => ({}));
+    console.log(`[Wuzapi Webhook] Response (alt): ${response2.status}`, JSON.stringify(data2));
+
+    if (response2.ok && data2.success !== false) {
+      console.log(`[Wuzapi Webhook] ✅ Webhook configurado (formato alternativo)!`);
+      await db
+        .update(clinicSettings)
+        .set({
+          wuzapiWebhookUrl: webhookUrl,
+          wuzapiStatus: 'connected',
+          updatedAt: new Date(),
+        })
+        .where(eq(clinicSettings.companyId, companyId));
+      return true;
+    }
+
+    console.error(`[Wuzapi Webhook] ❌ Falha ao configurar webhook`);
     return false;
-  } catch {
+  } catch (error: any) {
+    console.error(`[Wuzapi Webhook] Erro: ${error.message}`);
     return false;
   }
 }
@@ -901,7 +1015,8 @@ export async function configureWuzapiHmac(companyId: number): Promise<{ success:
 }
 
 /**
- * Reconfigura TUDO: Webhook, S3 e HMAC
+ * Reconfigura TUDO: Webhook, S3, HMAC e MessageHistory
+ * Usa Admin API primeiro para configurar tudo de uma vez
  * Útil após conectar o WhatsApp ou quando algo não está funcionando
  */
 export async function reconfigureWuzapiAll(companyId: number): Promise<{
@@ -909,8 +1024,112 @@ export async function reconfigureWuzapiAll(companyId: number): Promise<{
   webhook: { success: boolean; message: string };
   s3: { success: boolean; message: string };
   hmac: { success: boolean; message: string };
+  messageHistory?: { success: boolean; message: string };
 }> {
   console.log(`[Wuzapi Reconfigure] Reconfigurando tudo para companyId ${companyId}...`);
+
+  const instance = await getOrCreateWuzapiInstance(companyId);
+  if (!instance.success) {
+    const errorMsg = { success: false, message: instance.message };
+    return { success: false, webhook: errorMsg, s3: errorMsg, hmac: errorMsg };
+  }
+
+  // Buscar settings para webhook URL
+  const [settings] = await db
+    .select()
+    .from(clinicSettings)
+    .where(eq(clinicSettings.companyId, companyId))
+    .limit(1);
+
+  const webhookUrl = settings?.wuzapiWebhookUrl || `${BASE_URL}/api/webhooks/wuzapi/${companyId}`;
+
+  // PASSO 1: Tentar configurar TUDO via Admin API de uma vez
+  let adminApiSuccess = false;
+  try {
+    // Buscar ID da instância
+    const listResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
+      method: 'GET',
+      headers: { 'Authorization': WUZAPI_ADMIN_TOKEN },
+    });
+
+    if (listResponse.ok) {
+      const listData = await listResponse.json();
+      const users = listData.users || listData.data || [];
+      const instanceName = `clinica-odontologica-demo-${companyId}`;
+      const user = users.find((u: any) =>
+        u.name?.includes(`-${companyId}`) || u.Name?.includes(`-${companyId}`)
+      );
+
+      if (user) {
+        const userId = user.id || user.Id || user.ID;
+        console.log(`[Wuzapi Reconfigure] Encontrado usuário ID: ${userId}`);
+
+        // Montar body com TODAS as configurações
+        const adminBody: any = {
+          webhook: webhookUrl,
+          events: ALL_WEBHOOK_EVENTS,
+          messagehistory: 1000,
+        };
+
+        // Adicionar S3 se configurado
+        if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+          adminBody.s3 = {
+            endpoint: S3_ENDPOINT,
+            access_key: S3_ACCESS_KEY,
+            secret_key: S3_SECRET_KEY,
+            bucket: S3_BUCKET,
+            region: S3_REGION,
+            force_path_style: true,
+          };
+          console.log(`[Wuzapi Reconfigure] S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
+        }
+
+        // Adicionar HMAC se configurado
+        if (WUZAPI_HMAC_KEY) {
+          adminBody.hmac = WUZAPI_HMAC_KEY;
+          console.log('[Wuzapi Reconfigure] HMAC configurado');
+        }
+
+        console.log('[Wuzapi Reconfigure] Enviando configuração via Admin API...');
+        console.log('[Wuzapi Reconfigure] Body:', JSON.stringify(adminBody));
+
+        const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': WUZAPI_ADMIN_TOKEN,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(adminBody),
+        });
+
+        console.log(`[Wuzapi Reconfigure] Admin API response: ${updateResponse.status}`);
+
+        if (updateResponse.ok) {
+          const updateData = await updateResponse.json();
+          console.log('[Wuzapi Reconfigure] Admin API sucesso:', JSON.stringify(updateData));
+          adminApiSuccess = true;
+        } else {
+          const errData = await updateResponse.json().catch(() => ({}));
+          console.error('[Wuzapi Reconfigure] Admin API erro:', JSON.stringify(errData));
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('[Wuzapi Reconfigure] Erro Admin API:', error.message);
+  }
+
+  if (adminApiSuccess) {
+    return {
+      success: true,
+      webhook: { success: true, message: 'Configurado via Admin API' },
+      s3: { success: true, message: 'Configurado via Admin API' },
+      hmac: { success: true, message: 'Configurado via Admin API' },
+      messageHistory: { success: true, message: '1000 mensagens por chat' },
+    };
+  }
+
+  // PASSO 2: Fallback - configurar individualmente
+  console.log('[Wuzapi Reconfigure] Fallback: configurando individualmente...');
 
   // Configurar Webhook
   const webhookResult = await configureWuzapiWebhook(companyId);
