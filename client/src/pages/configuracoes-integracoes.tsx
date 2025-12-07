@@ -120,13 +120,15 @@ export default function ConfiguracoesIntegracoesPage() {
     }
   }, [integrationSettings]);
 
-  // Fechar dialog automaticamente quando conectado e atualizar status
-  // Observa tanto qrCodeData?.connected quanto wuzapiStatus?.loggedIn
+  // Fechar dialog automaticamente quando LOGADO no WhatsApp (escaneou QR code)
+  // IMPORTANTE: Verificar loggedIn, não connected!
+  // connected = sessão ativa com Wuzapi server
+  // loggedIn = autenticado no WhatsApp (escaneou QR)
   useEffect(() => {
-    // Se o dialog está aberto e o WhatsApp foi conectado (via polling de status ou resposta do QR)
-    const isConnected = qrCodeData?.connected || wuzapiStatus?.loggedIn;
+    // Só considera conectado se loggedIn for true (escaneou QR code)
+    const isLoggedIn = wuzapiStatus?.loggedIn === true;
 
-    if (showQrCodeDialog && isConnected) {
+    if (showQrCodeDialog && isLoggedIn) {
       // Mostrar toast de sucesso
       toast({
         title: "WhatsApp Conectado!",
@@ -138,14 +140,19 @@ export default function ConfiguracoesIntegracoesPage() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [qrCodeData?.connected, wuzapiStatus?.loggedIn, showQrCodeDialog, toast]);
+  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, toast]);
 
   // Polling mais frequente enquanto o dialog do QR Code está aberto
+  // Faz polling a cada 2 segundos para detectar quando usuário escanear o QR
   useEffect(() => {
     if (showQrCodeDialog && !wuzapiStatus?.loggedIn) {
+      // Faz uma chamada imediata ao abrir o dialog
+      refetchWuzapiStatus();
+
       const pollInterval = setInterval(() => {
+        console.log('[Polling] Verificando status do WhatsApp...');
         refetchWuzapiStatus();
-      }, 3000); // Poll a cada 3 segundos quando aguardando QR scan
+      }, 2000); // Poll a cada 2 segundos quando aguardando QR scan
 
       return () => clearInterval(pollInterval);
     }
