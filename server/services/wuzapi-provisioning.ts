@@ -806,6 +806,7 @@ export async function reconnectWuzapi(companyId: number): Promise<{
   success: boolean;
   connected: boolean;
   loggedIn: boolean;
+  needsQrCode: boolean;
   message: string;
 }> {
   const instance = await getOrCreateWuzapiInstance(companyId);
@@ -815,14 +816,16 @@ export async function reconnectWuzapi(companyId: number): Promise<{
       success: false,
       connected: false,
       loggedIn: false,
+      needsQrCode: false,
       message: instance.message,
     };
   }
 
   try {
-    console.log('[Wuzapi Reconnect] Tentando reconectar...');
+    console.log('[Wuzapi Reconnect] Iniciando sessão...');
 
-    const response = await fetch(`${instance.baseUrl}/session/connect`, {
+    // PASSO 1: Conectar/ativar a sessão
+    const connectResponse = await fetch(`${instance.baseUrl}/session/connect`, {
       method: 'POST',
       headers: {
         'Token': instance.token,
@@ -834,47 +837,74 @@ export async function reconnectWuzapi(companyId: number): Promise<{
       }),
     });
 
-    const data = await response.json().catch(() => ({}));
-    console.log('[Wuzapi Reconnect] Response:', JSON.stringify(data));
+    const connectData = await connectResponse.json().catch(() => ({}));
+    console.log('[Wuzapi Reconnect] Connect response:', JSON.stringify(connectData));
 
-    // "already connected" é um SUCESSO, não erro!
-    const isAlreadyConnected = data.error === 'already connected' ||
-                               data.error?.includes('already connected');
+    // "already connected" é OK, significa que a sessão já está ativa
+    const isAlreadyConnected = connectData.error === 'already connected' ||
+                               connectData.error?.includes('already connected');
 
-    // Verificar se conectou com sucesso
-    const isConnected = data.data?.jid ||
-                        data.data?.details === 'Connected!' ||
-                        data.data?.LoggedIn ||
-                        data.success === true ||
-                        isAlreadyConnected;
-
-    if (isConnected) {
-      // Configurar webhook apos reconexao
-      await configureWuzapiWebhook(companyId);
-
-      return {
-        success: true,
-        connected: true,
-        loggedIn: isAlreadyConnected ? true : !!data.data?.LoggedIn,
-        message: isAlreadyConnected ? 'WhatsApp já está conectado!' : 'WhatsApp reconectado com sucesso!',
-      };
-    }
-
-    // Se precisa de QR Code, informar
-    if (data.data?.QRCode) {
+    // Se houve erro (exceto "already connected"), retornar erro
+    if (!connectResponse.ok && !isAlreadyConnected) {
       return {
         success: false,
         connected: false,
         loggedIn: false,
-        message: 'Sessao expirada. Necessario escanear QR Code novamente.',
+        needsQrCode: false,
+        message: connectData.error || 'Falha ao iniciar sessão',
       };
     }
 
+    // Configurar webhook
+    await configureWuzapiWebhook(companyId);
+
+    // PASSO 2: Verificar o STATUS REAL para saber se está logado no WhatsApp
+    const statusResponse = await fetch(`${instance.baseUrl}/session/status`, {
+      method: 'GET',
+      headers: {
+        'Token': instance.token,
+      },
+    });
+
+    const statusData = await statusResponse.json().catch(() => ({}));
+    console.log('[Wuzapi Reconnect] Status response:', JSON.stringify(statusData));
+
+    const status = statusData.data || statusData;
+    const isLoggedIn = status.LoggedIn ?? status.loggedIn ?? false;
+    const isConnected = status.Connected ?? status.connected ?? false;
+    const hasQrCode = !!(status.qrcode || status.QRCode);
+
+    // CASO 1: Está LOGADO no WhatsApp (escaneou QR code antes)
+    if (isLoggedIn) {
+      return {
+        success: true,
+        connected: true,
+        loggedIn: true,
+        needsQrCode: false,
+        message: 'WhatsApp conectado e autenticado!',
+      };
+    }
+
+    // CASO 2: Sessão ativa mas NÃO logado - precisa escanear QR code
+    if (isConnected && !isLoggedIn) {
+      return {
+        success: true, // Sessão iniciada com sucesso
+        connected: true,
+        loggedIn: false,
+        needsQrCode: true,
+        message: hasQrCode
+          ? 'Sessão iniciada. Escaneie o QR Code para conectar o WhatsApp.'
+          : 'Sessão iniciada. Aguarde o QR Code aparecer.',
+      };
+    }
+
+    // CASO 3: Não conectado
     return {
       success: false,
       connected: false,
       loggedIn: false,
-      message: data.error || 'Falha ao reconectar',
+      needsQrCode: true,
+      message: 'Falha ao conectar. Tente novamente.',
     };
   } catch (error: any) {
     console.error('[Wuzapi Reconnect] Error:', error);
@@ -882,6 +912,7 @@ export async function reconnectWuzapi(companyId: number): Promise<{
       success: false,
       connected: false,
       loggedIn: false,
+      needsQrCode: false,
       message: error.message,
     };
   }

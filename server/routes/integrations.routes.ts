@@ -765,8 +765,8 @@ router.post(
 
 /**
  * POST /api/v1/integrations/wuzapi/reconnect
- * Reconecta o WhatsApp sem precisar de QR Code
- * Usa a sessao existente que ja foi autenticada
+ * Inicia sessão do WhatsApp
+ * Retorna se precisa escanear QR Code ou se já está autenticado
  */
 router.post(
   '/wuzapi/reconnect',
@@ -777,20 +777,23 @@ router.post(
 
     const result = await WuzapiService.reconnectWuzapi(companyId);
 
-    if (result.success) {
+    // Sempre retornar 200 se a sessão foi iniciada (mesmo que precise de QR code)
+    // O frontend decide o que fazer baseado em loggedIn e needsQrCode
+    if (result.success || result.connected) {
       res.json({
         success: true,
         connected: result.connected,
         loggedIn: result.loggedIn,
+        needsQrCode: result.needsQrCode,
         message: result.message,
       });
     } else {
-      res.status(result.message.includes('QR Code') ? 400 : 500).json({
+      res.status(500).json({
         success: false,
         connected: false,
         loggedIn: false,
+        needsQrCode: result.needsQrCode,
         message: result.message,
-        needsQrCode: result.message.includes('QR Code'),
       });
     }
   })
