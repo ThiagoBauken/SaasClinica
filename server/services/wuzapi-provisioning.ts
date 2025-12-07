@@ -21,12 +21,13 @@ const WUZAPI_BASE_URL = process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:80
 const WUZAPI_ADMIN_TOKEN = process.env.WUZAPI_ADMIN_TOKEN || '';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
-// S3/MinIO para armazenamento de mídia do WhatsApp
-const S3_ENDPOINT = process.env.S3_ENDPOINT || '';
-const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || '';
-const S3_SECRET_KEY = process.env.S3_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || '';
-const S3_BUCKET = process.env.S3_BUCKET || 'whatsapp-media';
-const S3_REGION = process.env.S3_REGION || 'us-east-1';
+// S3/MinIO para armazenamento de mídia do WhatsApp (usa WUZAPI_S3_* prioritariamente)
+const S3_ENDPOINT = process.env.WUZAPI_S3_ENDPOINT || process.env.S3_ENDPOINT || '';
+const S3_ACCESS_KEY = process.env.WUZAPI_S3_ACCESS_KEY || process.env.S3_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || '';
+const S3_SECRET_KEY = process.env.WUZAPI_S3_SECRET_KEY || process.env.S3_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || '';
+const S3_BUCKET = process.env.WUZAPI_S3_BUCKET || process.env.S3_BUCKET || 'whatsapp-media';
+const S3_REGION = process.env.WUZAPI_S3_REGION || process.env.S3_REGION || 'us-east-1';
+const S3_FORCE_PATH_STYLE = process.env.WUZAPI_S3_FORCE_PATH_STYLE === 'true';
 
 // HMAC para segurança dos webhooks
 const WUZAPI_HMAC_KEY = process.env.WUZAPI_GLOBAL_HMAC_KEY || process.env.WUZAPI_WEBHOOK_SECRET || '';
