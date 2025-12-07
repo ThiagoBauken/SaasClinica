@@ -129,18 +129,26 @@ export default function ConfiguracoesIntegracoesPage() {
     const isLoggedIn = wuzapiStatus?.loggedIn === true;
 
     if (showQrCodeDialog && isLoggedIn) {
+      // AUTO-CONFIGURAR S3, HMAC e Webhook após escanear QR code
+      console.log('[QR Scan] Detectado login! Configurando S3, HMAC e Webhook...');
+      reconfigureWuzapi();
+
       // Mostrar toast de sucesso
       toast({
         title: "WhatsApp Conectado!",
-        description: "Sua conexão foi estabelecida com sucesso.",
+        description: "Configurando webhook, S3 e segurança...",
       });
-      // Fechar dialog após breve delay para usuário ver a mensagem
+      // Fechar dialog após breve delay para configuração completar
       const timer = setTimeout(() => {
         setShowQrCodeDialog(false);
-      }, 1500);
+        toast({
+          title: "Configuração Completa!",
+          description: "WhatsApp, webhook, S3 e HMAC configurados com sucesso.",
+        });
+      }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, toast]);
+  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, toast, reconfigureWuzapi]);
 
   // Polling mais frequente enquanto o dialog do QR Code está aberto
   // Faz polling a cada 2 segundos para detectar quando usuário escanear o QR

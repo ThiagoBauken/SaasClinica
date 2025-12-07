@@ -1014,12 +1014,19 @@ export async function reconnectWuzapi(companyId: number): Promise<{
 
     // CASO 1: Está LOGADO no WhatsApp (escaneou QR code antes)
     if (isLoggedIn) {
+      // AUTO-CONFIGURAR S3, HMAC e Webhook quando logado
+      console.log('[Wuzapi Reconnect] Logado! Configurando S3, HMAC e Webhook...');
+      const configResult = await reconfigureWuzapiAll(companyId);
+      console.log('[Wuzapi Reconnect] Resultado da configuração:', JSON.stringify(configResult));
+
       return {
         success: true,
         connected: true,
         loggedIn: true,
         needsQrCode: false,
-        message: 'WhatsApp conectado e autenticado!',
+        message: configResult.success
+          ? 'WhatsApp conectado! Webhook, S3 e HMAC configurados.'
+          : `WhatsApp conectado! Algumas configurações falharam: ${!configResult.webhook.success ? 'Webhook ' : ''}${!configResult.s3.success ? 'S3 ' : ''}${!configResult.hmac.success ? 'HMAC' : ''}`.trim(),
       };
     }
 
