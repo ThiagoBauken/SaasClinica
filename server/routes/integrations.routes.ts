@@ -1119,6 +1119,62 @@ router.post(
       });
     }
 
+    // Usar a função centralizada de reconfiguração
+    const result = await WuzapiService.reconfigureWuzapiAll(companyId);
+
+    res.json({
+      success: result.success,
+      message: result.success
+        ? 'Wuzapi reconfigurado com sucesso!'
+        : 'Algumas configurações falharam. Verifique os detalhes.',
+      results: {
+        webhook: result.webhook.success ? 'OK' : result.webhook.message,
+        s3: result.s3.success ? 'OK' : result.s3.message,
+        hmac: result.hmac.success ? 'OK' : result.hmac.message,
+      },
+      details: result,
+    });
+  })
+);
+
+/**
+ * POST /api/v1/integrations/wuzapi/configure-webhook-only
+ * Configura apenas o webhook (para casos onde só precisa do webhook)
+ */
+router.post(
+  '/wuzapi/configure-webhook-only',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 1;
+
+    const success = await WuzapiService.configureWuzapiWebhook(companyId);
+
+    res.json({
+      success,
+      message: success ? 'Webhook configurado!' : 'Falha ao configurar webhook',
+    });
+  })
+);
+
+// Comentário para manter compatibilidade com código existente
+// O código antigo foi substituído pela função centralizada acima
+// Mantendo endpoint legado desabilitado:
+/*
+router.post(
+  '/wuzapi/reconfigure-legacy',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId || 1;
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Apenas administradores podem reconfigurar o Wuzapi',
+      });
+    }
+
     const settings = await storage.getClinicSettings(companyId);
 
     if (!settings?.wuzapiApiKey) {
@@ -1147,56 +1203,6 @@ router.post(
       // 1. Configurar Webhook (formato correto da API Wuzapi 3.0)
       console.log(`[Wuzapi Reconfigure] Configurando webhook: ${webhookUrl}`);
       const webhookResponse = await fetch(`${baseUrl}/webhook`, {
-        method: 'PUT',
-        headers: {
-          'Token': settings.wuzapiApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          webhook: webhookUrl,
-          events: ['Message', 'ReadReceipt', 'Presence', 'ChatPresence', 'HistorySync', 'All'],
-          Active: true,
-        }),
-      });
-
-      const webhookData = await webhookResponse.json().catch(() => ({}));
-      console.log(`[Wuzapi Reconfigure] Webhook response:`, webhookData);
-      results.webhook = webhookResponse.ok;
-
-      // 2. Configurar S3 se disponível (endpoint correto: /session/s3/config)
-      if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-        console.log(`[Wuzapi Reconfigure] Configurando S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
-        const s3Response = await fetch(`${baseUrl}/session/s3/config`, {
-          method: 'POST',
-          headers: {
-            'Token': settings.wuzapiApiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            enabled: true,
-            endpoint: S3_ENDPOINT,
-            region: S3_REGION,
-            bucket: S3_BUCKET,
-            access_key: S3_ACCESS_KEY,
-            secret_key: S3_SECRET_KEY,
-            path_style: true,
-            media_delivery: 'proxy', // ou 'direct' se o S3 for público
-            retention_days: 0, // 0 = sem limite
-          }),
-        });
-
-        const s3Data = await s3Response.json().catch(() => ({}));
-        console.log(`[Wuzapi Reconfigure] S3 response:`, s3Data);
-        results.s3 = s3Response.ok;
-      } else {
-        console.log('[Wuzapi Reconfigure] S3 não configurado no .env');
-        results.s3 = null; // não configurado
-      }
-
-      // 3. Configurar HMAC se disponível (endpoint correto: /session/hmac/config)
-      if (WUZAPI_HMAC_KEY) {
-        console.log('[Wuzapi Reconfigure] Configurando HMAC');
-        const hmacResponse = await fetch(`${baseUrl}/session/hmac/config`, {
           method: 'POST',
           headers: {
             'Token': settings.wuzapiApiKey,

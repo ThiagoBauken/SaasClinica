@@ -773,6 +773,7 @@ export async function configureWuzapiWebhook(companyId: number): Promise<boolean
       body: JSON.stringify({
         webhook: webhookUrl,
         events: ['Message', 'ReadReceipt', 'Presence', 'ChatPresence', 'HistorySync', 'Call'],
+        messagehistory: 1000,
       }),
     });
 
@@ -796,6 +797,143 @@ export async function configureWuzapiWebhook(companyId: number): Promise<boolean
   } catch {
     return false;
   }
+}
+
+/**
+ * Configura S3/MinIO para armazenamento de mídia no Wuzapi
+ */
+export async function configureWuzapiS3(companyId: number): Promise<{ success: boolean; message: string }> {
+  const instance = await getOrCreateWuzapiInstance(companyId);
+
+  if (!instance.success) {
+    return { success: false, message: instance.message };
+  }
+
+  // Verificar se variáveis S3 estão configuradas
+  if (!S3_ENDPOINT || !S3_ACCESS_KEY || !S3_SECRET_KEY || !S3_BUCKET) {
+    return {
+      success: false,
+      message: 'Variáveis S3 não configuradas no servidor. Configure S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY e S3_BUCKET.',
+    };
+  }
+
+  try {
+    console.log(`[Wuzapi S3] Configurando S3: ${S3_ENDPOINT}/${S3_BUCKET}`);
+
+    const response = await fetch(`${instance.baseUrl}/session/s3/config`, {
+      method: 'POST',
+      headers: {
+        'Token': instance.token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        enabled: true,
+        endpoint: S3_ENDPOINT,
+        region: S3_REGION,
+        bucket: S3_BUCKET,
+        access_key: S3_ACCESS_KEY,
+        secret_key: S3_SECRET_KEY,
+        path_style: true, // Necessário para MinIO
+        public_url: `${S3_ENDPOINT}/${S3_BUCKET}`,
+        media_delivery: 'proxy', // proxy = seguro, não expõe URLs diretas
+        retention_days: 0, // 0 = sem expiração
+      }),
+    });
+
+    const data = await response.json();
+    console.log(`[Wuzapi S3] Response: ${JSON.stringify(data)}`);
+
+    if (data.success !== false && response.ok) {
+      return { success: true, message: 'S3 configurado com sucesso!' };
+    }
+
+    return { success: false, message: data.error || data.data || `HTTP ${response.status}` };
+  } catch (error: any) {
+    console.error('[Wuzapi S3] Error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Configura HMAC para segurança dos webhooks
+ */
+export async function configureWuzapiHmac(companyId: number): Promise<{ success: boolean; message: string }> {
+  const instance = await getOrCreateWuzapiInstance(companyId);
+
+  if (!instance.success) {
+    return { success: false, message: instance.message };
+  }
+
+  if (!WUZAPI_HMAC_KEY || WUZAPI_HMAC_KEY.length < 32) {
+    return {
+      success: false,
+      message: 'WUZAPI_GLOBAL_HMAC_KEY não configurado ou menor que 32 caracteres.',
+    };
+  }
+
+  try {
+    console.log('[Wuzapi HMAC] Configurando HMAC para webhook...');
+
+    const response = await fetch(`${instance.baseUrl}/session/hmac/config`, {
+      method: 'POST',
+      headers: {
+        'Token': instance.token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        hmac_key: WUZAPI_HMAC_KEY,
+      }),
+    });
+
+    const data = await response.json();
+    console.log(`[Wuzapi HMAC] Response: ${JSON.stringify(data)}`);
+
+    if (data.success !== false && response.ok) {
+      return { success: true, message: 'HMAC configurado com sucesso!' };
+    }
+
+    return { success: false, message: data.error || data.data || `HTTP ${response.status}` };
+  } catch (error: any) {
+    console.error('[Wuzapi HMAC] Error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Reconfigura TUDO: Webhook, S3 e HMAC
+ * Útil após conectar o WhatsApp ou quando algo não está funcionando
+ */
+export async function reconfigureWuzapiAll(companyId: number): Promise<{
+  success: boolean;
+  webhook: { success: boolean; message: string };
+  s3: { success: boolean; message: string };
+  hmac: { success: boolean; message: string };
+}> {
+  console.log(`[Wuzapi Reconfigure] Reconfigurando tudo para companyId ${companyId}...`);
+
+  // Configurar Webhook
+  const webhookResult = await configureWuzapiWebhook(companyId);
+  const webhookStatus = {
+    success: webhookResult,
+    message: webhookResult ? 'Webhook configurado!' : 'Falha ao configurar webhook',
+  };
+
+  // Configurar S3
+  const s3Status = await configureWuzapiS3(companyId);
+
+  // Configurar HMAC
+  const hmacStatus = await configureWuzapiHmac(companyId);
+
+  const allSuccess = webhookStatus.success && s3Status.success && hmacStatus.success;
+
+  console.log(`[Wuzapi Reconfigure] Resultado: webhook=${webhookStatus.success}, s3=${s3Status.success}, hmac=${hmacStatus.success}`);
+
+  return {
+    success: allSuccess,
+    webhook: webhookStatus,
+    s3: s3Status,
+    hmac: hmacStatus,
+  };
 }
 
 /**
