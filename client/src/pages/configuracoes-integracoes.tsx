@@ -124,14 +124,12 @@ export default function ConfiguracoesIntegracoesPage() {
   const [hasConfigured, setHasConfigured] = useState(false);
 
   // Fechar dialog automaticamente quando LOGADO no WhatsApp (escaneou QR code)
-  // IMPORTANTE: Verificar loggedIn, não connected!
-  // connected = sessão ativa com Wuzapi server
-  // loggedIn = autenticado no WhatsApp (escaneou QR)
+  // Verifica tanto wuzapiStatus?.loggedIn quanto qrCodeData?.connected
   useEffect(() => {
-    // Só considera conectado se loggedIn for true (escaneou QR code)
-    const isLoggedIn = wuzapiStatus?.loggedIn === true;
+    // Considera conectado se loggedIn=true OU qrCodeData retornou connected=true
+    const isConnected = wuzapiStatus?.loggedIn === true || qrCodeData?.connected === true;
 
-    if (showQrCodeDialog && isLoggedIn && !hasConfigured) {
+    if (showQrCodeDialog && isConnected && !hasConfigured) {
       // Marcar como configurado para não chamar novamente
       setHasConfigured(true);
 
@@ -172,12 +170,14 @@ export default function ConfiguracoesIntegracoesPage() {
     if (!showQrCodeDialog && hasConfigured) {
       setHasConfigured(false);
     }
-  }, [wuzapiStatus?.loggedIn, showQrCodeDialog, hasConfigured, toast, reconfigureWuzapi]);
+  }, [wuzapiStatus?.loggedIn, qrCodeData?.connected, showQrCodeDialog, hasConfigured, toast, reconfigureWuzapi]);
 
   // Polling mais frequente enquanto o dialog do QR Code está aberto
   // Faz polling a cada 2 segundos para detectar quando usuário escanear o QR
   useEffect(() => {
-    if (showQrCodeDialog && !wuzapiStatus?.loggedIn) {
+    const isConnected = wuzapiStatus?.loggedIn === true || qrCodeData?.connected === true;
+
+    if (showQrCodeDialog && !isConnected) {
       // Faz uma chamada imediata ao abrir o dialog
       refetchWuzapiStatus();
 
@@ -188,7 +188,7 @@ export default function ConfiguracoesIntegracoesPage() {
 
       return () => clearInterval(pollInterval);
     }
-  }, [showQrCodeDialog, wuzapiStatus?.loggedIn, refetchWuzapiStatus]);
+  }, [showQrCodeDialog, wuzapiStatus?.loggedIn, qrCodeData?.connected, refetchWuzapiStatus]);
 
   const handleSave = () => {
     updateIntegrations(form);
@@ -293,50 +293,155 @@ export default function ConfiguracoesIntegracoesPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="wuzapiInstanceId" className="flex items-center gap-2">
-                      <Key className="h-4 w-4" />
-                      Instance ID*
-                    </Label>
-                    <Input
-                      id="wuzapiInstanceId"
-                      placeholder="instance_123456"
-                      value={form.wuzapiInstanceId}
-                      onChange={(e) => setForm(prev => ({ ...prev, wuzapiInstanceId: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="wuzapiApiKey" className="flex items-center gap-2">
-                      <Key className="h-4 w-4" />
-                      API Key*
-                    </Label>
-                    <Input
-                      id="wuzapiApiKey"
-                      type="password"
-                      placeholder={integrationSettings?.hasWuzapiConfig ? "***********" : "sua_api_key_aqui"}
-                      value={form.wuzapiApiKey}
-                      onChange={(e) => setForm(prev => ({ ...prev, wuzapiApiKey: e.target.value }))}
-                    />
-                    {integrationSettings?.hasWuzapiConfig && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Deixe em branco para manter a chave atual
-                      </p>
-                    )}
+                {/* Status da Conexão WhatsApp - Wuzapi 3.0 (automático) */}
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${wuzapiStatus?.loggedIn ? 'bg-green-500/20' : wuzapiStatus?.connected ? 'bg-yellow-500/20' : 'bg-gray-500/20'}`}>
+                        <Smartphone className={`h-5 w-5 ${wuzapiStatus?.loggedIn ? 'text-green-600 dark:text-green-400' : wuzapiStatus?.connected ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500'}`} />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {isLoadingWuzapiStatus ? 'Verificando...' :
+                            wuzapiStatus?.loggedIn ? 'WhatsApp Conectado' :
+                            wuzapiStatus?.connected ? 'Aguardando QR Code' :
+                            wuzapiStatus?.configured ? 'Desconectado' : 'Não Configurado'}
+                        </p>
+                        {wuzapiStatus?.phoneNumber && (
+                          <p className="text-sm text-muted-foreground">
+                            {wuzapiStatus.pushName} • {wuzapiStatus.phoneNumber}
+                          </p>
+                        )}
+                        {!wuzapiStatus?.loggedIn && wuzapiStatus?.configured && (
+                          <p className="text-sm text-muted-foreground">
+                            Clique em "Conectar" para escanear o QR Code
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      {wuzapiStatus?.loggedIn ? (
+                        <>
+                          {/* Botão Reconfigurar - força atualização de webhook, S3 e HMAC */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                            onClick={() => reconfigureWuzapi()}
+                            disabled={isReconfiguring}
+                            title="Atualiza webhook, S3 e HMAC no Wuzapi"
+                          >
+                            {isReconfiguring ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                            )}
+                            Reconfigurar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-orange-600 dark:text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+                            onClick={() => disconnectWuzapi()}
+                            disabled={isDisconnecting}
+                          >
+                            {isDisconnecting ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <WifiOff className="mr-2 h-4 w-4" />
+                            )}
+                            Desconectar
+                          </Button>
+                          {/* Botão Deletar - reseta completamente a instância */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                            onClick={() => {
+                              if (confirm('Tem certeza que deseja deletar a instância? Você precisará reconectar via QR Code.')) {
+                                resetWuzapi();
+                              }
+                            }}
+                            disabled={isResetting}
+                            title="Deleta a instância e limpa o banco"
+                          >
+                            {isResetting ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="mr-2 h-4 w-4" />
+                            )}
+                            Deletar
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {/* Botão Conectar - abre QR Code */}
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={handleShowQrCode}
+                            disabled={isLoadingQrCode}
+                          >
+                            {isLoadingQrCode ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <QrCode className="mr-2 h-4 w-4" />
+                            )}
+                            Conectar
+                          </Button>
+                          {/* Botão Reconectar - para quando já tem sessão salva */}
+                          {wuzapiStatus?.configured && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                              onClick={() => reconnectWuzapi()}
+                              disabled={isReconnecting}
+                            >
+                              {isReconnecting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                              )}
+                              Reconectar
+                            </Button>
+                          )}
+                          {/* Botão Deletar */}
+                          {wuzapiStatus?.configured && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                              onClick={() => {
+                                if (confirm('Tem certeza que deseja deletar a instância?')) {
+                                  resetWuzapi();
+                                }
+                              }}
+                              disabled={isResetting}
+                            >
+                              {isResetting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              )}
+                              Deletar
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => refetchWuzapiStatus()}
+                        title="Atualizar status"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="wuzapiBaseUrl">Base URL</Label>
-                  <Input
-                    id="wuzapiBaseUrl"
-                    placeholder="https://wuzapi.cloud/api/v2"
-                    value={form.wuzapiBaseUrl}
-                    onChange={(e) => setForm(prev => ({ ...prev, wuzapiBaseUrl: e.target.value }))}
-                  />
-                </div>
+                <Separator />
 
                 <div className="space-y-2">
                   <Label htmlFor="adminWhatsappPhone">Telefone do Administrador</Label>
@@ -350,148 +455,6 @@ export default function ConfiguracoesIntegracoesPage() {
                     Formato: +55 + DDD + número (ex: +5511999999999)
                   </p>
                 </div>
-
-                <Separator />
-
-                {/* Status da Conexão WhatsApp */}
-                {integrationSettings?.hasWuzapiConfig && (
-                  <div className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${wuzapiStatus?.loggedIn ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
-                          <Smartphone className={`h-5 w-5 ${wuzapiStatus?.loggedIn ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {isLoadingWuzapiStatus ? 'Verificando...' :
-                              wuzapiStatus?.loggedIn ? 'WhatsApp Conectado' :
-                              wuzapiStatus?.configured ? 'Aguardando Conexão' : 'Não Configurado'}
-                          </p>
-                          {wuzapiStatus?.phoneNumber && (
-                            <p className="text-sm text-muted-foreground">
-                              {wuzapiStatus.pushName} • {wuzapiStatus.phoneNumber}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {wuzapiStatus?.loggedIn ? (
-                          <>
-                            {/* Botão Reconfigurar - força atualização de webhook, S3 e HMAC */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
-                              onClick={() => reconfigureWuzapi()}
-                              disabled={isReconfiguring}
-                              title="Atualiza webhook, S3 e HMAC no Wuzapi"
-                            >
-                              {isReconfiguring ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                              )}
-                              Reconfigurar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
-                              onClick={() => disconnectWuzapi()}
-                              disabled={isDisconnecting}
-                            >
-                              {isDisconnecting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <WifiOff className="mr-2 h-4 w-4" />
-                              )}
-                              Desconectar
-                            </Button>
-                            {/* Botão Deletar - reseta completamente a instância */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
-                              onClick={() => {
-                                if (confirm('Tem certeza que deseja deletar a instância? Você precisará reconectar via QR Code.')) {
-                                  resetWuzapi();
-                                }
-                              }}
-                              disabled={isResetting}
-                              title="Deleta a instância e limpa o banco. Use quando deletou a instância no dashboard do Wuzapi."
-                            >
-                              {isResetting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="mr-2 h-4 w-4" />
-                              )}
-                              Deletar
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            {/* Botão Reconectar - para quando já tem sessão salva */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 dark:text-green-400 border-green-500/30 hover:bg-green-500/10"
-                              onClick={() => reconnectWuzapi()}
-                              disabled={isReconnecting}
-                            >
-                              {isReconnecting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                              )}
-                              Reconectar
-                            </Button>
-                            {/* Botão QR Code - para nova conexão */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleShowQrCode}
-                              disabled={isLoadingQrCode}
-                            >
-                              {isLoadingQrCode ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <QrCode className="mr-2 h-4 w-4" />
-                              )}
-                              Novo QR Code
-                            </Button>
-                            {/* Botão Deletar - reseta completamente a instância */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
-                              onClick={() => {
-                                if (confirm('Tem certeza que deseja deletar a instância? Isso limpará todas as configurações.')) {
-                                  resetWuzapi();
-                                }
-                              }}
-                              disabled={isResetting}
-                              title="Deleta a instância e limpa o banco. Use quando deletou a instância no dashboard do Wuzapi."
-                            >
-                              {isResetting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="mr-2 h-4 w-4" />
-                              )}
-                              Deletar
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => refetchWuzapiStatus()}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Dialog QR Code */}
                 <Dialog open={showQrCodeDialog} onOpenChange={setShowQrCodeDialog}>

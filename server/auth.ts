@@ -191,6 +191,41 @@ export function setupAuth(app: Express) {
                 trialEndsAt: trialEndsAt
               });
 
+              // Criar subscription automaticamente para novo usuário Google
+              try {
+                const { subscriptionService } = await import("./billing/subscription-service");
+                const { db } = await import("./db");
+                const { plans, subscriptions } = await import("@shared/schema");
+                const { eq } = await import("drizzle-orm");
+
+                // Verificar se já existe subscription para esta empresa
+                const existingSub = await db
+                  .select()
+                  .from(subscriptions)
+                  .where(eq(subscriptions.companyId, defaultCompanyId))
+                  .limit(1);
+
+                if (existingSub.length === 0) {
+                  // Buscar plano básico
+                  const [basicPlan] = await db
+                    .select()
+                    .from(plans)
+                    .where(eq(plans.name, 'basic'))
+                    .limit(1);
+
+                  if (basicPlan) {
+                    await subscriptionService.createSubscription({
+                      companyId: defaultCompanyId,
+                      planId: basicPlan.id,
+                      billingCycle: 'monthly',
+                    });
+                    console.log(`✓ Subscription criada para empresa ${defaultCompanyId} (Google OAuth)`);
+                  }
+                }
+              } catch (subError) {
+                console.error('⚠️ Erro ao criar subscription (Google OAuth):', subError);
+              }
+
               console.log(`✓ Created new user via Google: ${newUser.username}`);
               return done(null, newUser);
             }
@@ -234,10 +269,73 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Nome de usuário já existe" });
       }
 
+      // Verificar se email já existe
+      if (req.body.email) {
+        const existingEmail = await storage.getUserByEmail(req.body.email);
+        if (existingEmail) {
+          return res.status(400).json({ error: "Este e-mail já está cadastrado" });
+        }
+      }
+
+      // Set trial period to 7 days from now
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+
+      // Get or create default company for new user
+      let defaultCompanyId = 1; // Fallback to first company
+      try {
+        const { db } = await import("./db");
+        const { companies } = await import("@shared/schema");
+        const companiesList = await db.select().from(companies).limit(1);
+        if (companiesList && companiesList.length > 0) {
+          defaultCompanyId = companiesList[0].id;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching companies for registration:', error);
+      }
+
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
+        companyId: defaultCompanyId,
+        trialEndsAt: trialEndsAt,
+        role: req.body.role || "staff", // Default role
       });
+
+      // Criar subscription automaticamente para novo usuário
+      try {
+        const { subscriptionService } = await import("./billing/subscription-service");
+        const { db } = await import("./db");
+        const { plans, subscriptions } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+
+        // Verificar se já existe subscription para esta empresa
+        const existingSub = await db
+          .select()
+          .from(subscriptions)
+          .where(eq(subscriptions.companyId, defaultCompanyId))
+          .limit(1);
+
+        if (existingSub.length === 0) {
+          // Buscar plano básico (gratuito/trial)
+          const [basicPlan] = await db
+            .select()
+            .from(plans)
+            .where(eq(plans.name, 'basic'))
+            .limit(1);
+
+          if (basicPlan) {
+            await subscriptionService.createSubscription({
+              companyId: defaultCompanyId,
+              planId: basicPlan.id,
+              billingCycle: 'monthly',
+            });
+            console.log(`✓ Subscription criada para empresa ${defaultCompanyId}`);
+          }
+        }
+      } catch (subError) {
+        console.error('⚠️ Erro ao criar subscription (não crítico):', subError);
+      }
 
       // Enviar email de boas-vindas (não aguardar para não bloquear o login)
       if (user.email) {
