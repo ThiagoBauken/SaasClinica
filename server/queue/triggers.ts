@@ -2,6 +2,7 @@ import {
   addAppointmentReminderJob,
   addAppointmentConfirmationJob,
   addPaymentReceiptJob,
+  addEmailJob,
   scheduleAppointmentReminder,
 } from './queues';
 
@@ -90,8 +91,23 @@ export async function onAppointmentCancelled(appointment: {
 }) {
   console.log(`🔔 Trigger: Agendamento cancelado (ID: ${appointment.id})`);
 
-  // TODO: Implementar cancelamento de jobs agendados
-  // await cancelScheduledReminders(appointment.id);
+  try {
+    // Cancel any scheduled reminder jobs for this appointment
+    // Reminders go through the automations queue
+    const { automationsQueue } = await import('./queues');
+    const queue = automationsQueue;
+    if (queue) {
+      const jobs = await queue.getJobs(['delayed', 'waiting']);
+      for (const job of jobs) {
+        if (job.data?.appointmentId === appointment.id) {
+          await job.remove();
+        }
+      }
+    }
+    console.log(`✅ Reminders cancelados para agendamento ${appointment.id}`);
+  } catch (error) {
+    console.error('❌ Erro ao cancelar reminders:', error);
+  }
 }
 
 /**
@@ -140,13 +156,19 @@ export async function onPatientCreated(patient: {
 }) {
   console.log(`🔔 Trigger: Novo paciente cadastrado (ID: ${patient.id})`);
 
-  // TODO: Implementar email de boas-vindas
-  // await addEmailJob({
-  //   to: patient.email,
-  //   subject: 'Bem-vindo à nossa clínica!',
-  //   body: welcomeEmailTemplate(patient.name),
-  //   companyId: patient.companyId,
-  // });
+  if (patient.email) {
+    try {
+      await addEmailJob({
+        to: patient.email,
+        subject: 'Bem-vindo à nossa clínica!',
+        body: `Olá ${patient.name},\n\nSeja bem-vindo(a) à nossa clínica! Estamos felizes em tê-lo(a) como paciente.\n\nQualquer dúvida, entre em contato conosco.\n\nAtenciosamente,\nEquipe da Clínica`,
+        companyId: patient.companyId,
+      });
+      console.log(`✅ Email de boas-vindas enviado para ${patient.email}`);
+    } catch (error) {
+      console.error('❌ Erro ao enviar email de boas-vindas:', error);
+    }
+  }
 }
 
 /**
@@ -165,8 +187,27 @@ export async function onLowStock(item: {
 }) {
   console.log(`🔔 Trigger: Estoque baixo (Item: ${item.name}, Qtd: ${item.quantity})`);
 
-  // TODO: Implementar notificação de estoque baixo
-  // await notifyAdmins(item);
+  try {
+    // Get admin users for this company and notify them
+    const { db } = await import('../db');
+    const admins = await db.$client.query(
+      `SELECT email FROM users WHERE company_id = $1 AND role IN ('admin', 'superadmin') AND email IS NOT NULL`,
+      [item.companyId]
+    );
+
+    for (const admin of admins.rows) {
+      await addEmailJob({
+        to: admin.email,
+        subject: `Estoque baixo: ${item.name}`,
+        body: `O item "${item.name}" está com estoque baixo.\n\nQuantidade atual: ${item.quantity}\nQuantidade mínima: ${item.minQuantity}\n\nPor favor, providencie a reposição.`,
+        companyId: item.companyId,
+      });
+    }
+
+    console.log(`✅ Notificação de estoque baixo enviada para ${admins.rows.length} admins`);
+  } catch (error) {
+    console.error('❌ Erro ao notificar estoque baixo:', error);
+  }
 }
 
 /**

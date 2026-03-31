@@ -195,16 +195,7 @@ export default function AgendaPage() {
     if (!appointmentsData?.data) return [];
 
     // Transformar dados da API para o formato esperado pelo componente
-    return appointmentsData.data.map((appt: ApiAppointment, index: number) => {
-      // Gerar status de pagamento mock baseado no índice
-      const paymentStatuses: PaymentStatus[] = ['paid', 'pending', 'partial', 'overdue', 'not_required'];
-      const paymentStatus: PaymentStatus = paymentStatuses[index % paymentStatuses.length];
-
-      // Gerar valores mock
-      const paymentAmount = paymentStatus === 'not_required' ? 0 : 150 + (index * 50);
-      const paidAmount = paymentStatus === 'partial' ? paymentAmount * 0.5 :
-                         paymentStatus === 'paid' ? paymentAmount : 0;
-
+    return appointmentsData.data.map((appt: ApiAppointment) => {
       return {
         id: appt.id,
         date: new Date(appt.startTime),
@@ -217,15 +208,15 @@ export default function AgendaPage() {
         status: appt.status,
         startTime: format(new Date(appt.startTime), "HH:mm"),
         endTime: format(new Date(appt.endTime), "HH:mm"),
-        paymentStatus,
-        paymentAmount,
-        paidAmount,
+        paymentStatus: (appt as any).paymentStatus || 'not_required' as PaymentStatus,
+        paymentAmount: (appt as any).paymentAmount || 0,
+        paidAmount: (appt as any).paidAmount || 0,
       };
     });
   }, [appointmentsData]);
 
   // Transformar profissionais da API
-  const mockProfessionals = useMemo(() => {
+  const professionals = useMemo(() => {
     if (!professionalsData?.data) return [];
     return professionalsData.data.map((prof: ApiProfessional) => ({
       id: prof.id,
@@ -235,7 +226,7 @@ export default function AgendaPage() {
   }, [professionalsData]);
 
   // Transformar salas da API
-  const mockRooms = useMemo(() => {
+  const rooms = useMemo(() => {
     if (!roomsData?.data) return [];
     return roomsData.data.map((room: ApiRoom) => ({
       id: room.id,
@@ -248,7 +239,7 @@ export default function AgendaPage() {
     queryKey: ["/api/v1/patients"],
   });
 
-  const mockPatients = useMemo(() => {
+  const patientsList = useMemo(() => {
     if (!patientsData?.data) return [];
     return patientsData.data.map((patient: ApiPatient) => ({
       id: patient.id,
@@ -262,7 +253,7 @@ export default function AgendaPage() {
     queryKey: ["/api/v1/procedures"],
   });
 
-  const mockProcedures = useMemo(() => {
+  const proceduresList = useMemo(() => {
     if (!proceduresData?.data) return [];
     return proceduresData.data.map((proc: ApiProcedure) => ({
       id: proc.id,
@@ -780,8 +771,6 @@ export default function AgendaPage() {
 
   // Handler para filtros da sidebar
   const handleFilterChange = (filters: any) => {
-    console.log("Filtros aplicados:", filters);
-
     if (filters.updateMainCalendar && filters.selectedDate) {
       setSelectedDate(new Date(filters.selectedDate));
       toast({
@@ -903,7 +892,7 @@ export default function AgendaPage() {
               {/* Encontrar horário */}
               <FindFreeTimeDialog
                 selectedDate={selectedDate}
-                professionals={mockProfessionals}
+                professionals={professionals}
                 onSelectTimeSlot={(date, startTime, endTime) => {
                   setSelectedDate(date);
                   setNewAppointment({
@@ -1001,7 +990,7 @@ export default function AgendaPage() {
                         <SelectValue placeholder="Selecione o paciente" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockPatients.map((patient) => (
+                        {patientsList.map((patient) => (
                           <SelectItem key={patient.id} value={patient.id.toString()}>
                             {patient.name}
                           </SelectItem>
@@ -1020,7 +1009,7 @@ export default function AgendaPage() {
                         <SelectValue placeholder="Selecione o profissional" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockProfessionals.map((professional) => (
+                        {professionals.map((professional) => (
                           <SelectItem key={professional.id} value={professional.id.toString()}>
                             {professional.name} ({professional.specialty})
                           </SelectItem>
@@ -1039,7 +1028,7 @@ export default function AgendaPage() {
                         <SelectValue placeholder="Selecione o procedimento" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockProcedures.map((procedure) => (
+                        {proceduresList.map((procedure) => (
                           <SelectItem key={procedure.id} value={procedure.id.toString()}>
                             {procedure.name} ({procedure.duration} min)
                           </SelectItem>
@@ -1130,7 +1119,7 @@ export default function AgendaPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os profissionais</SelectItem>
-                      {mockProfessionals.map((prof) => (
+                      {professionals.map((prof) => (
                         <SelectItem key={prof.id} value={prof.id.toString()}>
                           {prof.name}
                         </SelectItem>
@@ -1151,7 +1140,7 @@ export default function AgendaPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas as salas</SelectItem>
-                      {mockRooms.map((room) => (
+                      {rooms.map((room) => (
                         <SelectItem key={room.id} value={room.id.toString()}>
                           {room.name}
                         </SelectItem>
@@ -1194,7 +1183,7 @@ export default function AgendaPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os procedimentos</SelectItem>
-                      {mockProcedures.map((proc) => (
+                      {proceduresList.map((proc) => (
                         <SelectItem key={proc.id} value={proc.name}>
                           {proc.name}
                         </SelectItem>
@@ -1317,7 +1306,7 @@ export default function AgendaPage() {
                   onAppointmentClick={handleAppointmentClick}
                   onDateSelect={handleTimeRangeSelect}
                   onAppointmentDrop={handleAppointmentDrop}
-                  professionals={mockProfessionals}
+                  professionals={professionals}
                   timeInterval={timeInterval}
                   selectedDate={selectedDate}
                 />
@@ -1326,9 +1315,9 @@ export default function AgendaPage() {
               <TabsContent value="week" className="mt-4">
                 <CalendarWeekView
                   appointments={filteredAppointments}
-                  onAppointmentClick={(appointment) => console.log("Clicked:", appointment)}
+                  onAppointmentClick={handleAppointmentClick}
                   onDateSelect={handleTimeRangeSelect}
-                  professionals={mockProfessionals}
+                  professionals={professionals}
                   timeInterval={timeInterval}
                   selectedDate={selectedDate}
                 />
@@ -1546,7 +1535,7 @@ export default function AgendaPage() {
                     <SelectValue placeholder="Selecione o paciente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockPatients.map((patient) => (
+                    {patientsList.map((patient) => (
                       <SelectItem key={patient.id} value={patient.id.toString()}>
                         {patient.name}
                       </SelectItem>
@@ -1565,7 +1554,7 @@ export default function AgendaPage() {
                     <SelectValue placeholder="Selecione o profissional" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProfessionals.map((professional) => (
+                    {professionals.map((professional) => (
                       <SelectItem key={professional.id} value={professional.id.toString()}>
                         {professional.name} ({professional.specialty})
                       </SelectItem>
@@ -1584,7 +1573,7 @@ export default function AgendaPage() {
                     <SelectValue placeholder="Selecione o procedimento" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProcedures.map((procedure) => (
+                    {proceduresList.map((procedure) => (
                       <SelectItem key={procedure.id} value={procedure.id.toString()}>
                         {procedure.name} ({procedure.duration} min)
                       </SelectItem>

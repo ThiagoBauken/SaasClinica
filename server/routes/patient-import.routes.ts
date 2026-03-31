@@ -219,12 +219,25 @@ router.post(
             file.mimetype.includes('spreadsheet') ||
             file.mimetype.includes('excel')
           ) {
-            // Processa XLSX (implementação simplificada)
-            // TODO: Implementar preview para XLSX
-            extractedData.push({
-              source: 'xlsx',
-              filename: file.originalname,
-            });
+            // Process XLSX: read rows and extract patient data for preview
+            const XLSX = await import('xlsx');
+            const workbook = XLSX.read(fs.readFileSync(file.path));
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            for (const row of rows) {
+              extractedData.push({
+                name: row.nome || row.name || row.Nome || row.Name || '',
+                email: row.email || row.Email || '',
+                phone: row.telefone || row.phone || row.Telefone || row.Phone || row.celular || row.Celular || '',
+                cpf: row.cpf || row.CPF || '',
+                birthDate: row.nascimento || row.birthDate || row.data_nascimento || row['Data de Nascimento'] || '',
+                address: row.endereco || row.address || row.Endereco || '',
+                source: 'xlsx',
+                filename: file.originalname,
+              });
+            }
           }
         } catch (error) {
           console.error(`Erro ao processar ${file.originalname}:`, error);

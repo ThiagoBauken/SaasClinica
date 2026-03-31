@@ -35,24 +35,40 @@ router.get(
     const { page, limit, search, status } = req.query as any;
     const offset = getOffset(page, limit);
 
-    // TODO: Implementar busca e filtros no storage
-    const patients = await storage.getPatients(companyId);
+    // DB-level search and pagination
+    const params: any[] = [companyId];
+    let whereClause = 'WHERE company_id = $1';
+    let paramIdx = 2;
 
-    // Filtragem básica (deve ser movida para o storage/query layer)
-    let filteredPatients = patients;
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredPatients = patients.filter((p: any) =>
-        p.name?.toLowerCase().includes(searchLower) ||
-        p.email?.toLowerCase().includes(searchLower) ||
-        p.phone?.includes(searchLower)
-      );
+      whereClause += ` AND (
+        name ILIKE $${paramIdx}
+        OR email ILIKE $${paramIdx}
+        OR phone ILIKE $${paramIdx}
+        OR cpf ILIKE $${paramIdx}
+      )`;
+      params.push(`%${search}%`);
+      paramIdx++;
     }
 
-    const total = filteredPatients.length;
-    const paginatedData = filteredPatients.slice(offset, offset + limit);
+    if (status === 'active') {
+      whereClause += ` AND active = true`;
+    } else if (status === 'inactive') {
+      whereClause += ` AND active = false`;
+    }
 
-    res.json(createPaginatedResponse(paginatedData, total, page, limit));
+    const countResult = await db.$client.query(
+      `SELECT COUNT(*) FROM patients ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    const dataResult = await db.$client.query(
+      `SELECT * FROM patients ${whereClause} ORDER BY name ASC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      [...params, limit, offset]
+    );
+
+    res.json(createPaginatedResponse(dataResult.rows, total, page, limit));
   })
 );
 

@@ -64,14 +64,11 @@ export default function LaboratoryManagementPage() {
   const { data: laboratories, isLoading, error } = useQuery<Laboratory[]>({
     queryKey: ["/api/laboratories"],
     queryFn: async () => {
-      console.log("Buscando laboratórios...");
       const res = await apiRequest("GET", "/api/laboratories");
       if (!res.ok) {
         throw new Error(`Erro ao carregar laboratórios: ${res.status}`);
       }
-      const data = await res.json();
-      console.log("Laboratórios carregados:", data);
-      return data;
+      return res.json();
     },
     retry: false,
     refetchOnWindowFocus: false,
@@ -81,55 +78,32 @@ export default function LaboratoryManagementPage() {
   // Mutation para criar/atualizar laboratório
   const laboratoryMutation = useMutation({
     mutationFn: async (laboratoryData: Partial<Laboratory>) => {
-      console.log("🚀 Iniciando mutation com dados:", laboratoryData);
-      
-      try {
-        if (laboratoryData.id) {
-          // Atualização
-          console.log("📝 Atualizando laboratório ID:", laboratoryData.id);
-          const res = await apiRequest("PATCH", `/api/laboratories/${laboratoryData.id}`, laboratoryData);
-          console.log("📊 Resposta PATCH:", res.status, res.statusText);
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error("❌ Erro PATCH:", errorText);
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText} - ${errorText}`);
-          }
-          const result = await res.json();
-          console.log("✅ Sucesso PATCH:", result);
-          return result;
-        } else {
-          // Criação
-          console.log("🆕 Criando novo laboratório");
-          const res = await apiRequest("POST", "/api/laboratories", laboratoryData);
-          console.log("📊 Resposta POST:", res.status, res.statusText);
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error("❌ Erro POST:", errorText);
-            throw new Error(`Erro HTTP: ${res.status} ${res.statusText} - ${errorText}`);
-          }
-          const result = await res.json();
-          console.log("✅ Sucesso POST:", result);
-          return result;
+      if (laboratoryData.id) {
+        const res = await apiRequest("PATCH", `/api/laboratories/${laboratoryData.id}`, laboratoryData);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Erro HTTP: ${res.status} - ${errorText}`);
         }
-      } catch (error) {
-        console.error("💥 Erro na mutação:", error);
-        throw error;
+        return res.json();
+      } else {
+        const res = await apiRequest("POST", "/api/laboratories", laboratoryData);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Erro HTTP: ${res.status} - ${errorText}`);
+        }
+        return res.json();
       }
     },
-    onSuccess: (data) => {
-      console.log("Mutation success, data received:", data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
-      queryClient.refetchQueries({ queryKey: ["/api/laboratories"] });
       setIsDialogOpen(false);
       setEditingLaboratory(null);
       toast({
         title: "Sucesso",
         description: "Laboratório salvo com sucesso!",
       });
-      console.log("Cache invalidated and dialog closed");
     },
     onError: (error: Error) => {
-      console.error("Erro ao salvar laboratório:", error);
       toast({
         title: "Erro",
         description: `Falha ao salvar laboratório: ${error.message}`,
@@ -141,31 +115,22 @@ export default function LaboratoryManagementPage() {
   // Mutation para deletar laboratório
   const deleteLaboratoryMutation = useMutation({
     mutationFn: async (id: number) => {
-      try {
-        const res = await apiRequest("DELETE", `/api/laboratories/${id}`);
-        if (!res.ok) {
-          throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao deletar laboratório:", error);
-        throw error;
+      const res = await apiRequest("DELETE", `/api/laboratories/${id}`);
+      if (!res.ok) {
+        throw new Error(`Erro HTTP: ${res.status} ${res.statusText}`);
       }
+      return res.json();
     },
     onSuccess: () => {
-      console.log("Delete mutation success");
       queryClient.invalidateQueries({ queryKey: ["/api/laboratories"] });
-      queryClient.refetchQueries({ queryKey: ["/api/laboratories"] });
       setIsDeleteDialogOpen(false);
       setLaboratoryToDelete(null);
       toast({
         title: "Sucesso",
         description: "Laboratório removido com sucesso!",
       });
-      console.log("Cache invalidated after delete");
     },
     onError: (error: Error) => {
-      console.error("Erro detalhado ao deletar laboratório:", error);
       toast({
         title: "Erro",
         description: `Falha ao remover laboratório: ${error.message}`,
@@ -179,19 +144,12 @@ export default function LaboratoryManagementPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     
-    console.log("Form submitted, processing data...");
-    
     try {
-      // Validação básica
       const name = formData.get("name") as string;
-      console.log("Nome extraído do form:", name);
-      
       if (!name || name.trim() === "") {
-        console.error("Nome do laboratório está vazio!");
         throw new Error("O nome do laboratório é obrigatório");
       }
-      
-      // Preparar dados
+
       const laboratoryData: Partial<Laboratory> = {
         name: name.trim(),
         contactName: (formData.get("contactName") as string || "").trim(),
@@ -199,19 +157,11 @@ export default function LaboratoryManagementPage() {
         email: (formData.get("email") as string || "").trim(),
         phone: (formData.get("phone") as string || "").trim(),
       };
-      
-      console.log("Dados preparados para envio:", laboratoryData);
-      
-      // Se estiver editando, incluir o ID
+
       if (editingLaboratory) {
         laboratoryData.id = editingLaboratory.id;
-        console.log("Editando laboratório com ID:", editingLaboratory.id);
-      } else {
-        console.log("Criando novo laboratório");
       }
-      
-      // Enviar mutação
-      console.log("Enviando mutação...");
+
       laboratoryMutation.mutate(laboratoryData);
     } catch (error) {
       // Tratar erros de validação
