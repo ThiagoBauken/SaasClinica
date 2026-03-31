@@ -115,13 +115,45 @@ export default function HorariosProfissionaisPage() {
     setWhatsappPhone(professional?.wuzapiPhone || "");
   };
   
+  // Mutation para salvar configurações do profissional
+  const saveProfessionalMutation = useMutation({
+    mutationFn: async (professional: Professional) => {
+      const response = await fetch(`/api/v1/professionals/${professional.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          workingHours: professional.workingHours,
+          lunchBreak: professional.lunchBreak,
+          appointmentDuration: professional.appointmentDuration,
+          active: professional.active,
+          permissions: professional.permissions,
+          commission: professional.commission,
+        }),
+      });
+      if (!response.ok) throw new Error("Erro ao salvar configurações");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Configurações salvas",
+        description: "As configurações de horário foram salvas com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/professionals'] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as configurações. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Salvar alterações
   const handleSave = () => {
-    // Aqui faria a chamada de API para salvar os dados
-    toast({
-      title: "Configurações salvas",
-      description: "As configurações de horário foram salvas com sucesso.",
-    });
+    if (!selectedProfessional) return;
+    saveProfessionalMutation.mutate(selectedProfessional);
   };
   
   // Atualizar horário de um dia
@@ -184,12 +216,17 @@ export default function HorariosProfissionaisPage() {
               </SelectContent>
             </Select>
             
-            <Button 
+            <Button
               onClick={handleSave}
               className="bg-gradient-to-r from-blue-600 to-blue-500"
-              disabled={!selectedProfessional}
+              disabled={!selectedProfessional || saveProfessionalMutation.isPending}
             >
-              Salvar Alterações
+              {saveProfessionalMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : "Salvar Alterações"}
             </Button>
           </div>
         </div>

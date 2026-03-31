@@ -20,6 +20,8 @@ import {
   XCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/core/AuthProvider";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 interface User {
   id: number;
@@ -46,6 +48,8 @@ const moduleIcons = {
 
 export default function CompanyAdminPageFixed() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const companyId = currentUser?.companyId;
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Buscar usuários
@@ -59,11 +63,14 @@ export default function CompanyAdminPageFixed() {
 
   // Buscar módulos
   const { data: modulesData = [], isLoading: modulesLoading } = useQuery({
-    queryKey: ["/api/test/saas/companies/3/modules"],
+    queryKey: [`/api/saas/companies/${companyId}/modules`],
     queryFn: async () => {
-      const response = await fetch("/api/test/saas/companies/3/modules");
+      const response = await fetch(`/api/saas/companies/${companyId}/modules`, {
+        credentials: "include",
+      });
       return response.json();
     },
+    enabled: !!companyId,
     staleTime: 30000
   });
 
@@ -94,7 +101,7 @@ export default function CompanyAdminPageFixed() {
   // Mutation para toggle de módulos
   const toggleModuleMutation = useMutation({
     mutationFn: async ({ moduleId, enabled }: { moduleId: string; enabled: boolean }) => {
-      const response = await fetch(`/api/test/saas/companies/3/modules/${moduleId}/toggle`, {
+      const response = await fetch(`/api/saas/companies/${companyId}/modules/${moduleId}/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,15 +137,16 @@ export default function CompanyAdminPageFixed() {
 
   if (usersLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <DashboardLayout title="Admin Clínica" currentPath="/company-admin">
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">Carregando usuários...</div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
+    <DashboardLayout title="Admin Clínica" currentPath="/company-admin">
     <div className="container mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -354,5 +362,6 @@ export default function CompanyAdminPageFixed() {
         </TabsContent>
       </Tabs>
     </div>
+    </DashboardLayout>
   );
 }

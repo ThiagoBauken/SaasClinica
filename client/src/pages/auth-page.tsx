@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -33,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/core/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
 import { Redirect } from "wouter";
 
 const loginSchema = insertUserSchema.pick({
@@ -51,6 +53,7 @@ const registerSchema = insertUserSchema.extend({
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -58,6 +61,32 @@ export default function AuthPage() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error("Falha ao solicitar recuperação de senha");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setForgotPasswordSent(true);
+      toast({
+        title: "Email enviado",
+        description: data.message || "Verifique seu email para as instruções de recuperação.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -82,14 +111,29 @@ export default function AuthPage() {
     },
   });
 
-  const onLoginSubmit = (values: z.infer<typeof loginSchema>) => {
-    loginMutation.mutate(values);
+  const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
+    try {
+      await loginMutation.mutate(values);
+    } catch (error: any) {
+      toast({
+        title: "Erro no login",
+        description: error.message || "Credenciais inválidas. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const onRegisterSubmit = (values: z.infer<typeof registerSchema>) => {
-    // Remove confirmPassword before submitting
-    const { confirmPassword, ...registerData } = values;
-    registerMutation.mutate(registerData);
+  const onRegisterSubmit = async (values: z.infer<typeof registerSchema>) => {
+    try {
+      const { confirmPassword, ...registerData } = values;
+      await registerMutation.mutate(registerData);
+    } catch (error: any) {
+      toast({
+        title: "Erro no registro",
+        description: error.message || "Falha no registro. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Redirect if already logged in
@@ -98,18 +142,23 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/50 flex flex-col sm:flex-row items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative">
+      {/* Decorative background pattern */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PHBhdGggZD0iTTM2IDM0djItMnptMCAwdjJoLTJ2LTJoMnptLTIgMmgtMnYtMmgydjJ6bTIgMGgydjJoLTJ2LTJ6bTAgMnYyaC0ydi0yaDJ6bS0yIDB2Mmg tMnYtMmgyem0yLTJoMnYyaC0ydi0yem0wLTJ2Mmgtdi0yaDJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40 dark:opacity-20"></div>
+
       {/* Theme Toggle - canto superior direito */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 z-10">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col sm:flex-row bg-card rounded-lg shadow-lg overflow-hidden">
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden relative z-10">
         {/* Left side - Auth forms */}
-        <div className="w-full sm:w-1/2 p-6">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-primary">DentCare</h1>
-            <p className="text-muted-foreground mt-2">
+        <div className="w-full lg:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12">
+          <div className="mb-8 md:mb-10">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+              DentCare
+            </h1>
+            <p className="text-muted-foreground mt-3 text-base md:text-lg">
               Sistema de Gerenciamento Odontológico
             </p>
           </div>
@@ -121,10 +170,10 @@ export default function AuthPage() {
             </TabsList>
 
             <TabsContent value="login">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Acesse sua conta</CardTitle>
-                  <CardDescription>
+              <Card className="border-0 shadow-none bg-transparent">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-2xl md:text-3xl">Acesse sua conta</CardTitle>
+                  <CardDescription className="text-base">
                     Informe suas credenciais para entrar no sistema.
                   </CardDescription>
                 </CardHeader>
@@ -229,13 +278,15 @@ export default function AuthPage() {
                                 />
                                 <Button
                                   className="w-full"
-                                  onClick={() => {
-                                    // TODO: Implement actual password reset API call
-                                    setForgotPasswordSent(true);
-                                  }}
-                                  disabled={!forgotPasswordEmail}
+                                  onClick={() => forgotPasswordMutation.mutate(forgotPasswordEmail)}
+                                  disabled={!forgotPasswordEmail || forgotPasswordMutation.isPending}
                                 >
-                                  Enviar instruções
+                                  {forgotPasswordMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Enviando...
+                                    </>
+                                  ) : "Enviar instruções"}
                                 </Button>
                               </div>
                             ) : (
@@ -310,10 +361,10 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Crie sua conta</CardTitle>
-                  <CardDescription>
+              <Card className="border-0 shadow-none bg-transparent">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-2xl md:text-3xl">Crie sua conta</CardTitle>
+                  <CardDescription className="text-base">
                     Preencha os dados abaixo para se registrar no sistema.
                   </CardDescription>
                 </CardHeader>
@@ -470,26 +521,66 @@ export default function AuthPage() {
         </div>
 
         {/* Right side - Image and info */}
-        <div className="w-full sm:w-1/2 bg-primary p-6 text-white hidden sm:flex flex-col justify-center">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">Gerencie sua clínica odontológica</h2>
-            <p className="mb-2">
-              Uma solução completa para o gerenciamento eficiente de sua clínica odontológica, com:
-            </p>
-            <ul className="space-y-2 ml-6 list-disc">
-              <li>Agenda completa com visualização diária, semanal e mensal</li>
-              <li>Prontuário eletrônico e odontograma digital</li>
-              <li>Controle financeiro simplificado</li>
-              <li>Integração com automação via n8n</li>
-              <li>Confirmação automática de consultas</li>
-            </ul>
-          </div>
-          <div className="rounded-lg overflow-hidden h-48 bg-primary-dark flex items-center justify-center text-center p-4">
-            <div>
-              <p className="font-semibold text-lg mb-2">DentCare</p>
-              <p className="text-sm opacity-90">
+        <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-700 dark:to-purple-700 p-8 md:p-10 lg:p-12 text-white hidden lg:flex flex-col justify-center relative overflow-hidden">
+          {/* Decorative circles */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+
+          <div className="relative z-10">
+            <div className="mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">Gerencie sua clínica odontológica</h2>
+              <p className="mb-4 text-lg opacity-95">
+                Uma solução completa para o gerenciamento eficiente de sua clínica odontológica, com:
+              </p>
+              <ul className="space-y-3 text-base">
+                <li className="flex items-start">
+                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Agenda completa com visualização diária, semanal e mensal</span>
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Prontuário eletrônico e odontograma digital interativo</span>
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Controle financeiro e gestão de receitas e despesas</span>
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Automação via WhatsApp e confirmação de consultas</span>
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>CRM integrado com pipeline de vendas e atendimento</span>
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-semibold text-xl">DentCare SaaS</p>
+                  <p className="text-sm opacity-90">Plataforma em nuvem</p>
+                </div>
+              </div>
+              <p className="text-sm opacity-90 leading-relaxed">
                 Transformando o gerenciamento odontológico para melhorar a experiência de
-                profissionais e pacientes.
+                profissionais e pacientes com tecnologia de ponta.
               </p>
             </div>
           </div>

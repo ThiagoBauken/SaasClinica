@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { storage } from '../storage';
+import { db } from '../db';
 import { authCheck, tenantAwareAuth, asyncHandler } from '../middleware/auth';
 import { cacheMiddleware } from '../simpleCache';
 import { invalidateClusterCache } from '../clusterCache';
@@ -156,8 +157,11 @@ router.delete(
 
     const { id } = req.params as any;
 
-    // TODO: Implementar soft delete no storage
-    // await storage.deletePatient(id, companyId);
+    // Soft delete: mark patient as inactive
+    await db.$client.query(
+      `UPDATE patients SET active = false, updated_at = NOW() WHERE id = $1 AND company_id = $2`,
+      [id, companyId]
+    );
 
     invalidateClusterCache(`api:/api/v1/patients/${id}`);
     invalidateClusterCache('api:/api/v1/patients');

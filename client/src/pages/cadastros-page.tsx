@@ -4,32 +4,235 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  Settings, 
-  Trash2, 
-  PencilIcon, 
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Trash2,
+  PencilIcon,
   Plus,
-  Copy,
-  HelpCircle,
+  Loader2,
   BoxSelect,
   Layout,
   Bed,
   Package
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export default function CadastrosPage() {
+interface CrudItem {
+  id: number;
+  name: string;
+  description?: string;
+  type?: string;
+}
+
+function CrudSection({
+  title,
+  description,
+  queryKey,
+  apiPath,
+  itemLabel,
+}: {
+  title: string;
+  description: string;
+  queryKey: string;
+  apiPath: string;
+  itemLabel: string;
+}) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("categorias");
-  
-  const salvarItem = () => {
-    toast({
-      title: "Item salvo",
-      description: "O item foi salvo com sucesso.",
-    });
+  const queryClient = useQueryClient();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<CrudItem | null>(null);
+  const [formName, setFormName] = useState("");
+
+  const { data: items = [], isLoading } = useQuery<CrudItem[]>({
+    queryKey: [queryKey],
+    queryFn: async () => {
+      const res = await fetch(apiPath, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", apiPath, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: `${itemLabel} criado(a)`, description: `${itemLabel} adicionado(a) com sucesso.` });
+      closeDialog();
+    },
+    onError: () => {
+      toast({ title: "Erro", description: `Falha ao criar ${itemLabel.toLowerCase()}.`, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const res = await apiRequest("PATCH", `${apiPath}/${id}`, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: `${itemLabel} atualizado(a)`, description: `${itemLabel} atualizado(a) com sucesso.` });
+      closeDialog();
+    },
+    onError: () => {
+      toast({ title: "Erro", description: `Falha ao atualizar ${itemLabel.toLowerCase()}.`, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `${apiPath}/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: `${itemLabel} removido(a)`, description: `${itemLabel} removido(a) com sucesso.` });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: `Falha ao remover ${itemLabel.toLowerCase()}.`, variant: "destructive" });
+    },
+  });
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingItem(null);
+    setFormName("");
   };
+
+  const openCreate = () => {
+    setEditingItem(null);
+    setFormName("");
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (item: CrudItem) => {
+    setEditingItem(item);
+    setFormName(item.name);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formName.trim()) return;
+    if (editingItem) {
+      updateMutation.mutate({ id: editingItem.id, name: formName.trim() });
+    } else {
+      createMutation.mutate(formName.trim());
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo(a) {itemLabel}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">
+            Nenhum(a) {itemLabel.toLowerCase()} cadastrado(a). Clique em "Novo(a) {itemLabel}" para adicionar.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead className="w-[100px]">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell className="flex space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEdit(item)}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteMutation.mutate(item.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingItem ? `Editar ${itemLabel}` : `Novo(a) ${itemLabel}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="item-name">Nome</Label>
+              <Input
+                id="item-name"
+                placeholder={`Nome do(a) ${itemLabel.toLowerCase()}`}
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={!formName.trim() || isPending}>
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {editingItem ? "Salvar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+export default function CadastrosPage() {
+  const [activeTab, setActiveTab] = useState("categorias");
 
   return (
     <DashboardLayout title="Cadastros" currentPath="/cadastros">
@@ -37,9 +240,9 @@ export default function CadastrosPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-tight">Cadastros</h1>
         </div>
-        
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="categorias" className="flex items-center justify-center">
               <BoxSelect className="h-4 w-4 mr-2" />
               <span>Categorias</span>
@@ -52,340 +255,36 @@ export default function CadastrosPage() {
               <Bed className="h-4 w-4 mr-2" />
               <span>Cadeiras</span>
             </TabsTrigger>
-            <TabsTrigger value="contrato" className="flex items-center justify-center">
-              <Layout className="h-4 w-4 mr-2" />
-              <span>Modelos de Contrato</span>
-            </TabsTrigger>
           </TabsList>
-          
-          {/* Categorias */}
+
           <TabsContent value="categorias">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Categorias</CardTitle>
-                    <CardDescription>
-                      Gerencie as categorias de despesas e receitas do seu consultório
-                    </CardDescription>
-                  </div>
-                  <Button onClick={salvarItem}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Categoria
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Contabilidade</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Custos Fixos (aluguel, telefone, internet, licença de software)</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Despesas bancárias</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Encargos de funcionários</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Infraestrutura</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Laboratórios</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Materiais odontológicos</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Outras</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                
-                <div className="flex justify-center mt-6">
-                  <Button variant="outline" className="flex items-center mx-auto">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    <span>Dúvidas? Saiba tudo sobre Categorias</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <CrudSection
+              title="Categorias"
+              description="Gerencie as categorias de despesas e receitas do seu consultório"
+              queryKey="/api/cadastros/categories"
+              apiPath="/api/cadastros/categories"
+              itemLabel="Categoria"
+            />
           </TabsContent>
-          
-          {/* Caixas */}
+
           <TabsContent value="caixas">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Caixas</CardTitle>
-                    <CardDescription>
-                      Gerencie os caixas e contas do seu consultório
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex space-x-2 items-center">
-                      <span className="text-sm text-muted-foreground">Exibir:</span>
-                      <select className="text-sm border rounded-md px-2 py-1">
-                        <option>Ativos</option>
-                        <option>Todos</option>
-                      </select>
-                    </div>
-                    <Button onClick={salvarItem}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Novo Caixa
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                          Clínica
-                        </div>
-                      </TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                          Conta do Banco
-                        </div>
-                      </TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                
-                <div className="flex justify-center mt-6">
-                  <Button variant="outline" className="flex items-center mx-auto">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    <span>Dúvidas? Saiba tudo sobre Caixas</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <CrudSection
+              title="Caixas"
+              description="Gerencie os caixas e contas do seu consultório"
+              queryKey="/api/cadastros/boxes"
+              apiPath="/api/cadastros/boxes"
+              itemLabel="Caixa"
+            />
           </TabsContent>
-          
-          {/* Cadeiras */}
+
           <TabsContent value="cadeiras">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Cadeiras</CardTitle>
-                    <CardDescription>
-                      Gerencie as cadeiras e salas do seu consultório
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex space-x-2 items-center">
-                      <span className="text-sm text-muted-foreground">Exibir:</span>
-                      <select className="text-sm border rounded-md px-2 py-1">
-                        <option>Ativas</option>
-                        <option>Todas</option>
-                      </select>
-                    </div>
-                    <Button onClick={salvarItem}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nova Cadeira
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-[100px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Cadeira 01</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Cadeira 02</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                
-                <div className="flex justify-center mt-6">
-                  <Button variant="outline" className="flex items-center mx-auto">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    <span>Dúvidas? Saiba tudo sobre Cadeiras</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Modelos de Contratos */}
-          <TabsContent value="contrato">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Modelos de contratos</CardTitle>
-                    <CardDescription>
-                      Gerencie os modelos de contratos para seus pacientes
-                    </CardDescription>
-                  </div>
-                  <Button onClick={salvarItem}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Modelo
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-[150px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Contrato de prestação de serviços odontológicos</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                
-                <div className="flex justify-center mt-6">
-                  <Button variant="outline" className="flex items-center mx-auto">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    <span>Dúvidas? Saiba tudo sobre modelos de contratos</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <CrudSection
+              title="Cadeiras"
+              description="Gerencie as cadeiras e salas do seu consultório"
+              queryKey="/api/cadastros/chairs"
+              apiPath="/api/cadastros/chairs"
+              itemLabel="Cadeira"
+            />
           </TabsContent>
         </Tabs>
       </div>

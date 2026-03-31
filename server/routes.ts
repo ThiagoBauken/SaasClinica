@@ -50,11 +50,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // === APIs DE MÓDULOS (SEM AUTENTICAÇÃO) ===
-  app.get("/api/user/modules", asyncHandler(async (req: Request, res: Response) => {
-    // Usa o companyId do usuário autenticado, ou fallback para primeiro company disponível
+  // === APIs DE MÓDULOS (COM AUTENTICAÇÃO) ===
+  app.get("/api/user/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) {
+      return res.status(403).json({ error: "User not associated with any company" });
+    }
+    const companyId = user.companyId;
     const activeModules = await db.$client.query(`
       SELECT 
         m.id, m.name, m.display_name, m.description,
@@ -435,6 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // === ROTAS DE ODONTOGRAMA ===
   app.get("/api/patients/:patientId/odontogram", tenantAwareAuth, asyncHandler(odontogramHandlers.getPatientOdontogram));
   app.post("/api/patients/:patientId/odontogram", tenantAwareAuth, asyncHandler(odontogramHandlers.saveToothStatus));
+  app.get("/api/patients/:patientId/odontogram/tooth/:toothId/history", tenantAwareAuth, asyncHandler(odontogramHandlers.getToothHistory));
   app.delete("/api/patients/:patientId/odontogram/:entryId", tenantAwareAuth, asyncHandler(odontogramHandlers.deleteToothStatus));
 
   // === ROTAS DE CALENDÁRIO ===
@@ -646,7 +649,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       
-      const companyId = (req.user as any)?.companyId || 1; // Extract from session
+      const user = req.user as any;
+      if (!user?.companyId) return res.status(403).json({ message: "User not associated with any company" });
+      const companyId = user.companyId;
       
       let startDate: Date | undefined;
       let endDate: Date | undefined;
@@ -707,7 +712,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       const user = req.user as any;
-      const companyId = user?.companyId || 1;
+      if (!user?.companyId) return res.status(403).json({ message: "User not associated with any company" });
+      const companyId = user.companyId;
       const rooms = await storage.getRooms(companyId);
       res.json(rooms);
     } catch (error) {
@@ -720,7 +726,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
       const user = req.user as any;
-      const companyId = user?.companyId || 1;
+      if (!user?.companyId) return res.status(403).json({ message: "User not associated with any company" });
+      const companyId = user.companyId;
       const procedures = await storage.getProcedures(companyId);
       res.json(procedures);
     } catch (error) {
@@ -1555,15 +1562,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ message: "Acesso negado" });
     }
 
-    // Por enquanto, resposta de sucesso simples
-    // TODO: Implementar lógica real de toggle no banco
-    
-    res.json({ 
-      success: true, 
-      companyId, 
-      moduleId, 
+    // Find the module by name in the modules table
+    const moduleResult = await db.$client.query(
+      `SELECT id FROM modules WHERE name = $1`,
+      [moduleId]
+    );
+
+    if (moduleResult.rows.length === 0) {
+      return res.status(404).json({ error: `Módulo '${moduleId}' não encontrado` });
+    }
+
+    const dbModuleId = moduleResult.rows[0].id;
+
+    // Upsert into company_modules
+    await db.$client.query(
+      `INSERT INTO company_modules (company_id, module_id, is_enabled, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (company_id, module_id)
+       DO UPDATE SET is_enabled = $3, updated_at = NOW()`,
+      [companyId, dbModuleId, enabled]
+    );
+
+    res.json({
+      success: true,
+      companyId,
+      moduleId,
       enabled,
-      message: `Módulo ${moduleId} ${enabled ? 'ativado' : 'desativado'} para empresa ${companyId}` 
+      message: `Módulo ${moduleId} ${enabled ? 'ativado' : 'desativado'} para empresa ${companyId}`
     });
   }));
 
@@ -1725,6 +1750,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Erro ao excluir etiqueta:', error);
       res.status(500).json({ error: 'Falha ao excluir etiqueta' });
     }
+  }));
+
+  // === CADASTROS API ROUTES (Categories, Boxes, Chairs) ===
+
+  // Financial Categories CRUD
+  app.get("/api/cadastros/categories", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`SELECT * FROM financial_categories ORDER BY name`);
+    res.json(result.rows);
+  }));
+
+  app.post("/api/cadastros/categories", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
+    const result = await db.$client.query(
+      `INSERT INTO financial_categories (name, type) VALUES ($1, $2) RETURNING *`,
+      [name, type || 'expense']
+    );
+    res.json(result.rows[0]);
+  }));
+
+  app.patch("/api/cadastros/categories/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, type } = req.body;
+    const result = await db.$client.query(
+      `UPDATE financial_categories SET name = COALESCE($1, name), type = COALESCE($2, type) WHERE id = $3 RETURNING *`,
+      [name, type, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Categoria não encontrada" });
+    res.json(result.rows[0]);
+  }));
+
+  app.delete("/api/cadastros/categories/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    await db.$client.query(`DELETE FROM financial_categories WHERE id = $1`, [req.params.id]);
+    res.status(204).send();
+  }));
+
+  // Boxes CRUD
+  app.get("/api/cadastros/boxes", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`SELECT * FROM boxes ORDER BY name`);
+    res.json(result.rows);
+  }));
+
+  app.post("/api/cadastros/boxes", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, description } = req.body;
+    if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
+    const result = await db.$client.query(
+      `INSERT INTO boxes (name, description) VALUES ($1, $2) RETURNING *`,
+      [name, description || null]
+    );
+    res.json(result.rows[0]);
+  }));
+
+  app.patch("/api/cadastros/boxes/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, description } = req.body;
+    const result = await db.$client.query(
+      `UPDATE boxes SET name = COALESCE($1, name), description = COALESCE($2, description) WHERE id = $3 RETURNING *`,
+      [name, description, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Caixa não encontrada" });
+    res.json(result.rows[0]);
+  }));
+
+  app.delete("/api/cadastros/boxes/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    await db.$client.query(`DELETE FROM boxes WHERE id = $1`, [req.params.id]);
+    res.status(204).send();
+  }));
+
+  // Chairs CRUD
+  app.get("/api/cadastros/chairs", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`SELECT * FROM chairs ORDER BY name`);
+    res.json(result.rows);
+  }));
+
+  app.post("/api/cadastros/chairs", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, description } = req.body;
+    if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
+    const result = await db.$client.query(
+      `INSERT INTO chairs (name, description) VALUES ($1, $2) RETURNING *`,
+      [name, description || null]
+    );
+    res.json(result.rows[0]);
+  }));
+
+  app.patch("/api/cadastros/chairs/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { name, description } = req.body;
+    const result = await db.$client.query(
+      `UPDATE chairs SET name = COALESCE($1, name), description = COALESCE($2, description) WHERE id = $3 RETURNING *`,
+      [name, description, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Cadeira não encontrada" });
+    res.json(result.rows[0]);
+  }));
+
+  app.delete("/api/cadastros/chairs/:id", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    await db.$client.query(`DELETE FROM chairs WHERE id = $1`, [req.params.id]);
+    res.status(204).send();
   }));
 
   // === INVENTORY API ROUTES ===
@@ -1893,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as any;
       const { productIds } = req.body;
-      
+
       if (!Array.isArray(productIds) || productIds.length === 0) {
         return res.status(400).json({ error: 'Lista de produtos inválida' });
       }
@@ -1903,6 +2023,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Erro ao importar produtos padrão:', error);
       res.status(500).json({ error: 'Falha ao importar produtos' });
+    }
+  }));
+
+  // Get available seed data for inventory selection
+  app.get("/api/inventory/seed-defaults", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const seedData = storage.getInventorySeedData();
+      res.json(seedData);
+    } catch (error: any) {
+      console.error('Erro ao buscar dados de seed:', error);
+      res.status(500).json({ error: 'Falha ao buscar dados de seed' });
+    }
+  }));
+
+  // Seed inventory with selected dental clinic data
+  app.post("/api/inventory/seed-defaults", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const { categoryNames, itemsByCategory } = req.body;
+
+      // Aceita seleção opcional - se não fornecida, cria tudo
+      const selection = (categoryNames && categoryNames.length > 0)
+        ? { categoryNames, itemsByCategory }
+        : undefined;
+
+      const result = await storage.seedInventoryDefaults(user.companyId, selection);
+      res.status(201).json({
+        message: 'Estoque populado com dados padrão de clínica odontológica',
+        categoriesCreated: result.categories.length,
+        itemsCreated: result.items.length,
+        categories: result.categories,
+        items: result.items
+      });
+    } catch (error: any) {
+      console.error('Erro ao popular estoque com dados padrão:', error);
+      if (error.message?.includes('já possui categorias')) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Falha ao popular estoque com dados padrão' });
     }
   }));
 

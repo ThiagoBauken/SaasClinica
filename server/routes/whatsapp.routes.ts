@@ -272,11 +272,35 @@ router.get(
 
     const { id } = req.params;
 
-    // TODO: Implementar quando tabela whatsapp_messages existir
-    // const messages = await storage.getWhatsAppMessages(parseInt(id), companyId);
+    // Query patient's phone to find their WhatsApp messages
+    const patientResult = await db.$client.query(
+      `SELECT phone FROM patients WHERE id = $1 AND company_id = $2`,
+      [id, companyId]
+    );
 
-    // Por enquanto retornar vazio
-    res.json([]);
+    if (patientResult.rows.length === 0) {
+      return res.json([]);
+    }
+
+    const phone = patientResult.rows[0].phone;
+    if (!phone) {
+      return res.json([]);
+    }
+
+    // Clean phone number for matching (remove non-digits)
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Find messages by chat_id matching patient's phone
+    const messages = await db.$client.query(
+      `SELECT * FROM whatsapp_messages
+       WHERE company_id = $1
+         AND (chat_id LIKE '%' || $2 || '%' OR "from" LIKE '%' || $2 || '%' OR "to" LIKE '%' || $2 || '%')
+       ORDER BY timestamp DESC
+       LIMIT 100`,
+      [companyId, cleanPhone]
+    );
+
+    res.json(messages.rows);
   })
 );
 
