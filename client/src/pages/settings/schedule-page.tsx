@@ -56,54 +56,18 @@ export default function ScheduleSettingsPage() {
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery<Professional[]>({
     queryKey: ["/api/professionals"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/professionals");
-        // Se não conseguirmos carregar os dados reais por algum motivo,
-        // vamos usar alguns dados de exemplo para desenvolvimento
-        if (!res.ok) {
-          console.warn("Usando dados de exemplo para profissionais");
-          return [
-            { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista", email: "ana@exemplo.com" },
-            { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista", email: "carlos@exemplo.com" },
-            { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista", email: "juliana@exemplo.com" }
-          ];
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar profissionais:", error);
-        return [
-          { id: 1, fullName: "Dr. Ana Silva", speciality: "Dentista", email: "ana@exemplo.com" },
-          { id: 2, fullName: "Dr. Carlos Mendes", speciality: "Ortodontista", email: "carlos@exemplo.com" },
-          { id: 3, fullName: "Dr. Juliana Costa", speciality: "Endodontista", email: "juliana@exemplo.com" }
-        ];
-      }
+      const res = await apiRequest("GET", "/api/professionals");
+      if (!res.ok) throw new Error("Erro ao carregar profissionais");
+      return res.json();
     }
   });
   
   const { data: rooms, isLoading: isLoadingRooms } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/rooms");
-        // Se não conseguirmos carregar os dados reais por algum motivo,
-        // vamos usar alguns dados de exemplo para desenvolvimento
-        if (!res.ok) {
-          console.warn("Usando dados de exemplo para salas");
-          return [
-            { id: 1, name: "Cadeira 01", description: "Sala de atendimento 1" },
-            { id: 2, name: "Cadeira 02", description: "Sala de atendimento 2" },
-            { id: 3, name: "Cadeira 03", description: "Sala de atendimento 3" }
-          ];
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Erro ao carregar salas:", error);
-        return [
-          { id: 1, name: "Cadeira 01", description: "Sala de atendimento 1" },
-          { id: 2, name: "Cadeira 02", description: "Sala de atendimento 2" },
-          { id: 3, name: "Cadeira 03", description: "Sala de atendimento 3" }
-        ];
-      }
+      const res = await apiRequest("GET", "/api/rooms");
+      if (!res.ok) throw new Error("Erro ao carregar salas");
+      return res.json();
     }
   });
   
@@ -203,29 +167,49 @@ export default function ScheduleSettingsPage() {
     roomMutation.mutate(roomData);
   };
   
-  // Handler para deletar profissional (mock)
+  // Handler para deletar profissional
+  const deleteProfessionalMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/v1/professionals/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/professionals'] });
+      toast({ title: "Profissional removido com sucesso" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao remover profissional", variant: "destructive" });
+    },
+  });
   const handleDeleteProfessional = (id: number) => {
-    toast({
-      title: "Atenção",
-      description: "Esta funcionalidade ainda não está implementada. Nenhum profissional foi removido.",
-      variant: "destructive",
-    });
+    if (confirm('Tem certeza que deseja remover este profissional?')) {
+      deleteProfessionalMutation.mutate(id);
+    }
   };
-  
-  // Handler para deletar sala (mock)
+
+  // Handler para deletar sala
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/v1/rooms/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/rooms'] });
+      toast({ title: "Sala removida com sucesso" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao remover sala", variant: "destructive" });
+    },
+  });
   const handleDeleteRoom = (id: number) => {
-    toast({
-      title: "Atenção",
-      description: "Esta funcionalidade ainda não está implementada. Nenhuma sala foi removida.",
-      variant: "destructive",
-    });
+    if (confirm('Tem certeza que deseja remover esta sala?')) {
+      deleteRoomMutation.mutate(id);
+    }
   };
   
   return (
     <DashboardLayout title="Configurações da Agenda" currentPath="/settings/schedule">
       <div className="container mx-auto py-6">
         <div className="flex items-center mb-6">
-          <Link href="/schedule" className="mr-4">
+          <Link href="/agenda" className="mr-4">
             <Button variant="outline" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>

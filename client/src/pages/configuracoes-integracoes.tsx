@@ -134,8 +134,6 @@ export default function ConfiguracoesIntegracoesPage() {
       setHasConfigured(true);
 
       // AUTO-CONFIGURAR S3, HMAC e Webhook após escanear QR code
-      console.log('[QR Scan] Detectado login! Configurando S3, HMAC e Webhook...');
-
       // Mostrar toast de progresso
       toast({
         title: "WhatsApp Conectado!",
@@ -145,7 +143,6 @@ export default function ConfiguracoesIntegracoesPage() {
       // Chamar reconfigure e tratar resultado
       reconfigureWuzapi()
         .then((result) => {
-          console.log('[QR Scan] Resultado da configuração:', result);
           setShowQrCodeDialog(false);
           toast({
             title: result.success ? "Configuração Completa!" : "Atenção",
@@ -182,7 +179,6 @@ export default function ConfiguracoesIntegracoesPage() {
       refetchWuzapiStatus();
 
       const pollInterval = setInterval(() => {
-        console.log('[Polling] Verificando status do WhatsApp...');
         refetchWuzapiStatus();
       }, 2000); // Poll a cada 2 segundos quando aguardando QR scan
 

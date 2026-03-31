@@ -168,10 +168,11 @@ router.post(
       });
     }
 
-    // TODO: Adicionar validação do webhookSecret se configurado
-    // if (webhookSecret && webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
-    //   return res.status(403).json({ error: 'Invalid webhook secret' });
-    // }
+    // Validate webhook secret if configured
+    const webhookSecret = req.headers['x-webhook-secret'] as string;
+    if (process.env.N8N_WEBHOOK_SECRET && webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
+      return res.status(403).json({ error: 'Invalid webhook secret' });
+    }
 
     // Retornar a chave completa (apenas para o N8N)
     res.json({

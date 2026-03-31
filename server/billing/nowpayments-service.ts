@@ -307,7 +307,27 @@ export class NOWPaymentsService {
 
     console.log(`✅ Pagamento crypto confirmado para invoice ${invoice.id}`);
 
-    // TODO: Enviar email de confirmação
+    // Send confirmation email
+    try {
+      const user = await db
+        .select({ email: users.email, fullName: users.fullName })
+        .from(users)
+        .innerJoin(companies, eq(companies.id, users.companyId))
+        .innerJoin(subscriptions, eq(subscriptions.companyId, companies.id))
+        .where(eq(subscriptions.id, invoice.subscriptionId))
+        .limit(1);
+
+      if (user.length && user[0].email) {
+        const { sendEmail } = await import('../services/email-service');
+        await sendEmail({
+          to: user[0].email,
+          subject: 'Pagamento confirmado - DentCare',
+          html: `<p>Olá ${user[0].fullName || ''},</p><p>Seu pagamento de assinatura foi confirmado com sucesso!</p><p>Obrigado por usar o DentCare.</p>`,
+        });
+      }
+    } catch (emailError) {
+      console.error('Erro ao enviar email de confirmação:', emailError);
+    }
   }
 
   /**
@@ -329,7 +349,27 @@ export class NOWPaymentsService {
 
     console.log(`❌ Pagamento crypto falhou para invoice ${invoice.id}`);
 
-    // TODO: Enviar email de falha
+    // Send failure notification email
+    try {
+      const user = await db
+        .select({ email: users.email, fullName: users.fullName })
+        .from(users)
+        .innerJoin(companies, eq(companies.id, users.companyId))
+        .innerJoin(subscriptions, eq(subscriptions.companyId, companies.id))
+        .where(eq(subscriptions.id, invoice.subscriptionId))
+        .limit(1);
+
+      if (user.length && user[0].email) {
+        const { sendEmail } = await import('../services/email-service');
+        await sendEmail({
+          to: user[0].email,
+          subject: 'Problema com pagamento - DentCare',
+          html: `<p>Olá ${user[0].fullName || ''},</p><p>Infelizmente houve um problema com seu pagamento de assinatura.</p><p>Por favor, tente novamente ou entre em contato com o suporte.</p>`,
+        });
+      }
+    } catch (emailError) {
+      console.error('Erro ao enviar email de falha:', emailError);
+    }
   }
 }
 

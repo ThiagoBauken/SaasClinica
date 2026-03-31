@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { subscriptionService } from './subscription-service';
+import { getAvailableFeatures } from './feature-gate';
 import { db } from '../db';
 import { users, patients, appointments } from '@shared/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
@@ -161,10 +162,16 @@ export function requireFeature(featureKey: string) {
         return res.status(401).json({ error: 'Não autenticado' });
       }
 
-      const limits = await subscriptionService.getCompanyLimits(user.companyId);
+      const { features } = await getAvailableFeatures(user.companyId);
 
-      // TODO: Implementar verificação de features específicas
-      // Por enquanto, permite tudo
+      if (!features.includes(featureKey)) {
+        return res.status(403).json({
+          error: 'Feature não disponível',
+          message: `A funcionalidade "${featureKey}" não está incluída no seu plano atual. Faça upgrade para ter acesso.`,
+          requiredFeature: featureKey,
+        });
+      }
+
       next();
     } catch (error) {
       console.error('Erro ao verificar feature:', error);

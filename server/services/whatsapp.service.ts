@@ -295,20 +295,25 @@ export async function getWhatsAppConfig(
   storage: any,
   companyId: number
 ): Promise<WuzapiConfig | null> {
-  // TODO: Implementar quando storage tiver método getClinicSettings
-  // const settings = await storage.getClinicSettings(companyId);
+  try {
+    const { db } = await import('../db');
+    const result = await db.$client.query(
+      `SELECT wuzapi_instance_id, wuzapi_api_key FROM clinic_settings WHERE company_id = $1 LIMIT 1`,
+      [companyId]
+    );
 
-  // if (!settings?.wuzapiInstanceId || !settings?.wuzapiApiKey) {
-  //   return null;
-  // }
+    if (result.rows.length > 0 && result.rows[0].wuzapi_instance_id && result.rows[0].wuzapi_api_key) {
+      return {
+        instanceId: result.rows[0].wuzapi_instance_id,
+        apiKey: result.rows[0].wuzapi_api_key,
+        baseUrl: process.env.WUZAPI_BASE_URL || 'https://private-wuzapi.pbzgje.easypanel.host',
+      };
+    }
+  } catch (error) {
+    // Fallback to env vars if DB query fails
+  }
 
-  // return {
-  //   instanceId: settings.wuzapiInstanceId,
-  //   apiKey: settings.wuzapiApiKey,
-  //   baseUrl: settings.wuzapiBaseUrl || 'https://wuzapi.cloud/api/v2',
-  // };
-
-  // Mock para agora (remover depois):
+  // Fallback to environment variables
   return {
     instanceId: process.env.WUZAPI_INSTANCE_ID || '',
     apiKey: process.env.WUZAPI_API_KEY || '',
