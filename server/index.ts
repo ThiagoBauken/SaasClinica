@@ -8,19 +8,25 @@ validateEnvOrExit();
 
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupTestRoutes } from "./testRoutes";
-import { serveStatic, log } from "./vite";
+import { serveStatic } from "./vite";
+import { logger, log } from "./logger";
 import cluster from "cluster";
 import os from "os";
 import compression from "compression";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { moduleLoader } from "../modules/moduleLoader";
-// WebSocket é inicializado no routes.ts via notificationService
-// import { initializeWebSocket } from "./websocket";
 
-// Importações das melhorias arquiteturais
+// Security & monitoring middleware
+import { globalErrorHandler, setupProcessErrorHandlers } from "./middleware/errorHandler";
+import { csrfProtection, csrfTokenEndpoint } from "./middleware/csrf";
+import { requestIdMiddleware } from "./middleware/requestId";
+import { initSentry, getSentryErrorHandler } from "./middleware/sentry";
+
+// Architectural improvements
 import { initializeClusterCache } from './clusterCache';
 import { distributedCache } from './distributedCache';
 import { distributedDb } from './distributedDb';
@@ -32,6 +38,10 @@ import { RedisStore } from 'connect-redis';
 import { createClient } from 'redis';
 import { isRedisAvailable } from './redis';
 import { startBillingCronJobs } from './jobs/billing-cron';
+import { startBackupCronJobs } from './jobs/backup-cron';
+
+// Setup process-level error handlers (unhandledRejection, uncaughtException)
+setupProcessErrorHandlers();
 
 // Determina quantos workers serão usados (customizável via .env)
 const maxWorkers = parseInt(process.env.MAX_WORKERS || '16');
@@ -104,8 +114,8 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     },
     credentials: true, // Permitir envio de cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['set-cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'x-api-key', 'x-request-id'],
+    exposedHeaders: ['set-cookie', 'x-request-id'],
     maxAge: 86400, // 24 horas de cache do preflight
   }));
 
@@ -224,9 +234,13 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   // Aplica limitador apenas nas rotas da API
   app.use("/api", apiLimiter);
   
-  // Aumenta o limite do bodyParser para lidar com uploads maiores de forma eficiente
+  // Request ID for tracing
+  app.use(requestIdMiddleware);
+
+  // Body parsers
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+  app.use(cookieParser());
   
   // Middleware para CDN e assets otimizados
   app.use('/assets', express.static('uploads', {
@@ -258,9 +272,23 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
 
     res.on("finish", () => {
       const duration = Date.now() - start;
+
+      // Prometheus metrics — normalize route to avoid cardinality explosion
       if (path.startsWith("/api")) {
+        const normalizedRoute = path.replace(/\/\d+/g, '/:id');
+        try {
+          const { httpRequestDuration, httpRequestsTotal } = require('./lib/metrics');
+          httpRequestDuration.observe(
+            { method: req.method, route: normalizedRoute, status_code: res.statusCode },
+            duration / 1000
+          );
+          httpRequestsTotal.inc({ method: req.method, route: normalizedRoute, status_code: res.statusCode });
+        } catch {
+          // metrics module not loaded yet
+        }
+
         let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-        
+
         // Em produção, limitamos os logs de resposta para economizar recursos
         if (process.env.NODE_ENV !== "production" && capturedJsonResponse) {
           const stringifiedResponse = JSON.stringify(capturedJsonResponse);
@@ -282,56 +310,96 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   setupTestRoutes(app);
   
   (async () => {
-    // Configurar sessão com Redis ou memorystore
+    // Initialize Sentry monitoring (if SENTRY_DSN is set)
+    await initSentry();
+
+    // Configure session with Redis or memorystore
     await setupSession();
 
-    // Inicializar sistema de módulos
+    // CSRF token endpoint (must be after session setup)
+    app.get('/api/csrf-token', csrfTokenEndpoint);
+
+    // CSRF protection for state-changing requests (after session, before routes)
+    app.use('/api', csrfProtection);
+
+    // Client error reporting endpoint
+    app.post('/api/client-errors', express.json(), (req: Request, res: Response) => {
+      logger.warn({ clientError: req.body, ip: req.ip }, 'Client-side error reported');
+      res.status(204).send();
+    });
+
+    // Initialize module system
     try {
       await moduleLoader.loadAllModules();
     } catch (error) {
-      console.error('❌ Falha ao carregar módulos:', error);
+      logger.error({ err: error }, 'Failed to load modules');
     }
 
     const server = await registerRoutes(app);
 
-    // WebSocket Server é inicializado no routes.ts via notificationService.initialize(httpServer)
-    // O path é /ws/notifications e o cliente já está configurado para conectar nesse path
-
-    // Middleware de tratamento de erros mais robusto
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      // Log detalhado em caso de erro
-      console.error(`[ERROR] ${new Date().toISOString()}: ${err.stack || err}`);
-
-      // Resposta sanitizada para o cliente
-      res.status(status).json({
-        message: process.env.NODE_ENV === "production" && status === 500
-          ? "Ocorreu um erro no servidor. Nossa equipe foi notificada."
-          : message
-      });
-
-      // Não lançamos o erro novamente para evitar quebrar o processo
+    // Feature gate API endpoint (for frontend to check available features)
+    const { getAvailableFeatures } = await import('./billing/feature-gate');
+    app.get('/api/features', async (req: Request, res: Response) => {
+      const user = req.user as any;
+      if (!user?.companyId) {
+        return res.json({ plan: 'free', features: [], allFeatures: {} });
+      }
+      const features = await getAvailableFeatures(user.companyId);
+      res.json(features);
     });
 
-    // Setup para desenvolvimento e produção
+    // Sentry error handler (before our global handler, if available)
+    const sentryHandler = getSentryErrorHandler();
+    if (sentryHandler) {
+      app.use(sentryHandler);
+    }
+
+    // Global error handler - MUST be last middleware
+    app.use(globalErrorHandler);
+
+    // Setup for development and production
     if (app.get("env") === "development") {
-      // Dynamic import - vite-dev.ts is only used in development
       const { setupVite } = await import("./vite-dev");
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
+    // Graceful shutdown
     const port = 5000;
-    server.listen(port, "0.0.0.0", () => {
-      log(`Worker ${process.pid} servindo na porta ${port}`);
+    const httpServer = server.listen(port, "0.0.0.0", () => {
+      logger.info({ pid: process.pid, port }, `Worker serving on port ${port}`);
 
-      // Iniciar cron jobs de billing (apenas no primeiro worker ou em desenvolvimento)
+      // Start billing cron jobs (only on first worker or in development)
       if (cluster.isWorker && cluster.worker?.id === 1 || process.env.NODE_ENV === 'development') {
         startBillingCronJobs();
+        startBackupCronJobs();
       }
     });
+
+    // Graceful shutdown handler
+    const shutdown = async (signal: string) => {
+      logger.info(`${signal} received, starting graceful shutdown...`);
+      httpServer.close(async () => {
+        logger.info('HTTP server closed');
+        try {
+          const { closeDatabasePool } = await import('./db');
+          await closeDatabasePool();
+          const { closeRedisConnections } = await import('./redis');
+          await closeRedisConnections();
+        } catch (err) {
+          logger.error({ err }, 'Error during shutdown cleanup');
+        }
+        process.exit(0);
+      });
+      // Force shutdown after 10 seconds
+      setTimeout(() => {
+        logger.warn('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })();
 }

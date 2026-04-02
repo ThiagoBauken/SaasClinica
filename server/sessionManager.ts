@@ -2,6 +2,8 @@ import session from 'express-session';
 import ConnectPgSimple from 'connect-pg-simple';
 import { Pool } from '@neondatabase/serverless';
 import { log } from './vite';
+import { withDistributedLock } from './lib/distributed-lock';
+import { logger } from './logger';
 
 const PgSession = ConnectPgSimple(session);
 
@@ -64,9 +66,15 @@ class SessionManager {
   }
 
   startSessionCleanup() {
-    // Clean expired sessions every hour
-    setInterval(() => {
-      this.cleanupExpiredSessions();
+    // Clean expired sessions every hour, with distributed lock to avoid N instances doing it
+    setInterval(async () => {
+      const ran = await withDistributedLock('cron:session-cleanup', async () => {
+        await this.cleanupExpiredSessions();
+      }, 120);
+
+      if (!ran) {
+        logger.debug({ module: 'session' }, 'Session cleanup skipped — another instance holds the lock');
+      }
     }, 60 * 60 * 1000);
   }
 

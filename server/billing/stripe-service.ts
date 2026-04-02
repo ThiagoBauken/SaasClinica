@@ -3,6 +3,7 @@ import { db } from '../db';
 import { subscriptions, subscriptionInvoices, plans, companies, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { subscriptionService } from './subscription-service';
+import { logger } from '../logger';
 import {
   sendEmail,
   getTrialEndingSoonTemplate,
@@ -352,7 +353,7 @@ export class StripeService {
       html: getTrialEndingSoonTemplate(company.name || 'Clínica', daysLeft, plan.name),
     });
 
-    console.log(`📧 Email de trial ending enviado para ${admin.email}`);
+    logger.info({ module: 'stripe', companyId: company.id }, 'Trial ending email sent');
   }
 
   /**
@@ -413,7 +414,7 @@ export class StripeService {
         ),
       });
 
-      console.log(`📧 Email de pagamento confirmado enviado para ${admin.email}`);
+      logger.info({ module: 'stripe', companyId: company.id, invoiceId: invoice.id }, 'Payment confirmation email sent');
     }
   }
 
@@ -472,7 +473,53 @@ export class StripeService {
         ),
       });
 
-      console.log(`📧 Email de falha no pagamento enviado para ${admin.email}`);
+      logger.info({ module: 'stripe', companyId: company.id, invoiceId: invoice.id }, 'Payment failure email sent');
+    }
+  }
+
+  /**
+   * Create a one-time payment link for patient billing
+   */
+  async createPaymentLink(params: {
+    amount: number; // in centavos
+    description: string;
+    companyId: number;
+    patientId?: number;
+    appointmentId?: number;
+  }): Promise<{ url: string; id: string } | null> {
+    if (!stripe) {
+      console.warn('Stripe not configured - cannot create payment link');
+      return null;
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card', 'boleto'],
+        line_items: [{
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: params.description,
+            },
+            unit_amount: params.amount,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.APP_URL || 'http://localhost:5000'}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/checkout-canceled`,
+        metadata: {
+          companyId: String(params.companyId),
+          patientId: String(params.patientId || ''),
+          appointmentId: String(params.appointmentId || ''),
+          type: 'patient_payment',
+        },
+      });
+
+      return { url: session.url!, id: session.id };
+    } catch (error) {
+      console.error('Error creating payment link:', error);
+      return null;
     }
   }
 }

@@ -269,6 +269,69 @@ export function cacheMiddleware(ttl: number = DEFAULT_CACHE_TTL) {
   };
 }
 
+/**
+ * Get-or-compute with distributed mutex to prevent thundering herd.
+ * Only one caller computes on cache miss; others wait and read.
+ */
+const inflightRequests = new Map<string, Promise<any>>();
+
+export async function getCacheOrCompute<T>(
+  key: string,
+  compute: () => Promise<T>,
+  ttl: number = DEFAULT_CACHE_TTL
+): Promise<T> {
+  // Check cache first
+  const cached = await getCache<T>(key);
+  if (cached !== null) return cached;
+
+  // Coalesce in-flight requests (same process)
+  const inflight = inflightRequests.get(key);
+  if (inflight) return inflight as Promise<T>;
+
+  // Acquire distributed lock if Redis available
+  const lockKey = `lock:${key}`;
+  let hasLock = false;
+
+  if (redisClient) {
+    try {
+      const result = await redisClient.set(lockKey, '1', 'EX', 10, 'NX');
+      hasLock = result === 'OK';
+    } catch {
+      // If lock acquisition fails, proceed without lock
+      hasLock = true;
+    }
+  } else {
+    hasLock = true; // No Redis = no contention
+  }
+
+  if (!hasLock) {
+    // Another instance is computing — wait briefly then read cache
+    await new Promise((r) => setTimeout(r, 150));
+    const retried = await getCache<T>(key);
+    if (retried !== null) return retried;
+    // If still no cache, compute anyway (stale lock scenario)
+  }
+
+  const promise = compute().then(async (value) => {
+    await setCache(key, value, ttl);
+    inflightRequests.delete(key);
+    // Release lock
+    if (redisClient) {
+      await redisClient.del(lockKey).catch(() => {});
+    }
+    return value;
+  }).catch((err) => {
+    inflightRequests.delete(key);
+    if (redisClient) {
+      redisClient.del(lockKey).catch(() => {});
+    }
+    throw err;
+  });
+
+  inflightRequests.set(key, promise);
+  return promise;
+}
+
 export function getRedisClient(): Redis | null {
   return redisClient;
 }
@@ -280,5 +343,6 @@ export default {
   invalidateCacheByPrefix,
   generateCacheKey,
   cacheMiddleware,
+  getCacheOrCompute,
   getRedisClient
 };

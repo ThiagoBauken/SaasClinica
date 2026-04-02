@@ -108,6 +108,14 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  // Warn if DATABASE_URL has sslmode=disable in production
+  if (process.env.NODE_ENV === 'production') {
+    const dbUrl = process.env.DATABASE_URL || '';
+    if (dbUrl.includes('sslmode=disable')) {
+      warnings.push('DATABASE_URL has sslmode=disable — production should use sslmode=require or sslmode=verify-full');
+    }
+  }
+
   // Check for localhost in production
   if (process.env.NODE_ENV === 'production') {
     const baseUrl = process.env.BASE_URL || '';
