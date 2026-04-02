@@ -67,9 +67,11 @@ export default function LandingPage() {
                     Teste Gratuito por 7 Dias
                   </Button>
                 </Link>
-                <Button variant="outline" className="border-white text-white hover:bg-blue-800 w-full sm:w-auto">
-                  <a href="#planos">Ver Planos</a>
-                </Button>
+                <a href="#planos">
+                  <Button variant="outline" className="border-white text-white hover:bg-blue-800 w-full sm:w-auto">
+                    Ver Planos
+                  </Button>
+                </a>
               </div>
             </div>
             <div className="md:w-1/2">
@@ -84,7 +86,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-gray-50">
+      <section id="recursos" className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Recursos Completos para sua Clínica</h2>
@@ -218,21 +220,20 @@ export default function LandingPage() {
             <div>
               <h3 className="text-lg font-bold mb-4">Links Rápidos</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Recursos</a></li>
+                <li><a href="#recursos" className="hover:text-white">Recursos</a></li>
                 <li><a href="#planos" className="hover:text-white">Preços</a></li>
-                <li><a href="#" className="hover:text-white">Contato</a></li>
-                <li><a href="#" className="hover:text-white">Blog</a></li>
+                <li><a href="#contato" className="hover:text-white">Contato</a></li>
               </ul>
             </div>
             <div>
               <h3 className="text-lg font-bold mb-4">Legal</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-white">Política de Privacidade</a></li>
-                <li><a href="#" className="hover:text-white">LGPD</a></li>
+                <li><Link href="/termos-de-uso"><span className="hover:text-white cursor-pointer">Termos de Uso</span></Link></li>
+                <li><Link href="/politica-de-privacidade"><span className="hover:text-white cursor-pointer">Política de Privacidade</span></Link></li>
+                <li><Link href="/lgpd"><span className="hover:text-white cursor-pointer">LGPD</span></Link></li>
               </ul>
             </div>
-            <div>
+            <div id="contato">
               <h3 className="text-lg font-bold mb-4">Contato</h3>
               <ul className="space-y-2 text-gray-400">
                 <li>contato@dentalsys.com.br</li>

@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronLeft, ChevronRight, Plus, HelpCircle } from "lucide-react";
 
 // Tipo para um compromisso/agendamento
@@ -98,9 +99,12 @@ export default function CalendarMonthView({
   // Calcular o número de semanas no mês para mostrar o layout correto
   const weekRows = Math.ceil(calendarDays.length / 7);
   
-  // Selecionar todos os profissionais
+  // Selecionar todos - resetar filtros de visualização
   const handleSelectAll = () => {
-    console.log("Selecionar todos os profissionais");
+    setShowBirthdays(true);
+    setShowHolidays(true);
+    setShowWeekends(true);
+    setViewMode("mes");
   };
 
   // Verificar se um dia tem agendamentos
@@ -400,12 +404,27 @@ export default function CalendarMonthView({
       
       {/* Botão de ajuda flutuante */}
       <div className="fixed bottom-4 left-4 flex flex-col items-start space-y-2">
-        <Button
-          className="rounded-full bg-blue-600 text-white p-2 h-10 w-10"
-          onClick={() => console.log("Ajuda")}
-        >
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              className="rounded-full bg-blue-600 text-white p-2 h-10 w-10"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="right" className="w-72">
+            <div className="space-y-3">
+              <h4 className="font-semibold text-sm">Como usar a Agenda</h4>
+              <ul className="text-xs text-muted-foreground space-y-2">
+                <li><strong>Clique em um dia</strong> para ver os agendamentos ou criar um novo.</li>
+                <li><strong>Navegue entre meses</strong> usando as setas no topo.</li>
+                <li><strong>Filtros laterais</strong>: alterne aniversários, feriados e finais de semana.</li>
+                <li><strong>Modos de visualização</strong>: escolha entre Dia, Semana, Mês ou Dentistas.</li>
+                <li><strong>Horário de trabalho</strong>: ajuste os horários na barra lateral.</li>
+              </ul>
+            </div>
+          </PopoverContent>
+        </Popover>
         <div className="text-xs text-blue-700 dark:text-blue-400 w-24">
           Precisa de ajuda?
         </div>

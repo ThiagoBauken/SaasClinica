@@ -53,7 +53,7 @@ import { Loader2 } from "lucide-react";
 import PatientForm from "@/components/patients/PatientForm";
 import PatientsList from "@/components/patients/PatientsList";
 import PatientRecordTab from "@/components/patients/PatientRecordTab";
-import OdontogramChart from "@/components/odontogram/OdontogramChart";
+import InteractiveOdontogram from "@/components/odontogram/InteractiveOdontogram";
 import Papa from "papaparse";
 
 interface Patient {
@@ -804,7 +804,7 @@ export default function PatientsPage() {
               </TabsContent>
               
               <TabsContent value="odontogram">
-                <OdontogramChart patientId={selectedPatient.id} />
+                <InteractiveOdontogram patientId={selectedPatient.id} />
               </TabsContent>
               
               <TabsContent value="appointments">
@@ -857,10 +857,12 @@ export default function PatientsPage() {
                   </div>
                   
                   <div className="flex justify-end">
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nova Consulta
-                    </Button>
+                    <Link href="/agenda/novo">
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nova Consulta
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </TabsContent>

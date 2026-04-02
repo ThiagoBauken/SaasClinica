@@ -1,669 +1,526 @@
 /**
- * Página do CRM - Funil de Vendas
+ * CRM Page - WhatsApp Pipeline with AI Auto-Progression
  *
- * Visualização Kanban de oportunidades com drag & drop
+ * Kanban board that shows opportunities linked to WhatsApp chat sessions.
+ * Cards move automatically through stages based on AI agent actions:
+ *   Primeiro Contato -> Agendamento -> Confirmacao -> Consulta Realizada -> Pagamento -> Concluido
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  DndContext,
-  DragOverlay,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragStartEvent,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { DragEndEvent } from '@dnd-kit/core';
 import DashboardLayout from '@/layouts/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Plus,
-  Phone,
-  Mail,
-  Calendar,
-  DollarSign,
-  User,
-  MoreVertical,
-  TrendingUp,
-  Target,
-  Users,
-  Clock,
-  CheckCircle,
-  XCircle,
-  MessageSquare,
-  GripVertical,
-} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { getCsrfHeaders } from '@/lib/csrf';
 import { formatCurrency } from '@/lib/utils';
-
-interface Stage {
-  id: number;
-  name: string;
-  code: string;
-  color: string;
-  order: number;
-  isWon: boolean;
-  isLost: boolean;
-  opportunities: Opportunity[];
-  totalValue: number;
-}
-
-interface Opportunity {
-  id: number;
-  title: string;
-  patientId?: number;
-  patientName?: string;
-  patientPhone?: string;
-  leadName?: string;
-  leadPhone?: string;
-  leadEmail?: string;
-  leadSource?: string;
-  treatmentType?: string;
-  estimatedValue?: string;
-  probability?: number;
-  assignedUserName?: string;
-  stageId: number;
-  lastContactAt?: string;
-  nextFollowUpAt?: string;
-  notes?: string;
-  createdAt: string;
-}
-
-interface KanbanData {
-  stages: Stage[];
-  summary: {
-    totalOpportunities: number;
-    totalValue: number;
-    wonValue: number;
-  };
-}
-
-// Componente do Card de Oportunidade
-function OpportunityCard({ opportunity, isDragging }: { opportunity: Opportunity; isDragging?: boolean }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: opportunity.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const treatmentLabels: Record<string, string> = {
-    implante: 'Implante',
-    ortodontia: 'Ortodontia',
-    protese: 'Prótese',
-    clareamento: 'Clareamento',
-    limpeza: 'Limpeza',
-    restauracao: 'Restauração',
-    canal: 'Canal',
-    extracao: 'Extração',
-    harmonizacao: 'Harmonização',
-    outros: 'Outros',
-  };
-
-  const sourceLabels: Record<string, string> = {
-    whatsapp: 'WhatsApp',
-    instagram: 'Instagram',
-    google: 'Google',
-    indicacao: 'Indicação',
-    site: 'Site',
-    telefone: 'Telefone',
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
-      {...attributes}
-      {...listeners}
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-          <h4 className="font-medium text-sm text-foreground line-clamp-1">
-            {opportunity.title}
-          </h4>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Phone className="h-4 w-4 mr-2" />
-              Ligar
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              WhatsApp
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Calendar className="h-4 w-4 mr-2" />
-              Agendar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="space-y-2">
-        {/* Nome do paciente/lead */}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <User className="h-3 w-3" />
-          <span className="line-clamp-1">
-            {opportunity.patientName || opportunity.leadName || 'Sem nome'}
-          </span>
-        </div>
-
-        {/* Valor */}
-        {opportunity.estimatedValue && parseFloat(opportunity.estimatedValue) > 0 && (
-          <div className="flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400">
-            <DollarSign className="h-3 w-3" />
-            {formatCurrency(parseFloat(opportunity.estimatedValue))}
-          </div>
-        )}
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1">
-          {opportunity.treatmentType && (
-            <Badge variant="secondary" className="text-xs">
-              {treatmentLabels[opportunity.treatmentType] || opportunity.treatmentType}
-            </Badge>
-          )}
-          {opportunity.leadSource && (
-            <Badge variant="outline" className="text-xs">
-              {sourceLabels[opportunity.leadSource] || opportunity.leadSource}
-            </Badge>
-          )}
-        </div>
-
-        {/* Próximo follow-up */}
-        {opportunity.nextFollowUpAt && (
-          <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-            <Clock className="h-3 w-3" />
-            Follow-up: {new Date(opportunity.nextFollowUpAt).toLocaleDateString('pt-BR')}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Componente da Coluna do Kanban
-function KanbanColumn({ stage }: { stage: Stage }) {
-  return (
-    <div className="flex flex-col min-w-[280px] max-w-[280px] bg-muted/50 rounded-lg">
-      {/* Header da Coluna */}
-      <div
-        className="p-3 rounded-t-lg"
-        style={{ backgroundColor: stage.color + '20' }}
-      >
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: stage.color }}
-            />
-            <h3 className="font-semibold text-sm text-foreground">{stage.name}</h3>
-          </div>
-          <Badge variant="secondary" className="text-xs">
-            {stage.opportunities.length}
-          </Badge>
-        </div>
-        {stage.totalValue > 0 && (
-          <div className="text-xs text-muted-foreground">
-            {formatCurrency(stage.totalValue)}
-          </div>
-        )}
-      </div>
-
-      {/* Cards */}
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
-        <SortableContext
-          items={stage.opportunities.map(o => o.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {stage.opportunities.map((opportunity) => (
-            <OpportunityCard key={opportunity.id} opportunity={opportunity} />
-          ))}
-        </SortableContext>
-
-        {stage.opportunities.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            Nenhuma oportunidade
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { KanbanBoard } from '@/components/crm/KanbanBoard';
+import { OpportunityDialog } from '@/components/crm/OpportunityDialog';
+import { OpportunityTimelinePanel } from '@/components/crm/OpportunityTimeline';
+import { KanbanData, Opportunity } from '@/types/crm';
+import {
+    Plus,
+    DollarSign,
+    Target,
+    CheckCircle,
+    TrendingUp,
+    Bot,
+    MessageSquare,
+    RefreshCw,
+    Zap,
+    Settings2,
+    Database,
+} from 'lucide-react';
 
 export default function CRMPage() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isNewOpportunityOpen, setIsNewOpportunityOpen] = useState(false);
-  const [activeId, setActiveId] = useState<number | null>(null);
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [isNewOpportunityOpen, setIsNewOpportunityOpen] = useState(false);
+    const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
+    const [timelineOpportunity, setTimelineOpportunity] = useState<Opportunity | null>(null);
 
-  // Form state
-  const [newOpportunity, setNewOpportunity] = useState({
-    title: '',
-    leadName: '',
-    leadPhone: '',
-    leadEmail: '',
-    leadSource: '',
-    treatmentType: '',
-    estimatedValue: '',
-    notes: '',
-  });
+    // Fetch pipeline data (try enriched first, fallback to basic)
+    const { data, isLoading, refetch } = useQuery<KanbanData>({
+        queryKey: ['crm-pipeline'],
+        queryFn: async () => {
+            // Try enriched pipeline first
+            const res = await fetch('/api/v1/crm/pipeline', { credentials: 'include' });
+            if (res.ok) return res.json();
 
-  // Sensors para drag and drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor)
-  );
+            // Fallback to basic opportunities endpoint
+            const fallback = await fetch('/api/v1/crm/opportunities', { credentials: 'include' });
+            if (!fallback.ok) throw new Error('Erro ao carregar pipeline');
+            return fallback.json();
+        },
+        refetchInterval: 10000,
+    });
 
-  // Buscar dados do kanban
-  const { data, isLoading } = useQuery<KanbanData>({
-    queryKey: ['crm-opportunities'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/crm/opportunities', {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Erro ao carregar oportunidades');
-      return res.json();
-    },
-  });
+    // Move opportunity mutation with optimistic update
+    const moveMutation = useMutation({
+        mutationFn: async ({ id, stageId }: { id: number; stageId: number }) => {
+            const res = await fetch(`/api/v1/crm/opportunities/${id}/move`, {
+                method: 'PUT',
+                headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify({ stageId }),
+            });
+            if (!res.ok) throw new Error('Erro ao mover oportunidade');
+            return res.json();
+        },
+        onMutate: async ({ id, stageId }) => {
+            // Cancel outgoing refetches so they don't overwrite our optimistic update
+            await queryClient.cancelQueries({ queryKey: ['crm-pipeline'] });
+            const previous = queryClient.getQueryData<KanbanData>(['crm-pipeline']);
 
-  // Mover oportunidade
-  const moveMutation = useMutation({
-    mutationFn: async ({ id, stageId }: { id: number; stageId: number }) => {
-      const res = await fetch(`/api/v1/crm/opportunities/${id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ stageId }),
-      });
-      if (!res.ok) throw new Error('Erro ao mover oportunidade');
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['crm-opportunities'] });
-    },
-  });
+            if (previous) {
+                // Move the opportunity locally
+                const allOpps = previous.stages.flatMap(s => s.opportunities);
+                const opp = allOpps.find(o => o.id === id);
+                if (opp) {
+                    const updated: KanbanData = {
+                        ...previous,
+                        stages: previous.stages.map(stage => ({
+                            ...stage,
+                            opportunities: stage.id === stageId
+                                ? [...stage.opportunities.filter(o => o.id !== id), { ...opp, stageId }]
+                                : stage.opportunities.filter(o => o.id !== id),
+                            totalValue: stage.id === stageId
+                                ? stage.totalValue + parseFloat(opp.estimatedValue || '0')
+                                : stage.totalValue - (stage.opportunities.some(o => o.id === id) ? parseFloat(opp.estimatedValue || '0') : 0),
+                        })),
+                    };
+                    queryClient.setQueryData(['crm-pipeline'], updated);
+                }
+            }
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            // Rollback on error
+            if (context?.previous) {
+                queryClient.setQueryData(['crm-pipeline'], context.previous);
+            }
+            toast({ title: 'Erro ao mover', variant: 'destructive' });
+        },
+        onSettled: () => {
+            // Sync with server after a short delay
+            setTimeout(() => queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] }), 1000);
+        },
+    });
 
-  // Criar oportunidade
-  const createMutation = useMutation({
-    mutationFn: async (data: typeof newOpportunity) => {
-      const res = await fetch('/api/v1/crm/opportunities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Erro ao criar oportunidade');
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['crm-opportunities'] });
-      setIsNewOpportunityOpen(false);
-      setNewOpportunity({
-        title: '',
-        leadName: '',
-        leadPhone: '',
-        leadEmail: '',
-        leadSource: '',
-        treatmentType: '',
-        estimatedValue: '',
-        notes: '',
-      });
-      toast({ title: 'Oportunidade criada com sucesso!' });
-    },
-  });
+    // Create opportunity mutation
+    const createMutation = useMutation({
+        mutationFn: async (opportunityData: any) => {
+            const res = await fetch('/api/v1/crm/opportunities', {
+                method: 'POST',
+                headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify(opportunityData),
+            });
+            if (!res.ok) throw new Error('Erro ao criar oportunidade');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+            setIsNewOpportunityOpen(false);
+            toast({ title: 'Oportunidade criada com sucesso!' });
+        },
+        onError: (error: Error) => {
+            toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+        },
+    });
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as number);
-  };
+    // Update opportunity mutation
+    const updateMutation = useMutation({
+        mutationFn: async ({ id, ...data }: any) => {
+            const res = await fetch(`/api/v1/crm/opportunities/${id}`, {
+                method: 'PUT',
+                headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error('Erro ao atualizar oportunidade');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+            setEditingOpportunity(null);
+            toast({ title: 'Oportunidade atualizada!' });
+        },
+    });
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
+    // Delete opportunity mutation
+    const deleteMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await fetch(`/api/v1/crm/opportunities/${id}`, {
+                method: 'DELETE',
+                headers: getCsrfHeaders(),
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('Erro ao excluir oportunidade');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+            toast({ title: 'Oportunidade excluida' });
+        },
+    });
 
-    if (!over) return;
+    // Seed default stages mutation
+    const seedMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch('/api/v1/crm/seed-stages', {
+                method: 'POST',
+                headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('Erro ao criar etapas');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+            toast({ title: 'Etapas do funil criadas!' });
+        },
+    });
 
-    // Encontrar a etapa de destino
-    const activeOpportunity = data?.stages
-      .flatMap(s => s.opportunities)
-      .find(o => o.id === active.id);
+    // Seed test data mutation
+    const seedTestDataMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch('/api/v1/crm/seed-test-data', {
+                method: 'POST',
+                headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('Erro ao criar dados de teste');
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+            toast({ title: data.skipped ? 'Dados já existem' : 'Dados de teste criados!' });
+        },
+        onError: (error: Error) => {
+            toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+        },
+    });
 
-    if (!activeOpportunity) return;
+    // Handle drag end
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || !data) return;
 
-    // Encontrar etapa onde o card foi solto
-    let targetStageId: number | null = null;
+        const activeOpportunity = data.stages
+            .flatMap(s => s.opportunities)
+            .find(o => o.id === active.id);
 
-    // Verificar se soltou em uma coluna
-    for (const stage of data?.stages || []) {
-      if (stage.opportunities.some(o => o.id === over.id)) {
-        targetStageId = stage.id;
-        break;
-      }
-    }
+        if (!activeOpportunity) return;
 
-    // Se soltou em uma coluna vazia, over.id será o ID do container
-    if (!targetStageId) {
-      const stage = data?.stages.find(s => s.id === over.id);
-      if (stage) {
-        targetStageId = stage.id;
-      }
-    }
+        // Find target stage
+        let targetStageId: number | null = null;
 
-    if (targetStageId && targetStageId !== activeOpportunity.stageId) {
-      moveMutation.mutate({ id: activeOpportunity.id, stageId: targetStageId });
-    }
-  };
+        // Check if dropped on a stage's droppable zone
+        const overIdStr = String(over.id);
+        if (overIdStr.startsWith('stage-')) {
+            targetStageId = parseInt(overIdStr.replace('stage-', ''));
+        } else {
+            // Dropped on another card - find its stage
+            for (const stage of data.stages) {
+                if (stage.opportunities.some(o => o.id === over.id)) {
+                    targetStageId = stage.id;
+                    break;
+                }
+            }
+        }
 
-  const handleCreateOpportunity = () => {
-    if (!newOpportunity.title) {
-      toast({ title: 'Erro', description: 'Título é obrigatório', variant: 'destructive' });
-      return;
-    }
-    createMutation.mutate(newOpportunity);
-  };
+        if (targetStageId && targetStageId !== activeOpportunity.stageId) {
+            moveMutation.mutate({ id: activeOpportunity.id, stageId: targetStageId });
+        }
+    }, [data, moveMutation]);
 
-  // Encontrar oportunidade sendo arrastada
-  const activeOpportunity = data?.stages
-    .flatMap(s => s.opportunities)
-    .find(o => o.id === activeId);
+    // Handle create/edit
+    const handleSubmit = (formData: any) => {
+        if (editingOpportunity) {
+            updateMutation.mutate({ id: editingOpportunity.id, ...formData });
+        } else {
+            createMutation.mutate(formData);
+        }
+    };
 
-  return (
-    <DashboardLayout title="CRM - Funil de Vendas" currentPath="/crm">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">CRM - Funil de Vendas</h1>
-            <p className="text-muted-foreground">Gerencie suas oportunidades de venda</p>
-          </div>
-          <Dialog open={isNewOpportunityOpen} onOpenChange={setIsNewOpportunityOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Oportunidade
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Nova Oportunidade</DialogTitle>
-                <DialogDescription>
-                  Adicione um novo lead ou oportunidade de venda
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label>Título *</Label>
-                  <Input
-                    placeholder="Ex: Implante - João Silva"
-                    value={newOpportunity.title}
-                    onChange={(e) =>
-                      setNewOpportunity((prev) => ({ ...prev, title: e.target.value }))
-                    }
-                  />
+    // Handle delete
+    const handleDelete = (id: number) => {
+        if (confirm('Tem certeza que deseja excluir esta oportunidade?')) {
+            deleteMutation.mutate(id);
+        }
+    };
+
+    // Listen for WebSocket CRM events
+    useEffect(() => {
+        const handleWsMessage = (event: MessageEvent) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'crm:opportunity_created' || msg.type === 'crm:opportunity_moved') {
+                    queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+                }
+            } catch {
+                // ignore
+            }
+        };
+
+        // Try to connect to existing WebSocket
+        const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+        let ws: WebSocket | null = null;
+
+        try {
+            ws = new WebSocket(wsUrl);
+            ws.addEventListener('message', handleWsMessage);
+        } catch {
+            // WebSocket not available
+        }
+
+        return () => {
+            ws?.removeEventListener('message', handleWsMessage);
+            ws?.close();
+        };
+    }, [queryClient]);
+
+    const noStages = !isLoading && (!data?.stages || data.stages.length === 0);
+    const hasStagesButEmpty = !isLoading && data?.stages && data.stages.length > 0 && data.summary?.totalOpportunities === 0;
+
+    return (
+        <DashboardLayout title="CRM - Pipeline WhatsApp" currentPath="/crm">
+            <div className="flex flex-col h-[calc(100vh-4rem)]">
+                {/* Header */}
+                <div className="p-4 border-b">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                                <Zap className="h-6 w-6 text-green-500" />
+                                CRM - Pipeline WhatsApp
+                            </h1>
+                            <p className="text-muted-foreground text-sm">
+                                Funil de vendas com progresso automatico via IA
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {hasStagesButEmpty && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => seedTestDataMutation.mutate()}
+                                    disabled={seedTestDataMutation.isPending}
+                                >
+                                    <Database className="h-4 w-4 mr-1" />
+                                    Dados de Teste
+                                </Button>
+                            )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => refetch()}
+                                disabled={isLoading}
+                            >
+                                <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                                Atualizar
+                            </Button>
+                            <Button onClick={() => setIsNewOpportunityOpen(true)}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Nova Oportunidade
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Metrics */}
+                    {data?.summary && (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <Card>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                                        <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Oportunidades</p>
+                                        <p className="text-lg font-bold">{data.summary.totalOpportunities}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <div className="p-2 bg-green-500/20 rounded-lg">
+                                        <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Pipeline</p>
+                                        <p className="text-lg font-bold">{formatCurrency(data.summary.totalValue)}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/20 rounded-lg">
+                                        <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Ganho</p>
+                                        <p className="text-lg font-bold">{formatCurrency(data.summary.wonValue)}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                                        <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Conversao</p>
+                                        <p className="text-lg font-bold">
+                                            {data.summary.totalOpportunities > 0 && data.summary.totalValue > 0
+                                                ? ((data.summary.wonValue / data.summary.totalValue) * 100).toFixed(0)
+                                                : 0}%
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <div className="p-2 bg-green-500/20 rounded-lg">
+                                        <Bot className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">WhatsApp</p>
+                                        <p className="text-lg font-bold">{data.summary.whatsappActive || 0}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Nome do Lead</Label>
-                    <Input
-                      placeholder="Nome completo"
-                      value={newOpportunity.leadName}
-                      onChange={(e) =>
-                        setNewOpportunity((prev) => ({ ...prev, leadName: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Telefone</Label>
-                    <Input
-                      placeholder="(00) 00000-0000"
-                      value={newOpportunity.leadPhone}
-                      onChange={(e) =>
-                        setNewOpportunity((prev) => ({ ...prev, leadPhone: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>E-mail</Label>
-                  <Input
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={newOpportunity.leadEmail}
-                    onChange={(e) =>
-                      setNewOpportunity((prev) => ({ ...prev, leadEmail: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Origem</Label>
-                    <Select
-                      value={newOpportunity.leadSource}
-                      onValueChange={(value) =>
-                        setNewOpportunity((prev) => ({ ...prev, leadSource: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="google">Google</SelectItem>
-                        <SelectItem value="indicacao">Indicação</SelectItem>
-                        <SelectItem value="site">Site</SelectItem>
-                        <SelectItem value="telefone">Telefone</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Tipo de Tratamento</Label>
-                    <Select
-                      value={newOpportunity.treatmentType}
-                      onValueChange={(value) =>
-                        setNewOpportunity((prev) => ({ ...prev, treatmentType: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="implante">Implante</SelectItem>
-                        <SelectItem value="ortodontia">Ortodontia</SelectItem>
-                        <SelectItem value="protese">Prótese</SelectItem>
-                        <SelectItem value="clareamento">Clareamento</SelectItem>
-                        <SelectItem value="limpeza">Limpeza</SelectItem>
-                        <SelectItem value="restauracao">Restauração</SelectItem>
-                        <SelectItem value="canal">Canal</SelectItem>
-                        <SelectItem value="harmonizacao">Harmonização</SelectItem>
-                        <SelectItem value="outros">Outros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Valor Estimado (R$)</Label>
-                  <Input
-                    type="number"
-                    placeholder="0,00"
-                    value={newOpportunity.estimatedValue}
-                    onChange={(e) =>
-                      setNewOpportunity((prev) => ({ ...prev, estimatedValue: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Observações</Label>
-                  <Textarea
-                    placeholder="Anotações sobre o lead..."
-                    value={newOpportunity.notes}
-                    onChange={(e) =>
-                      setNewOpportunity((prev) => ({ ...prev, notes: e.target.value }))
-                    }
-                  />
-                </div>
-                <Button
-                  onClick={handleCreateOpportunity}
-                  disabled={createMutation.isPending}
-                  className="w-full"
-                >
-                  Criar Oportunidade
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {/* Métricas */}
-        {data?.summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/20 rounded-lg">
-                    <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Oportunidades</p>
-                    <p className="text-2xl font-bold">{data.summary.totalOpportunities}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500/20 rounded-lg">
-                    <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor em Pipeline</p>
-                    <p className="text-2xl font-bold">{formatCurrency(data.summary.totalValue)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor Ganho</p>
-                    <p className="text-2xl font-bold">{formatCurrency(data.summary.wonValue)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Taxa Conversão</p>
-                    <p className="text-2xl font-bold">
-                      {data.summary.totalOpportunities > 0
-                        ? ((data.summary.wonValue / data.summary.totalValue) * 100).toFixed(0)
-                        : 0}
-                      %
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                {/* Kanban + Timeline panel */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Main Kanban area */}
+                    <div className="flex-1 p-4 overflow-hidden">
+                        {noStages ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                <Settings2 className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                                <h2 className="text-xl font-medium mb-2">Configure seu Pipeline</h2>
+                                <p className="text-muted-foreground mb-4 max-w-md">
+                                    Crie as etapas do funil de vendas com progresso automatico via IA.
+                                    As etapas padrao incluem: Primeiro Contato, Agendamento, Confirmacao,
+                                    Consulta Realizada, Pagamento e Concluido.
+                                </p>
+                                <div className="flex gap-3">
+                                    <Button onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending}>
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        Criar Etapas Padrao
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => seedTestDataMutation.mutate()}
+                                        disabled={seedTestDataMutation.isPending}
+                                    >
+                                        <Database className="h-4 w-4 mr-2" />
+                                        Criar com Dados de Teste
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <KanbanBoard
+                                data={data}
+                                isLoading={isLoading}
+                                onDragEnd={handleDragEnd}
+                                onEditOpportunity={(opp) => setEditingOpportunity(opp)}
+                                onDeleteOpportunity={handleDelete}
+                                onViewTimeline={(opp) => setTimelineOpportunity(opp)}
+                            />
+                        )}
+                    </div>
 
-        {/* Kanban Board */}
-        <div className="overflow-x-auto pb-4">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-4 min-h-[500px]">
-              {isLoading ? (
-                <div className="flex gap-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="min-w-[280px] h-96 bg-muted rounded-lg animate-pulse"
-                    />
-                  ))}
+                    {/* Timeline side panel */}
+                    {timelineOpportunity && (
+                        <OpportunityTimelinePanel
+                            opportunity={timelineOpportunity}
+                            onClose={() => setTimelineOpportunity(null)}
+                        />
+                    )}
                 </div>
-              ) : (
-                data?.stages.map((stage) => (
-                  <KanbanColumn key={stage.id} stage={stage} />
-                ))
-              )}
+
+                {/* AI Pipeline Legend + Probability Legend */}
+                <div className="border-t px-4 py-2 bg-muted/30 space-y-1">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="font-medium flex items-center gap-1">
+                            <Bot className="h-3 w-3" />
+                            Pipeline IA:
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                            Contato
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            Agendamento
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            Confirmacao
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Consulta
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-purple-500" />
+                            Pagamento
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            Concluido
+                        </span>
+                        <span className="ml-auto flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            Atualiza automaticamente
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="font-medium">Probabilidade:</span>
+                        <span className="flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 rounded border border-green-500 text-green-600 text-[8px] text-center font-bold leading-3">%</span>
+                            <span className="text-green-600">80-100% Alta</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 rounded border border-yellow-500 text-yellow-600 text-[8px] text-center font-bold leading-3">%</span>
+                            <span className="text-yellow-600">50-79% Media</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="inline-block w-3 h-3 rounded border border-gray-400 text-gray-500 text-[8px] text-center font-bold leading-3">%</span>
+                            <span className="text-gray-500">&lt;50% Baixa</span>
+                        </span>
+                        <span className="text-muted-foreground/60 ml-2">|</span>
+                        <span className="flex items-center gap-1">
+                            <Bot className="h-3 w-3 text-green-600" />
+                            Movido pela IA
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <Settings2 className="h-3 w-3 text-muted-foreground" />
+                            Movido manualmente
+                        </span>
+                    </div>
+                </div>
             </div>
 
-            <DragOverlay>
-              {activeOpportunity ? (
-                <OpportunityCard opportunity={activeOpportunity} isDragging />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </div>
-      </div>
-    </DashboardLayout>
-  );
+            {/* Create/Edit Dialog */}
+            <OpportunityDialog
+                open={isNewOpportunityOpen || !!editingOpportunity}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setIsNewOpportunityOpen(false);
+                        setEditingOpportunity(null);
+                    }
+                }}
+                opportunity={editingOpportunity}
+                onSubmit={handleSubmit}
+                isLoading={createMutation.isPending || updateMutation.isPending}
+            />
+        </DashboardLayout>
+    );
 }

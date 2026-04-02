@@ -32,7 +32,7 @@ import { Loader2 } from "lucide-react";
 import PatientForm from "@/components/patients/PatientForm";
 import PatientsList from "@/components/patients/PatientsList";
 import PatientRecordTab from "@/components/patients/PatientRecordTab";
-import OdontogramChart from "@/components/odontogram/OdontogramChart";
+import InteractiveOdontogram from "@/components/odontogram/InteractiveOdontogram";
 import Papa from "papaparse";
 
 // Tipo para paciente
@@ -69,7 +69,7 @@ export default function PacientesPage() {
 
   // Create patient mutation
   const createPatientMutation = useMutation({
-    mutationFn: (newPatient: any) => apiRequest("/api/patients", "POST", newPatient),
+    mutationFn: (newPatient: any) => apiRequest("POST", "/api/patients", newPatient),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
       setIsAddPatientOpen(false);
@@ -281,8 +281,6 @@ export default function PacientesPage() {
                 </DialogHeader>
                 <PatientForm
                   onSubmit={(data) => createPatientMutation.mutate(data)}
-                  isLoading={createPatientMutation.isPending}
-                  {...({} as any)}
                 />
               </DialogContent>
             </Dialog>
@@ -362,7 +360,7 @@ export default function PacientesPage() {
                 </TabsContent>
                 
                 <TabsContent value="odontogram">
-                  <OdontogramChart patientId={selectedPatient.id} />
+                  <InteractiveOdontogram patientId={selectedPatient.id} />
                 </TabsContent>
                 
                 <TabsContent value="documents">

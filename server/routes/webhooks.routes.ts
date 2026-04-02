@@ -1,259 +1,15 @@
 import { Router } from 'express';
 import { storage } from '../storage';
 import { asyncHandler } from '../middleware/auth';
-import { N8NService } from '../services/n8n.service';
 import { db } from '../db';
 import { or, and, eq, inArray, isNotNull, desc } from 'drizzle-orm';
 import { nowpaymentsService } from '../billing/nowpayments-service';
 import { mercadopagoService } from '../billing/mercadopago-service';
 import { stripeService } from '../billing/stripe-service';
-import { appointments as appointmentsTable, patients } from '@shared/schema';
+import { logger } from '../logger';
 
+const log = logger.child({ module: 'webhooks' });
 const router = Router();
-
-/**
- * POST /api/webhooks/n8n/appointment-created
- * Recebe notificação do n8n quando um agendamento é criado
- *
- * Este endpoint é chamado PELO N8N após o site criar um agendamento
- * N8N recebe: appointmentId, patientPhone, datetime, etc.
- * N8N processa: Envia WhatsApp, cria evento Google Calendar
- * N8N retorna: google_calendar_event_id, wuzapi_message_id
- */
-router.post(
-  '/n8n/appointment-created',
-  asyncHandler(async (req, res) => {
-    const {
-      appointmentId,
-      googleCalendarEventId,
-      wuzapiMessageId,
-      automationStatus,
-      error,
-    } = req.body;
-
-    if (!appointmentId) {
-      return res.status(400).json({ error: 'appointmentId is required' });
-    }
-
-    // Buscar appointment diretamente pelo ID (sem precisar do companyId)
-    const [appointment] = await db
-      .select()
-      .from(appointmentsTable)
-      .leftJoin(patients, eq(appointmentsTable.patientId, patients.id))
-      .where(eq(appointmentsTable.id, appointmentId))
-      .limit(1);
-
-    if (!appointment) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
-    const appointmentData = appointment.appointments;
-    const patientData = appointment.patients;
-
-    // Atualizar appointment com dados retornados pelo n8n
-    const updateData: any = {
-      automationStatus: automationStatus || (error ? 'error' : 'sent'),
-      automationSentAt: new Date(),
-    };
-
-    if (googleCalendarEventId) {
-      updateData.googleCalendarEventId = googleCalendarEventId;
-    }
-
-    if (wuzapiMessageId) {
-      updateData.wuzapiMessageId = wuzapiMessageId;
-    }
-
-    if (error) {
-      updateData.automationError = error;
-    }
-
-    await storage.updateAppointment(appointmentId, updateData, appointmentData.companyId);
-
-    // Log da automação
-    await storage.createAutomationLog({
-      companyId: appointmentData.companyId,
-      appointmentId,
-      executionType: 'appointment_created',
-      executionStatus: error ? 'error' : 'success',
-      messageProvider: wuzapiMessageId ? 'wuzapi' : null,
-      messageId: wuzapiMessageId,
-      sentTo: patientData?.whatsappPhone || patientData?.cellphone,
-      errorMessage: error,
-      payload: {
-        googleCalendarEventId,
-        wuzapiMessageId,
-        automationStatus,
-      },
-    });
-
-    res.json({
-      success: true,
-      appointmentId,
-      updated: updateData,
-    });
-  })
-);
-
-/**
- * POST /api/webhooks/n8n/appointment-updated
- * Recebe notificação quando agendamento é atualizado (reagendamento)
- */
-router.post(
-  '/n8n/appointment-updated',
-  asyncHandler(async (req, res) => {
-    const {
-      appointmentId,
-      googleCalendarEventId,
-      wuzapiMessageId,
-      automationStatus,
-      error,
-    } = req.body;
-
-    if (!appointmentId) {
-      return res.status(400).json({ error: 'appointmentId is required' });
-    }
-
-    // Buscar appointment diretamente pelo ID
-    const [appointmentResult] = await db
-      .select()
-      .from(appointmentsTable)
-      .where(eq(appointmentsTable.id, appointmentId))
-      .limit(1);
-
-    if (!appointmentResult) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
-    const updateData: any = {
-      automationStatus: automationStatus || (error ? 'error' : 'sent'),
-      automationSentAt: new Date(),
-    };
-
-    if (googleCalendarEventId) {
-      updateData.googleCalendarEventId = googleCalendarEventId;
-    }
-
-    if (wuzapiMessageId) {
-      updateData.wuzapiMessageId = wuzapiMessageId;
-    }
-
-    if (error) {
-      updateData.automationError = error;
-    }
-
-    await storage.updateAppointment(appointmentId, updateData, appointmentResult.companyId);
-
-    res.json({
-      success: true,
-      appointmentId,
-      updated: updateData,
-    });
-  })
-);
-
-/**
- * POST /api/webhooks/n8n/appointment-cancelled
- * Recebe notificação quando agendamento é cancelado
- */
-router.post(
-  '/n8n/appointment-cancelled',
-  asyncHandler(async (req, res) => {
-    const {
-      appointmentId,
-      wuzapiMessageId,
-      googleCalendarDeleted,
-      error,
-    } = req.body;
-
-    if (!appointmentId) {
-      return res.status(400).json({ error: 'appointmentId is required' });
-    }
-
-    // Buscar appointment diretamente pelo ID
-    const [appointmentResult] = await db
-      .select()
-      .from(appointmentsTable)
-      .where(eq(appointmentsTable.id, appointmentId))
-      .limit(1);
-
-    if (!appointmentResult) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
-    const updateData: any = {
-      automationStatus: error ? 'error' : 'cancelled',
-      automationSentAt: new Date(),
-    };
-
-    if (wuzapiMessageId) {
-      updateData.wuzapiMessageId = wuzapiMessageId;
-    }
-
-    if (error) {
-      updateData.automationError = error;
-    }
-
-    if (googleCalendarDeleted) {
-      updateData.googleCalendarEventId = null; // Evento foi deletado
-    }
-
-    await storage.updateAppointment(appointmentId, updateData, appointmentResult.companyId);
-
-    res.json({
-      success: true,
-      appointmentId,
-      updated: updateData,
-    });
-  })
-);
-
-/**
- * POST /api/webhooks/n8n/confirmation-response
- * Recebe resposta do paciente sobre confirmação de agendamento
- *
- * Chamado quando paciente responde "SIM", "NÃO", "REAGENDAR", etc.
- */
-router.post(
-  '/n8n/confirmation-response',
-  asyncHandler(async (req, res) => {
-    const {
-      appointmentId,
-      patientResponse,
-      confirmedByPatient,
-      wuzapiMessageId,
-    } = req.body;
-
-    if (!appointmentId || !patientResponse) {
-      return res.status(400).json({
-        error: 'appointmentId and patientResponse are required',
-      });
-    }
-
-    // Determinar se paciente confirmou baseado na resposta
-    const confirmed = confirmedByPatient !== undefined
-      ? confirmedByPatient
-      : patientResponse.toUpperCase().includes('SIM');
-
-    // Processar confirmação usando o serviço N8N
-    const success = await N8NService.processConfirmation({
-      appointmentId,
-      confirmed,
-      response: patientResponse,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (!success) {
-      return res.status(404).json({ error: 'Failed to process confirmation' });
-    }
-
-    res.json({
-      success: true,
-      appointmentId,
-      confirmed,
-    });
-  })
-);
 
 /**
  * POST /api/webhooks/wuzapi/incoming
@@ -274,7 +30,7 @@ router.post(
     const expectedSecret = process.env.WUZAPI_WEBHOOK_SECRET;
 
     if (expectedSecret && webhookSecret !== expectedSecret) {
-      console.warn('Invalid Wuzapi webhook secret received');
+      log.warn('Invalid Wuzapi webhook secret received');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -300,7 +56,7 @@ router.post(
         .limit(1);
 
       if (!patient) {
-        console.log('Patient not found for phone:', cleanPhone);
+        log.info({ phone: cleanPhone }, 'Patient not found for phone');
         return res.json({ success: true, received: true, patientNotFound: true });
       }
 
@@ -353,27 +109,6 @@ router.post(
             response: message,
           });
 
-          // Encaminhar para N8N se houver callback configurado
-          const settings = await storage.getClinicSettings(patient.companyId);
-          if (settings?.n8nWebhookBaseUrl) {
-            try {
-              await fetch(`${settings.n8nWebhookBaseUrl}/webhook/confirmation-response`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  appointmentId: appointment.id,
-                  patientId: patient.id,
-                  patientName: patient.fullName,
-                  patientResponse: message,
-                  confirmedByPatient: isConfirmation,
-                  timestamp: new Date().toISOString(),
-                }),
-              });
-            } catch (error) {
-              console.error('Failed to send confirmation to N8N:', error);
-            }
-          }
-
           return res.json({
             success: true,
             processed: true,
@@ -406,267 +141,14 @@ router.post(
           })
           .where(eq(automationLogs.messageId, messageId));
       } catch (error) {
-        console.error('Failed to update message status:', error);
+        log.error({ err: error }, 'Failed to update message status');
       }
 
-      console.log('Message status update:', { messageId, status });
+      log.info({ messageId, status }, 'Message status update');
       res.json({ success: true, statusUpdated: true });
     } else {
       res.status(400).json({ error: 'Unknown webhook type' });
     }
-  })
-);
-
-/**
- * POST /api/webhooks/n8n/chat-process
- * Processa mensagem de chat via N8N (Code-First Architecture)
- *
- * Este endpoint é chamado pelo N8N quando uma mensagem de WhatsApp é recebida.
- * Ele usa o ChatProcessor para classificar intenção e gerar resposta.
- * 80% regex + 15% state machine + 5% AI
- *
- * IMPORTANTE: fromMe=true indica que a mensagem foi enviada PELA clínica (secretária)
- * Nesse caso, a IA NÃO deve responder e marca a sessão como "humano assumiu"
- */
-router.post(
-  '/n8n/chat-process',
-  asyncHandler(async (req, res) => {
-    const { companyId, phone, message, wuzapiMessageId, instanceId, fromMe } = req.body;
-
-    if (!companyId || !phone || !message) {
-      return res.status(400).json({
-        success: false,
-        error: 'companyId, phone e message são obrigatórios',
-      });
-    }
-
-    try {
-      // Importar dinamicamente para evitar circular dependency
-      const { createChatProcessor } = await import('../services/chat-processor');
-
-      const processor = createChatProcessor(Number(companyId));
-      // Passar fromMe para detectar se secretária enviou a mensagem
-      const result = await processor.processMessage(phone, message, wuzapiMessageId, fromMe === true);
-
-      // Se skipResponse=true, a IA não deve enviar resposta (humano assumiu)
-      const shouldRespond = !result.skipResponse && !result.requiresHumanTransfer;
-
-      // Retornar resposta para N8N enviar via Wuzapi
-      res.json({
-        success: true,
-        shouldRespond,
-        response: result.response,
-        intent: result.intent,
-        confidence: result.confidence,
-        processedBy: result.processedBy,
-        tokensUsed: result.tokensUsed,
-        requiresHumanTransfer: result.requiresHumanTransfer,
-        isUrgency: result.isUrgency,
-        urgencyLevel: result.urgencyLevel,
-        skipResponse: result.skipResponse,
-        actions: result.actions,
-      });
-    } catch (error: any) {
-      console.error('Erro ao processar mensagem no chat:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message || 'Erro interno ao processar mensagem',
-        shouldRespond: false,
-      });
-    }
-  })
-);
-
-/**
- * GET /api/webhooks/n8n/admin-phones/:companyId
- * Retorna telefones admin para notificações (usado pelo N8N)
- *
- * Query params:
- * - notificationType: 'urgency' | 'daily_report' | 'new_appointment' | 'cancellation'
- * - role: 'doctor' | 'receptionist' | 'manager' | 'owner' (opcional)
- */
-router.get(
-  '/n8n/admin-phones/:companyId',
-  asyncHandler(async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-    const { notificationType, role } = req.query;
-
-    const { adminPhones } = await import('@shared/schema');
-
-    const phones = await db
-      .select()
-      .from(adminPhones)
-      .where(
-        and(
-          eq(adminPhones.companyId, companyId),
-          eq(adminPhones.isActive, true)
-        )
-      );
-
-    // Filtrar por tipo de notificação
-    type AdminPhoneRow = typeof phones[0];
-    let filtered = phones;
-    if (notificationType === 'urgency') {
-      filtered = phones.filter((p: AdminPhoneRow) => p.receiveUrgencies);
-    } else if (notificationType === 'daily_report') {
-      filtered = phones.filter((p: AdminPhoneRow) => p.receiveDailyReport);
-    } else if (notificationType === 'new_appointment') {
-      filtered = phones.filter((p: AdminPhoneRow) => p.receiveNewAppointments);
-    } else if (notificationType === 'cancellation') {
-      filtered = phones.filter((p: AdminPhoneRow) => p.receiveCancellations);
-    }
-
-    // Filtrar por role se especificado
-    if (role) {
-      filtered = filtered.filter((p: AdminPhoneRow) => p.role === role);
-    }
-
-    res.json({
-      success: true,
-      data: filtered.map((p: AdminPhoneRow) => ({
-        phone: p.phone,
-        name: p.name,
-        role: p.role,
-      })),
-    });
-  })
-);
-
-/**
- * GET /api/webhooks/n8n/doctors-for-urgency/:companyId
- * Retorna telefones de DOUTORES para notificação de URGÊNCIA
- * Usado quando paciente relata emergência/dor/urgência
- */
-router.get(
-  '/n8n/doctors-for-urgency/:companyId',
-  asyncHandler(async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-    const { urgencyLevel } = req.query; // 'low' | 'medium' | 'high' | 'critical'
-
-    const { adminPhones, users } = await import('@shared/schema');
-
-    // Buscar admins que recebem urgências
-    const adminsWithUrgency = await db
-      .select()
-      .from(adminPhones)
-      .where(
-        and(
-          eq(adminPhones.companyId, companyId),
-          eq(adminPhones.isActive, true),
-          eq(adminPhones.receiveUrgencies, true)
-        )
-      );
-
-    // Buscar dentistas da empresa (role = 'dentist') que têm wuzapiPhone
-    const dentists = await db
-      .select({
-        id: users.id,
-        fullName: users.fullName,
-        phone: users.wuzapiPhone,
-        role: users.role,
-      })
-      .from(users)
-      .where(
-        and(
-          eq(users.companyId, companyId),
-          eq(users.role, 'dentist'),
-          eq(users.active, true)
-        )
-      );
-
-    // Combinar admins e dentistas (sem duplicatas)
-    const allPhones = new Map<string, { phone: string; name: string; role: string }>();
-
-    // Adicionar admins
-    for (const admin of adminsWithUrgency) {
-      if (admin.phone) {
-        allPhones.set(admin.phone, {
-          phone: admin.phone,
-          name: admin.name || 'Admin',
-          role: admin.role || 'admin',
-        });
-      }
-    }
-
-    // Adicionar dentistas (prioridade para urgências críticas)
-    for (const dentist of dentists) {
-      if (dentist.phone) {
-        allPhones.set(dentist.phone, {
-          phone: dentist.phone,
-          name: dentist.fullName,
-          role: 'doctor',
-        });
-      }
-    }
-
-    // Se urgência é crítica ou alta, retorna todos
-    // Se é média ou baixa, retorna apenas recepção/admin
-    let result = Array.from(allPhones.values());
-
-    if (urgencyLevel === 'low') {
-      // Apenas secretária/admin
-      result = result.filter(p => p.role !== 'doctor');
-    }
-
-    res.json({
-      success: true,
-      urgencyLevel: urgencyLevel || 'unknown',
-      data: result,
-    });
-  })
-);
-
-/**
- * GET /api/webhooks/n8n/company-context/:companyId
- * Retorna contexto da empresa para uso no N8N (nome, telefone, links, etc.)
- */
-router.get(
-  '/n8n/company-context/:companyId',
-  asyncHandler(async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-
-    const { companies, clinicSettings } = await import('@shared/schema');
-
-    const [company] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1);
-
-    if (!company) {
-      return res.status(404).json({ error: 'Empresa não encontrada' });
-    }
-
-    const [settings] = await db
-      .select()
-      .from(clinicSettings)
-      .where(eq(clinicSettings.companyId, companyId))
-      .limit(1);
-
-    res.json({
-      success: true,
-      data: {
-        company: {
-          id: company.id,
-          name: company.name,
-          phone: company.phone,
-          email: company.email,
-          address: company.address,
-        },
-        settings: settings ? {
-          chatEnabled: settings.chatEnabled,
-          emergencyPhone: settings.emergencyPhone,
-          googleMapsLink: settings.googleMapsLink,
-          googleReviewLink: settings.googleReviewLink,
-          workingHours: settings.workingHoursJson,
-          n8nWebhookBaseUrl: settings.n8nWebhookBaseUrl,
-          wuzapiInstanceId: settings.wuzapiInstanceId,
-          confirmationMessageTemplate: settings.confirmationMessageTemplate,
-          reminderMessageTemplate: settings.reminderMessageTemplate,
-          cancellationMessageTemplate: settings.cancellationMessageTemplate,
-        } : null,
-      },
-    });
   })
 );
 
@@ -683,7 +165,7 @@ router.post('/nowpayments', async (req, res) => {
     const isValid = nowpaymentsService.verifyWebhookSignature(payload, signature);
 
     if (!isValid) {
-      console.warn('⚠️ Invalid NOWPayments webhook signature');
+      log.warn('⚠️ Invalid NOWPayments webhook signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
@@ -692,7 +174,7 @@ router.post('/nowpayments', async (req, res) => {
 
     res.json({ received: true });
   } catch (error) {
-    console.error('Erro ao processar webhook NOWPayments:', error);
+    log.error({ err: error }, 'Erro ao processar webhook NOWPayments');
     res.status(500).json({ error: 'Internal error' });
   }
 });
@@ -710,7 +192,7 @@ router.post('/mercadopago', async (req, res) => {
     const isValid = mercadopagoService.verifyWebhookSignature(req.body, xSignature, xRequestId);
 
     if (!isValid) {
-      console.warn('⚠️ Invalid MercadoPago webhook signature');
+      log.warn('⚠️ Invalid MercadoPago webhook signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
@@ -719,7 +201,7 @@ router.post('/mercadopago', async (req, res) => {
 
     res.status(200).send();
   } catch (error) {
-    console.error('Erro ao processar webhook MercadoPago:', error);
+    log.error({ err: error }, 'Erro ao processar webhook MercadoPago');
     res.status(500).json({ error: 'Internal error' });
   }
 });
@@ -737,195 +219,10 @@ router.post('/stripe', async (req, res) => {
 
     res.json({ received: true });
   } catch (error) {
-    console.error('Erro ao processar webhook Stripe:', error);
+    log.error({ err: error }, 'Erro ao processar webhook Stripe');
     res.status(400).json({ error: 'Webhook error' });
   }
 });
-
-// =============================================
-// ENDPOINTS PARA N8N - FOLLOW-UP
-// =============================================
-
-/**
- * GET /api/webhooks/n8n/patients-for-review/:companyId
- * Retorna pacientes elegíveis para receber pedido de avaliação
- * Lógica: Primeira consulta OU 90 dias desde último pedido
- */
-router.get(
-  '/n8n/patients-for-review/:companyId',
-  asyncHandler(async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-
-    if (!companyId) {
-      return res.status(400).json({ error: 'companyId é obrigatório' });
-    }
-
-    // Data de hoje
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // 90 dias atrás
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    // Buscar consultas "completed" de hoje
-    const { sql, gte, lte, isNull } = await import('drizzle-orm');
-
-    const completedToday = await db
-      .select({
-        appointmentId: appointmentsTable.id,
-        patientId: appointmentsTable.patientId,
-        patientName: patients.fullName,
-        patientPhone: patients.whatsappPhone,
-        patientCellphone: patients.cellphone,
-        patientPhone2: patients.phone,
-        lastReviewRequestedAt: patients.lastReviewRequestedAt,
-        totalAppointments: patients.totalAppointments,
-      })
-      .from(appointmentsTable)
-      .innerJoin(patients, eq(appointmentsTable.patientId, patients.id))
-      .where(
-        and(
-          eq(appointmentsTable.companyId, companyId),
-          eq(appointmentsTable.status, 'completed'),
-          gte(appointmentsTable.endTime, today),
-          lte(appointmentsTable.endTime, tomorrow)
-        )
-      );
-
-    // Filtrar pacientes elegíveis para avaliação
-    type ReviewRow = typeof completedToday[0];
-    const eligiblePatients = completedToday.filter((row: ReviewRow) => {
-      // Se nunca pediu avaliação → elegível (primeira consulta ou nunca pediu)
-      if (!row.lastReviewRequestedAt) {
-        return true;
-      }
-
-      // Se passou mais de 90 dias desde último pedido → elegível
-      const lastRequest = new Date(row.lastReviewRequestedAt);
-      return lastRequest < ninetyDaysAgo;
-    });
-
-    // Formatar resposta com telefone disponível
-    const response = eligiblePatients.map((row: ReviewRow) => ({
-      appointmentId: row.appointmentId,
-      patientId: row.patientId,
-      patientName: row.patientName,
-      phone: row.patientPhone || row.patientCellphone || row.patientPhone2,
-      isFirstAppointment: !row.lastReviewRequestedAt && (row.totalAppointments || 0) <= 1,
-      daysSinceLastRequest: row.lastReviewRequestedAt
-        ? Math.floor((Date.now() - new Date(row.lastReviewRequestedAt).getTime()) / (1000 * 60 * 60 * 24))
-        : null,
-    }));
-
-    // Filtrar apenas quem tem telefone
-    type ResponseRow = typeof response[0];
-    const patientsWithPhone = response.filter((p: ResponseRow) => p.phone);
-
-    res.json({
-      success: true,
-      data: patientsWithPhone,
-      total: patientsWithPhone.length,
-      date: today.toISOString().split('T')[0],
-    });
-  })
-);
-
-/**
- * PATCH /api/webhooks/n8n/mark-review-requested/:patientId
- * Marca que pedido de avaliação foi enviado para o paciente
- */
-router.patch(
-  '/n8n/mark-review-requested/:patientId',
-  asyncHandler(async (req, res) => {
-    const patientId = parseInt(req.params.patientId);
-
-    if (!patientId) {
-      return res.status(400).json({ error: 'patientId é obrigatório' });
-    }
-
-    await db
-      .update(patients)
-      .set({
-        lastReviewRequestedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(patients.id, patientId));
-
-    res.json({
-      success: true,
-      message: 'Paciente marcado como avaliação solicitada',
-      patientId,
-      lastReviewRequestedAt: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * GET /api/webhooks/n8n/patients-birthday/:companyId
- * Retorna pacientes que fazem aniversário hoje
- */
-router.get(
-  '/n8n/patients-birthday/:companyId',
-  asyncHandler(async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-
-    if (!companyId) {
-      return res.status(400).json({ error: 'companyId é obrigatório' });
-    }
-
-    const today = new Date();
-    const month = today.getMonth() + 1; // JavaScript months are 0-indexed
-    const day = today.getDate();
-
-    // Buscar pacientes com aniversário hoje usando SQL raw para extract
-    const { sql } = await import('drizzle-orm');
-
-    const birthdayPatients = await db
-      .select({
-        id: patients.id,
-        fullName: patients.fullName,
-        phone: patients.whatsappPhone,
-        cellphone: patients.cellphone,
-        phone2: patients.phone,
-        birthDate: patients.birthDate,
-      })
-      .from(patients)
-      .where(
-        and(
-          eq(patients.companyId, companyId),
-          eq(patients.active, true),
-          sql`EXTRACT(MONTH FROM ${patients.birthDate}) = ${month}`,
-          sql`EXTRACT(DAY FROM ${patients.birthDate}) = ${day}`
-        )
-      );
-
-    // Formatar resposta
-    type BirthdayRow = typeof birthdayPatients[0];
-    const response = birthdayPatients.map((p: BirthdayRow) => ({
-      patientId: p.id,
-      patientName: p.fullName,
-      phone: p.phone || p.cellphone || p.phone2,
-      birthDate: p.birthDate,
-    }));
-
-    // Filtrar apenas quem tem telefone
-    type BirthdayResponseRow = typeof response[0];
-    const patientsWithPhone = response.filter((p: BirthdayResponseRow) => p.phone);
-
-    res.json({
-      success: true,
-      data: patientsWithPhone,
-      total: patientsWithPhone.length,
-      date: today.toISOString().split('T')[0],
-      month,
-      day,
-    });
-  })
-);
 
 // =============================================
 // WEBHOOK WUZAPI 3.0 - COM SUPORTE A MÍDIA
@@ -950,7 +247,7 @@ router.post(
     const event = req.body;
 
     // Log do evento recebido
-    console.log(`[Wuzapi Webhook] Company ${companyId}:`, JSON.stringify(event).substring(0, 500));
+    log.info({ companyId, event: JSON.stringify(event).substring(0, 500) }, 'Wuzapi webhook received');
 
     // Importações dinâmicas
     const { chatMessages, chatSessions, clinicSettings } = await import('@shared/schema');
@@ -965,7 +262,7 @@ router.post(
       .limit(1);
 
     if (!settings) {
-      console.warn(`[Wuzapi Webhook] Company ${companyId} not found`);
+      log.warn(`[Wuzapi Webhook] Company ${companyId} not found`);
       return res.status(404).json({ error: 'Company not found' });
     }
 
@@ -1067,7 +364,7 @@ router.post(
         else {
           textContent = '[Tipo de mensagem não suportado]';
           messageType = 'unknown';
-          console.log('[Wuzapi Webhook] Unknown message type:', JSON.stringify(messageContent).substring(0, 300));
+          log.info({ content: JSON.stringify(messageContent).substring(0, 300) }, 'Unknown message type');
         }
 
         // Se tem mídia, tentar baixar
@@ -1103,11 +400,11 @@ router.post(
                 fs.writeFileSync(filePath, buffer);
 
                 mediaUrl = `/uploads/chat/${companyId}/${mediaFileName}`;
-                console.log(`[Wuzapi Webhook] Media saved: ${mediaUrl}`);
+                log.info(`[Wuzapi Webhook] Media saved: ${mediaUrl}`);
               }
             }
           } catch (mediaError) {
-            console.error('[Wuzapi Webhook] Error downloading media:', mediaError);
+            log.error({ err: mediaError }, 'Error downloading media');
           }
         }
 
@@ -1149,45 +446,44 @@ router.post(
             .where(eq(chatSessions.id, session.id));
         }
 
-        // Salvar mensagem no banco
-        await db.insert(chatMessages).values({
-          sessionId: session.id,
-          companyId,
-          direction: fromMe ? 'outgoing' : 'incoming',
-          messageType,
-          content: textContent,
-          mediaUrl,
-          mimeType,
-          fileName,
-          wuzapiMessageId: messageId,
-          status: 'received',
-          createdAt: new Date(timestamp * 1000 || Date.now()),
-        });
+        // Salvar mensagem no banco apenas para tipos que o AI Agent NÃO processa
+        // (o AI Agent salva via addUserMessage para text/audio/image que ele processa)
+        const aiProcessableTypes = ['text', 'audio', 'voice', 'image'];
+        const willBeProcessedByAI = settings.chatEnabled && aiProcessableTypes.includes(messageType);
 
-        // Se não é mensagem enviada pela clínica, processar resposta automática
-        if (!fromMe && messageType === 'text') {
-          // Verificar se chat AI está habilitado
-          if (settings.chatEnabled) {
-            // Encaminhar para N8N processar
-            if (settings.n8nWebhookBaseUrl) {
-              try {
-                await fetch(`${settings.n8nWebhookBaseUrl}/webhook/chat-incoming`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    companyId,
-                    phone: cleanPhone,
-                    message: textContent,
-                    messageType,
-                    mediaUrl,
-                    wuzapiMessageId: messageId,
-                    sessionId: session.id,
-                  }),
-                });
-              } catch (n8nError) {
-                console.error('[Wuzapi Webhook] Error forwarding to N8N:', n8nError);
-              }
-            }
+        if (!willBeProcessedByAI) {
+          await db.insert(chatMessages).values({
+            sessionId: session.id,
+            companyId,
+            direction: fromMe ? 'outgoing' : 'incoming',
+            messageType,
+            content: textContent,
+            mediaUrl,
+            mimeType,
+            fileName,
+            wuzapiMessageId: messageId,
+            status: 'received',
+            createdAt: new Date(timestamp * 1000 || Date.now()),
+          });
+        }
+
+        // Processar resposta automática via AI Agent nativo (Claude)
+        if (settings.chatEnabled) {
+          try {
+            const { handleIncomingMessage } = await import('../services/ai-agent/message-handler');
+            await handleIncomingMessage({
+              companyId,
+              phone: cleanPhone,
+              message: textContent,
+              messageType,
+              wuzapiMessageId: messageId,
+              fromMe: !!fromMe,
+              sessionId: session.id,
+              mediaUrl: mediaUrl ?? null,
+              mimeType: mimeType ?? null,
+            });
+          } catch (aiError) {
+            log.error({ err: aiError }, 'AI Agent processing error');
           }
         }
 
@@ -1207,7 +503,7 @@ router.post(
         const messageIds = data.MessageIds || data.messageIds || [];
         const status = data.Type || data.type || 'read'; // read, delivered, played
 
-        console.log(`[Wuzapi Webhook] Read receipt: ${messageIds.join(', ')} - ${status}`);
+        log.info(`[Wuzapi Webhook] Read receipt: ${messageIds.join(', ')} - ${status}`);
 
         // Atualizar status das mensagens
         if (messageIds.length > 0) {
@@ -1233,7 +529,7 @@ router.post(
         const from = data.Chat || data.chat || '';
         const state = data.State || data.state || ''; // composing, recording, available, unavailable
 
-        console.log(`[Wuzapi Webhook] Presence: ${from} - ${state}`);
+        log.info(`[Wuzapi Webhook] Presence: ${from} - ${state}`);
 
         // Pode ser usado para mostrar "digitando..." na UI
         // Por enquanto apenas log
@@ -1247,7 +543,7 @@ router.post(
         const from = data.From || data.from || '';
         const callType = data.Type || data.type || 'voice'; // voice, video
 
-        console.log(`[Wuzapi Webhook] Call from ${from}: ${callType}`);
+        log.info(`[Wuzapi Webhook] Call from ${from}: ${callType}`);
 
         // Notificar admin sobre chamada perdida (opcional)
 
@@ -1255,7 +551,7 @@ router.post(
       }
 
       default:
-        console.log(`[Wuzapi Webhook] Unknown event type: ${eventType}`);
+        log.info(`[Wuzapi Webhook] Unknown event type: ${eventType}`);
         return res.json({ success: true, skipped: true, reason: 'Unknown event type' });
     }
   })

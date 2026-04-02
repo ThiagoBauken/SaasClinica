@@ -2,7 +2,7 @@
 import { lazy } from 'react';
 
 // Lazy loading dos componentes do módulo
-export const OdontogramDemo = lazy(() => import('../../../pages/odontogram-demo'));
+export const OdontogramPage = lazy(() => import('../../../pages/odontogram-page'));
 
 // Configuração do módulo frontend
 export const odontogramaModuleConfig = {
@@ -10,15 +10,15 @@ export const odontogramaModuleConfig = {
   name: 'Odontograma Digital',
   routes: [
     {
-      path: '/odontogram-demo',
-      component: OdontogramDemo,
+      path: '/odontogram',
+      component: OdontogramPage,
       title: 'Odontograma'
     }
   ],
   menuItems: [
     {
       label: 'Odontograma',
-      path: '/odontogram-demo',
+      path: '/odontogram',
       icon: 'Activity'
     }
   ],

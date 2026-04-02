@@ -388,20 +388,180 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // SEGURANÇA: Rate limiting aplicado ao login
+  // SEGURANÇA: Armazenamento temporário de sessões MFA pendentes (5 min TTL)
+  const mfaPendingSessions = new Map<string, { userId: number; rememberMe: boolean; expiresAt: number }>();
+
+  // Limpar sessões MFA expiradas a cada 60 segundos
+  setInterval(() => {
+    const now = Date.now();
+    for (const [token, session] of mfaPendingSessions) {
+      if (session.expiresAt < now) mfaPendingSessions.delete(token);
+    }
+  }, 60_000);
+
+  // SEGURANÇA: Rate limiting aplicado ao login (com suporte MFA)
   app.post("/api/auth/login", loginLimiter, passport.authenticate("local"), (req, res) => {
-    // Suporte para "Manter Conectado"
-    const rememberMe = req.body.rememberMe === true;
-    if (rememberMe && req.session.cookie) {
-      // Estender cookie para 30 dias se "Manter Conectado" estiver marcado
-      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 dias
-      console.log(`✓ Remember me enabled for user: ${(req.user as SelectUser).id}`);
+    const user = req.user as SelectUser;
+
+    // Se TOTP está habilitado, não criar sessão completa — exigir segundo fator
+    if (user.totpEnabled) {
+      const mfaToken = randomBytes(32).toString('hex');
+      mfaPendingSessions.set(mfaToken, {
+        userId: user.id,
+        rememberMe: req.body.rememberMe === true,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutos
+      });
+
+      // Deslogar a sessão parcial criada pelo passport.authenticate
+      req.logout(() => {});
+
+      return res.status(200).json({
+        mfaRequired: true,
+        mfaToken,
+        userId: user.id,
+      });
     }
 
-    // SEGURANÇA: Não retornar dados sensíveis
-    const { password, googleAccessToken, googleRefreshToken, ...safeUser } = req.user as SelectUser;
+    // Sem MFA: fluxo normal
+    const rememberMe = req.body.rememberMe === true;
+    if (rememberMe && req.session.cookie) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 dias
+    }
+
+    const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, ...safeUser } = req.user as SelectUser;
     res.status(200).json(safeUser);
   });
+
+  // MFA: Verificar código TOTP após login com senha
+  app.post("/api/auth/totp/verify", loginLimiter, asyncHandler(async (req: Request, res: Response) => {
+    const { mfaToken, totpCode } = req.body;
+    if (!mfaToken || !totpCode) {
+      return res.status(400).json({ error: "Token MFA e código TOTP são obrigatórios" });
+    }
+
+    const pending = mfaPendingSessions.get(mfaToken);
+    if (!pending || pending.expiresAt < Date.now()) {
+      mfaPendingSessions.delete(mfaToken);
+      return res.status(401).json({ error: "Sessão MFA expirada. Faça login novamente." });
+    }
+
+    const user = await storage.getUser(pending.userId);
+    if (!user || !user.totpSecret) {
+      mfaPendingSessions.delete(mfaToken);
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const { verifyTOTP, verifyBackupCode } = await import('./services/totp-service');
+
+    // Tentar como código TOTP normal
+    let isValid = verifyTOTP(totpCode, user.totpSecret);
+
+    // Se não for TOTP válido, tentar como backup code
+    if (!isValid && user.totpBackupCodes) {
+      const hashedCodes: string[] = JSON.parse(user.totpBackupCodes);
+      const remainingCodes = verifyBackupCode(totpCode, hashedCodes);
+      if (remainingCodes !== null) {
+        isValid = true;
+        // Consumir o backup code
+        await db.$client.query(
+          `UPDATE users SET totp_backup_codes = $1, updated_at = NOW() WHERE id = $2`,
+          [JSON.stringify(remainingCodes), user.id]
+        );
+      }
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: "Código TOTP inválido" });
+    }
+
+    // Código válido — criar sessão completa
+    mfaPendingSessions.delete(mfaToken);
+
+    req.login(user, (err) => {
+      if (err) return res.status(500).json({ error: "Erro ao criar sessão" });
+
+      if (pending.rememberMe && req.session.cookie) {
+        req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+      }
+
+      const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, ...safeUser } = user;
+      res.status(200).json(safeUser);
+    });
+  }));
+
+  // MFA: Setup — gerar secret + QR code
+  app.post("/api/auth/totp/setup", asyncHandler(async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as SelectUser;
+
+    if (user.totpEnabled) {
+      return res.status(400).json({ error: "MFA já está habilitado" });
+    }
+
+    const { generateTOTPSecret } = await import('./services/totp-service');
+    const { secret, otpauthUrl, qrCodeUrl } = generateTOTPSecret(user.username);
+
+    // Salvar secret temporariamente (não habilitado até confirm)
+    await db.$client.query(
+      `UPDATE users SET totp_secret = $1, updated_at = NOW() WHERE id = $2`,
+      [secret, user.id]
+    );
+
+    res.json({ secret, otpauthUrl, qrCodeUrl });
+  }));
+
+  // MFA: Confirm — validar primeiro código e habilitar MFA
+  app.post("/api/auth/totp/confirm", asyncHandler(async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as SelectUser;
+    const { token } = req.body;
+
+    if (!token) return res.status(400).json({ error: "Código TOTP é obrigatório" });
+
+    // Buscar secret atual
+    const result = await db.$client.query(`SELECT totp_secret FROM users WHERE id = $1`, [user.id]);
+    const secret = result.rows?.[0]?.totp_secret;
+    if (!secret) return res.status(400).json({ error: "Execute /totp/setup primeiro" });
+
+    const { verifyTOTP, generateBackupCodes } = await import('./services/totp-service');
+    if (!verifyTOTP(token, secret)) {
+      return res.status(400).json({ error: "Código inválido. Verifique o app autenticador e tente novamente." });
+    }
+
+    // Gerar backup codes
+    const { plain, hashed } = generateBackupCodes(10);
+
+    // Habilitar MFA
+    await db.$client.query(
+      `UPDATE users SET totp_enabled = true, totp_backup_codes = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(hashed), user.id]
+    );
+
+    res.json({
+      enabled: true,
+      backupCodes: plain, // Mostrar UMA VEZ para o usuário salvar
+      message: "MFA habilitado com sucesso. Salve os códigos de backup em local seguro.",
+    });
+  }));
+
+  // MFA: Disable — desabilitar MFA (requer senha)
+  app.post("/api/auth/totp/disable", asyncHandler(async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as SelectUser;
+    const { password: suppliedPassword } = req.body;
+
+    if (!suppliedPassword) return res.status(400).json({ error: "Senha é obrigatória para desabilitar MFA" });
+
+    const isValid = await comparePasswords(suppliedPassword, user.password);
+    if (!isValid) return res.status(401).json({ error: "Senha incorreta" });
+
+    await db.$client.query(
+      `UPDATE users SET totp_enabled = false, totp_secret = NULL, totp_backup_codes = NULL, updated_at = NOW() WHERE id = $1`,
+      [user.id]
+    );
+
+    res.json({ enabled: false, message: "MFA desabilitado com sucesso." });
+  }));
 
   // SEGURANÇA: Password reset com token seguro e expiração (30 min)
   app.post("/api/auth/forgot-password", passwordResetLimiter, asyncHandler(async (req: Request, res: Response) => {
@@ -523,8 +683,8 @@ export function setupAuth(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    // SEGURANÇA: Não retornar dados sensíveis
-    const { password, googleAccessToken, googleRefreshToken, ...safeUser } = req.user as SelectUser;
+    // SEGURANÇA: Não retornar dados sensíveis (incluindo TOTP secrets)
+    const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, passwordResetToken, ...safeUser } = req.user as SelectUser;
     res.json(safeUser);
   });
 

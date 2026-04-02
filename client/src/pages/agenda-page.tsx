@@ -47,6 +47,7 @@ import PaymentStatusBadge, { PaymentStatus } from "@/components/PaymentStatusBad
 import AppointmentDetailsDrawer from "@/components/AppointmentDetailsDrawer";
 import FloatingActionButton from "@/components/FloatingActionButton";
 import { useLocation } from "wouter";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 // REMOVED: mockProcedureStats - now fetched from backend via useQuery
 
@@ -106,6 +107,7 @@ interface LocalAppointment {
   status: string;
   startTime: string;
   endTime: string;
+  roomId?: number;
   paymentStatus?: PaymentStatus;
   paymentAmount: number;
   paidAmount: number;
@@ -268,7 +270,7 @@ export default function AgendaPage() {
     mutationFn: async (data: any) => {
       const response = await fetch('/api/v1/appointments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           patientId: parseInt(data.patientId),
@@ -336,7 +338,7 @@ export default function AgendaPage() {
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const response = await fetch(`/api/v1/appointments/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           patientId: data.patientId ? parseInt(data.patientId) : undefined,
@@ -405,6 +407,7 @@ export default function AgendaPage() {
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/v1/appointments/${id}`, {
         method: 'DELETE',
+        headers: getCsrfHeaders(),
         credentials: 'include',
       });
 
@@ -1296,7 +1299,7 @@ export default function AgendaPage() {
                 <TabsTrigger value="day">Dia</TabsTrigger>
                 <TabsTrigger value="week">Semana</TabsTrigger>
                 <TabsTrigger value="month">Mês</TabsTrigger>
-                <TabsTrigger value="list">Lista</TabsTrigger>
+                <TabsTrigger value="rooms">Salas</TabsTrigger>
               </TabsList>
 
               <TabsContent value="day" className="mt-4">
@@ -1332,9 +1335,67 @@ export default function AgendaPage() {
                 />
               </TabsContent>
 
-              <TabsContent value="list">
-                <div className="p-4 text-center bg-card rounded-lg">
-                  <p>Visualização em lista em desenvolvimento.</p>
+              <TabsContent value="rooms" className="mt-4">
+                {/* Room View - visualização por sala */}
+                <div className="space-y-4">
+                  {rooms.length === 0 ? (
+                    <div className="p-8 text-center bg-card rounded-lg border">
+                      <p className="text-muted-foreground">Nenhuma sala cadastrada. Configure suas salas em Configurações.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {rooms.map((room) => {
+                        const roomAppointments = filteredAppointments.filter(
+                          (appt) => appt.roomId === room.id &&
+                          new Date(appt.startTime).toDateString() === selectedDate.toDateString()
+                        );
+                        return (
+                          <div key={room.id} className="bg-card rounded-lg border p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-semibold text-lg">{room.name}</h3>
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                                {roomAppointments.length} consulta{roomAppointments.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            {roomAppointments.length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-4 text-center">Livre o dia todo</p>
+                            ) : (
+                              <div className="space-y-2 max-h-80 overflow-y-auto">
+                                {roomAppointments
+                                  .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                                  .map((appt) => (
+                                    <div
+                                      key={appt.id}
+                                      className="p-2 rounded border cursor-pointer hover:bg-accent/50 transition-colors text-sm"
+                                      onClick={() => handleAppointmentClick(appt)}
+                                    >
+                                      <div className="flex justify-between items-center">
+                                        <span className="font-medium truncate">{appt.patientName}</span>
+                                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                                          {new Date(appt.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                          {' - '}
+                                          {new Date(appt.endTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mt-1 flex justify-between">
+                                        <span className="truncate">{appt.professionalName}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                          appt.status === 'confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                          appt.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                          'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        }`}>
+                                          {appt.status === 'confirmed' ? 'Confirmado' : appt.status === 'cancelled' ? 'Cancelado' : 'Agendado'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

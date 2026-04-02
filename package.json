@@ -121,6 +121,7 @@
     "nodemailer": "^7.0.10",
     "openai": "^5.5.1",
     "openid-client": "^6.5.1",
+    "otplib": "^13.4.0",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",

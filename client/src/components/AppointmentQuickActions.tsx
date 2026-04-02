@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { getCsrfHeaders } from "@/lib/csrf";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +40,8 @@ export default function AppointmentQuickActions({
     mutationFn: async (newStatus: string) => {
       const response = await fetch(`/api/v1/appointments/${appointmentId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({ status: newStatus }),
       });
       if (!response.ok) throw new Error("Erro ao atualizar status");
@@ -67,7 +69,7 @@ export default function AppointmentQuickActions({
     mutationFn: async (phone: string) => {
       const response = await fetch("/api/v1/chat/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
         body: JSON.stringify({ phone }),
       });

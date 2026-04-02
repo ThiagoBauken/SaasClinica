@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 interface ExtractedPatient {
   id?: number;
@@ -206,7 +207,7 @@ export default function PatientDigitizationPage() {
     try {
       const response = await fetch('/api/v1/patients/digitization/resolve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           patient: mergeDialogData.patient,
@@ -292,6 +293,7 @@ export default function PatientDigitizationPage() {
     try {
       const response = await fetch('/api/v1/patients/digitization', {
         method: 'POST',
+        headers: getCsrfHeaders(),
         body: formData,
         credentials: 'include',
       });
@@ -407,9 +409,7 @@ export default function PatientDigitizationPage() {
 
       const response = await fetch(`/api/v1/patients/digitization/history/${historyId}/reprocess`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({ action, format: exportFormat }),
       });

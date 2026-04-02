@@ -20,6 +20,7 @@ import {
   Scissors,
   Package
 } from "lucide-react";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 interface MenuPermission {
   id?: number;
@@ -193,6 +194,7 @@ export default function PermissionsPage() {
   const rolePermissions = permissions.filter(p => p.role === selectedRole);
 
   return (
+    <DashboardLayout title="Permissões" currentPath="/permissions">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -389,5 +391,6 @@ export default function PermissionsPage() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }

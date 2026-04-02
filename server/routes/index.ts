@@ -6,7 +6,7 @@ import appointmentsRoutes from './appointments.routes';
 import professionalsRoutes from './professionals.routes';
 import roomsRoutes from './rooms.routes';
 import proceduresRoutes from './procedures.routes';
-import settingsRoutes from './settings.routes';
+import settingsRoutes, { exportRouter as exportRoutes } from './settings.routes';
 import companySettingsRoutes from './company-settings.routes';
 import integrationsRoutes from './integrations.routes';
 import webhooksRoutes from './webhooks.routes';
@@ -28,12 +28,25 @@ import cannedResponsesRoutes from './canned-responses.routes';
 import adminPhonesRoutes from './admin-phones.routes';
 import automationRoutes from './automation.routes';
 import saasRoutes from './saas.routes';
-import n8nToolsRoutes from './n8n-tools.routes';
-import n8nConversationRoutes from './n8n-conversation.routes';
 import riskAlertsRoutes from './risk-alerts.routes';
 import publicAnamnesisRoutes from './public-anamnesis.routes';
 import crmRoutes from './crm.routes';
 import storageRoutes from './storage.routes';
+import clinicalAssistantRoutes from './clinical-assistant.routes';
+import publicConfirmationRoutes from './public-confirmation.routes';
+import superadminRoutes from './superadmin.routes';
+import metaWebhookRoutes from './meta-webhook.routes';
+import reportsRoutes from './reports.routes';
+import patientPaymentsRoutes from './patient-payments.routes';
+import recallRoutes from './recall.routes';
+import reviewsRoutes from './reviews.routes';
+import campaignsRoutes from './campaigns.routes';
+import contractsRoutes from './contracts.routes';
+import teleconsultationRoutes from './teleconsultation.routes';
+import officeChatRoutes from './office-chat.routes';
+import insuranceRoutes from './insurance.routes';
+import checkinRoutes from './checkin.routes';
+import adminSeedRoutes from './admin-seed.routes';
 import { auditLogMiddleware } from '../middleware/auditLog';
 
 /**
@@ -60,8 +73,9 @@ export function registerModularRoutes(app: Express) {
   apiV1Router.use('/rooms', roomsRoutes);
   apiV1Router.use('/procedures', proceduresRoutes);
   apiV1Router.use('/settings', settingsRoutes);
+  apiV1Router.use('/export', exportRoutes);
   apiV1Router.use('/company', companySettingsRoutes); // Configurações da empresa
-  apiV1Router.use('/integrations', integrationsRoutes); // Integrações (Wuzapi, Google Calendar, N8N)
+  apiV1Router.use('/integrations', integrationsRoutes); // Integrações (Wuzapi, Google Calendar, AI)
   apiV1Router.use('/whatsapp', whatsappRoutes); // WhatsApp messaging
   apiV1Router.use('/financial', financialRoutes); // Financial management
   apiV1Router.use('/google', googleCalendarRoutes); // Google Calendar integration
@@ -75,23 +89,38 @@ export function registerModularRoutes(app: Express) {
   apiV1Router.use('/chat', chatRoutes); // Chat sessions and messages
   apiV1Router.use('/canned-responses', cannedResponsesRoutes); // Canned responses for chat
   apiV1Router.use('/admin-phones', adminPhonesRoutes); // Admin phones for notifications
-  apiV1Router.use('/automation', automationRoutes); // Automation engine (substitui N8N)
-  apiV1Router.use('/saas', saasRoutes); // SaaS multi-tenant routes (para N8N)
-  apiV1Router.use('/n8n/tools', n8nToolsRoutes); // N8N Tools API para Multi-Agente
-  apiV1Router.use('/n8n/conversation', n8nConversationRoutes); // N8N Conversation Context
+  apiV1Router.use('/automation', automationRoutes); // Automation engine
+  apiV1Router.use('/saas', saasRoutes); // SaaS multi-tenant routes
   apiV1Router.use('/risk-alerts', riskAlertsRoutes); // Risk alerts for patients (clinical safety)
   apiV1Router.use('/public-anamnesis', publicAnamnesisRoutes); // Public anamnesis links and management
   apiV1Router.use('/crm', crmRoutes); // CRM - Funil de Vendas
   apiV1Router.use('/storage', storageRoutes); // Storage API (S3/MinIO)
+  apiV1Router.use('/clinical-assistant', clinicalAssistantRoutes); // AI Clinical Assistant
+  apiV1Router.use('/reports', reportsRoutes); // Advanced Reports (25+)
+  apiV1Router.use('/patient-payments', patientPaymentsRoutes); // PIX/Boleto/Card patient payments
+  apiV1Router.use('/recall', recallRoutes);       // Recall system, waitlist and cancellation auto-fill
+  apiV1Router.use('/reviews', reviewsRoutes);     // Review requests and NPS surveys
+  apiV1Router.use('/campaigns', campaignsRoutes); // Email/WhatsApp mass campaigns
+  apiV1Router.use('/contracts', contractsRoutes); // Contract templates and patient contracts
+  apiV1Router.use('/teleconsultations', teleconsultationRoutes); // Teleconsultation via Jitsi
+  apiV1Router.use('/office-chat', officeChatRoutes); // Intra-office chat
+  apiV1Router.use('/insurance', insuranceRoutes); // Insurance/Convenios management (TISS)
+  apiV1Router.use('/checkin', checkinRoutes); // QR Code check-in
+  apiV1Router.use('/admin', adminSeedRoutes); // Admin seed data
 
   // Registrar o router v1 na aplicação
   app.use('/api/v1', apiV1Router);
 
   // Rotas públicas (sem autenticação)
   app.use('/api/public-anamnesis', publicAnamnesisRoutes); // Public anamnesis form (form/:token and submit/:token)
+  app.use('/api/public/confirm', publicConfirmationRoutes); // Public appointment confirmation links
+
+  // SuperAdmin routes (autenticação superadmin obrigatória)
+  app.use('/api/superadmin', superadminRoutes);
 
   // Webhooks (sem autenticação, usam verificação própria)
   app.use('/api/webhooks', webhooksRoutes);
+  app.use('/api/v1/webhooks/meta', metaWebhookRoutes); // Meta Cloud API webhook
 
   console.log('✓ Modular routes registered under /api/v1');
   console.log('✓ Webhooks available at /api/webhooks');
@@ -99,6 +128,5 @@ export function registerModularRoutes(app: Express) {
   console.log('✓ Chat API available at /api/v1/chat');
   console.log('✓ Canned responses API available at /api/v1/canned-responses');
   console.log('✓ Admin phones API available at /api/v1/admin-phones');
-  console.log('✓ N8N Tools API available at /api/v1/n8n/tools');
   console.log('✓ Storage API available at /api/v1/storage');
 }

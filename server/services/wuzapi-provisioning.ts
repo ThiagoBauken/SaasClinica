@@ -29,19 +29,11 @@ const S3_BUCKET = process.env.WUZAPI_S3_BUCKET || process.env.S3_BUCKET || 'what
 const S3_REGION = process.env.WUZAPI_S3_REGION || process.env.S3_REGION || 'us-east-1';
 const S3_FORCE_PATH_STYLE = process.env.WUZAPI_S3_FORCE_PATH_STYLE === 'true';
 
-// HMAC para segurança dos webhooks
-const WUZAPI_HMAC_KEY = process.env.WUZAPI_GLOBAL_HMAC_KEY || process.env.WUZAPI_WEBHOOK_SECRET || '';
+// HMAC para segurança dos webhooks (mínimo 32 caracteres)
+const WUZAPI_HMAC_KEY = process.env.WUZAPI_HMAC_KEY || process.env.WUZAPI_GLOBAL_HMAC_KEY || process.env.WUZAPI_WEBHOOK_SECRET || '';
 
-// Todos os eventos disponíveis no Wuzapi
-const ALL_WEBHOOK_EVENTS = [
-  'Message',
-  'ReadReceipt',
-  'Presence',
-  'ChatPresence',
-  'HistorySync',
-  'Call',
-  'QRCode',
-];
+// Todos os eventos - usar "All" para receber todos os eventos do Wuzapi
+const ALL_WEBHOOK_EVENTS = 'All';
 
 interface WuzapiResponse {
   success?: boolean;
@@ -73,7 +65,8 @@ function generateSlug(name: string): string {
 
 /**
  * Cria uma nova instancia/usuario no Wuzapi via API Admin
- * Estratégia: criar primeiro com campos mínimos, depois atualizar com S3/HMAC
+ * Cria com TODAS as configurações de uma vez (webhook, S3, HMAC, history)
+ * usando os nomes de campos corretos em camelCase
  */
 async function createWuzapiUser(name: string, token: string, webhookUrl: string): Promise<{
   success: boolean;
@@ -84,17 +77,43 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
   }
 
   try {
-    // PASSO 1: Criar usuário apenas com campos obrigatórios
-    const basicBody = {
+    // Montar body completo com TODAS as configurações
+    // IMPORTANTE: Usar camelCase conforme esperado pela API Wuzapi
+    const fullBody: any = {
       name,
       token,
+      webhook: webhookUrl,
+      events: ALL_WEBHOOK_EVENTS,
+      history: 2000, // Mensagens por chat para histórico
     };
 
+    // Adicionar S3 se configurado (todos os campos em camelCase conforme API Wuzapi)
+    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
+      fullBody.s3Config = {
+        enabled: true,
+        endpoint: S3_ENDPOINT,
+        bucket: S3_BUCKET,
+        region: S3_REGION || 'us-east-1',
+        accessKey: S3_ACCESS_KEY,
+        secretKey: S3_SECRET_KEY,
+        pathStyle: true,            // true para MinIO
+        publicURL: '',              // URL pública (opcional)
+        mediaDelivery: 'both',      // base64, s3, ou both
+        retentionDays: 30,          // dias para reter arquivos
+      };
+      console.log(`[Wuzapi] S3 configurado: ${S3_ENDPOINT}/${S3_BUCKET}`);
+    }
+
+    // Adicionar HMAC se configurado
+    if (WUZAPI_HMAC_KEY && WUZAPI_HMAC_KEY.length >= 32) {
+      fullBody.hmacKey = WUZAPI_HMAC_KEY;
+      console.log('[Wuzapi] HMAC configurado');
+    }
+
     const apiUrl = `${WUZAPI_BASE_URL}/admin/users`;
-    console.log(`[Wuzapi] PASSO 1: Criando usuario basico: ${name}`);
+    console.log(`[Wuzapi] Criando usuario com config completa: ${name}`);
     console.log(`[Wuzapi] Admin API URL: ${apiUrl}`);
-    console.log(`[Wuzapi] Admin Token: ${WUZAPI_ADMIN_TOKEN ? WUZAPI_ADMIN_TOKEN.substring(0, 10) + '...' : 'NAO CONFIGURADO'}`);
-    console.log(`[Wuzapi] Request body:`, JSON.stringify(basicBody));
+    console.log(`[Wuzapi] Request body:`, JSON.stringify({ ...fullBody, s3Config: fullBody.s3Config ? { ...fullBody.s3Config, secret_key: '***' } : undefined, hmacKey: fullBody.hmacKey ? '***' : undefined }));
 
     let response;
     try {
@@ -104,7 +123,7 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
           'Authorization': WUZAPI_ADMIN_TOKEN,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(basicBody),
+        body: JSON.stringify(fullBody),
       });
     } catch (fetchError: any) {
       console.error(`[Wuzapi] ERRO DE REDE ao conectar em ${apiUrl}: ${fetchError.message}`);
@@ -134,11 +153,11 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
       return { success: false, error: data.error || `HTTP ${response.status}` };
     }
 
-    console.log(`[Wuzapi] Usuario ${name} criado com sucesso!`);
-
-    // PASSO 2: Adicionar webhook, S3, HMAC via update
-    console.log(`[Wuzapi] PASSO 2: Configurando webhook, S3 e HMAC...`);
-    await updateWuzapiUserConfig(name, token, webhookUrl);
+    console.log(`[Wuzapi] ✅ Usuario ${name} criado com todas as configurações!`);
+    console.log(`[Wuzapi] - Webhook: ${webhookUrl}`);
+    console.log(`[Wuzapi] - S3: ${fullBody.s3Config ? 'Habilitado' : 'Não configurado'}`);
+    console.log(`[Wuzapi] - HMAC: ${fullBody.hmacKey ? 'Habilitado' : 'Não configurado'}`);
+    console.log(`[Wuzapi] - History: ${fullBody.history} mensagens/chat`);
 
     return { success: true };
   } catch (error: any) {
@@ -148,7 +167,8 @@ async function createWuzapiUser(name: string, token: string, webhookUrl: string)
 }
 
 /**
- * Atualiza TODAS as configurações de um usuário existente no Wuzapi via Admin API
+ * Atualiza TODAS as configurações de um usuário existente no Wuzapi
+ * Usa Session API (header Token) para S3/HMAC pois Admin PUT não aceita esses campos
  */
 async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: string): Promise<void> {
   try {
@@ -158,7 +178,7 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
     console.log(`[Wuzapi Config] S3_BUCKET: ${S3_BUCKET || 'NÃO CONFIGURADO'}`);
     console.log(`[Wuzapi Config] HMAC_KEY: ${WUZAPI_HMAC_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO'}`);
 
-    // Buscar o ID do usuário pelo nome
+    // 1. Atualizar webhook/events via Admin API PUT (os únicos campos aceitos)
     console.log(`[Wuzapi Admin] Listando usuários...`);
     const listResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users`, {
       method: 'GET',
@@ -167,79 +187,39 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
       },
     });
 
-    if (!listResponse.ok) {
-      console.error(`[Wuzapi Admin] Erro ao listar: ${listResponse.status}`);
-      return;
+    if (listResponse.ok) {
+      const listData = await listResponse.json();
+      const users = listData.users || listData.data || [];
+      const user = users.find((u: any) => u.name === name || u.Name === name);
+
+      if (user) {
+        const userId = user.id || user.Id;
+        console.log(`[Wuzapi Admin] Usuário encontrado: ${name} (ID: ${userId})`);
+
+        // Admin PUT só aceita webhook e events (minúsculas!)
+        const adminBody = {
+          webhook: webhookUrl,
+          events: ALL_WEBHOOK_EVENTS,
+        };
+
+        const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': WUZAPI_ADMIN_TOKEN,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(adminBody),
+        });
+
+        const updateData = await updateResponse.json().catch(() => ({}));
+        console.log(`[Wuzapi Admin] PUT webhook/events: ${updateResponse.status}`, JSON.stringify(updateData));
+      }
     }
 
-    const listData = await listResponse.json();
-    const users = listData.users || listData.data || [];
-    console.log(`[Wuzapi Admin] ${users.length} usuários encontrados`);
-
-    const user = users.find((u: any) => u.name === name || u.Name === name);
-
-    if (!user) {
-      console.error(`[Wuzapi Admin] Usuário ${name} não encontrado`);
-      return;
-    }
-
-    const userId = user.id || user.Id;
-    console.log(`[Wuzapi Admin] Usuário encontrado: ${name} (ID: ${userId})`);
-
-    // Montar o body com TODOS os campos que queremos atualizar
-    // Formato Wuzapi 3.0 Admin API: campos em PascalCase
-    const body: any = {
-      Webhook: webhookUrl,
-      Events: ALL_WEBHOOK_EVENTS.join(','),
-      Messagehistory: 100,
-    };
-
-    // Adicionar S3 se configurado
-    if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
-      body.S3Enabled = true;
-      body.S3Endpoint = S3_ENDPOINT;
-      body.S3AccessKey = S3_ACCESS_KEY;
-      body.S3SecretKey = S3_SECRET_KEY;
-      body.S3Bucket = S3_BUCKET;
-      body.S3Region = S3_REGION || 'us-east-1';
-      body.S3PathStyle = true;
-      console.log(`[Wuzapi Admin] S3 configurado: ${S3_ENDPOINT}/${S3_BUCKET}`);
-    }
-
-    // Adicionar HMAC
-    if (WUZAPI_HMAC_KEY) {
-      body.Hmac = WUZAPI_HMAC_KEY;
-      console.log('[Wuzapi Admin] HMAC configurado');
-    }
-
-    console.log(`[Wuzapi Admin] Atualizando via PUT /admin/users/${userId}...`);
-    console.log(`[Wuzapi Admin] Body:`, JSON.stringify({ ...body, S3SecretKey: '***', Hmac: '***' }));
-
-    // PUT para atualizar via Admin API
-    const updateResponse = await fetch(`${WUZAPI_BASE_URL}/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': WUZAPI_ADMIN_TOKEN,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    const updateData = await updateResponse.json().catch(() => ({}));
-    console.log(`[Wuzapi Admin] Response: ${updateResponse.status}`, JSON.stringify(updateData));
-
-    if (updateResponse.ok) {
-      console.log(`[Wuzapi Admin] ✅ Configurações atualizadas via Admin API para ${name}`);
-      return;
-    }
-
-    // Se Admin API falhar, usar fallback individual
-    console.log(`[Wuzapi Admin] ❌ Admin API falhou, tentando endpoints individuais...`);
-
-    // Fallback: Atualizar via endpoints individuais com Token do usuário
-    console.log(`[Wuzapi] Fallback: atualizando via endpoints individuais`);
-    console.log(`[Wuzapi] Token: ${token.substring(0, 10)}...`);
-    console.log(`[Wuzapi] Webhook URL: ${webhookUrl}`);
+    // 2. Configurar S3, HMAC e History via Session API (header Token)
+    // Esses campos NÃO são aceitos no Admin PUT, precisam da Session API
+    console.log(`[Wuzapi Session] Configurando S3/HMAC/History via Session API...`);
+    console.log(`[Wuzapi Session] Token: ${token.substring(0, 10)}...`);
 
     // Atualizar webhook - Wuzapi 3.0 usa POST /session/webhook
     const webhookBody = {
@@ -277,7 +257,7 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
       console.log(`[Wuzapi] Webhook (antigo) response: ${webhookResponse2.status}`, JSON.stringify(webhookData2));
     }
 
-    // Atualizar S3 se configurado - formato conforme documentação oficial
+    // Atualizar S3 se configurado - todos os campos conforme API Wuzapi
     if (S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY) {
       const s3Body = {
         enabled: true,
@@ -286,10 +266,10 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
         bucket: S3_BUCKET,
         access_key: S3_ACCESS_KEY,
         secret_key: S3_SECRET_KEY,
-        path_style: S3_FORCE_PATH_STYLE !== false, // true para MinIO
-        public_url: '',
-        media_delivery: 'both',
-        retention_days: 0,
+        path_style: true,           // true para MinIO
+        public_url: '',             // URL pública (opcional)
+        media_delivery: 'both',     // base64, s3, ou both
+        retention_days: 30,         // dias para reter arquivos
       };
       console.log(`[Wuzapi S3] Configurando via /session/s3/config`);
       console.log(`[Wuzapi S3] Body:`, JSON.stringify({ ...s3Body, secret_key: '***' }));
@@ -318,7 +298,7 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
     }
 
     // Atualizar HMAC se configurado
-    if (WUZAPI_HMAC_KEY) {
+    if (WUZAPI_HMAC_KEY && WUZAPI_HMAC_KEY.length >= 32) {
       const hmacResponse = await fetch(`${WUZAPI_BASE_URL}/session/hmac/config`, {
         method: 'POST',
         headers: {
@@ -330,10 +310,30 @@ async function updateWuzapiUserConfig(name: string, token: string, webhookUrl: s
         }),
       });
       const hmacData = await hmacResponse.json().catch(() => ({}));
-      console.log(`[Wuzapi] HMAC response: ${hmacResponse.status}`, JSON.stringify(hmacData));
+      console.log(`[Wuzapi HMAC] Response: ${hmacResponse.status}`, JSON.stringify(hmacData));
+      if (hmacResponse.ok) {
+        console.log(`[Wuzapi HMAC] ✅ HMAC configurado com sucesso!`);
+      }
     }
 
-    console.log(`[Wuzapi] Configurações atualizadas para ${name}`);
+    // Atualizar History (mensagens por chat)
+    const historyResponse = await fetch(`${WUZAPI_BASE_URL}/session/history`, {
+      method: 'POST',
+      headers: {
+        'Token': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        history: 2000,
+      }),
+    });
+    const historyData = await historyResponse.json().catch(() => ({}));
+    console.log(`[Wuzapi History] Response: ${historyResponse.status}`, JSON.stringify(historyData));
+    if (historyResponse.ok) {
+      console.log(`[Wuzapi History] ✅ History configurado: 2000 mensagens/chat`);
+    }
+
+    console.log(`[Wuzapi] ✅ Configurações atualizadas para ${name}`);
   } catch (error: any) {
     console.error(`[Wuzapi] Erro ao atualizar configurações: ${error.message}`);
   }
@@ -1068,7 +1068,7 @@ export async function reconfigureWuzapiAll(companyId: number): Promise<{
         const adminBody: any = {
           webhook: webhookUrl,
           events: ALL_WEBHOOK_EVENTS,
-          messagehistory: 1000,
+          messagehistory: 2000,
         };
 
         // Adicionar S3 se configurado

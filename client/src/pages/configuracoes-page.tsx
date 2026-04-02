@@ -72,7 +72,7 @@ export default function ConfiguracoesPage() {
     },
     {
       title: "Integrações",
-      description: "WhatsApp, Google Calendar e N8N",
+      description: "WhatsApp, Google Calendar e IA",
       icon: <Wrench className="h-5 w-5 text-orange-500" />,
       path: "/configuracoes/integracoes",
       category: "sistema"

@@ -1,37 +1,27 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import MiniCalendar from "@/components/calendar/MiniCalendar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useModules } from "@/hooks/use-modules";
+import { useQuery } from "@tanstack/react-query";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/core/AuthProvider";
-import { useMenuPermissions } from "@/hooks/use-menu-permissions";
 import {
-  Search,
   LayoutDashboard,
   Calendar,
   Users,
   DollarSign,
   Bot,
   Scissors,
-  Activity,
   Package,
-  PackageOpen,
   Settings,
   BoxSelect,
   Shield,
-  Building2,
-  CalendarDays,
   CreditCard,
   Plug,
   MessageCircle,
   Target,
   BarChart3,
-  FileText,
-  AlertTriangle
+  Video,
+  MessageSquare,
+  FlaskConical,
+  HelpCircle
 } from "lucide-react";
 
 interface SidebarProps {
@@ -41,77 +31,20 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: SidebarProps) {
-  const { dynamicMenuItems, isLoading } = useModules();
   const { user } = useAuth();
   const userRole = user?.role || 'staff';
-  const { permissions, isLoading: permissionsLoading } = useMenuPermissions();
 
-  // Menu estático como fallback
-  const fallbackMenuItems = [
-    { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-    { label: 'Agenda Modular', path: '/schedule-modular', icon: 'CalendarDays' },
-    { label: 'Pacientes', path: '/patients', icon: 'Users' },
-    { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
-    { label: 'Automações', path: '/automation', icon: 'Bot' },
-    { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-    { label: 'Estoque', path: '/inventory', icon: 'Package' },
-    { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' },
-  ];
-
-  // Priorizar permissões do banco, depois menu dinâmico, depois fallback
-  const menuItems = permissions.length > 0
-    ? permissions
-      .filter(p => p.canView) // Apenas itens que o usuário pode visualizar
-      .sort((a, b) => a.order - b.order)
-    : (dynamicMenuItems && dynamicMenuItems.length > 0)
-      ? dynamicMenuItems
-      : fallbackMenuItems;
-  const [filters, setFilters] = useState({
-    status: "all",
-    professional: "all",
-    patient: "",
-    procedure: "all",
-    room: "all",
+  // Contagem de chats que precisam atenção (badge no menu)
+  const { data: chatCounts } = useQuery<{ unreadCount: number; waitingHuman: number; active: number }>({
+    queryKey: ['chat-unread-count'],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/chat/unread-count', { credentials: 'include' });
+      if (!res.ok) return { unreadCount: 0, waitingHuman: 0, active: 0 };
+      return res.json();
+    },
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
-
-  const handleFilterChange = (field: keyof typeof filters, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      status: "all",
-      professional: "all",
-      patient: "",
-      procedure: "all",
-      room: "all",
-    });
-  };
-
-  // Mapeamento de ícones
-  const iconMap = {
-    Calendar,
-    CalendarDays,
-    Users,
-    DollarSign,
-    Package,
-    Scissors,
-    Activity,
-    Bot,
-    LayoutDashboard,
-    Settings,
-    BoxSelect,
-    Shield,
-    Building2,
-    MessageCircle,
-    Target,
-    BarChart3,
-    FileText,
-    AlertTriangle
-  };
 
   // Menu de navegação com links dinâmicos
   const navigationMenu = (
@@ -124,32 +57,93 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           Dashboard
         </Link>
 
+        {/* Agenda */}
+        <Link href="/agenda" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/agenda" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Calendar className="mr-3 h-5 w-5" />
+          Agenda
+        </Link>
+
         {/* Atendimento WhatsApp */}
         <Link href="/atendimento" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/atendimento" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <MessageCircle className="mr-3 h-5 w-5" />
           Atendimento
+          {(chatCounts?.unreadCount ?? 0) > 0 && (
+            <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full bg-red-500 text-white">
+              {chatCounts!.unreadCount > 99 ? '99+' : chatCounts!.unreadCount}
+            </span>
+          )}
         </Link>
 
-        {/* Menu dinâmico com fallback automático */}
-        {(!isLoading && !permissionsLoading) && menuItems.map((item, index) => {
-          const IconComponent = iconMap[item.icon as keyof typeof iconMap] || Settings;
-          return (
-            <Link
-              key={`menu-${item.path}-${index}`}
-              href={item.path}
-              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === item.path ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
-              onClick={onMobileClose}
-            >
-              <IconComponent className="mr-3 h-5 w-5" />
-              {item.label}
-            </Link>
-          );
-        })}
+        {/* Pacientes */}
+        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Users className="mr-3 h-5 w-5" />
+          Pacientes
+        </Link>
 
-        {/* CRM - Funil de Vendas */}
+        {/* Financeiro */}
+        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <DollarSign className="mr-3 h-5 w-5" />
+          Financeiro
+        </Link>
+
+        {/* CRM */}
         <Link href="/crm" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/crm" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Target className="mr-3 h-5 w-5" />
           CRM
+        </Link>
+
+        {/* Automações */}
+        <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Bot className="mr-3 h-5 w-5" />
+          Automações
+        </Link>
+
+        {/* Próteses */}
+        <Link href="/prosthesis" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/prosthesis" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Scissors className="mr-3 h-5 w-5" />
+          Próteses
+        </Link>
+
+        {/* Estoque */}
+        <Link href="/inventory" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/inventory" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Package className="mr-3 h-5 w-5" />
+          Estoque
+        </Link>
+
+        {/* Assistente IA */}
+        <Link href="/configuracoes/ia" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/configuracoes/ia" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Bot className="mr-3 h-5 w-5" />
+          Assistente IA
+        </Link>
+
+        {/* Teleconsulta */}
+        <Link href="/teleconsulta" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/teleconsulta" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Video className="mr-3 h-5 w-5" />
+          Teleconsulta
+        </Link>
+
+        {/* Chat Interno */}
+        <Link href="/chat-interno" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/chat-interno" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <MessageSquare className="mr-3 h-5 w-5" />
+          Chat Interno
+        </Link>
+
+        {/* Pagamentos */}
+        <Link href="/pagamentos-paciente" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/pagamentos-paciente" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <CreditCard className="mr-3 h-5 w-5" />
+          Pagamentos
+        </Link>
+
+        {/* Laboratório */}
+        <Link href="/laboratorio" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/laboratorio" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <FlaskConical className="mr-3 h-5 w-5" />
+          Laboratório
+        </Link>
+
+        {/* Relatórios */}
+        <Link href="/relatorios" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/relatorios" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <BarChart3 className="mr-3 h-5 w-5" />
+          Relatórios
         </Link>
 
         {/* Menu estático de apoio */}
@@ -165,6 +159,10 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           <CreditCard className="mr-3 h-5 w-5" />
           Assinatura
         </Link>
+        <Link href="/ajuda" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/ajuda" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <HelpCircle className="mr-3 h-5 w-5" />
+          Ajuda
+        </Link>
 
         {/* Seção de Administração - Apenas para admin e superadmin */}
         {(userRole === 'admin' || userRole === 'superadmin') && (
@@ -175,12 +173,18 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
               </h3>
             </div>
 
-            {/* Admin SaaS - Apenas para superadmin */}
+            {/* SuperAdmin - Apenas para superadmin */}
             {userRole === 'superadmin' && (
-              <Link href="/saas-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/saas-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
-                <Shield className="mr-3 h-5 w-5" />
-                Admin SaaS
-              </Link>
+              <>
+                <Link href="/superadmin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/superadmin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+                  <Shield className="mr-3 h-5 w-5" />
+                  SuperAdmin
+                </Link>
+                <Link href="/saas-admin" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/saas-admin" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+                  <Shield className="mr-3 h-5 w-5" />
+                  Admin SaaS
+                </Link>
+              </>
             )}
 
             {/* Admin Clínica - Para admin e superadmin */}
@@ -211,9 +215,6 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
       </nav>
     </div>
   );
-
-  // Definição de calendário vazia, removemos o conteúdo para adicionar à página de agenda
-  const calendarContent = null;
 
   return (
     <>

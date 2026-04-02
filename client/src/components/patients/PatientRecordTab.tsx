@@ -167,10 +167,45 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
         case "anamnesis":
           content = {
             title: "Anamnese",
-            allergies: "",
+            chiefComplaint: "",
             medicalHistory: "",
             currentMedications: "",
+            allergies: "",
+            previousSurgeries: "",
             familyHistory: "",
+            // Habitos
+            smoking: false,
+            alcohol: false,
+            bruxism: false,
+            // Sistemicas
+            heartDisease: false,
+            highBloodPressure: false,
+            diabetes: false,
+            hepatitis: false,
+            kidneyDisease: false,
+            pregnant: false,
+            // Novas flags criticas
+            anticoagulantUse: false,
+            anticoagulantName: "",
+            bisphosphonateUse: false,
+            prostheticHeartValve: false,
+            rheumaticFever: false,
+            bleedingDisorder: false,
+            hivAids: false,
+            anemia: false,
+            asthma: false,
+            epilepsy: false,
+            thyroidDisorder: false,
+            cancerHistory: false,
+            cancerType: "",
+            radiationTherapy: false,
+            drugUse: false,
+            dentalAnxietyLevel: "",
+            // Sinais vitais
+            bloodPressureSystolic: "",
+            bloodPressureDiastolic: "",
+            weight: "",
+            height: "",
           };
           break;
         case "evolution":
@@ -224,6 +259,8 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
         return <Pill className="h-4 w-4 mr-2" />;
       case "exam":
         return <FileImage className="h-4 w-4 mr-2" />;
+      case "ai_clinical_note":
+        return <Activity className="h-4 w-4 mr-2 text-purple-600" />;
       default:
         return <FileText className="h-4 w-4 mr-2" />;
     }
@@ -234,13 +271,15 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
       case "anamnesis":
         return "Anamnese";
       case "evolution":
-        return "Evolução";
+        return "Evolucao";
       case "prescription":
-        return "Prescrição";
+        return "Prescricao";
       case "exam":
         return "Exame";
       case "document":
         return "Documento";
+      case "ai_clinical_note":
+        return "Nota Clinica IA";
       default:
         return type;
     }
@@ -253,28 +292,76 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
       case "anamnesis":
         return (
           <div className="space-y-2">
+            {content.chiefComplaint && (
+              <div><h4 className="text-sm font-medium">Queixa Principal:</h4><p className="text-sm">{content.chiefComplaint}</p></div>
+            )}
             {content.allergies && (
-              <div>
-                <h4 className="text-sm font-medium">Alergias:</h4>
-                <p className="text-sm">{content.allergies}</p>
-              </div>
+              <div><h4 className="text-sm font-medium">Alergias:</h4><p className="text-sm">{content.allergies}</p></div>
             )}
             {content.medicalHistory && (
-              <div>
-                <h4 className="text-sm font-medium">Histórico Médico:</h4>
-                <p className="text-sm">{content.medicalHistory}</p>
-              </div>
+              <div><h4 className="text-sm font-medium">Historico Medico:</h4><p className="text-sm">{content.medicalHistory}</p></div>
             )}
             {content.currentMedications && (
-              <div>
-                <h4 className="text-sm font-medium">Medicações Atuais:</h4>
-                <p className="text-sm">{content.currentMedications}</p>
-              </div>
+              <div><h4 className="text-sm font-medium">Medicamentos em Uso:</h4><p className="text-sm">{content.currentMedications}</p></div>
+            )}
+            {content.previousSurgeries && (
+              <div><h4 className="text-sm font-medium">Cirurgias Previas:</h4><p className="text-sm">{content.previousSurgeries}</p></div>
             )}
             {content.familyHistory && (
+              <div><h4 className="text-sm font-medium">Historico Familiar:</h4><p className="text-sm">{content.familyHistory}</p></div>
+            )}
+            {/* Sinais Vitais */}
+            {(content.bloodPressureSystolic || content.weight) && (
+              <div className="flex flex-wrap gap-3 text-xs">
+                {content.bloodPressureSystolic && <span className="bg-blue-50 px-2 py-1 rounded">PA: {content.bloodPressureSystolic}/{content.bloodPressureDiastolic} mmHg</span>}
+                {content.weight && <span className="bg-blue-50 px-2 py-1 rounded">Peso: {content.weight} kg</span>}
+                {content.height && <span className="bg-blue-50 px-2 py-1 rounded">Altura: {content.height} cm</span>}
+                {content.dentalAnxietyLevel && <span className="bg-purple-50 px-2 py-1 rounded">Ansiedade: {content.dentalAnxietyLevel}/10</span>}
+              </div>
+            )}
+            {/* Habitos */}
+            {(content.smoking || content.alcohol || content.bruxism || content.drugUse) && (
               <div>
-                <h4 className="text-sm font-medium">Histórico Familiar:</h4>
-                <p className="text-sm">{content.familyHistory}</p>
+                <h4 className="text-sm font-medium">Habitos:</h4>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {content.smoking && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Tabagismo</span>}
+                  {content.alcohol && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Alcool</span>}
+                  {content.bruxism && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Bruxismo</span>}
+                  {content.drugUse && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Drogas</span>}
+                </div>
+              </div>
+            )}
+            {/* Condicoes Sistemicas */}
+            {(content.heartDisease || content.highBloodPressure || content.diabetes || content.asthma || content.epilepsy || content.anemia || content.thyroidDisorder || content.hivAids || content.hepatitis || content.kidneyDisease || content.pregnant) && (
+              <div>
+                <h4 className="text-sm font-medium">Condicoes Sistemicas:</h4>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {content.heartDisease && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Cardiaca</span>}
+                  {content.highBloodPressure && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Hipertensao</span>}
+                  {content.diabetes && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Diabetes</span>}
+                  {content.asthma && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Asma</span>}
+                  {content.epilepsy && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Epilepsia</span>}
+                  {content.anemia && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Anemia</span>}
+                  {content.thyroidDisorder && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Tireoide</span>}
+                  {content.hivAids && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">HIV/AIDS</span>}
+                  {content.hepatitis && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Hepatite</span>}
+                  {content.kidneyDisease && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Renal</span>}
+                  {content.pregnant && <span className="text-xs bg-pink-100 text-pink-800 px-2 py-0.5 rounded">Gestante</span>}
+                </div>
+              </div>
+            )}
+            {/* Alertas Criticos */}
+            {(content.anticoagulantUse || content.bisphosphonateUse || content.prostheticHeartValve || content.rheumaticFever || content.bleedingDisorder || content.cancerHistory) && (
+              <div className="p-2 bg-red-50 rounded border border-red-200">
+                <h4 className="text-sm font-medium text-red-800">Alertas Criticos:</h4>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {content.anticoagulantUse && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Anticoagulante: {content.anticoagulantName || 'Sim'}</span>}
+                  {content.bisphosphonateUse && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Bifosfonatos</span>}
+                  {content.prostheticHeartValve && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Valvula Protetica</span>}
+                  {content.rheumaticFever && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Febre Reumatica</span>}
+                  {content.bleedingDisorder && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Dist. Coagulacao</span>}
+                  {content.cancerHistory && <span className="text-xs bg-red-200 text-red-900 px-2 py-0.5 rounded font-medium">Cancer: {content.cancerType || 'Sim'}{content.radiationTherapy ? ' + Radioterapia' : ''}</span>}
+                </div>
               </div>
             )}
           </div>
@@ -331,6 +418,31 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
             )}
           </div>
         );
+      case "ai_clinical_note":
+        return (
+          <div className="space-y-2">
+            {content.analysis?.summary && (
+              <p className="text-sm font-medium bg-purple-50 p-2 rounded">{content.analysis.summary}</p>
+            )}
+            {content.transcription && (
+              <div><h4 className="text-sm font-medium">Transcricao:</h4><p className="text-sm text-muted-foreground">{content.transcription}</p></div>
+            )}
+            {content.analysis?.clinicalFindings?.length > 0 && (
+              <div><h4 className="text-sm font-medium">Achados:</h4>
+                <div className="flex flex-wrap gap-1 mt-1">{content.analysis.clinicalFindings.map((f: any, i: number) => (
+                  <span key={i} className={`text-xs px-2 py-0.5 rounded ${f.severity === 'high' ? 'bg-red-100 text-red-800' : f.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{f.description}{f.toothId ? ` (${f.toothId})` : ''}</span>
+                ))}</div>
+              </div>
+            )}
+            {content.analysis?.alerts?.length > 0 && (
+              <div className="p-2 bg-red-50 rounded border border-red-200">
+                {content.analysis.alerts.map((a: any, i: number) => (
+                  <p key={i} className="text-xs text-red-800">{a.message}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        );
       default:
         return (
           <div>
@@ -344,51 +456,155 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
     switch (newRecord.recordType) {
       case "anamnesis":
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={newRecord.content.title}
-                onChange={(e) => handleInputChange("content.title", e.target.value)}
-                placeholder="Título da anamnese"
-              />
+              <Label htmlFor="title">Titulo</Label>
+              <Input id="title" value={newRecord.content.title} onChange={(e) => handleInputChange("content.title", e.target.value)} placeholder="Titulo da anamnese" />
+            </div>
+            <div>
+              <Label htmlFor="chiefComplaint">Queixa Principal</Label>
+              <Textarea id="chiefComplaint" value={newRecord.content.chiefComplaint || ""} onChange={(e) => handleInputChange("content.chiefComplaint", e.target.value)} placeholder="Motivo principal da consulta" rows={2} />
+            </div>
+            <div>
+              <Label htmlFor="medicalHistory">Historico Medico</Label>
+              <Textarea id="medicalHistory" value={newRecord.content.medicalHistory || ""} onChange={(e) => handleInputChange("content.medicalHistory", e.target.value)} placeholder="Doencas previas, internacoes, cirurgias" rows={2} />
+            </div>
+            <div>
+              <Label htmlFor="currentMedications">Medicamentos em Uso</Label>
+              <Textarea id="currentMedications" value={newRecord.content.currentMedications || ""} onChange={(e) => handleInputChange("content.currentMedications", e.target.value)} placeholder="Liste todos os medicamentos" rows={2} />
             </div>
             <div>
               <Label htmlFor="allergies">Alergias</Label>
-              <Textarea
-                id="allergies"
-                value={newRecord.content.allergies || ""}
-                onChange={(e) => handleInputChange("content.allergies", e.target.value)}
-                placeholder="Liste as alergias do paciente"
-              />
+              <Textarea id="allergies" value={newRecord.content.allergies || ""} onChange={(e) => handleInputChange("content.allergies", e.target.value)} placeholder="Medicamentos, materiais, latex, alimentos" rows={2} />
             </div>
             <div>
-              <Label htmlFor="medicalHistory">Histórico Médico</Label>
-              <Textarea
-                id="medicalHistory"
-                value={newRecord.content.medicalHistory || ""}
-                onChange={(e) => handleInputChange("content.medicalHistory", e.target.value)}
-                placeholder="Histórico médico do paciente"
-              />
+              <Label htmlFor="previousSurgeries">Cirurgias Previas</Label>
+              <Input id="previousSurgeries" value={newRecord.content.previousSurgeries || ""} onChange={(e) => handleInputChange("content.previousSurgeries", e.target.value)} placeholder="Cirurgias realizadas anteriormente" />
             </div>
             <div>
-              <Label htmlFor="currentMedications">Medicações Atuais</Label>
-              <Textarea
-                id="currentMedications"
-                value={newRecord.content.currentMedications || ""}
-                onChange={(e) => handleInputChange("content.currentMedications", e.target.value)}
-                placeholder="Medicamentos em uso"
-              />
+              <Label htmlFor="familyHistory">Historico Familiar</Label>
+              <Textarea id="familyHistory" value={newRecord.content.familyHistory || ""} onChange={(e) => handleInputChange("content.familyHistory", e.target.value)} placeholder="Doencas na familia (diabetes, cancer, cardiopatia, etc.)" rows={2} />
             </div>
+
+            {/* Sinais Vitais */}
+            <div className="border-t pt-3 mt-3">
+              <h4 className="text-sm font-semibold mb-2">Sinais Vitais</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs">PA Sistolica (mmHg)</Label>
+                  <Input type="number" value={newRecord.content.bloodPressureSystolic || ""} onChange={(e) => handleInputChange("content.bloodPressureSystolic", e.target.value)} placeholder="120" />
+                </div>
+                <div>
+                  <Label className="text-xs">PA Diastolica (mmHg)</Label>
+                  <Input type="number" value={newRecord.content.bloodPressureDiastolic || ""} onChange={(e) => handleInputChange("content.bloodPressureDiastolic", e.target.value)} placeholder="80" />
+                </div>
+                <div>
+                  <Label className="text-xs">Peso (kg)</Label>
+                  <Input type="number" step="0.1" value={newRecord.content.weight || ""} onChange={(e) => handleInputChange("content.weight", e.target.value)} placeholder="70" />
+                </div>
+                <div>
+                  <Label className="text-xs">Altura (cm)</Label>
+                  <Input type="number" value={newRecord.content.height || ""} onChange={(e) => handleInputChange("content.height", e.target.value)} placeholder="170" />
+                </div>
+              </div>
+            </div>
+
+            {/* Ansiedade */}
             <div>
-              <Label htmlFor="familyHistory">Histórico Familiar</Label>
-              <Textarea
-                id="familyHistory"
-                value={newRecord.content.familyHistory || ""}
-                onChange={(e) => handleInputChange("content.familyHistory", e.target.value)}
-                placeholder="Histórico de doenças na família"
-              />
+              <Label htmlFor="dentalAnxietyLevel">Nivel de Ansiedade Dental (0-10)</Label>
+              <Input id="dentalAnxietyLevel" type="number" min="0" max="10" value={newRecord.content.dentalAnxietyLevel || ""} onChange={(e) => handleInputChange("content.dentalAnxietyLevel", e.target.value)} placeholder="0 = sem ansiedade, 10 = panico" />
+            </div>
+
+            {/* Habitos */}
+            <div className="border-t pt-3 mt-3">
+              <h4 className="text-sm font-semibold mb-2">Habitos</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { key: "smoking", label: "Tabagismo" },
+                  { key: "alcohol", label: "Alcool" },
+                  { key: "bruxism", label: "Bruxismo" },
+                  { key: "drugUse", label: "Drogas Recreativas" },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={!!newRecord.content[key]} onChange={(e) => handleInputChange(`content.${key}`, e.target.checked ? "true" : "")} className="rounded" />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Condicoes Sistemicas */}
+            <div className="border-t pt-3 mt-3">
+              <h4 className="text-sm font-semibold mb-2">Condicoes Sistemicas</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "heartDisease", label: "Doenca Cardiaca" },
+                  { key: "highBloodPressure", label: "Hipertensao" },
+                  { key: "diabetes", label: "Diabetes" },
+                  { key: "hepatitis", label: "Hepatite" },
+                  { key: "kidneyDisease", label: "Doenca Renal" },
+                  { key: "asthma", label: "Asma" },
+                  { key: "epilepsy", label: "Epilepsia" },
+                  { key: "anemia", label: "Anemia" },
+                  { key: "thyroidDisorder", label: "Dist. Tireoidiano" },
+                  { key: "hivAids", label: "HIV/AIDS" },
+                  { key: "pregnant", label: "Gestante" },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={!!newRecord.content[key]} onChange={(e) => handleInputChange(`content.${key}`, e.target.checked ? "true" : "")} className="rounded" />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Flags Criticas para Odontologia */}
+            <div className="border-t pt-3 mt-3">
+              <h4 className="text-sm font-semibold mb-1 text-red-700">Alertas Criticos para Tratamento</h4>
+              <p className="text-xs text-muted-foreground mb-2">Estas condicoes afetam diretamente a prescricao e procedimentos</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 p-2 rounded border border-red-200 bg-red-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.anticoagulantUse} onChange={(e) => handleInputChange("content.anticoagulantUse", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Uso de Anticoagulante</span>
+                </label>
+                {newRecord.content.anticoagulantUse && (
+                  <Input value={newRecord.content.anticoagulantName || ""} onChange={(e) => handleInputChange("content.anticoagulantName", e.target.value)} placeholder="Qual? (Warfarina, Rivaroxabana, AAS, etc.)" className="ml-6" />
+                )}
+
+                <label className="flex items-center gap-2 p-2 rounded border border-red-200 bg-red-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.bisphosphonateUse} onChange={(e) => handleInputChange("content.bisphosphonateUse", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Uso de Bifosfonatos (risco de osteonecrose)</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded border border-orange-200 bg-orange-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.prostheticHeartValve} onChange={(e) => handleInputChange("content.prostheticHeartValve", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Valvula Cardiaca Protetica (requer profilaxia)</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded border border-orange-200 bg-orange-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.rheumaticFever} onChange={(e) => handleInputChange("content.rheumaticFever", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Febre Reumatica (requer profilaxia antibiotica)</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded border border-red-200 bg-red-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.bleedingDisorder} onChange={(e) => handleInputChange("content.bleedingDisorder", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Disturbio de Coagulacao / Hemofilia</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded border border-orange-200 bg-orange-50 cursor-pointer">
+                  <input type="checkbox" checked={!!newRecord.content.cancerHistory} onChange={(e) => handleInputChange("content.cancerHistory", e.target.checked ? "true" : "")} className="rounded" />
+                  <span className="text-sm font-medium">Historico de Cancer</span>
+                </label>
+                {newRecord.content.cancerHistory && (
+                  <div className="ml-6 space-y-2">
+                    <Input value={newRecord.content.cancerType || ""} onChange={(e) => handleInputChange("content.cancerType", e.target.value)} placeholder="Tipo de cancer" />
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={!!newRecord.content.radiationTherapy} onChange={(e) => handleInputChange("content.radiationTherapy", e.target.checked ? "true" : "")} className="rounded" />
+                      <span className="text-sm">Fez radioterapia em regiao de cabeca/pescoco?</span>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );

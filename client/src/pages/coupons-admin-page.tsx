@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Tag, Plus, Trash2, Edit, TrendingUp, Calendar, Users } from "lucide-react";
+import { getCsrfHeaders } from "@/lib/csrf";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -98,7 +99,8 @@ export default function CouponsAdminPage() {
     mutationFn: async (data: any) => {
       const response = await fetch("/api/v1/coupons", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({
           code: data.code.toUpperCase(),
           description: data.description,
@@ -141,6 +143,8 @@ export default function CouponsAdminPage() {
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/v1/coupons/${id}`, {
         method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
       });
 
       if (!response.ok) {

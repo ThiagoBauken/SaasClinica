@@ -23,7 +23,9 @@ import {
   Cell,
 } from "recharts";
 import { useAuth } from "@/core/AuthProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { getCsrfHeaders } from "@/lib/csrf";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Link } from "wouter";
@@ -34,7 +36,9 @@ import {
   Users,
   DollarSign,
   BarChart3,
-  Activity
+  Activity,
+  Database,
+  Loader2,
 } from "lucide-react";
 
 // Dashboard types
@@ -75,6 +79,32 @@ const COLORS = ["#1976d2", "#43a047", "#ff5722", "#9c27b0", "#607d8b"];
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Seed mutation para popular dados de teste
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/v1/admin/seed-complete', {
+        method: 'POST',
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Erro ao popular dados');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries();
+      const statsMsg = data.stats ? Object.entries(data.stats).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      toast({ title: 'Dados populados com sucesso!', description: statsMsg });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    },
+  });
 
   // Buscar estatísticas gerais do dashboard
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
@@ -127,7 +157,7 @@ export default function DashboardPage() {
               Novo Agendamento
             </Button>
           </Link>
-          <Link href="/pacientes?action=new">
+          <Link href="/patients?action=new">
             <Button variant="outline" className="gap-2">
               <UserPlus className="h-4 w-4" />
               Novo Paciente
@@ -139,12 +169,23 @@ export default function DashboardPage() {
               Ver Agenda
             </Button>
           </Link>
-          <Link href="/financeiro">
+          <Link href="/financial">
             <Button variant="outline" className="gap-2">
               <DollarSign className="h-4 w-4" />
               Financeiro
             </Button>
           </Link>
+          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+            <Button
+              variant="outline"
+              className="gap-2 border-dashed border-orange-400 text-orange-600 hover:bg-orange-50"
+              onClick={() => seedMutation.mutate()}
+              disabled={seedMutation.isPending}
+            >
+              {seedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {seedMutation.isPending ? 'Populando...' : 'Popular Dados de Teste'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -319,7 +360,7 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground mb-4">
                   Registre pagamentos para visualizar a evolução da receita.
                 </p>
-                <Link href="/financeiro">
+                <Link href="/financial">
                   <Button size="sm" variant="outline" className="gap-2">
                     <DollarSign className="h-4 w-4" />
                     Ir para Financeiro
@@ -432,7 +473,7 @@ export default function DashboardPage() {
                           Agendar
                         </Button>
                       </Link>
-                      <Link href="/pacientes?action=new">
+                      <Link href="/patients?action=new">
                         <Button size="sm" variant="outline" className="gap-2">
                           <UserPlus className="h-4 w-4" />
                           Novo Paciente

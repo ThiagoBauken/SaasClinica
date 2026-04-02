@@ -203,7 +203,7 @@ export default function AutomationPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-settings"] });
       toast({
         title: "Configuracoes salvas!",
-        description: "As variaveis de automacao foram atualizadas. O N8N usara esses dados automaticamente.",
+        description: "As variaveis de automacao foram atualizadas. A IA nativa usara esses dados automaticamente.",
       });
     },
     onError: (error: Error) => {
@@ -244,7 +244,7 @@ export default function AutomationPage() {
 
   if (isLoading) {
     return (
-      <DashboardLayout title="Automacoes N8N" currentPath="/automacoes">
+      <DashboardLayout title="Automacoes" currentPath="/automacoes">
         <div className="flex items-center justify-center h-96">
           <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -253,17 +253,17 @@ export default function AutomationPage() {
   }
 
   return (
-    <DashboardLayout title="Automacoes N8N" currentPath="/automacoes">
+    <DashboardLayout title="Automacoes" currentPath="/automacoes">
       <div className="space-y-6">
         {/* Header com botao salvar */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Bot className="h-6 w-6 text-purple-600" />
-              Variaveis de Automacao (N8N)
+              Variaveis de Automacao
             </h1>
             <p className="text-muted-foreground mt-1">
-              Configure as variaveis que serao usadas pelos fluxos automaticos do N8N
+              Configure as variaveis que serao usadas pelos fluxos automaticos da IA nativa
             </p>
           </div>
           <Button onClick={handleSave} disabled={saveMutation.isPending} size="lg">

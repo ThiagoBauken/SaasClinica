@@ -263,6 +263,20 @@ export class ChatProcessor {
       })
       .returning();
 
+    // Auto-create CRM opportunity for new WhatsApp sessions
+    try {
+      const { ensureOpportunityForSession } = await import('./crm-auto-progression');
+      await ensureOpportunityForSession(this.companyId, newSession.id, {
+        patientId: patient?.id,
+        patientName: patient?.fullName,
+        phone: cleanPhone,
+        source: 'whatsapp',
+      });
+    } catch (err) {
+      // Don't block chat flow if CRM creation fails
+      console.error('CRM auto-create failed:', err);
+    }
+
     return newSession;
   }
 
@@ -463,6 +477,25 @@ export class ChatProcessor {
 
     // Salvar mensagem do usuário
     await this.saveMessage(session.id, 'user', message, { wuzapiMessageId });
+
+    // Auto-extração de dados do paciente (para contatos novos sem paciente vinculado)
+    if (
+      session.userType === 'unknown' &&
+      !session.patientId &&
+      !session.context?.extractionAttempted
+    ) {
+      try {
+        const { tryExtractAndCreatePatient } = await import('./chat-patient-extraction');
+        const cleanPhone = phone.replace(/[^\d+]/g, '');
+        const result = await tryExtractAndCreatePatient(this.companyId, session.id, cleanPhone);
+        if (result) {
+          session.patientId = result.patientId;
+          session.userType = 'patient';
+        }
+      } catch (err) {
+        console.error('[ChatProcessor] Patient extraction error:', err);
+      }
+    }
 
     // Verificar se está em um fluxo de estado
     if (session.currentState) {

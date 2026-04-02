@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,11 @@ import {
   XCircle,
   Zap,
   ArrowLeft,
+  Calendar,
+  FileText,
+  ExternalLink,
+  TrendingUp,
+  Activity,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -55,6 +61,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { AI_STAGE_LABELS, AI_STAGE_COLORS } from "@/types/crm";
 
 // Tipos
 interface ChatSession {
@@ -75,6 +82,10 @@ interface ChatSession {
   };
   unreadCount: number;
   needsAttention: boolean;
+  // CRM fields (enriched via pipeline or session detail)
+  crmStage?: string | null;
+  crmStageName?: string | null;
+  crmOpportunityId?: number | null;
 }
 
 interface ChatMessage {
@@ -113,18 +124,70 @@ interface SessionsResponse {
   };
 }
 
+interface PatientInfo {
+  id: number;
+  fullName: string;
+  phone?: string;
+  birthDate?: string;
+  email?: string;
+  appointmentCount?: number;
+  lastVisit?: string;
+}
+
 interface SessionDetailResponse {
   success: boolean;
   data: {
     session: ChatSession;
     messages: ChatMessage[];
-    patient?: any;
+    patient?: PatientInfo;
   };
+}
+
+interface CrmOpportunity {
+  id: number;
+  chatSessionId?: number | null;
+  aiStage?: string | null;
+  aiStageLabel?: string | null;
+  stageId: number;
+  patientId?: number;
+}
+
+interface CrmPipelineResponse {
+  stages: Array<{
+    id: number;
+    name: string;
+    code: string;
+    opportunities: CrmOpportunity[];
+  }>;
+}
+
+// Helper: retorna a oportunidade CRM linkada a uma sessão
+function findOpportunityForSession(
+  pipelineData: CrmPipelineResponse | undefined,
+  sessionId: number
+): CrmOpportunity | undefined {
+  if (!pipelineData?.stages) return undefined;
+  for (const stage of pipelineData.stages) {
+    const opp = stage.opportunities.find(
+      (o) => o.chatSessionId === sessionId
+    );
+    if (opp) return opp;
+  }
+  return undefined;
+}
+
+// Helper: retorna o nome do estágio CRM a partir do pipelineData
+function findStageNameForOpportunity(
+  pipelineData: CrmPipelineResponse | undefined,
+  stageId: number
+): string | undefined {
+  return pipelineData?.stages.find((s) => s.id === stageId)?.name;
 }
 
 export default function ChatInboxPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -139,7 +202,7 @@ export default function ChatInboxPage() {
       if (!res.ok) throw new Error("Failed to fetch sessions");
       return res.json();
     },
-    refetchInterval: 5000, // Auto-refresh a cada 5 segundos
+    refetchInterval: 5000,
   });
 
   // Buscar detalhes da sessão selecionada
@@ -151,7 +214,18 @@ export default function ChatInboxPage() {
       return res.json();
     },
     enabled: !!selectedSessionId,
-    refetchInterval: 3000, // Atualizar mensagens a cada 3s
+    refetchInterval: 3000,
+  });
+
+  // Buscar dados do CRM pipeline para cruzar com sessões
+  const { data: pipelineData } = useQuery<CrmPipelineResponse>({
+    queryKey: ["crm-pipeline-inbox"],
+    queryFn: async () => {
+      const res = await fetch("/api/v1/crm/pipeline", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch CRM pipeline");
+      return res.json();
+    },
+    refetchInterval: 15000,
   });
 
   // Buscar respostas rápidas
@@ -272,33 +346,96 @@ export default function ChatInboxPage() {
     setMessageInput(reply.message);
   };
 
-  // Renderizar status badge
-  const renderStatusBadge = (status: string) => {
+  // Abrir WhatsApp Web com o número do paciente
+  const handleOpenWhatsApp = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, "");
+    window.open(`https://wa.me/${cleaned}`, "_blank");
+  };
+
+  // Renderizar badge de status AI/Humano - versão grande para header
+  const renderStatusBadgeLarge = (status: string) => {
     switch (status) {
       case "active":
         return (
-          <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30">
-            <Bot className="w-3 h-3 mr-1" />
-            IA
+          <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-0 px-3 py-1 text-sm font-medium">
+            <Bot className="w-4 h-4 mr-1.5" />
+            IA Atendendo
           </Badge>
         );
       case "waiting_human":
         return (
-          <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30">
-            <UserCheck className="w-3 h-3 mr-1" />
-            Humano
+          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 px-3 py-1 text-sm font-medium">
+            <UserCheck className="w-4 h-4 mr-1.5" />
+            Humano Atendendo
           </Badge>
         );
       case "closed":
         return (
-          <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
-            <XCircle className="w-3 h-3 mr-1" />
-            Fechada
+          <Badge className="bg-slate-500 hover:bg-slate-600 text-white border-0 px-3 py-1 text-sm font-medium">
+            <CheckCircle2 className="w-4 h-4 mr-1.5" />
+            Encerrado
           </Badge>
         );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="text-sm">
+            {status}
+          </Badge>
+        );
     }
+  };
+
+  // Renderizar badge de status AI/Humano - versão compacta para lista
+  const renderStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return (
+          <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-0 text-[10px] px-1.5 py-0.5 font-medium">
+            <Bot className="w-3 h-3 mr-1" />
+            IA Atendendo
+          </Badge>
+        );
+      case "waiting_human":
+        return (
+          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 text-[10px] px-1.5 py-0.5 font-medium">
+            <UserCheck className="w-3 h-3 mr-1" />
+            Humano Atendendo
+          </Badge>
+        );
+      case "closed":
+        return (
+          <Badge className="bg-slate-500 hover:bg-slate-600 text-white border-0 text-[10px] px-1.5 py-0.5 font-medium">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Encerrado
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="text-[10px]">
+            {status}
+          </Badge>
+        );
+    }
+  };
+
+  // Renderizar badge de estágio CRM
+  const renderCrmStageBadge = (aiStage?: string | null, stageName?: string | null) => {
+    if (!aiStage && !stageName) return null;
+
+    const label = aiStage ? (AI_STAGE_LABELS[aiStage] ?? stageName) : stageName;
+    const colorClass = aiStage ? (AI_STAGE_COLORS[aiStage] ?? "bg-violet-500") : "bg-violet-500";
+
+    return (
+      <Badge
+        className={cn(
+          "text-white border-0 text-[10px] px-1.5 py-0.5 font-medium",
+          colorClass
+        )}
+      >
+        <TrendingUp className="w-3 h-3 mr-1" />
+        {label}
+      </Badge>
+    );
   };
 
   // Renderizar ícone do remetente
@@ -323,26 +460,36 @@ export default function ChatInboxPage() {
     }
     if (processedBy === "human") {
       return (
-        <Avatar className="h-8 w-8 bg-orange-500/20">
-          <AvatarFallback className="text-orange-600 dark:text-orange-400 bg-transparent">
+        <Avatar className="h-8 w-8 bg-emerald-500/20">
+          <AvatarFallback className="text-emerald-600 dark:text-emerald-400 bg-transparent">
             <UserCheck className="h-4 w-4" />
           </AvatarFallback>
         </Avatar>
       );
     }
     return (
-      <Avatar className="h-8 w-8 bg-green-500/20">
-        <AvatarFallback className="text-green-600 dark:text-green-400 bg-transparent">
+      <Avatar className="h-8 w-8 bg-blue-500/20">
+        <AvatarFallback className="text-blue-600 dark:text-blue-400 bg-transparent">
           <Bot className="h-4 w-4" />
         </AvatarFallback>
       </Avatar>
     );
   };
 
+  // Dados da sessão e paciente atualmente selecionados
+  const currentSession = sessionDetail?.data?.session;
+  const currentPatient = sessionDetail?.data?.patient;
+  const currentOpportunity = selectedSessionId
+    ? findOpportunityForSession(pipelineData, selectedSessionId)
+    : undefined;
+  const currentCrmStageName = currentOpportunity
+    ? findStageNameForOpportunity(pipelineData, currentOpportunity.stageId)
+    : undefined;
+
   return (
     <DashboardLayout title="Atendimento WhatsApp" currentPath="/atendimento">
       <div className="flex flex-col h-[calc(100vh-4rem)]">
-        {/* Header */}
+        {/* Header da página */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-6 w-6 text-primary" />
@@ -351,11 +498,13 @@ export default function ChatInboxPage() {
           <div className="flex items-center gap-2">
             {sessionsData?.counts && (
               <div className="flex gap-2 text-sm">
-                <Badge variant="secondary">
-                  {sessionsData.counts.active} ativas
+                <Badge className="bg-blue-600 text-white border-0">
+                  <Bot className="w-3 h-3 mr-1" />
+                  {sessionsData.counts.active} IA
                 </Badge>
-                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                  {sessionsData.counts.waitingHuman} aguardando
+                <Badge className="bg-emerald-600 text-white border-0">
+                  <UserCheck className="w-3 h-3 mr-1" />
+                  {sessionsData.counts.waitingHuman} Humano
                 </Badge>
               </div>
             )}
@@ -410,96 +559,110 @@ export default function ChatInboxPage() {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => setSelectedSessionId(session.id)}
-                      className={cn(
-                        "w-full p-3 text-left hover:bg-muted/50 transition-colors",
-                        selectedSessionId === session.id && "bg-muted",
-                        session.needsAttention && "bg-orange-500/10"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {session.patientName?.[0] || <User className="h-5 w-5" />}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium truncate">
-                              {session.patientName || session.phone}
-                            </span>
-                            {session.unreadCount > 0 && (
-                              <Badge className="bg-primary text-primary-foreground ml-2">
-                                {session.unreadCount}
-                              </Badge>
+                  {filteredSessions.map((session) => {
+                    const opp = findOpportunityForSession(pipelineData, session.id);
+                    return (
+                      <button
+                        key={session.id}
+                        onClick={() => setSelectedSessionId(session.id)}
+                        className={cn(
+                          "w-full p-3 text-left hover:bg-muted/50 transition-colors",
+                          selectedSessionId === session.id && "bg-muted",
+                          session.needsAttention && "bg-orange-500/5 border-l-2 border-orange-500"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {session.patientName?.[0] || <User className="h-5 w-5" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium truncate text-sm">
+                                {session.patientName || session.phone}
+                              </span>
+                              {session.unreadCount > 0 && (
+                                <Badge className="bg-primary text-primary-foreground ml-2 shrink-0">
+                                  {session.unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
+                              <Phone className="h-3 w-3" />
+                              <span>{session.phone}</span>
+                            </div>
+                            {session.lastMessage && (
+                              <p className="text-xs text-muted-foreground truncate mb-1.5">
+                                {session.lastMessage.role === "user" ? "" : "Você: "}
+                                {session.lastMessage.content}
+                              </p>
                             )}
-                          </div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">{session.phone}</span>
-                          </div>
-                          {session.lastMessage && (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {session.lastMessage.role === "user" ? "" : "Você: "}
-                              {session.lastMessage.content}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between mt-1">
-                            {renderStatusBadge(session.status)}
-                            <span className="text-xs text-muted-foreground">
-                              {session.lastMessageAt &&
-                                formatDistanceToNow(new Date(session.lastMessageAt), {
-                                  addSuffix: true,
-                                  locale: ptBR,
-                                })}
-                            </span>
+                            {/* Badges de status e CRM */}
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {renderStatusBadge(session.status)}
+                              {opp && renderCrmStageBadge(opp.aiStage, opp.aiStageLabel ?? undefined)}
+                            </div>
+                            <div className="flex justify-end mt-1">
+                              <span className="text-[10px] text-muted-foreground">
+                                {session.lastMessageAt &&
+                                  formatDistanceToNow(new Date(session.lastMessageAt), {
+                                    addSuffix: true,
+                                    locale: ptBR,
+                                  })}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
           </div>
 
           {/* Área de conversa */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
             {selectedSessionId ? (
               <>
                 {/* Header da conversa */}
-                <div className="p-4 border-b flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="p-4 border-b flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="md:hidden"
+                      className="md:hidden shrink-0"
                       onClick={() => setSelectedSessionId(null)}
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 shrink-0">
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {sessionDetail?.data?.patient?.fullName?.[0] || <User className="h-5 w-5" />}
+                        {currentPatient?.fullName?.[0] || <User className="h-5 w-5" />}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <h2 className="font-semibold">
-                        {sessionDetail?.data?.patient?.fullName ||
-                          sessionDetail?.data?.session?.phone}
+                    <div className="min-w-0">
+                      <h2 className="font-semibold truncate">
+                        {currentPatient?.fullName || currentSession?.phone}
                       </h2>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        {sessionDetail?.data?.session?.phone}
-                        {renderStatusBadge(sessionDetail?.data?.session?.status || "")}
+                      <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {currentSession?.phone}
+                        </span>
+                        {/* Badge de status AI/Humano grande e visível */}
+                        {currentSession?.status && renderStatusBadgeLarge(currentSession.status)}
+                        {/* Badge de estágio CRM */}
+                        {currentOpportunity && renderCrmStageBadge(
+                          currentOpportunity.aiStage,
+                          currentOpportunity.aiStageLabel ?? currentCrmStageName
+                        )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {sessionDetail?.data?.session?.status === "active" && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {currentSession?.status === "active" && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -525,7 +688,7 @@ export default function ChatInboxPage() {
                         </Tooltip>
                       </TooltipProvider>
                     )}
-                    {sessionDetail?.data?.session?.status === "waiting_human" && (
+                    {currentSession?.status === "waiting_human" && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -570,116 +733,323 @@ export default function ChatInboxPage() {
                   </div>
                 </div>
 
-                {/* Mensagens */}
-                <ScrollArea className="flex-1 p-4">
-                  {sessionLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {sessionDetail?.data?.messages?.map((message) => (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            "flex gap-3",
-                            message.role === "user" ? "justify-start" : "justify-end"
-                          )}
-                        >
-                          {message.role === "user" && renderSenderIcon(message.role)}
-                          <div
-                            className={cn(
-                              "max-w-[70%] rounded-lg p-3",
-                              message.role === "user"
-                                ? "bg-muted"
-                                : message.role === "system"
-                                ? "bg-muted/50 text-muted-foreground italic text-sm"
-                                : message.processedBy === "human"
-                                ? "bg-orange-500/20 text-foreground"
-                                : "bg-primary text-primary-foreground"
-                            )}
-                          >
-                            <p className="whitespace-pre-wrap">{message.content}</p>
+                {/* Barra de ações rápidas */}
+                <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground font-medium mr-1">Ações:</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => navigate("/agenda")}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    Agendar
+                  </Button>
+                  {currentPatient?.id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={() => navigate(`/patients/${currentPatient.id}/record`)}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Prontuário
+                    </Button>
+                  )}
+                  {currentSession?.phone && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950"
+                      onClick={() => handleOpenWhatsApp(currentSession.phone)}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      WhatsApp Web
+                    </Button>
+                  )}
+                  {currentOpportunity && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 text-violet-700 border-violet-300 hover:bg-violet-50 dark:text-violet-400 dark:border-violet-800 dark:hover:bg-violet-950"
+                      onClick={() => navigate("/crm")}
+                    >
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      Ver no CRM
+                    </Button>
+                  )}
+                </div>
+
+                {/* Layout de mensagens + sidebar de informações */}
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Mensagens */}
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <ScrollArea className="flex-1 p-4">
+                      {sessionLoading ? (
+                        <div className="flex items-center justify-center h-full">
+                          <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {sessionDetail?.data?.messages?.map((message) => (
                             <div
+                              key={message.id}
                               className={cn(
-                                "flex items-center gap-2 mt-1 text-xs",
-                                message.role === "user"
-                                  ? "text-muted-foreground"
-                                  : message.role === "system"
-                                  ? "text-muted-foreground"
-                                  : message.processedBy === "human"
-                                  ? "text-orange-600 dark:text-orange-400"
-                                  : "text-primary-foreground/70"
+                                "flex gap-3",
+                                message.role === "user" ? "justify-start" : "justify-end"
                               )}
                             >
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(message.createdAt), "HH:mm", { locale: ptBR })}
-                              {message.processedBy && message.role !== "user" && message.role !== "system" && (
-                                <span className="opacity-70">
-                                  {message.processedBy === "human" ? "(Secretária)" : `(${message.processedBy})`}
+                              {message.role === "user" && renderSenderIcon(message.role)}
+                              <div
+                                className={cn(
+                                  "max-w-[70%] rounded-lg p-3",
+                                  message.role === "user"
+                                    ? "bg-muted"
+                                    : message.role === "system"
+                                    ? "bg-muted/50 text-muted-foreground italic text-sm"
+                                    : message.processedBy === "human"
+                                    ? "bg-emerald-500/20 text-foreground"
+                                    : "bg-blue-600 text-white"
+                                )}
+                              >
+                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-2 mt-1 text-xs",
+                                    message.role === "user"
+                                      ? "text-muted-foreground"
+                                      : message.role === "system"
+                                      ? "text-muted-foreground"
+                                      : message.processedBy === "human"
+                                      ? "text-emerald-700 dark:text-emerald-400"
+                                      : "text-blue-100"
+                                  )}
+                                >
+                                  <Clock className="h-3 w-3" />
+                                  {format(new Date(message.createdAt), "HH:mm", { locale: ptBR })}
+                                  {message.processedBy && message.role !== "user" && message.role !== "system" && (
+                                    <span className="opacity-80">
+                                      {message.processedBy === "human" ? "(Secretária)" : "(IA)"}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {message.role !== "user" && renderSenderIcon(message.role, message.processedBy)}
+                            </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </div>
+                      )}
+                    </ScrollArea>
+
+                    {/* Respostas rápidas */}
+                    {quickRepliesData?.data && quickRepliesData.data.length > 0 && (
+                      <div className="p-2 border-t">
+                        <ScrollArea className="whitespace-nowrap">
+                          <div className="flex gap-2">
+                            {quickRepliesData.data.map((reply) => (
+                              <Button
+                                key={reply.id}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleQuickReply(reply)}
+                                className="flex-shrink-0"
+                              >
+                                <Zap className="h-3 w-3 mr-1" />
+                                {reply.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    )}
+
+                    {/* Input de mensagem */}
+                    <div className="p-4 border-t">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Digite sua mensagem..."
+                          value={messageInput}
+                          onChange={(e) => setMessageInput(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          disabled={sendMessageMutation.isPending}
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                        >
+                          {sendMessageMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Ao enviar uma mensagem, você assume o atendimento automaticamente (IA para de responder por 30 min)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sidebar de informações do paciente */}
+                  <div className="w-64 border-l flex flex-col overflow-y-auto shrink-0 hidden lg:flex">
+                    <div className="p-3 border-b bg-muted/20">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                        Informações
+                      </h3>
+                    </div>
+
+                    {/* Card do paciente */}
+                    <div className="p-3">
+                      {sessionLoading ? (
+                        <div className="flex justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : currentPatient ? (
+                        <Card className="border-border/60">
+                          <CardHeader className="p-3 pb-2">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-9 w-9">
+                                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                  {currentPatient.fullName[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <CardTitle className="text-sm leading-tight truncate">
+                                  {currentPatient.fullName}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">Paciente</p>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-3 pt-0 space-y-2">
+                            {currentPatient.phone && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate">{currentPatient.phone}</span>
+                              </div>
+                            )}
+                            {currentPatient.lastVisit && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span>
+                                  Última visita:{" "}
+                                  {format(new Date(currentPatient.lastVisit), "dd/MM/yyyy", { locale: ptBR })}
                                 </span>
+                              </div>
+                            )}
+                            {typeof currentPatient.appointmentCount === "number" && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <Activity className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span>
+                                  {currentPatient.appointmentCount}{" "}
+                                  {currentPatient.appointmentCount === 1 ? "consulta" : "consultas"}
+                                </span>
+                              </div>
+                            )}
+                            <Separator className="my-2" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-7 text-xs"
+                              onClick={() => navigate(`/patients/${currentPatient.id}/record`)}
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1.5" />
+                              Ver prontuário completo
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="text-center text-xs text-muted-foreground py-4 space-y-1">
+                          <User className="h-8 w-8 mx-auto opacity-30 mb-2" />
+                          <p>Nenhum paciente vinculado</p>
+                          <p className="text-[11px]">
+                            Este contato ainda não está associado a um paciente
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card de CRM se houver oportunidade */}
+                    {currentOpportunity && (
+                      <div className="p-3 pt-0">
+                        <Card className="border-violet-200 dark:border-violet-900 bg-violet-50/50 dark:bg-violet-950/20">
+                          <CardHeader className="p-3 pb-2">
+                            <CardTitle className="text-xs flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
+                              <TrendingUp className="h-3.5 w-3.5" />
+                              Pipeline CRM
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 pt-0 space-y-2">
+                            <div className="text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Estágio:</span>
+                                <span className="font-medium">
+                                  {currentCrmStageName || "—"}
+                                </span>
+                              </div>
+                              {currentOpportunity.aiStage && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-muted-foreground">Fase IA:</span>
+                                  <span className="font-medium">
+                                    {AI_STAGE_LABELS[currentOpportunity.aiStage] ?? currentOpportunity.aiStage}
+                                  </span>
+                                </div>
                               )}
                             </div>
-                          </div>
-                          {message.role !== "user" && renderSenderIcon(message.role, message.processedBy)}
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </ScrollArea>
-
-                {/* Respostas rápidas */}
-                {quickRepliesData?.data && quickRepliesData.data.length > 0 && (
-                  <div className="p-2 border-t">
-                    <ScrollArea className="whitespace-nowrap">
-                      <div className="flex gap-2">
-                        {quickRepliesData.data.map((reply) => (
-                          <Button
-                            key={reply.id}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuickReply(reply)}
-                            className="flex-shrink-0"
-                          >
-                            <Zap className="h-3 w-3 mr-1" />
-                            {reply.label}
-                          </Button>
-                        ))}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-7 text-xs border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-950"
+                              onClick={() => navigate("/crm")}
+                            >
+                              <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
+                              Abrir no CRM
+                            </Button>
+                          </CardContent>
+                        </Card>
                       </div>
-                    </ScrollArea>
-                  </div>
-                )}
+                    )}
 
-                {/* Input de mensagem */}
-                <div className="p-4 border-t">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Digite sua mensagem..."
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      disabled={sendMessageMutation.isPending}
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!messageInput.trim() || sendMessageMutation.isPending}
-                    >
-                      {sendMessageMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {/* Sessão info */}
+                    <div className="p-3 pt-0">
+                      <Card className="border-border/60">
+                        <CardHeader className="p-3 pb-2">
+                          <CardTitle className="text-xs text-muted-foreground">Sessão</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Status:</span>
+                            {currentSession?.status && renderStatusBadge(currentSession.status)}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Início:</span>
+                            <span>
+                              {currentSession?.createdAt
+                                ? format(new Date(currentSession.createdAt), "dd/MM HH:mm", { locale: ptBR })
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Última msg:</span>
+                            <span>
+                              {currentSession?.lastMessageAt
+                                ? formatDistanceToNow(new Date(currentSession.lastMessageAt), {
+                                    addSuffix: true,
+                                    locale: ptBR,
+                                  })
+                                : "—"}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Ao enviar uma mensagem, você assume o atendimento automaticamente (IA para de responder por 30 min)
-                  </p>
                 </div>
               </>
             ) : (

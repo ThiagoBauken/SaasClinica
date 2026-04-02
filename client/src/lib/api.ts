@@ -1,4 +1,5 @@
 import { queryClient } from "./queryClient";
+import { getCsrfHeaders } from "./csrf";
 
 // API client com métodos HTTP convenientes (axios-like interface)
 export const api = {
@@ -18,7 +19,7 @@ export const api = {
   post: async <T = any>(url: string, data?: any): Promise<{ data: T }> => {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getCsrfHeaders({ "Content-Type": "application/json" }),
       credentials: "include",
       body: data ? JSON.stringify(data) : undefined,
     });
@@ -32,7 +33,21 @@ export const api = {
   put: async <T = any>(url: string, data?: any): Promise<{ data: T }> => {
     const response = await fetch(url, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+      credentials: "include",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+      throw new Error(error.message || `Erro ${response.status}`);
+    }
+    const responseData = await response.json();
+    return { data: responseData };
+  },
+  patch: async <T = any>(url: string, data?: any): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: getCsrfHeaders({ "Content-Type": "application/json" }),
       credentials: "include",
       body: data ? JSON.stringify(data) : undefined,
     });
@@ -46,7 +61,7 @@ export const api = {
   delete: async <T = any>(url: string): Promise<{ data: T }> => {
     const response = await fetch(url, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: getCsrfHeaders({ "Content-Type": "application/json" }),
       credentials: "include",
     });
     if (!response.ok) {
@@ -64,11 +79,14 @@ export async function apiRequest<T>(
   method: string = "GET",
   data?: any
 ): Promise<T> {
+  const safeMethods = ["GET", "HEAD", "OPTIONS"];
+  const headers = safeMethods.includes(method.toUpperCase())
+    ? { "Content-Type": "application/json" }
+    : getCsrfHeaders({ "Content-Type": "application/json" });
+
   const options: RequestInit = {
     method,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     credentials: "include",
   };
 
@@ -139,19 +157,18 @@ export const machineTaxesApi = {
   deleteTax: (id: number) => apiRequest<void>(`/api/machine-taxes/${id}`, "DELETE"),
 };
 
-// Configurações da Empresa (OpenAI, N8N, etc)
+// Configurações da Empresa (OpenAI, etc)
 export const companySettingsApi = {
   getSettings: () => apiRequest<any>("/api/v1/company/settings"),
-  updateSettings: (data: { openaiApiKey?: string; n8nWebhookUrl?: string }) =>
+  updateSettings: (data: { openaiApiKey?: string }) =>
     apiRequest<any>("/api/v1/company/settings", "PATCH", data),
 };
 
-// Integrações (Wuzapi, Google Calendar, N8N)
+// Integrações (Wuzapi, Google Calendar)
 export const integrationsApi = {
   getSettings: () => apiRequest<any>("/api/v1/integrations"),
   updateSettings: (data: any) => apiRequest<any>("/api/v1/integrations", "PATCH", data),
   testWhatsApp: () => apiRequest<any>("/api/v1/integrations/test-whatsapp", "POST"),
-  testN8N: () => apiRequest<any>("/api/v1/integrations/test-n8n", "POST"),
   sendTestWhatsApp: (data: { phone: string; message?: string }) =>
     apiRequest<any>("/api/v1/integrations/send-test-whatsapp", "POST", data),
   // Wuzapi 3.0 - Status e Conexão
@@ -167,8 +184,4 @@ export const integrationsApi = {
   getWuzapiWebhookInfo: () => apiRequest<any>("/api/v1/integrations/wuzapi/webhook-info"),
   configureWuzapiWebhook: (data?: { webhookUrl?: string }) =>
     apiRequest<any>("/api/v1/integrations/wuzapi/webhook", "POST", data || {}),
-  // N8N API Key
-  getN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key"),
-  generateN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key/generate", "POST"),
-  revokeN8nApiKey: () => apiRequest<any>("/api/v1/integrations/n8n-api-key", "DELETE"),
 };

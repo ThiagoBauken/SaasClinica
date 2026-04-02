@@ -16,7 +16,6 @@ import {
   Calendar,
   Bot,
   Database,
-  Download,
   Copy,
   Check,
   AlertCircle,
@@ -28,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Send, Wifi } from "lucide-react";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 interface ClinicSettings {
   id?: number;
@@ -53,8 +53,6 @@ interface ClinicSettings {
   defaultGoogleCalendarId?: string;
   googleReviewLink?: string;
   googleMapsLink?: string;
-  // N8N
-  n8nWebhookBaseUrl?: string;
   // Flowise
   flowiseBaseUrl?: string;
   flowiseChatflowId?: string;
@@ -155,30 +153,6 @@ export default function IntegrationsConfigPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const downloadN8NWorkflows = async () => {
-    try {
-      const res = await apiRequest("GET", "/api/v1/integrations/n8n-workflows/download");
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `n8n-workflows-${formData.name?.replace(/\s+/g, "-") || "clinic"}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({
-        title: "Download iniciado!",
-        description: "Os workflows N8N foram baixados com suas configurações.",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro no download",
-        description: "Não foi possível gerar os workflows.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const testWuzapiConnection = async () => {
     setTestingWuzapi(true);
     try {
@@ -256,13 +230,16 @@ export default function IntegrationsConfigPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <DashboardLayout title="Integrações" currentPath="/integracoes">
+        <div className="flex items-center justify-center h-96">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
+    <DashboardLayout title="Integrações" currentPath="/integracoes">
     <div className="container mx-auto p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -271,7 +248,7 @@ export default function IntegrationsConfigPage() {
             Configurações de Integrações
           </h1>
           <p className="text-muted-foreground mt-1">
-            Configure as integrações com WhatsApp, N8N, Flowise e outros serviços
+            Configure as integrações com WhatsApp, Flowise e outros serviços
           </p>
         </div>
         <Button onClick={handleSave} disabled={saveMutation.isPending}>
@@ -588,47 +565,9 @@ export default function IntegrationsConfigPage() {
           </Card>
         </TabsContent>
 
-        {/* Automação N8N/Flowise */}
+        {/* Automação */}
         <TabsContent value="automation">
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-purple-600" />
-                  N8N Automação
-                </CardTitle>
-                <CardDescription>
-                  Configure os webhooks do N8N para automações
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="n8nWebhookBaseUrl">URL Base do Webhook N8N</Label>
-                  <Input
-                    id="n8nWebhookBaseUrl"
-                    value={formData.n8nWebhookBaseUrl || ""}
-                    onChange={(e) => handleInputChange("n8nWebhookBaseUrl", e.target.value)}
-                    placeholder="https://seu-n8n.com/webhook"
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Baixar Workflows N8N</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Gera os arquivos JSON com suas configurações já preenchidas
-                    </p>
-                  </div>
-                  <Button onClick={downloadN8NWorkflows} variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar Workflows
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -818,5 +757,6 @@ export default function IntegrationsConfigPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </DashboardLayout>
   );
 }

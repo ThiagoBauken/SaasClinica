@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Calendar, Clock, User, MapPin, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getCsrfHeaders } from "@/lib/csrf";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,9 +105,8 @@ export default function EditarAgendamento() {
     mutationFn: async (data: AppointmentForm) => {
       const response = await fetch(`/api/appointments/${appointmentId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({
           ...data,
           startTime: new Date(data.startTime).toISOString(),
@@ -141,6 +141,8 @@ export default function EditarAgendamento() {
     mutationFn: async () => {
       const response = await fetch(`/api/appointments/${appointmentId}`, {
         method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
       });
       
       if (!response.ok) {

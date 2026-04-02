@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   Dialog,
@@ -52,7 +52,7 @@ const registerSchema = insertUserSchema.extend({
 });
 
 export default function AuthPage() {
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, loginMutation, registerMutation, mfaState, verifyTotp, cancelMfa } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -61,6 +61,10 @@ export default function AuthPage() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState("");
+  const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
+  const totpInputRef = useRef<HTMLInputElement>(null);
 
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -136,9 +140,99 @@ export default function AuthPage() {
     }
   };
 
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!totpCode || totpCode.length < 6) {
+      setTotpError("Digite o código de 6 dígitos");
+      return;
+    }
+    setTotpError("");
+    setIsVerifyingTotp(true);
+    try {
+      await verifyTotp(totpCode);
+    } catch (error: any) {
+      setTotpError(error.message || "Código inválido");
+      setTotpCode("");
+      totpInputRef.current?.focus();
+    } finally {
+      setIsVerifyingTotp(false);
+    }
+  };
+
   // Redirect if already logged in
   if (user) {
     return <Redirect to="/dashboard" />;
+  }
+
+  // MFA: Mostrar tela de verificação TOTP
+  if (mfaState?.required) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center justify-center p-4 relative">
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+              <ShieldCheck className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+            </div>
+            <CardTitle className="text-2xl">Verificação em duas etapas</CardTitle>
+            <CardDescription>
+              Abra seu app autenticador e digite o código de 6 dígitos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleTotpSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Input
+                  ref={totpInputRef}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={8}
+                  placeholder="000000"
+                  value={totpCode}
+                  onChange={(e) => {
+                    setTotpCode(e.target.value.replace(/\D/g, ''));
+                    setTotpError("");
+                  }}
+                  className="text-center text-2xl tracking-[0.5em] font-mono"
+                  autoFocus
+                  autoComplete="one-time-code"
+                />
+                {totpError && (
+                  <p className="text-sm text-destructive text-center">{totpError}</p>
+                )}
+                <p className="text-xs text-muted-foreground text-center">
+                  Ou digite um código de backup
+                </p>
+              </div>
+              <Button type="submit" className="w-full" disabled={isVerifyingTotp || totpCode.length < 6}>
+                {isVerifyingTotp ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verificando...
+                  </>
+                ) : "Verificar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  cancelMfa();
+                  setTotpCode("");
+                  setTotpError("");
+                }}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar ao login
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

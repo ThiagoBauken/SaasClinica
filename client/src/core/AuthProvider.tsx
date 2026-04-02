@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { getCsrfHeaders } from '@/lib/csrf';
 import { useLocation } from 'wouter';
 
 interface User {
@@ -16,9 +17,16 @@ interface User {
   active: boolean;
   googleId: string | null;
   companyId: number;
+  totpEnabled: boolean;
   trialEndsAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+interface MfaState {
+  required: boolean;
+  mfaToken: string;
+  userId: number;
 }
 
 interface AuthContextType {
@@ -26,7 +34,10 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
+  mfaState: MfaState | null;
   login: (credentials: LoginCredentials) => Promise<void>;
+  verifyTotp: (code: string) => Promise<void>;
+  cancelMfa: () => void;
   logout: () => void;
   loginMutation: {
     isPending: boolean;
@@ -57,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoginPending, setIsLoginPending] = useState(false);
   const [isRegisterPending, setIsRegisterPending] = useState(false);
+  const [mfaState, setMfaState] = useState<MfaState | null>(null);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -99,18 +111,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
+        headers: getCsrfHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
         body: JSON.stringify(credentials),
         credentials: 'include'
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        const errorText = await response.text().catch(() => '');
+        let errorMsg = 'Falha no login';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson?.error?.message || errorJson?.message || errorMsg;
+        } catch {
+          if (errorText) errorMsg = errorText;
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
+
+      // MFA: Se o servidor exige segundo fator, pausar login
+      if (data.mfaRequired) {
+        setMfaState({
+          required: true,
+          mfaToken: data.mfaToken,
+          userId: data.userId,
+        });
+        return; // Não redirecionar — auth-page mostrará input TOTP
+      }
+
       setUser(data);
 
       // Tentar salvar credenciais no navegador usando Credential Management API
@@ -153,9 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch('/api/register', {
         method: 'POST',
-        headers: {
+        headers: getCsrfHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
         body: JSON.stringify(data),
         credentials: 'include'
       });
@@ -175,10 +206,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const verifyTotp = async (code: string) => {
+    if (!mfaState) throw new Error('Nenhuma sessão MFA pendente');
+    setIsLoginPending(true);
+    try {
+      const response = await fetch('/api/auth/totp/verify', {
+        method: 'POST',
+        headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mfaToken: mfaState.mfaToken, totpCode: code }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Código inválido');
+      }
+
+      const data = await response.json();
+      setUser(data);
+      setMfaState(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+
+      const userRole = data.role;
+      if (userRole === 'superadmin') {
+        setLocation('/superadmin');
+      } else if (userRole === 'admin') {
+        setLocation('/saas-admin');
+      } else {
+        setLocation('/dashboard');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoginPending(false);
+    }
+  };
+
+  const cancelMfa = () => {
+    setMfaState(null);
+  };
+
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
+        headers: getCsrfHeaders(),
         credentials: 'include'
       });
     } catch (error) {
@@ -195,7 +267,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isAuthenticated: !!user,
     isSuperAdmin: user?.role === 'superadmin',
+    mfaState,
     login,
+    verifyTotp,
+    cancelMfa,
     logout,
     loginMutation: {
       isPending: isLoginPending,

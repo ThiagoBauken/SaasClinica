@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getCsrfHeaders } from '@/lib/csrf';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +46,7 @@ export function DigitalSignature({
         `/api/v1/digital-signature/sign-prescription/${prescriptionId}`,
         {
           method: 'POST',
+          headers: getCsrfHeaders(),
           credentials: 'include',
         }
       );

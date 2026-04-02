@@ -22,7 +22,8 @@ interface Module {
   name: string;
   display_name: string;
   description: string;
-  is_enabled: boolean;
+  is_enabled: boolean; // mapped from API field "enabled"
+  enabled: boolean;    // API returns this field
   enabled_at?: string;
 }
 
@@ -32,20 +33,20 @@ export default function SaasAdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Buscar todas as empresas (usando rota de teste)
+  // Buscar todas as empresas
   const { data: companies = [], isLoading: companiesLoading } = useQuery({
-    queryKey: ["/api/test/saas/companies"],
+    queryKey: ["/api/saas/companies"],
     queryFn: async () => {
-      const response = await fetch("/api/test/saas/companies");
+      const response = await fetch("/api/saas/companies");
       return response.json();
     }
   });
 
-  // Buscar módulos da empresa selecionada (usando rota de teste)
+  // Buscar módulos da empresa selecionada
   const { data: modules = [], isLoading: modulesLoading, refetch: refetchModules } = useQuery({
-    queryKey: ["/api/test/saas/companies", selectedCompany?.id, "modules", Date.now()],
+    queryKey: ["/api/saas/companies", selectedCompany?.id, "modules", Date.now()],
     queryFn: async () => {
-      const response = await fetch(`/api/test/saas/companies/${selectedCompany?.id}/modules?t=${Date.now()}`, {
+      const response = await fetch(`/api/saas/companies/${selectedCompany?.id}/modules?t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -64,7 +65,7 @@ export default function SaasAdminPage() {
   // Mutation para ativar/desativar módulos
   const toggleModuleMutation = useMutation({
     mutationFn: async ({ companyId, moduleId, enabled }: { companyId: number; moduleId: number; enabled: boolean }) => {
-      const response = await fetch(`/api/test/saas/companies/${companyId}/modules/${moduleId}/toggle`, {
+      const response = await fetch(`/api/saas/companies/${companyId}/modules/${moduleId}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled })
@@ -120,27 +121,37 @@ export default function SaasAdminPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {companies.map((company: Company) => (
-              <div
-                key={company.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  selectedCompany?.id === company.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-muted/50"
-                }`}
-                onClick={() => setSelectedCompany(company)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">{company.name}</h3>
-                    <p className="text-sm text-muted-foreground">{company.email}</p>
-                  </div>
-                  <Badge variant={company.active ? "default" : "secondary"}>
-                    {company.active ? "Ativa" : "Inativa"}
-                  </Badge>
-                </div>
+            {companies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Building2 className="h-12 w-12 text-muted-foreground/40 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">Nenhuma empresa cadastrada</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  As empresas aparecerão aqui quando forem criadas
+                </p>
               </div>
-            ))}
+            ) : (
+              companies.map((company: Company) => (
+                <div
+                  key={company.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    selectedCompany?.id === company.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                  onClick={() => setSelectedCompany(company)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">{company.name}</h3>
+                      <p className="text-sm text-muted-foreground">{company.email}</p>
+                    </div>
+                    <Badge variant={company.active ? "default" : "secondary"}>
+                      {company.active ? "Ativa" : "Inativa"}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -180,7 +191,7 @@ export default function SaasAdminPage() {
                     )}
                   </div>
                   <Switch
-                    checked={module.is_enabled}
+                    checked={module.is_enabled ?? module.enabled ?? false}
                     onCheckedChange={(checked) => handleToggleModule(module.id, checked)}
                     disabled={toggleModuleMutation.isPending}
                   />

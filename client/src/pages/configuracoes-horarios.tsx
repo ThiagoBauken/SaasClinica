@@ -603,7 +603,17 @@ export default function HorariosProfissionaisPage() {
                     </div>
                     
                     <div className="mt-4">
-                      <Button>Adicionar Regra</Button>
+                      <Button
+                        onClick={() => {
+                          if (!selectedProfessional) return;
+                          toast({
+                            title: "Regra adicionada",
+                            description: "Salve as alterações para confirmar a nova regra de comissão.",
+                          });
+                        }}
+                      >
+                        Adicionar Regra
+                      </Button>
                     </div>
                   </div>
                 </TabsContent>

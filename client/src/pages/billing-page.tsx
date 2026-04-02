@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 // Types for billing data
 interface BillingPlan {
@@ -106,7 +107,8 @@ export default function BillingPage() {
     mutationFn: async () => {
       const response = await fetch("/api/stripe/create-portal-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to create portal session");
       return response.json();
@@ -128,7 +130,8 @@ export default function BillingPage() {
     mutationFn: async (newPlanId: number) => {
       const response = await fetch("/api/billing/subscription/plan", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({ newPlanId }),
       });
       if (!response.ok) throw new Error("Failed to change plan");

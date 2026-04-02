@@ -379,6 +379,19 @@ Responda *SIM* para confirmar ou *NÃO* para cancelar.
         'new_appointment'
       );
 
+      // Agendar lembretes via queue (24h e 1h antes)
+      try {
+        const { onAppointmentCreated: queueTrigger } = await import('../queue/triggers');
+        await queueTrigger({
+          id: appointment.id,
+          patientId: appointment.patientId!,
+          companyId: this.companyId,
+          startTime: new Date(appointment.startTime!),
+        });
+      } catch (queueErr) {
+        console.warn('Queue triggers failed (non-critical):', queueErr);
+      }
+
       return {
         success: true,
         action: 'appointment_created',
@@ -472,6 +485,18 @@ Para reagendar, entre em contato:
         `❌ *Consulta Cancelada*\n\nPaciente: ${patient?.fullName}\nData: ${this.formatDate(appointment.startTime!)}\nMotivo: ${reason || 'Não informado'}`,
         'cancelled_appointment'
       );
+
+      // Cancelar lembretes agendados na queue
+      try {
+        const { onAppointmentCancelled: queueCancelTrigger } = await import('../queue/triggers');
+        await queueCancelTrigger({
+          id: appointment.id,
+          patientId: appointment.patientId!,
+          companyId: this.companyId,
+        });
+      } catch (queueErr) {
+        console.warn('Queue cancel trigger failed (non-critical):', queueErr);
+      }
 
       return {
         success: true,
@@ -953,6 +978,101 @@ Com carinho,
   }
 
   /**
+   * Envia pedidos de avaliação no Google My Business via WhatsApp
+   * para pacientes com consulta finalizada nas últimas 24 horas
+   */
+  async sendReviewRequests(): Promise<{ sent: number }> {
+    await this.initialize();
+
+    // Buscar configurações para o link e template
+    const [settings] = await db
+      .select()
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, this.companyId))
+      .limit(1);
+
+    if (!settings?.googleReviewLink) {
+      return { sent: 0 };
+    }
+
+    const now = new Date();
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Buscar agendamentos concluídos nas últimas 24 horas
+    const completedAppointments = await db
+      .select({
+        appointment: appointments,
+        patient: patients,
+      })
+      .from(appointments)
+      .innerJoin(patients, eq(patients.id, appointments.patientId))
+      .where(
+        and(
+          eq(appointments.companyId, this.companyId),
+          eq(appointments.status, 'completed'),
+          gte(appointments.updatedAt, since),
+          eq(patients.active, true)
+        )
+      );
+
+    let sent = 0;
+
+    for (const { appointment, patient } of completedAppointments) {
+      // Ignorar se o paciente já recebeu pedido de avaliação nos últimos 30 dias
+      if (
+        patient.lastReviewRequestedAt &&
+        patient.lastReviewRequestedAt > thirtyDaysAgo
+      ) {
+        continue;
+      }
+
+      const phone = patient.whatsappPhone || patient.cellphone || patient.phone;
+      if (!phone) continue;
+
+      const defaultTemplate = `Olá {{patient.name}}! 😊
+
+Ficamos muito felizes em ter você aqui na {{company.name}}!
+
+Sua opinião é muito importante para nós e ajuda outras pessoas a encontrarem um atendimento de qualidade. Poderia nos deixar uma avaliação no Google? Leva menos de 1 minuto! ⭐⭐⭐⭐⭐
+
+👉 {{review.link}}
+
+Muito obrigado pela confiança!
+{{company.name}}`;
+
+      const template = settings.reviewRequestTemplate || defaultTemplate;
+
+      const message = this.interpolateTemplate(template, {
+        '{{patient.name}}': patient.fullName?.split(' ')[0] || 'Paciente',
+        '{{patient.fullname}}': patient.fullName || 'Paciente',
+        '{{review.link}}': settings.googleReviewLink,
+      });
+
+      const result = await this.sendWhatsApp({ phone, message });
+
+      if (result.success) {
+        // Atualizar lastReviewRequestedAt do paciente
+        await db
+          .update(patients)
+          .set({ lastReviewRequestedAt: new Date() })
+          .where(eq(patients.id, patient.id));
+
+        sent++;
+      }
+    }
+
+    if (sent > 0) {
+      await this.log('review_requests', 'success', undefined, {
+        sent,
+        total: completedAppointments.length,
+      });
+    }
+
+    return { sent };
+  }
+
+  /**
    * Envia mensagens de reativação para pacientes inativos
    * Períodos: 3, 6, 9 e 12 meses sem consulta
    */
@@ -1162,6 +1282,14 @@ export async function startScheduledJobs(companyId: number): Promise<void> {
   });
   scheduledJobs.set(`${companyId}-reactivation`, reactivationJob);
 
+  // Pedidos de avaliação Google - 14:00 (após consultas da manhã)
+  const reviewJob = cron.schedule('0 14 * * *', async () => {
+    console.log(`[${companyId}] Executando job de pedidos de avaliação...`);
+    const result = await engine.sendReviewRequests();
+    console.log(`[${companyId}] Avaliações: ${result.sent} mensagens enviadas`);
+  });
+  scheduledJobs.set(`${companyId}-reviews`, reviewJob);
+
   console.log(`✅ Jobs agendados iniciados para empresa ${companyId}`);
 }
 
@@ -1176,6 +1304,7 @@ export function stopScheduledJobs(companyId: number): void {
     `${companyId}-finalize`,
     `${companyId}-birthday`,
     `${companyId}-reactivation`,
+    `${companyId}-reviews`,
   ];
 
   for (const jobId of jobIds) {

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Calendar, Clock, User, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 const appointmentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -62,9 +63,8 @@ export default function NovoAgendamento() {
     mutationFn: async (data: AppointmentForm) => {
       const response = await fetch("/api/appointments", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({
           ...data,
           startTime: new Date(data.startTime).toISOString(),

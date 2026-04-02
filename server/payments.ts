@@ -1,15 +1,16 @@
 import { Request, Response } from 'express';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import { randomUUID } from 'crypto';
 import { db } from './db';
 import { subscriptions, mercadoPagoSubscriptions, payments } from '../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Configurar Mercado Pago
+// NOTA: idempotencyKey deve ser gerada POR REQUISIÇÃO, não globalmente
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
   options: {
     timeout: 5000,
-    idempotencyKey: 'abc'
   }
 });
 
@@ -147,7 +148,10 @@ export async function createSubscription(req: Request, res: Response) {
       }
     };
 
-    const mpPreference = await preference.create({ body: preferenceData });
+    const mpPreference = await preference.create({
+      body: preferenceData,
+      requestOptions: { idempotencyKey: randomUUID() },
+    });
 
     // Salvar assinatura pendente no banco
     const currentDate = new Date();

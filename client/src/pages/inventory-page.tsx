@@ -63,123 +63,12 @@ import { ptBR } from "date-fns/locale";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter, Download, Plus as PlusIcon, Minus } from "lucide-react";
+import { Search, Plus, FileText, Edit, Trash2, Calendar as CalendarIcon, Package, PackageOpen, BarChart4, Package2, RefreshCw, AlertTriangle, ArrowDownUp, Check, Filter, ListFilter, Download, Plus as PlusIcon, Minus, Sparkles, Loader2, Tag, Building, Phone, Mail } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { InventoryItem, InventoryCategory, InventoryTransaction } from "@shared/schema";
 
-// REMOVED: mockCategories and generateMockItems - now using real API data
-
-// Kept for historical reference (remove if unused)
-const __UNUSED_generateMockItems_REMOVE_ME = (): InventoryItem[] => {
-  return [
-    {
-      id: 1,
-      companyId: 1,
-      name: "Resina Z350 A2",
-      description: "Resina composta fotopolimerizável",
-      categoryId: 1,
-      sku: "RES001",
-      barcode: "789012345678",
-      brand: "3M",
-      supplier: "Dental Med",
-      minimumStock: 5,
-      currentStock: 8,
-      price: 12000, // R$ 120,00
-      unitOfMeasure: "unidade",
-      expirationDate: new Date(2025, 5, 15),
-      location: "Armário 3, Prateleira 2",
-      lastPurchaseDate: new Date(2023, 8, 10),
-      active: true,
-      createdAt: new Date(2023, 1, 15),
-      updatedAt: new Date(2023, 8, 10)
-    },
-    {
-      id: 2,
-      companyId: 1,
-      name: "Anestésico Lidocaína 2%",
-      description: "Anestésico local com vasoconstrictor",
-      categoryId: 2,
-      sku: "ANE002",
-      barcode: "789012345679",
-      brand: "DFL",
-      supplier: "Dental Med",
-      minimumStock: 10,
-      currentStock: 3,
-      price: 4500, // R$ 45,00
-      unitOfMeasure: "caixa",
-      expirationDate: new Date(2024, 3, 20),
-      location: "Armário 1, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 6, 5),
-      active: true,
-      createdAt: new Date(2023, 1, 15),
-      updatedAt: new Date(2023, 6, 5)
-    },
-    {
-      id: 3,
-      companyId: 1,
-      name: "Luvas de Procedimento M",
-      description: "Luvas de nitrilo sem pó",
-      categoryId: 3,
-      sku: "LUV003",
-      barcode: "789012345680",
-      brand: "Supermax",
-      supplier: "Dental Med",
-      minimumStock: 20,
-      currentStock: 45,
-      price: 3800, // R$ 38,00
-      unitOfMeasure: "caixa",
-      expirationDate: new Date(2026, 10, 10),
-      location: "Armário 2, Prateleira 3",
-      lastPurchaseDate: new Date(2023, 9, 15),
-      active: true,
-      createdAt: new Date(2023, 1, 15),
-      updatedAt: new Date(2023, 9, 15)
-    },
-    {
-      id: 4,
-      companyId: 1,
-      name: "Sugador Descartável",
-      description: "Sugador plástico colorido",
-      categoryId: 5,
-      sku: "SUG004",
-      barcode: "789012345681",
-      brand: "SSPlus",
-      supplier: "Dental Med",
-      minimumStock: 100,
-      currentStock: 80,
-      price: 1500, // R$ 15,00
-      unitOfMeasure: "pacote",
-      expirationDate: new Date(2025, 8, 30),
-      location: "Armário 4, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 7, 20),
-      active: true,
-      createdAt: new Date(2023, 1, 15),
-      updatedAt: new Date(2023, 7, 20)
-    },
-    {
-      id: 5,
-      companyId: 1,
-      name: "Broca Diamantada 1014",
-      description: "Broca esférica para alta rotação",
-      categoryId: 4,
-      sku: "BRO005",
-      barcode: "789012345682",
-      brand: "KG Sorensen",
-      supplier: "Dental Supplier",
-      minimumStock: 15,
-      currentStock: 22,
-      price: 900, // R$ 9,00
-      unitOfMeasure: "unidade",
-      expirationDate: null,
-      location: "Armário 3, Prateleira 1",
-      lastPurchaseDate: new Date(2023, 5, 8),
-      active: true,
-      createdAt: new Date(2023, 1, 15),
-      updatedAt: new Date(2023, 5, 8)
-    }
-  ];
-};
+// Mock data removed - all data fetched from real API
 
 export default function InventoryPage() {
   const { toast } = useToast();
@@ -208,10 +97,78 @@ export default function InventoryPage() {
   const [standardProducts, setStandardProducts] = useState<any[]>([]);
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>("all");
+  const [isSeedModalOpen, setIsSeedModalOpen] = useState(false);
+  const [selectedSeedCategories, setSelectedSeedCategories] = useState<Set<string>>(new Set());
+  const [selectedSeedItems, setSelectedSeedItems] = useState<Record<string, Set<string>>>({});
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   // Quick adjustment state
   const [quickAdjustItem, setQuickAdjustItem] = useState<InventoryItem | null>(null);
   const [quickAdjustValue, setQuickAdjustValue] = useState<number>(0);
+
+  // Supplier state (localStorage fallback)
+  interface Supplier {
+    id: number;
+    name: string;
+    contactPerson: string;
+    phone: string;
+    email: string;
+    address: string;
+    notes: string;
+  }
+  const SUPPLIERS_KEY = "inventory_suppliers";
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    try {
+      const stored = localStorage.getItem(SUPPLIERS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+  const [isSupplierDeleteOpen, setIsSupplierDeleteOpen] = useState(false);
+
+  const saveSuppliers = (updated: Supplier[]) => {
+    setSuppliers(updated);
+    try {
+      localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const handleSaveSupplier = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const supplierData: Supplier = {
+      id: editingSupplier ? editingSupplier.id : Date.now(),
+      name: formData.get("supplierName") as string,
+      contactPerson: formData.get("contactPerson") as string,
+      phone: formData.get("phone") as string,
+      email: formData.get("email") as string,
+      address: formData.get("address") as string,
+      notes: formData.get("notes") as string,
+    };
+    if (editingSupplier) {
+      saveSuppliers(suppliers.map(s => s.id === editingSupplier.id ? supplierData : s));
+    } else {
+      saveSuppliers([...suppliers, supplierData]);
+    }
+    setIsSupplierModalOpen(false);
+    setEditingSupplier(null);
+    toast({ title: "Sucesso", description: "Fornecedor salvo com sucesso!" });
+  };
+
+  const handleDeleteSupplier = () => {
+    if (supplierToDelete) {
+      saveSuppliers(suppliers.filter(s => s.id !== supplierToDelete.id));
+      setIsSupplierDeleteOpen(false);
+      setSupplierToDelete(null);
+      toast({ title: "Sucesso", description: "Fornecedor excluído com sucesso!" });
+    }
+  };
 
   // Buscar dados do estoque
   const { data: inventoryItems, isLoading: isLoadingItems, error: itemsError } = useQuery<InventoryItem[]>({
@@ -275,6 +232,60 @@ export default function InventoryPage() {
       toast({
         title: "Erro",
         description: `Falha ao importar produtos: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Query para buscar dados de seed disponíveis
+  const { data: seedData, isLoading: isSeedDataLoading } = useQuery({
+    queryKey: ["/api/inventory/seed-defaults"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/inventory/seed-defaults");
+      if (!res.ok) throw new Error("Falha ao carregar dados de seed");
+      return await res.json();
+    },
+    enabled: isSeedModalOpen, // Só busca quando o modal está aberto
+  });
+
+  // Efeito para inicializar seleção quando os dados de seed são carregados
+  useEffect(() => {
+    if (seedData?.categories && isSeedModalOpen) {
+      // Seleciona todas as categorias e itens por padrão
+      const allCategories = new Set<string>(seedData.categories.map((c: any) => c.name));
+      setSelectedSeedCategories(allCategories);
+
+      const allItems: Record<string, Set<string>> = {};
+      seedData.categories.forEach((cat: any) => {
+        allItems[cat.name] = new Set(cat.items.map((item: any) => item.name));
+      });
+      setSelectedSeedItems(allItems);
+    }
+  }, [seedData, isSeedModalOpen]);
+
+  // Mutation para popular estoque com dados padrão
+  const seedInventoryMutation = useMutation({
+    mutationFn: async (selection: { categoryNames: string[]; itemsByCategory: Record<string, string[]> }) => {
+      const res = await apiRequest("POST", "/api/inventory/seed-defaults", selection);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao popular estoque");
+      }
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/categories"] });
+      setIsSeedModalOpen(false);
+      toast({
+        title: "Estoque Populado!",
+        description: `${data.categoriesCreated} categorias e ${data.itemsCreated} itens foram criados com sucesso!`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -667,6 +678,29 @@ export default function InventoryPage() {
     expiredItems: inventoryItems?.filter(item => isExpiredProduct(item.expirationDate)).length || 0
   };
 
+  // Alert data derived from inventoryItems
+  const lowStockAlerts = inventoryItems
+    ? inventoryItems.filter(item => (item.currentStock || 0) <= (item.minimumStock || 0))
+    : [];
+
+  const expiryAlerts = inventoryItems
+    ? inventoryItems.filter(item => {
+        if (!item.expirationDate) return false;
+        const expiry = new Date(item.expirationDate);
+        const today = new Date();
+        const thirtyDaysLater = new Date();
+        thirtyDaysLater.setDate(today.getDate() + 30);
+        return expiry <= thirtyDaysLater;
+      })
+    : [];
+
+  const getDaysUntilExpiry = (expiryDate: Date | string | null): number => {
+    if (!expiryDate) return Infinity;
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   return (
     <DashboardLayout title="Controle de Estoque" currentPath="/inventory">
       {/* Dashboard e filtros */}
@@ -780,7 +814,19 @@ export default function InventoryPage() {
           }}>
             Categorias
           </Button>
-          
+
+          {/* Botão para popular estoque com dados padrão - só mostra se não houver categorias */}
+          {(!inventoryCategories || inventoryCategories.length === 0) && (
+            <Button
+              variant="outline"
+              onClick={() => setIsSeedModalOpen(true)}
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Popular Estoque
+            </Button>
+          )}
+
           <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
             <Download className="mr-2 h-4 w-4" />
             Importar Produtos
@@ -798,6 +844,30 @@ export default function InventoryPage() {
         </div>
       </div>
       
+      {/* Tabs principais */}
+      <Tabs defaultValue="items" className="w-full">
+        <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="items" className="flex items-center gap-1">
+            <Package className="h-4 w-4" />
+            Itens
+          </TabsTrigger>
+          <TabsTrigger value="suppliers" className="flex items-center gap-1">
+            <Building className="h-4 w-4" />
+            Fornecedores
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="flex items-center gap-1 relative">
+            <AlertTriangle className="h-4 w-4" />
+            Alertas
+            {(lowStockAlerts.length + expiryAlerts.length) > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                {lowStockAlerts.length + expiryAlerts.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab: Itens */}
+        <TabsContent value="items">
       {/* Tabela de itens */}
       <div className="rounded-md border">
         <Table>
@@ -816,21 +886,46 @@ export default function InventoryPage() {
           <TableBody>
             {isLoadingItems ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-4">
-                  <div className="flex justify-center">
-                    <RefreshCw className="animate-spin h-6 w-6 text-primary" />
+                <TableCell colSpan={8} className="py-16">
+                  <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm">Carregando itens do estoque...</span>
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Carregando itens do estoque...
+                </TableCell>
+              </TableRow>
+            ) : filteredItems.length === 0 && (inventoryItems?.length ?? 0) > 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-12">
+                  <div className="flex flex-col items-center justify-center gap-2 text-center">
+                    <Search className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm font-medium">Nenhum item corresponde aos filtros aplicados</p>
+                    <p className="text-xs text-muted-foreground">Tente ajustar a busca ou remover os filtros ativos.</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : filteredItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-4">
-                  <Package2 className="mx-auto h-12 w-12 text-muted-foreground opacity-20" />
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Nenhum item encontrado
+                <TableCell colSpan={8} className="py-0 border-0">
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhum item no estoque</h3>
+                    <p className="text-muted-foreground mb-4 max-w-md text-sm">
+                      Comece importando produtos odontológicos padrão ou adicione itens manualmente.
+                    </p>
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => setIsSeedModalOpen(true)}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Popular com Dados Padrão
+                      </Button>
+                      <Button onClick={() => {
+                        setEditingItem(null);
+                        setExpirationDate(undefined);
+                        setLastPurchaseDate(undefined);
+                        setIsItemModalOpen(true);
+                      }}>
+                        <Plus className="h-4 w-4 mr-2" /> Adicionar Item
+                      </Button>
+                    </div>
                   </div>
                 </TableCell>
               </TableRow>
@@ -943,7 +1038,241 @@ export default function InventoryPage() {
           </TableBody>
         </Table>
       </div>
-      
+        </TabsContent>
+
+        {/* Tab: Fornecedores */}
+        <TabsContent value="suppliers">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Fornecedores</h2>
+              <p className="text-sm text-muted-foreground">
+                Gerencie os fornecedores dos produtos do seu estoque.
+                <span className="ml-1 text-amber-600">(Dados salvos localmente no navegador)</span>
+              </p>
+            </div>
+            <Button onClick={() => { setEditingSupplier(null); setIsSupplierModalOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Fornecedor
+            </Button>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {suppliers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-16">
+                      <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                        <Building className="h-12 w-12 opacity-40" />
+                        <p className="text-sm font-medium">Nenhum fornecedor cadastrado</p>
+                        <p className="text-xs">Clique em "Novo Fornecedor" para adicionar.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  suppliers.map(supplier => (
+                    <TableRow key={supplier.id}>
+                      <TableCell className="font-medium">{supplier.name}</TableCell>
+                      <TableCell>{supplier.contactPerson || "-"}</TableCell>
+                      <TableCell>
+                        {supplier.phone ? (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            {supplier.phone}
+                          </div>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {supplier.email ? (
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            {supplier.email}
+                          </div>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setEditingSupplier(supplier); setIsSupplierModalOpen(true); }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setSupplierToDelete(supplier); setIsSupplierDeleteOpen(true); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        {/* Tab: Alertas */}
+        <TabsContent value="alerts">
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Itens com Estoque Baixo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-600">{lowStockAlerts.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {lowStockAlerts.filter(i => (i.currentStock || 0) === 0).length} com estoque zerado
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-red-500" />
+                  Próximos ao Vencimento
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">{expiryAlerts.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {expiryAlerts.filter(i => getDaysUntilExpiry(i.expirationDate ?? null) <= 0).length} já vencidos
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Estoque Baixo */}
+          <div className="mb-6">
+            <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Estoque Baixo
+            </h3>
+            {lowStockAlerts.length === 0 ? (
+              <div className="rounded-md border p-8 text-center text-muted-foreground">
+                <Package className="mx-auto h-10 w-10 opacity-40 mb-2" />
+                <p className="text-sm">Nenhum item com estoque abaixo do mínimo.</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Estoque Atual</TableHead>
+                      <TableHead>Estoque Mínimo</TableHead>
+                      <TableHead>Diferença</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lowStockAlerts.map(item => {
+                      const diff = (item.currentStock || 0) - (item.minimumStock || 0);
+                      const isCritical = (item.currentStock || 0) === 0;
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="font-medium">{item.name}</div>
+                            {item.brand && <div className="text-xs text-muted-foreground">{item.brand}</div>}
+                          </TableCell>
+                          <TableCell className={isCritical ? "text-red-600 font-bold" : "text-amber-600 font-medium"}>
+                            {item.currentStock || 0} {item.unitOfMeasure || "un"}
+                          </TableCell>
+                          <TableCell>{item.minimumStock || 0} {item.unitOfMeasure || "un"}</TableCell>
+                          <TableCell className="text-red-500 font-medium">{diff} {item.unitOfMeasure || "un"}</TableCell>
+                          <TableCell>
+                            {isCritical ? (
+                              <Badge variant="destructive">CRITICO</Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100" variant="outline">BAIXO</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          {/* Próximos ao Vencimento */}
+          <div>
+            <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-red-500" />
+              Próximos ao Vencimento (30 dias)
+            </h3>
+            {expiryAlerts.length === 0 ? (
+              <div className="rounded-md border p-8 text-center text-muted-foreground">
+                <CalendarIcon className="mx-auto h-10 w-10 opacity-40 mb-2" />
+                <p className="text-sm">Nenhum item vencido ou próximo ao vencimento.</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Data de Validade</TableHead>
+                      <TableHead>Dias Restantes</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expiryAlerts
+                      .slice()
+                      .sort((a, b) => getDaysUntilExpiry(a.expirationDate ?? null) - getDaysUntilExpiry(b.expirationDate ?? null))
+                      .map(item => {
+                        const days = getDaysUntilExpiry(item.expirationDate ?? null);
+                        const isExpired = days <= 0;
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="font-medium">{item.name}</div>
+                              {item.brand && <div className="text-xs text-muted-foreground">{item.brand}</div>}
+                            </TableCell>
+                            <TableCell>
+                              {item.expirationDate ? format(new Date(item.expirationDate), "dd/MM/yyyy") : "-"}
+                            </TableCell>
+                            <TableCell className={isExpired ? "text-red-600 font-bold" : "text-amber-600 font-medium"}>
+                              {isExpired ? `Vencido há ${Math.abs(days)} dia(s)` : `${days} dia(s)`}
+                            </TableCell>
+                            <TableCell>
+                              {isExpired ? (
+                                <Badge variant="destructive">VENCIDO</Badge>
+                              ) : (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100" variant="outline">PROXIMO</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+      </Tabs>
+
       {/* Modal de Novo/Editar Item */}
       <Dialog open={isItemModalOpen} onOpenChange={setIsItemModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1215,30 +1544,53 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {inventoryCategories?.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell>
-                          <div
-                            className="w-6 h-6 rounded-full"
-                            style={{ backgroundColor: category.color || '#3498db' }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell>{category.description}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingCategory(category);
-                              setNewCategoryColor(category.color || '#3498db');
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                    {isLoadingCategories ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-8">
+                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            <span className="text-sm">Carregando categorias...</span>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : !inventoryCategories?.length ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-10">
+                          <div className="flex flex-col items-center justify-center gap-2 text-center">
+                            <Tag className="h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-sm font-medium">Nenhuma categoria cadastrada</p>
+                            <p className="text-xs text-muted-foreground">
+                              Use o botão abaixo para criar sua primeira categoria.
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      inventoryCategories.map((category) => (
+                        <TableRow key={category.id}>
+                          <TableCell>
+                            <div
+                              className="w-6 h-6 rounded-full"
+                              style={{ backgroundColor: category.color || '#3498db' }}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{category.name}</TableCell>
+                          <TableCell>{category.description}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingCategory(category);
+                                setNewCategoryColor(category.color || '#3498db');
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1714,7 +2066,7 @@ export default function InventoryPage() {
             <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 if (selectedProducts.length > 0) {
                   importProductsMutation.mutate(selectedProducts);
@@ -1730,6 +2082,338 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Seleção para Popular Estoque com Dados Padrão */}
+      <Dialog open={isSeedModalOpen} onOpenChange={setIsSeedModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Popular Estoque com Dados Padrão
+            </DialogTitle>
+            <DialogDescription>
+              Selecione as categorias e itens que deseja adicionar ao seu estoque. Os itens serão criados com estoque inicial zerado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+            {isSeedDataLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : seedData?.categories ? (
+              <>
+                {/* Seleção rápida */}
+                <div className="flex items-center gap-4 pb-3 border-b">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const allCats = new Set<string>(seedData.categories.map((c: any) => c.name));
+                      setSelectedSeedCategories(allCats);
+                      const allItems: Record<string, Set<string>> = {};
+                      seedData.categories.forEach((cat: any) => {
+                        allItems[cat.name] = new Set(cat.items.map((item: any) => item.name));
+                      });
+                      setSelectedSeedItems(allItems);
+                    }}
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Selecionar Tudo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedSeedCategories(new Set());
+                      setSelectedSeedItems({});
+                    }}
+                  >
+                    Limpar Seleção
+                  </Button>
+                  <span className="text-sm text-muted-foreground ml-auto">
+                    {selectedSeedCategories.size} categorias selecionadas
+                  </span>
+                </div>
+
+                {/* Lista de categorias */}
+                <div className="space-y-2">
+                  {seedData.categories.map((category: any) => {
+                    const isSelected = selectedSeedCategories.has(category.name);
+                    const isExpanded = expandedCategories.has(category.name);
+                    const selectedItemCount = selectedSeedItems[category.name]?.size || 0;
+                    const totalItemCount = category.items.length;
+
+                    return (
+                      <div key={category.name} className="border rounded-lg overflow-hidden">
+                        <div
+                          className="flex items-center gap-3 p-3 bg-muted/50 cursor-pointer hover:bg-muted/80"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedCategories);
+                            if (isExpanded) {
+                              newExpanded.delete(category.name);
+                            } else {
+                              newExpanded.add(category.name);
+                            }
+                            setExpandedCategories(newExpanded);
+                          }}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              const newSelected = new Set(selectedSeedCategories);
+                              const newItems = { ...selectedSeedItems };
+
+                              if (checked) {
+                                newSelected.add(category.name);
+                                newItems[category.name] = new Set(category.items.map((i: any) => i.name));
+                              } else {
+                                newSelected.delete(category.name);
+                                delete newItems[category.name];
+                              }
+
+                              setSelectedSeedCategories(newSelected);
+                              setSelectedSeedItems(newItems);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">{category.name}</div>
+                            <div className="text-xs text-muted-foreground">{category.description}</div>
+                          </div>
+                          <Badge variant="secondary" className="mr-2">
+                            {selectedItemCount}/{totalItemCount} itens
+                          </Badge>
+                          <svg
+                            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+
+                        {/* Lista de itens expandida */}
+                        {isExpanded && isSelected && (
+                          <div className="p-3 pt-0 border-t bg-background">
+                            <div className="flex items-center gap-2 py-2 mb-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const newItems = { ...selectedSeedItems };
+                                  newItems[category.name] = new Set(category.items.map((i: any) => i.name));
+                                  setSelectedSeedItems(newItems);
+                                }}
+                              >
+                                Todos
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const newItems = { ...selectedSeedItems };
+                                  newItems[category.name] = new Set();
+                                  setSelectedSeedItems(newItems);
+                                }}
+                              >
+                                Nenhum
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-48 overflow-y-auto">
+                              {category.items.map((item: any) => {
+                                const itemSelected = selectedSeedItems[category.name]?.has(item.name);
+                                return (
+                                  <div
+                                    key={item.name}
+                                    className="flex items-center gap-2 p-2 rounded hover:bg-muted/50"
+                                  >
+                                    <Checkbox
+                                      checked={itemSelected}
+                                      onCheckedChange={(checked) => {
+                                        const newItems = { ...selectedSeedItems };
+                                        if (!newItems[category.name]) {
+                                          newItems[category.name] = new Set();
+                                        }
+                                        if (checked) {
+                                          newItems[category.name].add(item.name);
+                                        } else {
+                                          newItems[category.name].delete(item.name);
+                                        }
+                                        setSelectedSeedItems(newItems);
+                                      }}
+                                    />
+                                    <div className="flex-1 text-sm">
+                                      <span>{item.name}</span>
+                                      {item.brand && (
+                                        <span className="text-muted-foreground ml-1">({item.brand})</span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      Mín: {item.minimumStock} {item.unitOfMeasure}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                Erro ao carregar dados. Tente novamente.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-t pt-4">
+            <div className="flex items-center gap-2 mr-auto text-sm text-muted-foreground">
+              <Package className="h-4 w-4" />
+              {selectedSeedCategories.size} categorias •{' '}
+              {Object.values(selectedSeedItems).reduce((acc, set) => acc + set.size, 0)} itens selecionados
+            </div>
+            <Button variant="outline" onClick={() => setIsSeedModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const categoryNames = Array.from(selectedSeedCategories);
+                const itemsByCategory: Record<string, string[]> = {};
+                Object.entries(selectedSeedItems).forEach(([cat, items]) => {
+                  if (items.size > 0) {
+                    itemsByCategory[cat] = Array.from(items);
+                  }
+                });
+                seedInventoryMutation.mutate({ categoryNames, itemsByCategory });
+              }}
+              disabled={seedInventoryMutation.isPending || selectedSeedCategories.size === 0}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {seedInventoryMutation.isPending && (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              <Sparkles className="mr-2 h-4 w-4" />
+              Popular Estoque
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Modal de Novo/Editar Fornecedor */}
+      <Dialog open={isSupplierModalOpen} onOpenChange={(open) => { setIsSupplierModalOpen(open); if (!open) setEditingSupplier(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingSupplier ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
+            <DialogDescription>
+              {editingSupplier ? "Atualize os dados do fornecedor." : "Cadastre um novo fornecedor para o estoque."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveSupplier} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplierName">Nome do Fornecedor*</Label>
+              <Input
+                id="supplierName"
+                name="supplierName"
+                placeholder="Razão social ou nome comercial"
+                required
+                defaultValue={editingSupplier?.name || ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contactPerson">Pessoa de Contato</Label>
+              <Input
+                id="contactPerson"
+                name="contactPerson"
+                placeholder="Nome do responsável"
+                defaultValue={editingSupplier?.contactPerson || ""}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  placeholder="(00) 00000-0000"
+                  defaultValue={editingSupplier?.phone || ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="email@fornecedor.com"
+                  defaultValue={editingSupplier?.email || ""}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Endereço</Label>
+              <Input
+                id="address"
+                name="address"
+                placeholder="Rua, número, cidade"
+                defaultValue={editingSupplier?.address || ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                placeholder="Informações adicionais sobre o fornecedor"
+                defaultValue={editingSupplier?.notes || ""}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setIsSupplierModalOpen(false); setEditingSupplier(null); }}>
+                Cancelar
+              </Button>
+              <Button type="submit">Salvar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar exclusão de fornecedor */}
+      <AlertDialog open={isSupplierDeleteOpen} onOpenChange={setIsSupplierDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Fornecedor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o fornecedor <strong>{supplierToDelete?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSupplier}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </DashboardLayout>
   );
 }

@@ -23,6 +23,7 @@ import { Calendar, TrendingUp, TrendingDown, Users, Clock, AlertCircle, CheckCir
 import { format, subDays, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ProfessionalDRE } from "@/components/financial/ProfessionalDRE";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 type PeriodType = "7days" | "30days" | "90days" | "thisMonth" | "lastMonth" | "custom";
 
@@ -168,13 +169,16 @@ export default function AnalyticsPage() {
 
   if (loadingOverview) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <DashboardLayout title="Analytics" currentPath="/analytics">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
+    <DashboardLayout title="Analytics" currentPath="/analytics">
     <div className="space-y-6">
       {/* Controles de Período */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -434,5 +438,6 @@ export default function AnalyticsPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </DashboardLayout>
   );
 }

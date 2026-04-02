@@ -12,7 +12,14 @@
       "Bash(timeout /t 10)",
       "Bash(npx tsc:*)",
       "Bash(npm run db:push:*)",
-      "Bash(timeout /t 5)"
+      "Bash(timeout /t 5)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx vite build:*)",
+      "Bash(wc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx drizzle-kit push:*)"
     ],
     "deny": [],
     "ask": []

@@ -13,27 +13,25 @@ import {
   Loader2,
   MessageCircle,
   Calendar,
-  Workflow,
   Key,
   AlertCircle,
   CheckCircle2,
   Send,
   TestTube2,
   ExternalLink,
-  Zap,
   Bell,
   Clock,
   MessageSquare,
   Sparkles,
   QrCode,
   RefreshCw,
-  Copy,
   Trash2,
   WifiOff,
   Smartphone,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { WhatsAppProviderSelector } from "@/components/integrations/WhatsAppProviderSelector";
 
 export default function ConfiguracoesIntegracoesPage() {
   const { toast } = useToast();
@@ -44,8 +42,6 @@ export default function ConfiguracoesIntegracoesPage() {
     isUpdating,
     testWhatsApp,
     isTestingWhatsApp,
-    testN8N,
-    isTestingN8N,
     sendTestWhatsApp,
     isSendingTest,
     // Wuzapi Status e QR Code
@@ -66,27 +62,14 @@ export default function ConfiguracoesIntegracoesPage() {
     // Wuzapi Reset
     resetWuzapi,
     isResetting,
-    // N8N API Key
-    n8nApiKeyInfo,
-    isLoadingN8nApiKey,
-    generateN8nApiKey,
-    isGeneratingApiKey,
-    generatedApiKey,
-    revokeN8nApiKey,
-    isRevokingApiKey,
   } = useIntegrations();
 
   const [showQrCodeDialog, setShowQrCodeDialog] = useState(false);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
-  const [copiedApiKey, setCopiedApiKey] = useState(false);
 
   const [form, setForm] = useState({
     // Google Calendar
     defaultGoogleCalendarId: "",
     googleCalendarTimezone: "America/Sao_Paulo",
-
-    // N8N
-    n8nWebhookBaseUrl: "",
 
     // Admin
     adminWhatsappPhone: "",
@@ -109,7 +92,6 @@ export default function ConfiguracoesIntegracoesPage() {
       setForm({
         defaultGoogleCalendarId: integrationSettings.defaultGoogleCalendarId || "",
         googleCalendarTimezone: integrationSettings.googleCalendarTimezone || "America/Sao_Paulo",
-        n8nWebhookBaseUrl: integrationSettings.n8nWebhookBaseUrl || "",
         adminWhatsappPhone: integrationSettings.adminWhatsappPhone || "",
         enableAppointmentReminders: integrationSettings.enableAppointmentReminders !== false,
         reminderHoursBefore: integrationSettings.reminderHoursBefore || 24,
@@ -194,10 +176,6 @@ export default function ConfiguracoesIntegracoesPage() {
     testWhatsApp();
   };
 
-  const handleTestN8N = () => {
-    testN8N();
-  };
-
   const handleSendTestMessage = () => {
     if (!testPhone) {
       toast({
@@ -217,22 +195,6 @@ export default function ConfiguracoesIntegracoesPage() {
     await getQrCode();
   };
 
-  const handleGenerateApiKey = async () => {
-    await generateN8nApiKey();
-  };
-
-  const handleCopyApiKey = async () => {
-    if (generatedApiKey?.apiKey) {
-      await navigator.clipboard.writeText(generatedApiKey.apiKey);
-      setCopiedApiKey(true);
-      setTimeout(() => setCopiedApiKey(false), 2000);
-      toast({
-        title: "API Key copiada!",
-        description: "A chave foi copiada para a área de transferência",
-      });
-    }
-  };
-
   return (
     <DashboardLayout title="Configurações de Integrações" currentPath="/configuracoes/integracoes">
       <div className="flex flex-col space-y-6 p-6">
@@ -240,7 +202,7 @@ export default function ConfiguracoesIntegracoesPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Integrações</h1>
             <p className="text-muted-foreground mt-1">
-              Configure Wuzapi, Google Calendar e N8N para automatizar sua clínica
+              Configure Wuzapi e Google Calendar para automatizar sua clínica
             </p>
           </div>
           <Button
@@ -265,6 +227,9 @@ export default function ConfiguracoesIntegracoesPage() {
           </div>
         ) : (
           <div className="grid gap-6">
+            {/* Provider WhatsApp - Seleção entre Oficial/Não Oficial */}
+            <WhatsAppProviderSelector />
+
             {/* Wuzapi (WhatsApp) */}
             <Card>
               <CardHeader>
@@ -665,186 +630,6 @@ export default function ConfiguracoesIntegracoesPage() {
                     Para sincronizar com Google Calendar, você precisa configurar credenciais OAuth 2.0
                     no Google Cloud Console e autorizar o acesso ao calendário.
                   </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* N8N */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                      <Workflow className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">N8N - Automação de Workflows</CardTitle>
-                      <CardDescription>
-                        Configure webhooks N8N para automações avançadas
-                      </CardDescription>
-                    </div>
-                  </div>
-                  {integrationSettings?.hasN8nConfig && (
-                    <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Configurado
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="n8nWebhookBaseUrl">URL Base do N8N</Label>
-                  <Input
-                    id="n8nWebhookBaseUrl"
-                    placeholder="http://localhost:5678"
-                    value={form.n8nWebhookBaseUrl}
-                    onChange={(e) => setForm(prev => ({ ...prev, n8nWebhookBaseUrl: e.target.value }))}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    URL onde seus workflows N8N estão rodando
-                  </p>
-                </div>
-
-                <Separator />
-
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleTestN8N}
-                    disabled={isTestingN8N || !integrationSettings?.hasN8nConfig}
-                  >
-                    {isTestingN8N ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <TestTube2 className="mr-2 h-4 w-4" />
-                    )}
-                    Testar Conexão
-                  </Button>
-                </div>
-
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-2">
-                  <h4 className="font-medium text-amber-900 dark:text-amber-300 text-sm flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    Fluxos N8N Disponíveis
-                  </h4>
-                  <ul className="text-sm text-amber-800 dark:text-amber-300 space-y-1 list-disc list-inside">
-                    <li>Confirmação automática de consultas</li>
-                    <li>Lembretes de agendamento</li>
-                    <li>Sincronização com Google Calendar</li>
-                    <li>Mensagens de aniversário</li>
-                    <li>Solicitação de feedback pós-consulta</li>
-                  </ul>
-                </div>
-
-                <Separator />
-
-                {/* N8N API Key para autenticação externa */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium flex items-center gap-2">
-                        <Key className="h-4 w-4" />
-                        API Key para N8N
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        Use esta chave para autenticar chamadas do N8N para sua API
-                      </p>
-                    </div>
-                    {n8nApiKeyInfo?.hasApiKey && (
-                      <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Chave Ativa
-                      </Badge>
-                    )}
-                  </div>
-
-                  {isLoadingN8nApiKey ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">Carregando...</span>
-                    </div>
-                  ) : n8nApiKeyInfo?.hasApiKey ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        <code className="flex-1 font-mono text-sm">{n8nApiKeyInfo.apiKeyPreview}</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
-                          onClick={() => revokeN8nApiKey()}
-                          disabled={isRevokingApiKey}
-                        >
-                          {isRevokingApiKey ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Criada em: {n8nApiKeyInfo.createdAt ? new Date(n8nApiKeyInfo.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
-                      </p>
-                      <Button
-                        variant="outline"
-                        onClick={handleGenerateApiKey}
-                        disabled={isGeneratingApiKey}
-                      >
-                        {isGeneratingApiKey ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                        )}
-                        Regenerar API Key
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={handleGenerateApiKey}
-                      disabled={isGeneratingApiKey}
-                    >
-                      {isGeneratingApiKey ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Key className="mr-2 h-4 w-4" />
-                      )}
-                      Gerar API Key
-                    </Button>
-                  )}
-
-                  {/* Mostrar a chave recém-gerada */}
-                  {generatedApiKey?.apiKey && (
-                    <Alert className="bg-green-500/10 border-green-500/30">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <AlertDescription>
-                        <div className="space-y-2">
-                          <p className="font-medium text-green-800 dark:text-green-300">Nova API Key gerada!</p>
-                          <div className="flex items-center gap-2">
-                            <code className="flex-1 p-2 bg-card rounded border font-mono text-xs break-all">
-                              {generatedApiKey.apiKey}
-                            </code>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCopyApiKey}
-                            >
-                              {copiedApiKey ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <Copy className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                          <p className="text-xs text-green-700 dark:text-green-400">
-                            <strong>Importante:</strong> Copie esta chave agora! Ela não será exibida novamente.
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Use no header: <code className="bg-white px-1 rounded">X-API-Key: {generatedApiKey.apiKey.substring(0, 20)}...</code>
-                          </p>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </div>
               </CardContent>
             </Card>

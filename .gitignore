@@ -88,8 +88,44 @@ nul
 # Large files
 *.tar.gz
 *.zip
-# Google Cloud credentials
+# Google Cloud credentials & secrets
 dentistav1/*.json
 dentistav1/segredo*.json
+dentistav1/.env
 **/client_secret*.json
 **/principal-fact*.json
+
+# Legacy project (may contain secrets)
+dentistav1/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# IDE local settings
+.claude/settings.local.json
+
+# EasyPanel deployment
+.env.easypanel
+
+# Vitest snapshots
+*.test.ts.snap
+
+# Development artifacts
+cookies.txt
+qa-test-report.*
+ANALISE_*.md
+RELATORIO_*.md
+PROGRESSO_*.md
+STATUS_*.md
+CORRECAO_*.md
+CORRECOES_*.md
+ENTREGA_*.md
+LIMPEZA_*.md
+
+# Test screenshots
+test-screenshots/
+qa-screenshots/
+
+# Build artifacts
+tsconfig.tsbuildinfo

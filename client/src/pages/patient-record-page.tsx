@@ -19,12 +19,18 @@ import {
   Clipboard,
   Activity,
   Pill,
-  Layers
+  Layers,
+  Scan
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PeriodontalChart } from "@/components/periodontal";
+import InteractiveOdontogram from "@/components/odontogram/InteractiveOdontogram";
+import ClinicalAssistant from "@/components/clinical/ClinicalAssistant";
+import TreatmentPlanTab from "@/components/patients/TreatmentPlanTab";
+import DocumentsTab from "@/components/patients/DocumentsTab";
+import { Sparkles } from "lucide-react";
 
 interface Patient {
   id: number;
@@ -76,37 +82,37 @@ export default function PatientRecordPage() {
 
   // Get patient data
   const { data: patient, isLoading: patientLoading, error: patientError } = useQuery<any>({
-    queryKey: ["/api/patients", patientId],
+    queryKey: [`/api/patients/${patientId}`],
     enabled: !!patientId,
   });
 
   // Get patient anamnesis
   const { data: anamnesis = {} } = useQuery<any>({
-    queryKey: ["/api/patients", patientId, "anamnesis"],
+    queryKey: [`/api/patients/${patientId}/anamnesis`],
     enabled: !!patientId,
   });
 
   // Get patient exams
   const { data: exams = [] } = useQuery<any[]>({
-    queryKey: ["/api/patients", patientId, "exams"],
+    queryKey: [`/api/patients/${patientId}/exams`],
     enabled: !!patientId,
   });
 
   // Get treatment plans
   const { data: treatmentPlans = [] } = useQuery<any[]>({
-    queryKey: ["/api/patients", patientId, "treatment-plans"],
+    queryKey: [`/api/patients/${patientId}/treatment-plans`],
     enabled: !!patientId,
   });
 
   // Get treatment evolution
   const { data: evolution = [] } = useQuery<any[]>({
-    queryKey: ["/api/patients", patientId, "evolution"],
+    queryKey: [`/api/patients/${patientId}/evolution`],
     enabled: !!patientId,
   });
 
   // Get prescriptions
   const { data: prescriptions = [] } = useQuery<any[]>({
-    queryKey: ["/api/patients", patientId, "prescriptions"],
+    queryKey: [`/api/patients/${patientId}/prescriptions`],
     enabled: !!patientId,
   });
 
@@ -160,9 +166,52 @@ export default function PatientRecordPage() {
             </p>
           </div>
         </div>
-        <Badge variant={patient?.status === "active" ? "default" : "secondary"}>
-          {patient?.status === "active" ? "Ativo" : "Inativo"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!patient) return;
+              const data = {
+                exportDate: new Date().toISOString(),
+                lgpdCompliance: true,
+                patient: {
+                  id: patient.id,
+                  fullName: patient.fullName,
+                  email: patient.email,
+                  phone: patient.phone,
+                  cellphone: patient.cellphone,
+                  cpf: patient.cpf,
+                  rg: patient.rg,
+                  birthDate: patient.birthDate,
+                  gender: patient.gender,
+                  address: patient.address,
+                  city: patient.city,
+                  state: patient.state,
+                  zipCode: patient.zipCode,
+                  status: patient.status,
+                  notes: patient.notes,
+                  insuranceInfo: patient.insuranceInfo,
+                  tags: patient.tags,
+                  createdAt: patient.createdAt,
+                }
+              };
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `paciente_${patient.id}_${patient.fullName?.replace(/\s/g, '_')}_LGPD.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Exportar (LGPD)
+          </Button>
+          <Badge variant={patient?.status === "active" ? "default" : "secondary"}>
+            {patient?.status === "active" ? "Ativo" : "Inativo"}
+          </Badge>
+        </div>
       </div>
 
       {/* Patient Summary Card */}
@@ -184,7 +233,7 @@ export default function PatientRecordPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="identification">
             <User className="h-4 w-4 mr-2" />
             Identificação
@@ -192,6 +241,10 @@ export default function PatientRecordPage() {
           <TabsTrigger value="anamnesis">
             <Stethoscope className="h-4 w-4 mr-2" />
             Anamnese
+          </TabsTrigger>
+          <TabsTrigger value="odontogram">
+            <Scan className="h-4 w-4 mr-2" />
+            Odontograma
           </TabsTrigger>
           <TabsTrigger value="periodontal">
             <Layers className="h-4 w-4 mr-2" />
@@ -216,6 +269,10 @@ export default function PatientRecordPage() {
           <TabsTrigger value="documents">
             <FileText className="h-4 w-4 mr-2" />
             Documentos
+          </TabsTrigger>
+          <TabsTrigger value="ai-assistant">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Assistente IA
           </TabsTrigger>
         </TabsList>
 
@@ -440,6 +497,21 @@ export default function PatientRecordPage() {
           </Card>
         </TabsContent>
 
+        {/* Odontogram Tab */}
+        <TabsContent value="odontogram">
+          <Card>
+            <CardHeader>
+              <CardTitle>Odontograma</CardTitle>
+              <CardDescription>
+                Mapa dental interativo do paciente. Clique em uma face do dente para registrar condições e procedimentos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InteractiveOdontogram patientId={parseInt(patientId)} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Periodontal Tab */}
         <TabsContent value="periodontal">
           <PeriodontalChart
@@ -487,40 +559,7 @@ export default function PatientRecordPage() {
 
         {/* Treatment Tab */}
         <TabsContent value="treatment">
-          <Card>
-            <CardHeader>
-              <CardTitle>Planos de Tratamento</CardTitle>
-              <CardDescription>
-                Planos de tratamento propostos e em andamento
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {treatmentPlans.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Nenhum plano de tratamento registrado para este paciente.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {treatmentPlans.map((plan: any, index: number) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">{plan.planName}</h4>
-                        <Badge variant={plan.status === "pending" ? "outline" : "default"}>
-                          {plan.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{plan.description}</p>
-                      {plan.estimatedCost && (
-                        <p className="text-sm mt-2">
-                          <span className="font-medium">Custo estimado:</span> R$ {plan.estimatedCost}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TreatmentPlanTab patientId={parseInt(patientId)} />
         </TabsContent>
 
         {/* Evolution Tab */}
@@ -560,55 +599,23 @@ export default function PatientRecordPage() {
           </Card>
         </TabsContent>
 
-        {/* Prescriptions Tab */}
+        {/* Prescriptions and Documents Tabs */}
         <TabsContent value="prescriptions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Receitas e Atestados</CardTitle>
-              <CardDescription>
-                Receitas médicas e atestados emitidos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {prescriptions.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Nenhuma receita ou atestado registrado para este paciente.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {prescriptions.map((prescription: any, index: number) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">{prescription.title}</h4>
-                        <Badge variant={prescription.documentType === "prescription" ? "default" : "secondary"}>
-                          {prescription.documentType === "prescription" ? "Receita" : "Atestado"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{prescription.content}</p>
-                      <p className="text-sm mt-2">
-                        <span className="font-medium">Data de emissão:</span> {prescription.issueDate}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <DocumentsTab patientId={parseInt(patientId)} />
         </TabsContent>
 
-        {/* Documents Tab */}
         <TabsContent value="documents">
+          <DocumentsTab patientId={parseInt(patientId)} />
+        </TabsContent>
+
+        {/* AI Assistant Tab */}
+        <TabsContent value="ai-assistant">
           <Card>
-            <CardHeader>
-              <CardTitle>Documentos</CardTitle>
-              <CardDescription>
-                Documentos anexados à ficha do paciente
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center py-8">
-                Funcionalidade de documentos em desenvolvimento.
-              </p>
+            <CardContent className="pt-6">
+              <ClinicalAssistant
+                patientId={parseInt(patientId)}
+                patientName={patient?.fullName || "Paciente"}
+              />
             </CardContent>
           </Card>
         </TabsContent>

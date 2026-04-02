@@ -41,7 +41,6 @@ export default function SetupPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPolling, setIsPolling] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [copiedApiKey, setCopiedApiKey] = useState(false);
 
   const {
     wuzapiStatus,
@@ -53,10 +52,6 @@ export default function SetupPage() {
     configureWebhook,
     isConfiguringWebhook,
     webhookInfo,
-    n8nApiKeyInfo,
-    generateN8nApiKey,
-    isGeneratingApiKey,
-    generatedApiKey,
   } = useIntegrations();
 
   // Define os passos do setup
@@ -76,9 +71,9 @@ export default function SetupPage() {
       status: "pending",
     },
     {
-      id: "apikey",
-      title: "Gerar API Key N8N",
-      description: "Crie a chave para automações externas",
+      id: "ai",
+      title: "Configurar IA",
+      description: "Configure o assistente de IA nativo",
       icon: <Key className="h-5 w-5" />,
       status: "pending",
     },
@@ -106,13 +101,13 @@ export default function SetupPage() {
       newSteps[1].status = "pending";
     }
 
-    // Passo 3: API Key
-    if (n8nApiKeyInfo?.hasApiKey) {
-      newSteps[2].status = "completed";
+    // Passo 3: IA (sempre pendente - usuario configura manualmente)
+    if (webhookInfo?.configured && wuzapiStatus?.loggedIn) {
+      newSteps[2].status = "pending";
     }
 
     setSteps(newSteps);
-  }, [wuzapiStatus, webhookInfo, n8nApiKeyInfo]);
+  }, [wuzapiStatus, webhookInfo]);
 
   // Polling para verificar status de conexão
   useEffect(() => {
@@ -178,30 +173,8 @@ export default function SetupPage() {
     }
   };
 
-  const handleGenerateApiKey = async () => {
-    try {
-      await generateN8nApiKey();
-      toast({
-        title: "API Key gerada!",
-        description: "Copie a chave - ela não será exibida novamente.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Erro ao gerar API Key",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const copyApiKey = async (key: string) => {
-    await navigator.clipboard.writeText(key);
-    setCopiedApiKey(true);
-    setTimeout(() => setCopiedApiKey(false), 2000);
-    toast({
-      title: "API Key copiada!",
-      description: "Cole no seu workflow N8N.",
-    });
+  const handleGoToAIConfig = () => {
+    setLocation("/configuracoes/ia");
   };
 
   const completedSteps = steps.filter((s) => s.status === "completed").length;
@@ -402,61 +375,21 @@ export default function SetupPage() {
                   </div>
                 )}
 
-                {/* Step 3: API Key */}
-                {step.id === "apikey" && (
+                {/* Step 3: IA Config */}
+                {step.id === "ai" && (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Gere uma API Key para conectar o N8N e outras automacoes externas.
+                      Configure o assistente de IA para atendimento automatico via WhatsApp.
                     </p>
-
-                    {n8nApiKeyInfo?.hasApiKey ? (
-                      <Alert className="bg-green-500/10 border-green-500/30">
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <AlertDescription className="text-green-700 dark:text-green-400">
-                          API Key ja configurada: {n8nApiKeyInfo.apiKeyPreview}
-                        </AlertDescription>
-                      </Alert>
-                    ) : generatedApiKey?.apiKey ? (
-                      <div className="space-y-4">
-                        <Alert>
-                          <AlertDescription>
-                            <strong>Importante:</strong> Copie a API Key agora. Ela nao sera exibida novamente!
-                          </AlertDescription>
-                        </Alert>
-                        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
-                          <code className="flex-1 break-all">{generatedApiKey.apiKey}</code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => copyApiKey(generatedApiKey.apiKey)}
-                          >
-                            {copiedApiKey ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Use esta chave no header <code>X-API-Key</code> das requisicoes N8N.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <Button
-                          onClick={handleGenerateApiKey}
-                          disabled={isGeneratingApiKey}
-                          size="lg"
-                        >
-                          {isGeneratingApiKey ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <Key className="h-4 w-4 mr-2" />
-                          )}
-                          Gerar API Key
-                        </Button>
-                      </div>
-                    )}
+                    <div className="text-center py-4">
+                      <Button
+                        onClick={handleGoToAIConfig}
+                        size="lg"
+                      >
+                        <Key className="h-4 w-4 mr-2" />
+                        Configurar Assistente IA
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -472,8 +405,8 @@ export default function SetupPage() {
                   {step.id === "webhook" && webhookInfo?.webhookUrl && (
                     <span>URL: {webhookInfo.webhookUrl}</span>
                   )}
-                  {step.id === "apikey" && n8nApiKeyInfo?.apiKeyPreview && (
-                    <span>Key: {n8nApiKeyInfo.apiKeyPreview}</span>
+                  {step.id === "ai" && (
+                    <span>IA configurada</span>
                   )}
                 </div>
               </CardContent>

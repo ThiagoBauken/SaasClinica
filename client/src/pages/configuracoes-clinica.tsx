@@ -15,6 +15,7 @@ import { useClinicSettings } from "@/hooks/use-clinic-settings";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { getCsrfHeaders } from "@/lib/csrf";
 import {
   Loader2,
   Building,
@@ -41,7 +42,8 @@ import {
   Zap,
   Key,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ClipboardList,
 } from "lucide-react";
 
 export default function ConfiguracoesClinicaPage() {
@@ -177,7 +179,8 @@ export default function ConfiguracoesClinicaPage() {
         // Enviar para o servidor
         const response = await fetch('/api/website/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+          credentials: 'include',
           body: JSON.stringify({
             imageData: base64,
             filename: file.name
@@ -450,18 +453,22 @@ export default function ConfiguracoesClinicaPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="clinic">
               <Building className="h-4 w-4 mr-2" />
-              Dados da Clínica
+              Dados da Clinica
+            </TabsTrigger>
+            <TabsTrigger value="patient-form">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Ficha do Paciente
             </TabsTrigger>
             <TabsTrigger value="automation">
               <Zap className="h-4 w-4 mr-2" />
-              Automações
+              Automacoes
             </TabsTrigger>
             <TabsTrigger value="website">
               <Globe className="h-4 w-4 mr-2" />
-              Site da Clínica
+              Site da Clinica
             </TabsTrigger>
           </TabsList>
 
@@ -1208,7 +1215,27 @@ export default function ConfiguracoesClinicaPage() {
                                         }));
                                       }}
                                     />
-                                    <Button variant="outline" size="sm">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const input = document.createElement("input");
+                                        input.type = "file";
+                                        input.accept = "image/*";
+                                        input.onchange = (e) => {
+                                          const file = (e.target as HTMLInputElement).files?.[0];
+                                          if (!file) return;
+                                          const url = URL.createObjectURL(file);
+                                          setWebsiteData(prev => ({
+                                            ...prev,
+                                            gallery: prev.gallery.map(p =>
+                                              p.id === photo.id ? { ...p, url } : p
+                                            )
+                                          }));
+                                        };
+                                        input.click();
+                                      }}
+                                    >
                                       <Upload className="h-4 w-4" />
                                     </Button>
                                   </div>
@@ -1467,8 +1494,226 @@ export default function ConfiguracoesClinicaPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* ============================== */}
+          {/* TAB: Ficha do Paciente */}
+          {/* ============================== */}
+          <TabsContent value="patient-form" className="space-y-4">
+            <PatientFormConfigTab />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
+  );
+}
+
+// ============================================================
+// Patient Form Config Tab (Inline Component)
+// ============================================================
+
+const FIELD_SECTIONS = [
+  {
+    title: "Dados Pessoais",
+    fields: [
+      { key: "fullName", label: "Nome Completo" },
+      { key: "socialName", label: "Nome Social" },
+      { key: "cpf", label: "CPF" },
+      { key: "rg", label: "RG" },
+      { key: "birthDate", label: "Data de Nascimento" },
+      { key: "gender", label: "Genero" },
+      { key: "nationality", label: "Nacionalidade" },
+      { key: "maritalStatus", label: "Estado Civil" },
+      { key: "profession", label: "Profissao" },
+    ],
+  },
+  {
+    title: "Contato",
+    fields: [
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Telefone" },
+      { key: "cellphone", label: "Celular" },
+      { key: "whatsappPhone", label: "WhatsApp" },
+      { key: "emergencyContactName", label: "Contato Emergencia - Nome" },
+      { key: "emergencyContactPhone", label: "Contato Emergencia - Telefone" },
+      { key: "emergencyContactRelation", label: "Contato Emergencia - Parentesco" },
+    ],
+  },
+  {
+    title: "Endereco",
+    fields: [
+      { key: "cep", label: "CEP" },
+      { key: "address", label: "Endereco" },
+      { key: "neighborhood", label: "Bairro" },
+      { key: "city", label: "Cidade" },
+      { key: "state", label: "Estado" },
+    ],
+  },
+  {
+    title: "Saude",
+    fields: [
+      { key: "healthInsurance", label: "Convenio" },
+      { key: "healthInsuranceNumber", label: "Numero da Carteirinha" },
+      { key: "bloodType", label: "Tipo Sanguineo" },
+      { key: "allergies", label: "Alergias" },
+      { key: "medications", label: "Medicamentos em Uso" },
+      { key: "chronicDiseases", label: "Doencas Cronicas" },
+    ],
+  },
+  {
+    title: "Responsavel Legal",
+    fields: [
+      { key: "responsibleName", label: "Nome do Responsavel" },
+      { key: "responsibleCpf", label: "CPF do Responsavel" },
+      { key: "responsibleRelationship", label: "Parentesco" },
+    ],
+  },
+  {
+    title: "Preferencias",
+    fields: [
+      { key: "referralSource", label: "Fonte de Indicacao" },
+      { key: "treatmentType", label: "Tipo de Tratamento" },
+      { key: "preferredTimeSlot", label: "Horario Preferido" },
+      { key: "notes", label: "Observacoes" },
+    ],
+  },
+  {
+    title: "Consentimentos LGPD",
+    fields: [
+      { key: "dataProcessingConsent", label: "Processamento de Dados" },
+      { key: "whatsappConsent", label: "Comunicacao WhatsApp" },
+      { key: "emailConsent", label: "Comunicacao Email" },
+      { key: "smsConsent", label: "Comunicacao SMS" },
+      { key: "marketingConsent", label: "Marketing" },
+    ],
+  },
+];
+
+const DEFAULT_FORM_CONFIG: Record<string, 'required' | 'optional' | 'hidden'> = {
+  fullName: "required", socialName: "optional", cpf: "optional", rg: "optional",
+  birthDate: "optional", gender: "optional", nationality: "hidden", maritalStatus: "optional",
+  profession: "optional", email: "optional", phone: "required", cellphone: "optional",
+  whatsappPhone: "optional", emergencyContactName: "optional", emergencyContactPhone: "optional",
+  emergencyContactRelation: "optional", cep: "optional", address: "optional",
+  neighborhood: "optional", city: "optional", state: "optional", healthInsurance: "optional",
+  healthInsuranceNumber: "optional", bloodType: "optional", allergies: "optional",
+  medications: "optional", chronicDiseases: "optional", responsibleName: "optional",
+  responsibleCpf: "optional", responsibleRelationship: "optional", referralSource: "optional",
+  treatmentType: "optional", preferredTimeSlot: "optional", notes: "optional",
+  dataProcessingConsent: "optional", whatsappConsent: "optional", emailConsent: "optional",
+  smsConsent: "optional", marketingConsent: "optional",
+};
+
+const formStatusColors: Record<string, string> = {
+  required: "text-red-700 bg-red-50 border-red-200",
+  optional: "text-blue-700 bg-blue-50 border-blue-200",
+  hidden: "text-gray-500 bg-gray-50 border-gray-200",
+};
+
+function PatientFormConfigTab() {
+  const { toast } = useToast();
+  const { clinicSettings: settings, isLoading } = useClinicSettings();
+  const [config, setConfig] = useState<Record<string, string>>(DEFAULT_FORM_CONFIG);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (settings?.patientFormConfig) {
+      setConfig({ ...DEFAULT_FORM_CONFIG, ...settings.patientFormConfig });
+    }
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (newConfig: Record<string, string>) => {
+      const res = await apiRequest('PUT', '/api/v1/settings', { patientFormConfig: newConfig });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Configuracao salva!" });
+      setHasChanges(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleFieldChange = (fieldKey: string, value: string) => {
+    if (fieldKey === "fullName" && value !== "required") return;
+    setConfig((prev) => ({ ...prev, [fieldKey]: value }));
+    setHasChanges(true);
+  };
+
+  const setAllInSection = (sectionFields: { key: string }[], value: string) => {
+    setConfig((prev) => {
+      const next = { ...prev };
+      for (const f of sectionFields) {
+        if (f.key === "fullName" && value !== "required") continue;
+        next[f.key] = value;
+      }
+      return next;
+    });
+    setHasChanges(true);
+  };
+
+  if (isLoading) {
+    return <Card><CardContent className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></CardContent></Card>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuracao da Ficha do Paciente</CardTitle>
+          <CardDescription>
+            Defina quais campos sao obrigatorios, opcionais ou ocultos no cadastro de pacientes.
+            Campos ocultos nao aparecem no formulario.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {FIELD_SECTIONS.map((section) => (
+            <div key={section.title}>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold">{section.title}</h4>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setAllInSection(section.fields, "required")}>Todos obrig.</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setAllInSection(section.fields, "optional")}>Todos opcionais</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setAllInSection(section.fields, "hidden")}>Ocultar todos</Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {section.fields.map((field) => {
+                  const value = config[field.key] || "optional";
+                  return (
+                    <div key={field.key} className={`flex items-center justify-between p-2 rounded border ${formStatusColors[value]}`}>
+                      <span className="text-sm">{field.label}</span>
+                      <Select value={value} onValueChange={(v) => handleFieldChange(field.key, v)}>
+                        <SelectTrigger className="w-[130px] h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="required">Obrigatorio</SelectItem>
+                          <SelectItem value="optional">Opcional</SelectItem>
+                          {field.key !== "fullName" && <SelectItem value="hidden">Oculto</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Obrigatorio</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> Opcional</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400" /> Oculto</span>
+            </div>
+            <Button onClick={() => saveMutation.mutate(config)} disabled={!hasChanges || saveMutation.isPending} className="gap-2">
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar Configuracao
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

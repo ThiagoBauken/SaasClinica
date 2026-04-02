@@ -26,16 +26,6 @@ export function useIntegrations() {
     refetchInterval: 10000, // Atualiza a cada 10 segundos
   });
 
-  // N8N API Key Query
-  const {
-    data: n8nApiKeyInfo,
-    isLoading: isLoadingN8nApiKey,
-    refetch: refetchN8nApiKey,
-  } = useQuery({
-    queryKey: ["/api/v1/integrations/n8n-api-key"],
-    queryFn: integrationsApi.getN8nApiKey,
-  });
-
   const updateMutation = useMutation({
     mutationFn: integrationsApi.updateSettings,
     onSuccess: () => {
@@ -56,24 +46,6 @@ export function useIntegrations() {
 
   const testWhatsAppMutation = useMutation({
     mutationFn: integrationsApi.testWhatsApp,
-    onSuccess: (data) => {
-      toast({
-        title: data.success ? "Conexão bem-sucedida!" : "Falha na conexão",
-        description: data.message,
-        variant: data.success ? "default" : "destructive",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao testar conexão",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const testN8NMutation = useMutation({
-    mutationFn: integrationsApi.testN8N,
     onSuccess: (data) => {
       toast({
         title: data.success ? "Conexão bem-sucedida!" : "Falha na conexão",
@@ -275,44 +247,6 @@ export function useIntegrations() {
     },
   });
 
-  // N8N API Key Generate Mutation
-  const generateN8nApiKeyMutation = useMutation({
-    mutationFn: integrationsApi.generateN8nApiKey,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/n8n-api-key"] });
-      toast({
-        title: "API Key gerada!",
-        description: "A nova API Key foi gerada com sucesso. Copie-a agora, pois não será exibida novamente.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao gerar API Key",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // N8N API Key Revoke Mutation
-  const revokeN8nApiKeyMutation = useMutation({
-    mutationFn: integrationsApi.revokeN8nApiKey,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/integrations/n8n-api-key"] });
-      toast({
-        title: "API Key revogada",
-        description: "A API Key foi revogada com sucesso.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao revogar API Key",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
     integrationSettings,
     isLoading,
@@ -321,8 +255,6 @@ export function useIntegrations() {
     isUpdating: updateMutation.isPending,
     testWhatsApp: testWhatsAppMutation.mutate,
     isTestingWhatsApp: testWhatsAppMutation.isPending,
-    testN8N: testN8NMutation.mutate,
-    isTestingN8N: testN8NMutation.isPending,
     sendTestWhatsApp: sendTestWhatsAppMutation.mutate,
     isSendingTest: sendTestWhatsAppMutation.isPending,
     // Wuzapi Status e QR Code
@@ -355,14 +287,5 @@ export function useIntegrations() {
     refetchWebhookInfo,
     configureWebhook: configureWebhookMutation.mutateAsync,
     isConfiguringWebhook: configureWebhookMutation.isPending,
-    // N8N API Key
-    n8nApiKeyInfo,
-    isLoadingN8nApiKey,
-    refetchN8nApiKey,
-    generateN8nApiKey: generateN8nApiKeyMutation.mutateAsync,
-    isGeneratingApiKey: generateN8nApiKeyMutation.isPending,
-    generatedApiKey: generateN8nApiKeyMutation.data,
-    revokeN8nApiKey: revokeN8nApiKeyMutation.mutate,
-    isRevokingApiKey: revokeN8nApiKeyMutation.isPending,
   };
 }

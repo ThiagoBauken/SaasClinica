@@ -327,6 +327,10 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     // CSRF protection for state-changing requests (after session, before routes)
     app.use('/api', csrfProtection);
 
+    // RLS: Set PostgreSQL tenant context per-request (defense-in-depth for multi-tenancy)
+    const { rlsMiddleware } = await import('./middleware/rls');
+    app.use('/api', rlsMiddleware);
+
     // Client error reporting endpoint
     app.post('/api/client-errors', express.json(), (req: Request, res: Response) => {
       logger.warn({ clientError: req.body, ip: req.ip }, 'Client-side error reported');

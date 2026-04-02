@@ -14,6 +14,7 @@ import {
   Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getCsrfHeaders } from '@/lib/csrf';
 
 /**
  * Página de Importação de Pacientes
@@ -118,6 +119,7 @@ export default function PatientImportPage() {
 
       const response = await fetch('/api/v1/patients/import/images', {
         method: 'POST',
+        headers: getCsrfHeaders(),
         body: formData,
         credentials: 'include',
       });
@@ -176,6 +178,7 @@ export default function PatientImportPage() {
 
       const response = await fetch('/api/v1/patients/import/xlsx', {
         method: 'POST',
+        headers: getCsrfHeaders(),
         body: formData,
         credentials: 'include',
       });

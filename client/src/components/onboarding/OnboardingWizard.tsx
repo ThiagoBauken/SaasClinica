@@ -29,6 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 interface OnboardingStep {
   id: string;
@@ -62,12 +63,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   });
 
   // Fetch company data
-  const { data: company } = useQuery({
+  const { data: company } = useQuery<{ name?: string; phone?: string; email?: string; address?: string }>({
     queryKey: ["/api/user/company"],
   });
 
   // Fetch integration settings
-  const { data: integrations } = useQuery({
+  const { data: integrations } = useQuery<{ hasWuzapiConfig?: boolean }>({
     queryKey: ["/api/v1/clinic/integrations"],
   });
 
@@ -150,7 +151,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     mutationFn: async (data: typeof formData) => {
       const response = await fetch("/api/v1/clinic/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({
           name: data.clinicName,
           phone: data.phone,

@@ -15,6 +15,7 @@ import { N8NService } from '../services/n8n.service';
 import { syncAppointmentToGoogle, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from '../services/google-calendar.service';
 import { notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentDeleted } from '../websocket';
 import { createAutomationEngine } from '../services/automation-engine';
+import { progressOpportunityByPhone } from '../services/crm-auto-progression';
 
 const router = Router();
 
@@ -440,14 +441,9 @@ router.post(
         console.error('❌ Erro na automação de criação:', error);
       });
 
-    // Disparar automações N8N (async, não bloqueia resposta) - mantido para testes
-    if (appointment.automationEnabled !== false) {
-      N8NService.triggerAutomation(appointment.id, companyId, 'appointment_created')
-        .catch(error => {
-          console.error('Error triggering N8N automation:', error);
-          // Não falhar a requisição se automação falhar
-        });
-    }
+    // N8N removido - automação nativa (AutomationEngine) já cobre este fluxo
+    // Para reativar N8N como fallback, descomentar abaixo:
+    // N8NService.triggerAutomation(appointment.id, companyId, 'appointment_created').catch(() => {});
 
     // Sincronizar com Google Calendar (async)
     if (appointment.professionalId) {
@@ -558,6 +554,24 @@ router.patch(
 
     const updatedAppointment = await storage.updateAppointment(parseInt(id), req.body, companyId);
 
+    // CRM: Progride pipeline quando status muda para completed ou payment-related
+    const newStatus = req.body.status;
+    if (newStatus && newStatus !== existingAppointment.status) {
+      const patient = existingAppointment.patientId
+        ? await storage.getPatient(existingAppointment.patientId, companyId)
+        : null;
+      const patientPhone = patient?.phone || (patient as any)?.whatsappPhone;
+
+      if (patientPhone) {
+        if (newStatus === 'completed') {
+          progressOpportunityByPhone(companyId, patientPhone, 'consultation_done', {
+            appointmentId: parseInt(id),
+            appointmentStatus: newStatus,
+          }).catch(err => console.error('CRM progression error (consultation_done):', err));
+        }
+      }
+    }
+
     // Verificar se houve mudança de horário (reagendamento)
     const wasRescheduled = startTime && existingAppointment.startTime !== startTime;
 
@@ -577,13 +591,7 @@ router.patch(
         });
     }
 
-    // Disparar automação N8N se houve mudança de horário ou profissional - mantido para testes
-    if ((startTime || endTime || professionalId !== undefined) && updatedAppointment.automationEnabled !== false) {
-      N8NService.triggerAutomation(parseInt(id), companyId, 'appointment_updated')
-        .catch(error => {
-          console.error('Error triggering N8N automation on update:', error);
-        });
-    }
+    // N8N removido - automação nativa (AutomationEngine) já cobre reagendamento acima
 
     // Atualizar Google Calendar se houve mudança
     if ((startTime || endTime || professionalId !== undefined) && updatedAppointment.professionalId) {
@@ -638,13 +646,7 @@ router.post(
         console.error('❌ Erro na automação de cancelamento:', error);
       });
 
-    // Enviar notificação via N8N se notifyPatient === true - mantido para testes
-    if (notifyPatient && updatedAppointment.automationEnabled !== false) {
-      N8NService.triggerAutomation(id, companyId, 'appointment_cancelled')
-        .catch(error => {
-          console.error('Error triggering N8N automation on cancel:', error);
-        });
-    }
+    // N8N removido - automação nativa (AutomationEngine) já cobre cancelamento acima
 
     // Notificar via WebSocket (atualização em tempo real)
     notifyAppointmentUpdated(companyId, updatedAppointment);

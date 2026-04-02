@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/core/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { getCsrfHeaders } from '@/lib/csrf';
 
 interface Notification {
   id: number;
@@ -176,6 +177,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`/api/v1/notifications/${id}/read`, {
         method: 'PATCH',
+        headers: getCsrfHeaders(),
         credentials: 'include',
       });
 
@@ -199,6 +201,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/v1/notifications/mark-all-read', {
         method: 'POST',
+        headers: getCsrfHeaders(),
         credentials: 'include',
       });
 
@@ -227,6 +230,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`/api/v1/notifications/${id}`, {
         method: 'DELETE',
+        headers: getCsrfHeaders(),
         credentials: 'include',
       });
 

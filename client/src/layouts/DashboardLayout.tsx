@@ -24,8 +24,14 @@ const pathLabels: Record<string, string> = {
   "proteses": "Próteses",
   "analytics": "Analytics",
   "crm": "CRM",
+  "ia": "Assistente IA",
   "chat": "Chat",
   "billing": "Faturamento",
+  "relatorios": "Relatórios",
+  "teleconsulta": "Teleconsulta",
+  "chat-interno": "Chat Interno",
+  "pagamentos-paciente": "Pagamentos",
+  "ajuda": "Ajuda",
 };
 
 interface DashboardLayoutProps {

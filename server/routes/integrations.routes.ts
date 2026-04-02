@@ -9,6 +9,7 @@ import { db } from '../db';
 import { clinicSettings, companies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import * as WuzapiService from '../services/wuzapi-provisioning';
+import { getWhatsAppProvider, getWhatsAppProviderInfo, type WhatsAppProviderType } from '../services/whatsapp-provider';
 
 const router = Router();
 
@@ -23,10 +24,6 @@ const updateIntegrationsSchema = z.object({
   // Google Calendar
   defaultGoogleCalendarId: z.string().optional(),
   googleCalendarTimezone: z.string().optional(),
-
-  // N8N
-  n8nWebhookBaseUrl: z.string().url().optional(),
-  n8nWebhookSecret: z.string().optional(),
 
   // Admin
   adminWhatsappPhone: z.string().optional(),
@@ -65,7 +62,6 @@ router.get(
         wuzapiBaseUrl: 'https://private-wuzapi.pbzgje.easypanel.host',
         defaultGoogleCalendarId: null,
         googleCalendarTimezone: 'America/Sao_Paulo',
-        n8nWebhookBaseUrl: null,
         adminWhatsappPhone: null,
         enableAppointmentReminders: true,
         reminderHoursBefore: 24,
@@ -74,7 +70,6 @@ router.get(
         feedbackHoursAfter: 24,
         hasWuzapiConfig: false,
         hasGoogleCalendarConfig: false,
-        hasN8nConfig: false,
       });
     }
 
@@ -83,10 +78,8 @@ router.get(
       ...settings,
       wuzapiApiKey: settings.wuzapiApiKey ? `***${settings.wuzapiApiKey.slice(-4)}` : null,
       wuzapiWebhookSecret: settings.wuzapiWebhookSecret ? '***' : null,
-      n8nWebhookSecret: settings.n8nWebhookSecret ? '***' : null,
       hasWuzapiConfig: !!(settings.wuzapiInstanceId && settings.wuzapiApiKey),
       hasGoogleCalendarConfig: !!settings.defaultGoogleCalendarId,
-      hasN8nConfig: !!settings.n8nWebhookBaseUrl,
     };
 
     res.json(masked);
@@ -138,10 +131,8 @@ router.patch(
       ...updated,
       wuzapiApiKey: updated.wuzapiApiKey ? `***${updated.wuzapiApiKey.slice(-4)}` : null,
       wuzapiWebhookSecret: updated.wuzapiWebhookSecret ? '***' : null,
-      n8nWebhookSecret: updated.n8nWebhookSecret ? '***' : null,
       hasWuzapiConfig: !!(updated.wuzapiInstanceId && updated.wuzapiApiKey),
       hasGoogleCalendarConfig: !!updated.defaultGoogleCalendarId,
-      hasN8nConfig: !!updated.n8nWebhookBaseUrl,
     };
 
     res.json({
@@ -201,68 +192,6 @@ router.post(
 );
 
 /**
- * POST /api/v1/integrations/test-n8n
- * Testa conexão com N8N
- */
-router.post(
-  '/test-n8n',
-  authCheck,
-  asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
-
-    if (!companyId) {
-      return res.status(403).json({ error: 'User not associated with any company' });
-    }
-
-    const settings = await storage.getClinicSettings(companyId);
-
-    if (!settings?.n8nWebhookBaseUrl) {
-      return res.status(400).json({
-        error: 'N8N not configured',
-        message: 'Configure a URL do N8N primeiro',
-      });
-    }
-
-    try {
-      // Testar webhook de healthcheck
-      const response = await fetch(`${settings.n8nWebhookBaseUrl}/webhook/healthcheck`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          test: true,
-          companyId,
-        }),
-      });
-
-      if (response.ok) {
-        res.json({
-          success: true,
-          message: 'Conexão com N8N estabelecida com sucesso',
-          connected: true,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'N8N retornou erro',
-          status: response.status,
-          connected: false,
-        });
-      }
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Falha ao conectar com N8N',
-        error: error.message,
-        connected: false,
-      });
-    }
-  })
-);
-
-/**
  * POST /api/v1/integrations/test-wuzapi
  * Testa conexão com Wuzapi API 3.0
  */
@@ -271,7 +200,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     const settings = await storage.getClinicSettings(companyId);
 
@@ -346,7 +276,8 @@ router.post(
   }),
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -474,176 +405,6 @@ router.post(
 );
 
 /**
- * GET /api/v1/integrations/n8n-workflows/download
- * Gera workflows N8N com configurações preenchidas
- */
-router.get(
-  '/n8n-workflows/download',
-  authCheck,
-  asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId || 1;
-
-    // Buscar configurações
-    const [settings] = await db
-      .select()
-      .from(clinicSettings)
-      .where(eq(clinicSettings.companyId, companyId))
-      .limit(1);
-
-    const [company] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1);
-
-    if (!settings && !company) {
-      return res.status(400).json({ error: 'Configure as integrações primeiro' });
-    }
-
-    const companyName = settings?.name || company?.name || 'Sua Clínica';
-    const safeCompanyName = companyName.replace(/\s+/g, '_');
-
-    // Template de workflow de confirmação
-    const confirmationWorkflow = {
-      name: `${safeCompanyName}_Confirmacao_Consulta`,
-      nodes: [
-        {
-          parameters: {
-            rule: { interval: [{ triggerAtHour: 8 }] }
-          },
-          name: 'Schedule Trigger',
-          type: 'n8n-nodes-base.scheduleTrigger',
-          typeVersion: 1.2,
-          position: [200, 80]
-        },
-        {
-          parameters: {
-            assignments: {
-              assignments: [
-                { id: 'config-base-url', name: 'base_url', value: settings?.evolutionApiBaseUrl || '{{EVOLUTION_BASE_URL}}', type: 'string' },
-                { id: 'config-instance', name: 'evo_name', value: settings?.evolutionInstanceName || '{{EVOLUTION_INSTANCE_NAME}}', type: 'string' },
-                { id: 'config-api-key', name: 'api_key', value: settings?.evolutionApiKey || '{{EVOLUTION_API_KEY}}', type: 'string' },
-                { id: 'config-company-name', name: 'company_name', value: companyName, type: 'string' },
-                { id: 'config-google-review', name: 'google_review_link', value: settings?.googleReviewLink || '{{GOOGLE_REVIEW_LINK}}', type: 'string' }
-              ]
-            }
-          },
-          name: 'Configurações',
-          type: 'n8n-nodes-base.set',
-          typeVersion: 3.4,
-          position: [400, 80]
-        }
-      ],
-      connections: { 'Schedule Trigger': { main: [[{ node: 'Configurações', type: 'main', index: 0 }]] } },
-      settings: { executionOrder: 'v1' },
-      meta: { description: `Workflow de confirmação de consultas para ${companyName}` }
-    };
-
-    // Template de workflow de aniversário
-    const birthdayWorkflow = {
-      name: `${safeCompanyName}_Aniversario`,
-      nodes: [
-        {
-          parameters: { rule: { interval: [{ triggerAtHour: 9 }] } },
-          name: 'Schedule Trigger',
-          type: 'n8n-nodes-base.scheduleTrigger',
-          typeVersion: 1.2,
-          position: [200, 80]
-        },
-        {
-          parameters: {
-            assignments: {
-              assignments: [
-                { id: 'config-base-url', name: 'base_url', value: settings?.evolutionApiBaseUrl || '{{EVOLUTION_BASE_URL}}', type: 'string' },
-                { id: 'config-instance', name: 'evo_name', value: settings?.evolutionInstanceName || '{{EVOLUTION_INSTANCE_NAME}}', type: 'string' },
-                { id: 'config-api-key', name: 'api_key', value: settings?.evolutionApiKey || '{{EVOLUTION_API_KEY}}', type: 'string' },
-                { id: 'config-company-name', name: 'company_name', value: companyName, type: 'string' },
-                {
-                  id: 'config-birthday-message',
-                  name: 'birthday_message',
-                  value: settings?.birthdayMessageTemplate || `Hoje é um dia especial! 🎉 Estamos comemorando seu aniversário e queremos aproveitar para desejar um ano cheio de felicidade, saúde e muitos sorrisos.\n\nAgradecemos por fazer parte da nossa família ${companyName}. Que seu dia seja tão incrível quanto você! 🥳😁`,
-                  type: 'string'
-                }
-              ]
-            }
-          },
-          name: 'Configurações',
-          type: 'n8n-nodes-base.set',
-          typeVersion: 3.4,
-          position: [400, 80]
-        }
-      ],
-      connections: { 'Schedule Trigger': { main: [[{ node: 'Configurações', type: 'main', index: 0 }]] } },
-      settings: { executionOrder: 'v1' },
-      meta: { description: `Workflow de aniversário para ${companyName}` }
-    };
-
-    // Template de workflow de avaliação
-    const reviewWorkflow = {
-      name: `${safeCompanyName}_Avaliacao`,
-      nodes: [
-        {
-          parameters: { rule: { interval: [{ triggerAtHour: 18 }] } },
-          name: 'Schedule Trigger',
-          type: 'n8n-nodes-base.scheduleTrigger',
-          typeVersion: 1.2,
-          position: [200, 80]
-        },
-        {
-          parameters: {
-            assignments: {
-              assignments: [
-                { id: 'config-base-url', name: 'base_url', value: settings?.evolutionApiBaseUrl || '{{EVOLUTION_BASE_URL}}', type: 'string' },
-                { id: 'config-instance', name: 'evo_name', value: settings?.evolutionInstanceName || '{{EVOLUTION_INSTANCE_NAME}}', type: 'string' },
-                { id: 'config-api-key', name: 'api_key', value: settings?.evolutionApiKey || '{{EVOLUTION_API_KEY}}', type: 'string' },
-                { id: 'config-company-name', name: 'company_name', value: companyName, type: 'string' },
-                { id: 'config-google-review', name: 'google_review_link', value: settings?.googleReviewLink || '{{GOOGLE_REVIEW_LINK}}', type: 'string' },
-                {
-                  id: 'config-review-message',
-                  name: 'review_message',
-                  value: settings?.reviewRequestTemplate || `Boa noite, {{patientName}}! Agradecemos por ter comparecido à sua consulta na ${companyName}! Foi um prazer cuidar do seu sorriso. 😁\n\nQueremos continuar melhorando, por isso, sua opinião é muito importante! Avalie clicando: ${settings?.googleReviewLink || '{{GOOGLE_REVIEW_LINK}}'}\n\nMuito obrigado! 💙`,
-                  type: 'string'
-                }
-              ]
-            }
-          },
-          name: 'Configurações',
-          type: 'n8n-nodes-base.set',
-          typeVersion: 3.4,
-          position: [400, 80]
-        }
-      ],
-      connections: { 'Schedule Trigger': { main: [[{ node: 'Configurações', type: 'main', index: 0 }]] } },
-      settings: { executionOrder: 'v1' },
-      meta: { description: `Workflow de solicitação de avaliação para ${companyName}` }
-    };
-
-    res.json({
-      exportedAt: new Date().toISOString(),
-      companyName,
-      workflows: [confirmationWorkflow, birthdayWorkflow, reviewWorkflow],
-      instructions: {
-        pt: [
-          '1. Importe cada workflow no N8N',
-          '2. Configure as credenciais do Baserow e Google Calendar',
-          '3. Ajuste os IDs das tabelas conforme sua configuração',
-          '4. Ative os workflows',
-          '5. Teste com dados de exemplo antes de usar em produção'
-        ],
-        placeholders: {
-          '{{EVOLUTION_BASE_URL}}': 'URL da sua instância Evolution API',
-          '{{EVOLUTION_INSTANCE_NAME}}': 'Nome da sua instância no Evolution',
-          '{{EVOLUTION_API_KEY}}': 'API Key da Evolution',
-          '{{GOOGLE_REVIEW_LINK}}': 'Link curto para avaliação no Google',
-          '{{GOOGLE_CALENDAR_ID}}': 'ID do seu Google Calendar'
-        }
-      }
-    });
-  })
-);
-
-/**
  * GET /api/v1/integrations/config
  * Retorna configurações completas de integrações para o formulário
  */
@@ -652,7 +413,8 @@ router.get(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     const [settings] = await db
       .select()
@@ -700,7 +462,8 @@ router.get(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     // Usa o servico de provisionamento automatico
     const result = await WuzapiService.getWuzapiQrCode(companyId);
@@ -732,7 +495,8 @@ router.get(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     // Usa o servico de provisionamento automatico
     const status = await WuzapiService.getWuzapiStatus(companyId);
@@ -749,7 +513,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -773,7 +538,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     const result = await WuzapiService.reconnectWuzapi(companyId);
 
@@ -800,128 +566,6 @@ router.post(
 );
 
 /**
- * GET /api/v1/integrations/n8n-api-key
- * Retorna a API Key do N8N para a empresa (mascarada)
- */
-router.get(
-  '/n8n-api-key',
-  authCheck,
-  asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
-
-    if (!companyId) {
-      return res.status(403).json({ error: 'User not associated with any company' });
-    }
-
-    const [company] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1);
-
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
-    }
-
-    const apiKey = (company as any).n8nApiKey;
-    const createdAt = (company as any).n8nApiKeyCreatedAt;
-
-    res.json({
-      hasApiKey: !!apiKey,
-      apiKeyPreview: apiKey ? `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}` : null,
-      createdAt: createdAt || null,
-    });
-  })
-);
-
-/**
- * POST /api/v1/integrations/n8n-api-key/generate
- * Gera ou regenera a API Key do N8N para a empresa
- */
-router.post(
-  '/n8n-api-key/generate',
-  authCheck,
-  asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
-
-    if (!companyId) {
-      return res.status(403).json({ error: 'User not associated with any company' });
-    }
-
-    if (user.role !== 'admin' && user.role !== 'superadmin') {
-      return res.status(403).json({
-        error: 'Permission denied',
-        message: 'Apenas administradores podem gerar API Keys',
-      });
-    }
-
-    // Gerar nova API Key usando crypto
-    const crypto = await import('crypto');
-    const newApiKey = `n8n_${crypto.randomBytes(32).toString('hex')}`;
-
-    // Atualizar no banco
-    await db
-      .update(companies)
-      .set({
-        n8nApiKey: newApiKey,
-        n8nApiKeyCreatedAt: new Date(),
-      } as any)
-      .where(eq(companies.id, companyId));
-
-    res.json({
-      success: true,
-      message: 'API Key gerada com sucesso',
-      apiKey: newApiKey,
-      apiKeyPreview: `${newApiKey.substring(0, 8)}...${newApiKey.substring(newApiKey.length - 4)}`,
-      createdAt: new Date().toISOString(),
-      usage: {
-        header: 'X-API-Key',
-        example: `curl -H "X-API-Key: ${newApiKey}" https://sua-api.com/api/n8n/...`,
-      },
-    });
-  })
-);
-
-/**
- * DELETE /api/v1/integrations/n8n-api-key
- * Revoga a API Key do N8N
- */
-router.delete(
-  '/n8n-api-key',
-  authCheck,
-  asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
-
-    if (!companyId) {
-      return res.status(403).json({ error: 'User not associated with any company' });
-    }
-
-    if (user.role !== 'admin' && user.role !== 'superadmin') {
-      return res.status(403).json({
-        error: 'Permission denied',
-        message: 'Apenas administradores podem revogar API Keys',
-      });
-    }
-
-    await db
-      .update(companies)
-      .set({
-        n8nApiKey: null,
-        n8nApiKeyCreatedAt: null,
-      } as any)
-      .where(eq(companies.id, companyId));
-
-    res.json({
-      success: true,
-      message: 'API Key revogada com sucesso',
-    });
-  })
-);
-
-/**
  * POST /api/v1/integrations/wuzapi/connect
  * Inicia conexao com o WhatsApp via Wuzapi 3.0
  * PROVISIONAMENTO AUTOMATICO: Token configurado automaticamente
@@ -931,7 +575,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -979,7 +624,8 @@ router.post(
   }),
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -1057,7 +703,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -1080,7 +727,8 @@ router.get(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     const settings = await storage.getClinicSettings(companyId);
 
@@ -1110,7 +758,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -1146,7 +795,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     const success = await WuzapiService.configureWuzapiWebhook(companyId);
 
@@ -1166,7 +816,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -1260,7 +911,8 @@ router.post(
   authCheck,
   asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 1;
+    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({
@@ -1283,6 +935,408 @@ router.post(
         message: result.message,
       });
     }
+  })
+);
+
+// ==========================================
+// WHATSAPP PROVIDER SELECTION
+// ==========================================
+
+/**
+ * GET /api/v1/integrations/whatsapp-provider
+ * Retorna info do provider ativo e quais estão configurados
+ */
+router.get(
+  '/whatsapp-provider',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+
+    const info = await getWhatsAppProviderInfo(user.companyId);
+    res.json(info);
+  })
+);
+
+/**
+ * PUT /api/v1/integrations/whatsapp-provider
+ * Define qual provider de WhatsApp usar
+ */
+router.put(
+  '/whatsapp-provider',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas administradores podem alterar o provider' });
+    }
+
+    const { provider } = req.body;
+    const validProviders: WhatsAppProviderType[] = ['wuzapi', 'evolution', 'meta_cloud_api'];
+
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({ error: `Provider inválido. Use: ${validProviders.join(', ')}` });
+    }
+
+    await db
+      .update(clinicSettings)
+      .set({ whatsappProvider: provider, updatedAt: new Date() })
+      .where(eq(clinicSettings.companyId, user.companyId));
+
+    res.json({ success: true, activeProvider: provider });
+  })
+);
+
+/**
+ * POST /api/v1/integrations/whatsapp-provider/test
+ * Testa o provider ativo enviando uma msg de teste
+ */
+router.post(
+  '/whatsapp-provider/test',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+
+    const provider = await getWhatsAppProvider(user.companyId);
+    if (!provider) {
+      return res.status(503).json({ error: 'Nenhum provider WhatsApp configurado' });
+    }
+
+    const connection = await provider.checkConnection();
+    if (!connection.connected) {
+      return res.status(503).json({
+        error: 'Provider não está conectado',
+        provider: connection.provider,
+        details: connection.error,
+      });
+    }
+
+    const { phone } = req.body;
+    if (!phone) {
+      return res.json({ connected: true, provider: connection.provider, state: connection.state });
+    }
+
+    const result = await provider.sendTextMessage({
+      phone,
+      message: '✅ Teste de integração WhatsApp realizado com sucesso!',
+    });
+
+    res.json({
+      success: result.success,
+      provider: result.provider,
+      messageId: result.messageId,
+      error: result.error,
+    });
+  })
+);
+
+/**
+ * PUT /api/v1/integrations/meta-cloud-api
+ * Configura a API oficial do WhatsApp (Meta Cloud API)
+ */
+router.put(
+  '/meta-cloud-api',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas administradores podem configurar integrações' });
+    }
+
+    const { metaPhoneNumberId, metaAccessToken, metaBusinessAccountId, metaWebhookVerifyToken } = req.body;
+
+    if (!metaPhoneNumberId || !metaAccessToken) {
+      return res.status(400).json({ error: 'Phone Number ID e Access Token são obrigatórios' });
+    }
+
+    await db
+      .update(clinicSettings)
+      .set({
+        metaPhoneNumberId,
+        metaAccessToken,
+        metaBusinessAccountId: metaBusinessAccountId || null,
+        metaWebhookVerifyToken: metaWebhookVerifyToken || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicSettings.companyId, user.companyId));
+
+    res.json({ success: true, message: 'Meta Cloud API configurada com sucesso' });
+  })
+);
+
+/**
+ * PUT /api/v1/integrations/evolution-api
+ * Configura a Evolution API
+ */
+router.put(
+  '/evolution-api',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas administradores podem configurar integrações' });
+    }
+
+    const { evolutionApiBaseUrl, evolutionInstanceName, evolutionApiKey } = req.body;
+
+    if (!evolutionApiBaseUrl || !evolutionInstanceName || !evolutionApiKey) {
+      return res.status(400).json({ error: 'URL, Instance Name e API Key são obrigatórios' });
+    }
+
+    await db
+      .update(clinicSettings)
+      .set({
+        evolutionApiBaseUrl,
+        evolutionInstanceName,
+        evolutionApiKey,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicSettings.companyId, user.companyId));
+
+    res.json({ success: true, message: 'Evolution API configurada com sucesso' });
+  })
+);
+
+// ==========================================
+// AI AGENT STATUS & ACTIVATION
+// ==========================================
+
+/**
+ * GET /api/v1/integrations/ai-agent/health
+ * Returns the health status of each configured AI provider.
+ * Tests connectivity and returns latency for each provider.
+ */
+router.get(
+  '/ai-agent/health',
+  authCheck,
+  asyncHandler(async (req: any, res) => {
+    const user = req.user;
+    if (!user?.companyId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const [settings] = await db
+      .select()
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, user.companyId))
+      .limit(1);
+
+    const [company] = await db
+      .select({ anthropicApiKey: companies.anthropicApiKey })
+      .from(companies)
+      .where(eq(companies.id, user.companyId))
+      .limit(1);
+
+    const activeProvider = (settings as any)?.aiProvider || 'anthropic';
+
+    // Resolve API keys - prefer per-company settings, fall back to env
+    const anthropicKey = (settings as any)?.anthropicApiKey || company?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    const openaiKey = (settings as any)?.openaiApiKey || process.env.OPENAI_API_KEY;
+    const ollamaUrl = (settings as any)?.ollamaBaseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    const ollamaModel = (settings as any)?.localAiModel || 'llama3.1:8b';
+    const anthropicModel = (settings as any)?.aiAgentModel || 'claude-haiku-4-5-20251001';
+    const openaiModel = (settings as any)?.openaiModel || 'gpt-4o-mini';
+
+    /**
+     * Performs a lightweight health check on each provider.
+     * For cloud providers: verifies API key present + does a minimal API call.
+     * For Ollama: checks the /api/tags endpoint.
+     */
+    async function checkAnthropic(): Promise<{ status: 'healthy' | 'offline' | 'no_key'; latency: number; error?: string }> {
+      if (!anthropicKey) {
+        return { status: 'no_key', latency: 0, error: 'API key not configured' };
+      }
+      const start = Date.now();
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: anthropicModel,
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const latency = Date.now() - start;
+        // 200 = healthy, 400 = bad request but key is valid, 401/403 = bad key
+        if (response.status === 200 || response.status === 400) {
+          return { status: 'healthy', latency };
+        }
+        const body = await response.text();
+        return { status: 'offline', latency, error: `HTTP ${response.status}: ${body.slice(0, 100)}` };
+      } catch (err: any) {
+        return { status: 'offline', latency: Date.now() - start, error: err.message };
+      }
+    }
+
+    async function checkOpenAI(): Promise<{ status: 'healthy' | 'offline' | 'no_key'; latency: number; error?: string }> {
+      if (!openaiKey) {
+        return { status: 'no_key', latency: 0, error: 'API key not configured' };
+      }
+      const start = Date.now();
+      try {
+        const response = await fetch('https://api.openai.com/v1/models', {
+          headers: { Authorization: `Bearer ${openaiKey}` },
+          signal: AbortSignal.timeout(8000),
+        });
+        const latency = Date.now() - start;
+        if (response.ok) {
+          return { status: 'healthy', latency };
+        }
+        const body = await response.text();
+        return { status: 'offline', latency, error: `HTTP ${response.status}: ${body.slice(0, 100)}` };
+      } catch (err: any) {
+        return { status: 'offline', latency: Date.now() - start, error: err.message };
+      }
+    }
+
+    async function checkOllama(): Promise<{ status: 'healthy' | 'offline' | 'no_key'; latency: number; error?: string }> {
+      const start = Date.now();
+      try {
+        const response = await fetch(`${ollamaUrl}/api/tags`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const latency = Date.now() - start;
+        if (response.ok) {
+          return { status: 'healthy', latency };
+        }
+        return { status: 'offline', latency, error: `HTTP ${response.status}` };
+      } catch (err: any) {
+        return { status: 'offline', latency: Date.now() - start, error: err.message };
+      }
+    }
+
+    // Run all checks in parallel
+    const [anthropicResult, openaiResult, ollamaResult] = await Promise.all([
+      checkAnthropic(),
+      checkOpenAI(),
+      checkOllama(),
+    ]);
+
+    const providers = [
+      {
+        name: 'anthropic',
+        label: 'Anthropic Claude',
+        status: anthropicResult.status,
+        model: anthropicModel,
+        latency: anthropicResult.latency,
+        ...(anthropicResult.error ? { error: anthropicResult.error } : {}),
+      },
+      {
+        name: 'openai',
+        label: 'OpenAI ChatGPT',
+        status: openaiResult.status,
+        model: openaiModel,
+        latency: openaiResult.latency,
+        ...(openaiResult.error ? { error: openaiResult.error } : {}),
+      },
+      {
+        name: 'ollama',
+        label: 'LLM Local (Ollama)',
+        status: ollamaResult.status,
+        model: ollamaModel,
+        latency: ollamaResult.latency,
+        ...(ollamaResult.error ? { error: ollamaResult.error } : {}),
+      },
+    ];
+
+    // isReady = active provider is healthy
+    const activeProviderInfo = providers.find(p => p.name === activeProvider);
+    const isReady = activeProviderInfo?.status === 'healthy';
+
+    res.json({
+      providers,
+      activeProvider,
+      isReady,
+    });
+  })
+);
+
+/**
+ * GET /api/v1/integrations/ai-agent/status
+ * Returns the activation status of the AI Agent for this company.
+ * Shows which required and recommended fields are missing.
+ */
+router.get(
+  '/ai-agent/status',
+  authCheck,
+  asyncHandler(async (req: any, res) => {
+    const user = req.user;
+    if (!user?.companyId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { checkActivation } = await import('../services/ai-agent/activation-check');
+    const status = await checkActivation(user.companyId);
+
+    res.json({
+      success: true,
+      ...status,
+    });
+  })
+);
+
+/**
+ * POST /api/v1/integrations/ai-agent/toggle
+ * Enable or disable the AI agent for this company.
+ * Only works if all required fields are filled (canActivate = true).
+ */
+router.post(
+  '/ai-agent/toggle',
+  authCheck,
+  asyncHandler(async (req: any, res) => {
+    const user = req.user;
+    if (!user?.companyId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { enabled } = req.body;
+
+    if (enabled) {
+      // Check if can activate
+      const { checkActivation, invalidateActivationCache } = await import('../services/ai-agent/activation-check');
+      const status = await checkActivation(user.companyId);
+
+      if (!status.canActivate) {
+        return res.status(400).json({
+          success: false,
+          error: 'Preencha todos os campos obrigatórios antes de ativar a IA',
+          missingRequired: status.missingRequired,
+        });
+      }
+
+      await db.update(clinicSettings).set({
+        chatEnabled: true,
+        updatedAt: new Date(),
+      }).where(eq(clinicSettings.companyId, user.companyId));
+
+      invalidateActivationCache(user.companyId);
+
+      return res.json({ success: true, message: 'IA ativada com sucesso' });
+    }
+
+    // Disable
+    await db.update(clinicSettings).set({
+      chatEnabled: false,
+      updatedAt: new Date(),
+    }).where(eq(clinicSettings.companyId, user.companyId));
+
+    const { invalidateActivationCache } = await import('../services/ai-agent/activation-check');
+    invalidateActivationCache(user.companyId);
+
+    res.json({ success: true, message: 'IA desativada' });
   })
 );
 

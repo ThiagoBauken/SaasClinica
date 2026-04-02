@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { db } from '../db';
 import {
-  companies, clinicSettings, patients, appointments, procedures, users, rooms
+  companies, clinicSettings, patients, appointments, procedures, users, rooms, chatSessions
 } from '@shared/schema';
 import { eq, and, gte, lte, or, like, sql, desc } from 'drizzle-orm';
 import { asyncHandler } from '../middleware/auth';
+import { n8nAuth } from '../middleware/n8n-auth';
+import { normalizePhone, phonesMatch } from '../utils/phone';
 import { z } from 'zod';
 import { validate } from '../middleware/validation';
+import rateLimit from 'express-rate-limit';
 import {
   ConversationStyleConfig,
   ConversationContext,
@@ -31,6 +34,16 @@ import {
 
 const router = Router();
 
+// Rate limiting: 100 requests per minute per IP
+const n8nRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { success: false, error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+router.use(n8nRateLimit);
+
 // ==========================================
 // BUFFER DE MENSAGENS PARA DEBOUNCE
 // ==========================================
@@ -44,57 +57,7 @@ interface MessageBufferItem {
 
 const messageBuffers = new Map<string, MessageBufferItem>();
 
-/**
- * Middleware para autenticar requisições do N8N
- * Aceita:
- * 1. SAAS_MASTER_API_KEY (acesso global)
- * 2. Company-specific n8nApiKey (acesso por empresa)
- * 3. Wuzapi Token (identifica empresa automaticamente)
- */
-async function n8nAuth(req: any, res: any, next: any) {
-  const apiKey = req.headers['x-api-key'] as string;
-  const wuzapiToken = req.headers['x-wuzapi-token'] as string;
-  const masterKey = process.env.SAAS_MASTER_API_KEY;
-
-  // 1. Master API Key - acesso global
-  if (apiKey && apiKey === masterKey) {
-    req.isMaster = true;
-    return next();
-  }
-
-  // 2. Wuzapi Token - identifica empresa automaticamente
-  if (wuzapiToken) {
-    const allSettings = await db.select().from(clinicSettings);
-    type ClinicSettingsRow = typeof clinicSettings.$inferSelect;
-    const matchedSettings = allSettings.find((s: ClinicSettingsRow) => s.wuzapiApiKey === wuzapiToken);
-
-    if (matchedSettings) {
-      req.companyId = matchedSettings.companyId;
-      req.companySettings = matchedSettings;
-      return next();
-    }
-  }
-
-  // 3. Company-specific API Key
-  if (apiKey) {
-    const [company] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.n8nApiKey, apiKey))
-      .limit(1);
-
-    if (company) {
-      req.companyId = company.id;
-      return next();
-    }
-  }
-
-  return res.status(401).json({
-    success: false,
-    error: 'Unauthorized',
-    message: 'Forneça X-API-Key ou X-Wuzapi-Token válido',
-  });
-}
+// n8nAuth middleware imported from '../middleware/n8n-auth'
 
 // Helper para obter companyId do request
 function getCompanyId(req: any, body?: any): number | null {
@@ -132,10 +95,10 @@ router.get(
       return res.status(400).json({ success: false, error: 'companyId is required' });
     }
 
-    // Normalizar telefone (remover caracteres especiais)
-    const normalizedPhone = phone.replace(/\D/g, '');
+    // Normalizar telefone para formato padrão (55 + DDD + número)
+    const normalized = normalizePhone(phone);
 
-    // Buscar paciente por qualquer campo de telefone
+    // Buscar paciente por qualquer campo de telefone (exact match after normalization)
     const [patient] = await db
       .select()
       .from(patients)
@@ -143,9 +106,12 @@ router.get(
         and(
           eq(patients.companyId, companyId),
           or(
-            like(patients.phone, `%${normalizedPhone}%`),
-            like(patients.cellphone, `%${normalizedPhone}%`),
-            like(patients.whatsappPhone, `%${normalizedPhone}%`)
+            eq(patients.phone, normalized),
+            eq(patients.cellphone, normalized),
+            eq(patients.whatsappPhone, normalized),
+            like(patients.phone, `%${normalized}%`),
+            like(patients.cellphone, `%${normalized}%`),
+            like(patients.whatsappPhone, `%${normalized}%`)
           )
         )
       )
@@ -218,7 +184,7 @@ router.get(
     // Se phone fornecido, buscar patientId
     let resolvedPatientId = patientId;
     if (!resolvedPatientId && phone) {
-      const normalizedPhone = phone.replace(/\D/g, '');
+      const normalized = normalizePhone(phone);
       const [patient] = await db
         .select({ id: patients.id })
         .from(patients)
@@ -226,9 +192,12 @@ router.get(
           and(
             eq(patients.companyId, companyId),
             or(
-              like(patients.phone, `%${normalizedPhone}%`),
-              like(patients.cellphone, `%${normalizedPhone}%`),
-              like(patients.whatsappPhone, `%${normalizedPhone}%`)
+              eq(patients.phone, normalized),
+              eq(patients.cellphone, normalized),
+              eq(patients.whatsappPhone, normalized),
+              like(patients.phone, `%${normalized}%`),
+              like(patients.cellphone, `%${normalized}%`),
+              like(patients.whatsappPhone, `%${normalized}%`)
             )
           )
         )
@@ -494,7 +463,7 @@ router.post(
     // Resolver patientId se phone foi fornecido
     let resolvedPatientId = patientId;
     if (!resolvedPatientId && patientPhone) {
-      const normalizedPhone = patientPhone.replace(/\D/g, '');
+      const normalized = normalizePhone(patientPhone);
       const [patient] = await db
         .select({ id: patients.id })
         .from(patients)
@@ -502,9 +471,12 @@ router.post(
           and(
             eq(patients.companyId, companyId),
             or(
-              like(patients.phone, `%${normalizedPhone}%`),
-              like(patients.cellphone, `%${normalizedPhone}%`),
-              like(patients.whatsappPhone, `%${normalizedPhone}%`)
+              eq(patients.phone, normalized),
+              eq(patients.cellphone, normalized),
+              eq(patients.whatsappPhone, normalized),
+              like(patients.phone, `%${normalized}%`),
+              like(patients.cellphone, `%${normalized}%`),
+              like(patients.whatsappPhone, `%${normalized}%`)
             )
           )
         )
@@ -627,6 +599,29 @@ router.post(
         .where(eq(patients.id, resolvedPatientId));
     }
 
+    // Auto-progress CRM: appointment created = scheduling stage
+    try {
+      const { progressOpportunity } = await import('../services/crm-auto-progression');
+      const phone = req.body.patientPhone;
+      if (phone && companyId) {
+        // Find session by phone to get the opportunity
+        const [session] = await db
+          .select()
+          .from(chatSessions)
+          .where(and(eq(chatSessions.companyId, companyId), eq(chatSessions.phone, normalizePhone(phone))))
+          .orderBy(desc(chatSessions.createdAt))
+          .limit(1);
+        if (session) {
+          await progressOpportunity(companyId, 'scheduling', {
+            sessionId: session.id,
+            metadata: { appointmentId: newAppointment.id },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('CRM auto-progress (scheduling) failed:', err);
+    }
+
     res.json({
       success: true,
       message: 'Agendamento criado com sucesso',
@@ -656,7 +651,7 @@ router.post(
   '/confirm-appointment',
   n8nAuth,
   asyncHandler(async (req, res) => {
-    const { appointmentId, patientResponse, confirmationMethod } = req.body;
+    const { appointmentId, patientResponse, confirmationMethod, phone: callerPhone } = req.body;
     const companyId = getCompanyId(req, req.body);
 
     if (!appointmentId) {
@@ -678,6 +673,22 @@ router.post(
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
+    // Verify caller phone matches appointment patient (if phone provided and not master key)
+    if (callerPhone && !(req as any).isMaster && appointment.patientId) {
+      const [patient] = await db
+        .select({ phone: patients.phone, cellphone: patients.cellphone, whatsappPhone: patients.whatsappPhone })
+        .from(patients)
+        .where(eq(patients.id, appointment.patientId))
+        .limit(1);
+      if (patient) {
+        const patientPhones = [patient.phone, patient.cellphone, patient.whatsappPhone].filter(Boolean);
+        const matches = patientPhones.some(p => phonesMatch(p!, callerPhone));
+        if (!matches) {
+          return res.status(403).json({ success: false, error: 'Phone does not match appointment patient' });
+        }
+      }
+    }
+
     // Atualizar para confirmado
     const [updated] = await db
       .update(appointments)
@@ -691,6 +702,38 @@ router.post(
       })
       .where(eq(appointments.id, appointmentId))
       .returning();
+
+    // Auto-progress CRM: appointment confirmed = confirmation stage
+    try {
+      const { progressOpportunity } = await import('../services/crm-auto-progression');
+      const appointmentCompanyId = companyId || appointment.companyId;
+      if (appointmentCompanyId && appointment.patientId) {
+        // Find patient phone to locate session
+        const [patient] = await db
+          .select({ phone: patients.phone, cellphone: patients.cellphone, whatsappPhone: patients.whatsappPhone })
+          .from(patients)
+          .where(eq(patients.id, appointment.patientId))
+          .limit(1);
+        const phone = patient?.whatsappPhone || patient?.cellphone || patient?.phone;
+        if (phone) {
+          const chatSessionsTable = chatSessions;
+          const [session] = await db
+            .select()
+            .from(chatSessionsTable)
+            .where(and(eq(chatSessionsTable.companyId, appointmentCompanyId), eq(chatSessionsTable.phone, normalizePhone(phone))))
+            .orderBy(desc(chatSessionsTable.createdAt))
+            .limit(1);
+          if (session) {
+            await progressOpportunity(appointmentCompanyId, 'confirmation', {
+              sessionId: session.id,
+              metadata: { appointmentId: updated.id },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('CRM auto-progress (confirmation) failed:', err);
+    }
 
     res.json({
       success: true,
@@ -718,7 +761,7 @@ router.post(
   '/cancel-appointment',
   n8nAuth,
   asyncHandler(async (req, res) => {
-    const { appointmentId, reason, requestReschedule } = req.body;
+    const { appointmentId, reason, requestReschedule, phone: callerPhone } = req.body;
     const companyId = getCompanyId(req, req.body);
 
     if (!appointmentId) {
@@ -737,6 +780,22 @@ router.post(
 
     if (companyId && appointment.companyId !== companyId) {
       return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Verify caller phone matches appointment patient (if phone provided and not master key)
+    if (callerPhone && !(req as any).isMaster && appointment.patientId) {
+      const [patient] = await db
+        .select({ phone: patients.phone, cellphone: patients.cellphone, whatsappPhone: patients.whatsappPhone })
+        .from(patients)
+        .where(eq(patients.id, appointment.patientId))
+        .limit(1);
+      if (patient) {
+        const patientPhones = [patient.phone, patient.cellphone, patient.whatsappPhone].filter(Boolean);
+        const matches = patientPhones.some(p => phonesMatch(p!, callerPhone));
+        if (!matches) {
+          return res.status(403).json({ success: false, error: 'Phone does not match appointment patient' });
+        }
+      }
     }
 
     const [updated] = await db
@@ -1041,7 +1100,7 @@ router.patch(
     // Resolver patientId
     let resolvedPatientId = patientId;
     if (!resolvedPatientId && patientPhone) {
-      const normalizedPhone = patientPhone.replace(/\D/g, '');
+      const normalized = normalizePhone(patientPhone);
       const [patient] = await db
         .select({ id: patients.id })
         .from(patients)
@@ -1049,9 +1108,12 @@ router.patch(
           and(
             eq(patients.companyId, companyId),
             or(
-              like(patients.phone, `%${normalizedPhone}%`),
-              like(patients.cellphone, `%${normalizedPhone}%`),
-              like(patients.whatsappPhone, `%${normalizedPhone}%`)
+              eq(patients.phone, normalized),
+              eq(patients.cellphone, normalized),
+              eq(patients.whatsappPhone, normalized),
+              like(patients.phone, `%${normalized}%`),
+              like(patients.cellphone, `%${normalized}%`),
+              like(patients.whatsappPhone, `%${normalized}%`)
             )
           )
         )
@@ -1204,7 +1266,7 @@ router.post(
     // Resolver patientId
     let resolvedPatientId = patientId;
     if (!resolvedPatientId && patientPhone) {
-      const normalizedPhone = patientPhone.replace(/\D/g, '');
+      const normalized = normalizePhone(patientPhone);
       const [patient] = await db
         .select({ id: patients.id })
         .from(patients)
@@ -1212,9 +1274,12 @@ router.post(
           and(
             eq(patients.companyId, companyId),
             or(
-              like(patients.phone, `%${normalizedPhone}%`),
-              like(patients.cellphone, `%${normalizedPhone}%`),
-              like(patients.whatsappPhone, `%${normalizedPhone}%`)
+              eq(patients.phone, normalized),
+              eq(patients.cellphone, normalized),
+              eq(patients.whatsappPhone, normalized),
+              like(patients.phone, `%${normalized}%`),
+              like(patients.cellphone, `%${normalized}%`),
+              like(patients.whatsappPhone, `%${normalized}%`)
             )
           )
         )
@@ -2434,5 +2499,284 @@ INSTRUÇÕES:
 
   return prompt;
 }
+
+// ==========================================
+// FERRAMENTA 23: PROGREDIR CRM PIPELINE
+// ==========================================
+
+/**
+ * POST /api/v1/n8n/tools/crm-progress
+ * Progresses a CRM opportunity to the next stage based on AI agent actions.
+ *
+ * Body:
+ * - trigger: 'first_contact' | 'scheduling' | 'confirmation' | 'consultation_done' | 'payment_done'
+ * - phone: patient phone (to find linked session/opportunity)
+ * - companyId: optional if authenticated via API key
+ * - metadata: optional extra data
+ */
+router.post(
+  '/crm-progress',
+  n8nAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req, req.body);
+    const { trigger, phone, metadata } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'companyId is required' });
+    }
+
+    if (!trigger) {
+      return res.status(400).json({ success: false, error: 'trigger is required' });
+    }
+
+    const validTriggers = ['first_contact', 'scheduling', 'confirmation', 'consultation_done', 'payment_done'];
+    if (!validTriggers.includes(trigger)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid trigger. Must be one of: ${validTriggers.join(', ')}`,
+      });
+    }
+
+    // Find session by phone
+    let sessionId: number | undefined;
+    if (phone) {
+      const normalized = normalizePhone(phone);
+      const chatSessionsTable = chatSessions;
+      const [session] = await db
+        .select({ id: chatSessionsTable.id })
+        .from(chatSessionsTable)
+        .where(
+          and(
+            eq(chatSessionsTable.companyId, companyId),
+            eq(chatSessionsTable.phone, normalized)
+          )
+        )
+        .orderBy(desc(chatSessionsTable.createdAt))
+        .limit(1);
+
+      sessionId = session?.id;
+    }
+
+    if (!sessionId) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active chat session found for this phone',
+      });
+    }
+
+    const { progressOpportunity } = await import('../services/crm-auto-progression');
+    const result = await progressOpportunity(companyId, trigger, {
+      sessionId,
+      metadata,
+    });
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'No CRM opportunity found for this session',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Opportunity progressed to: ${trigger}`,
+      opportunity: {
+        id: result.id,
+        title: result.title,
+        stageId: result.stageId,
+        aiStage: result.aiStage,
+      },
+    });
+  })
+);
+
+// ==========================================
+// Ferramenta 24: Gerar link de pagamento
+// POST /generate-payment-link
+// ==========================================
+router.post(
+  '/generate-payment-link',
+  asyncHandler(async (req, res) => {
+    const companyId = (req as any).companyId || req.body.companyId;
+    const { amount, description, patientId, appointmentId } = req.body;
+
+    if (!amount || !description) {
+      return res.status(400).json({ success: false, error: 'amount e description são obrigatórios' });
+    }
+
+    try {
+      const { stripeService } = await import('../billing/stripe-service');
+      const result = await stripeService.createPaymentLink({
+        amount: Math.round(amount * 100), // convert to centavos
+        description,
+        companyId,
+        patientId,
+        appointmentId,
+      });
+
+      if (!result) {
+        return res.status(503).json({
+          success: false,
+          error: 'Stripe não configurado. Configure STRIPE_SECRET_KEY para usar payment links.',
+        });
+      }
+
+      return res.json({
+        success: true,
+        paymentUrl: result.url,
+        sessionId: result.id,
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  })
+);
+
+// ==========================================
+// Ferramenta 25: Gerar link de confirmação
+// POST /generate-confirmation-link
+// ==========================================
+router.post(
+  '/generate-confirmation-link',
+  asyncHandler(async (req, res) => {
+    const companyId = (req as any).companyId || req.body.companyId;
+    const { appointmentId, expiresInHours = 48 } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({ success: false, error: 'appointmentId é obrigatório' });
+    }
+
+    const { randomBytes } = await import('crypto');
+    const { appointmentConfirmationLinks } = await import('@shared/schema');
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+
+    await db.insert(appointmentConfirmationLinks).values({
+      companyId,
+      appointmentId: Number(appointmentId),
+      token,
+      action: 'confirm',
+      expiresAt,
+      isActive: true,
+    });
+
+    const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+    const confirmUrl = `${baseUrl}/confirmar/${token}`;
+
+    return res.json({
+      success: true,
+      confirmUrl,
+      token,
+      expiresAt,
+    });
+  })
+);
+
+// ==========================================
+// Ferramenta 26: Marcar consulta como realizada
+// POST /consultation-completed
+// ==========================================
+router.post(
+  '/consultation-completed',
+  n8nAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req, req.body);
+    const { phone, appointmentId, metadata } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'companyId is required' });
+    }
+    if (!phone && !appointmentId) {
+      return res.status(400).json({ success: false, error: 'phone ou appointmentId é obrigatório' });
+    }
+
+    const { progressOpportunityByPhone, progressOpportunity } = await import('../services/crm-auto-progression');
+
+    let result = null;
+
+    // Se tem appointmentId, atualizar status do agendamento para completed
+    if (appointmentId) {
+      const { storage } = await import('../storage');
+      await storage.updateAppointment(Number(appointmentId), { status: 'completed' }, companyId);
+    }
+
+    // Progresso no CRM
+    if (phone) {
+      result = await progressOpportunityByPhone(companyId, phone, 'consultation_done', {
+        appointmentId: appointmentId || null,
+        source: 'n8n_tool',
+        ...metadata,
+      });
+    }
+
+    if (!result) {
+      return res.json({
+        success: true,
+        message: 'Appointment updated but no CRM opportunity found',
+        appointmentUpdated: !!appointmentId,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Consulta marcada como realizada e CRM atualizado',
+      opportunity: {
+        id: result.id,
+        title: result.title,
+        stageId: result.stageId,
+        aiStage: result.aiStage,
+      },
+    });
+  })
+);
+
+// ==========================================
+// Ferramenta 27: Marcar pagamento como realizado
+// POST /payment-completed
+// ==========================================
+router.post(
+  '/payment-completed',
+  n8nAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req, req.body);
+    const { phone, amount, paymentMethod, appointmentId, metadata } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'companyId is required' });
+    }
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'phone é obrigatório' });
+    }
+
+    const { progressOpportunityByPhone } = await import('../services/crm-auto-progression');
+
+    const result = await progressOpportunityByPhone(companyId, phone, 'payment_done', {
+      amount,
+      paymentMethod,
+      appointmentId: appointmentId || null,
+      source: 'n8n_tool',
+      ...metadata,
+    });
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'Nenhuma oportunidade CRM encontrada para este telefone',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Pagamento registrado e CRM atualizado',
+      opportunity: {
+        id: result.id,
+        title: result.title,
+        stageId: result.stageId,
+        aiStage: result.aiStage,
+      },
+    });
+  })
+);
 
 export default router;

@@ -1,70 +1,61 @@
 // Hook para gerenciar módulos dinâmicos
-import { useState, useEffect, useContext } from 'react';
+import { useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AuthContext } from '@/core/AuthProvider';
-import { 
-  frontendModules, 
-  getActiveModulesForUser, 
-  generateDynamicRoutes, 
-  generateDynamicMenuItems,
-  type FrontendModuleConfig,
-  type ModuleRoute,
-  type MenuItem
-} from '@/modules/clinica';
+
+export type MenuItem = {
+  label: string;
+  path: string;
+  icon: string;
+};
+
+// Menu padrão (fallback quando backend não responde)
+const defaultMenuItems: MenuItem[] = [
+  { label: 'Agenda', path: '/agenda', icon: 'Calendar' },
+  { label: 'Pacientes', path: '/patients', icon: 'Users' },
+  { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
+  { label: 'Atendimento', path: '/atendimento', icon: 'MessageCircle' },
+  { label: 'CRM', path: '/crm', icon: 'Target' },
+  { label: 'Automações', path: '/automation', icon: 'Bot' },
+  { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
+  { label: 'Estoque', path: '/inventory', icon: 'Package' },
+  { label: 'Odontograma', path: '/odontogram', icon: 'Activity' },
+  { label: 'Relatórios', path: '/analytics', icon: 'BarChart3' },
+];
 
 export function useModules() {
-  // Use a try-catch to safely access auth context
   let user = null;
   try {
     const authContext = useContext(AuthContext);
     user = authContext?.user || null;
-  } catch (error) {
-    // AuthContext not available, continue with null user
-    console.log('AuthContext not available in useModules');
+  } catch {
+    // AuthContext not available
   }
-  const [activeModules, setActiveModules] = useState<FrontendModuleConfig[]>([]);
-  const [dynamicRoutes, setDynamicRoutes] = useState<ModuleRoute[]>([]);
-  const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>([]);
-
-  // Buscar permissões do usuário
-  const { data: userPermissions = [], error: permissionsError } = useQuery({
-    queryKey: ['/api/user/modules'],
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    retry: false
-  });
 
   // Buscar módulos ativos do backend
-  const { data: backendModules, error: modulesError } = useQuery({
+  const { data: backendModules, isLoading } = useQuery<{ all: any[]; byCategory: Record<string, any[]> }>({
     queryKey: ['/api/clinic/modules'],
     enabled: !!user,
     staleTime: 30000,
     retry: false
   });
 
-  useEffect(() => {
-    // Menu padrão sempre disponível
-    const defaultMenuItems = [
-      { label: 'Agenda', path: '/schedule', icon: 'Calendar' },
-      { label: 'Calendário', path: '/agenda', icon: 'CalendarDays' },
-      { label: 'Pacientes', path: '/patients', icon: 'Users' },
-      { label: 'Financeiro', path: '/financial', icon: 'DollarSign' },
-      { label: 'Automações', path: '/automation', icon: 'Bot' },
-      { label: 'Próteses', path: '/prosthesis', icon: 'Scissors' },
-      { label: 'Estoque', path: '/inventory', icon: 'Package' },
-      { label: 'Odontograma', path: '/odontogram-demo', icon: 'Activity' }
-    ];
-    
-    setDynamicMenuItems(defaultMenuItems);
-    setActiveModules(frontendModules);
-    setDynamicRoutes(generateDynamicRoutes(frontendModules));
-  }, []); // Apenas executar uma vez na inicialização
+  // Converter módulos do backend para menu items se disponíveis
+  const dynamicMenuItems: MenuItem[] = backendModules?.all
+    ? backendModules.all
+        .filter((m: any) => m.isActive !== false)
+        .map((m: any) => ({
+          label: m.displayName || m.display_name || m.name,
+          path: m.route || `/${m.id}`,
+          icon: m.icon || 'Circle',
+        }))
+    : defaultMenuItems;
 
   return {
-    activeModules,
-    dynamicRoutes,
-    dynamicMenuItems,
-    allModules: frontendModules,
-    isLoading: !user || userPermissions === undefined
+    activeModules: backendModules?.all?.filter((m: any) => m.isActive !== false) || [],
+    dynamicRoutes: [],
+    dynamicMenuItems: dynamicMenuItems.length > 0 ? dynamicMenuItems : defaultMenuItems,
+    allModules: backendModules?.all || [],
+    isLoading,
   };
 }
