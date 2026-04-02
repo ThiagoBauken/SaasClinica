@@ -2,6 +2,49 @@ import { companies, users, type User, type InsertUser, patients, appointments, p
 import { db, pool } from "./db";
 import { eq, and, gte, lte, lt, count, sql, desc, inArray } from "drizzle-orm";
 import { notDeleted } from "./lib/soft-delete";
+import {
+  encryptField, decryptField, hmacIndex,
+  PATIENT_ENCRYPTED_FIELDS,
+} from "./lib/field-encryption";
+
+/**
+ * LGPD: Encrypt sensitive patient fields before persisting to DB.
+ * Fields: cpf, rg, bloodType, allergies, medications, chronicDiseases
+ */
+function encryptPatientData(data: Record<string, any>): Record<string, any> {
+  const result = { ...data };
+  for (const field of PATIENT_ENCRYPTED_FIELDS) {
+    if (result[field] != null && typeof result[field] === 'string') {
+      result[field] = encryptField(result[field]);
+    }
+  }
+  // Generate HMAC search index for CPF (allows WHERE queries without decrypting all rows)
+  if (result.cpf != null) {
+    result.cpfHash = hmacIndex(data.cpf); // Use original plaintext for hash
+  }
+  return result;
+}
+
+/**
+ * LGPD: Decrypt sensitive patient fields after reading from DB.
+ */
+function decryptPatientData<T extends Record<string, any>>(patient: T): T {
+  if (!patient) return patient;
+  const result = { ...patient };
+  for (const field of PATIENT_ENCRYPTED_FIELDS) {
+    if ((result as any)[field] != null && typeof (result as any)[field] === 'string') {
+      (result as any)[field] = decryptField((result as any)[field]);
+    }
+  }
+  return result;
+}
+
+/**
+ * LGPD: Decrypt an array of patient records.
+ */
+function decryptPatientList<T extends Record<string, any>>(patients: T[]): T[] {
+  return patients.map(decryptPatientData);
+}
 
 // Data structure for transaction objects
 interface Transaction {
@@ -1989,7 +2032,8 @@ export class DatabaseStorage implements IStorage {
 
   // Database Patient methods
   async getPatients(companyId: number): Promise<Patient[]> {
-    return db.select().from(patients).where(and(eq(patients.companyId, companyId), notDeleted(patients.deletedAt)));
+    const rows = await db.select().from(patients).where(and(eq(patients.companyId, companyId), notDeleted(patients.deletedAt)));
+    return decryptPatientList(rows);
   }
 
   async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
@@ -2034,33 +2078,39 @@ export class DatabaseStorage implements IStorage {
     }).from(patients).where(
       and(eq(patients.id, id), eq(patients.companyId, companyId), notDeleted(patients.deletedAt))
     );
-    return patient || undefined;
+    return patient ? decryptPatientData(patient) : undefined;
   }
 
   async createPatient(patientData: any, companyId: number): Promise<Patient> {
+    // LGPD: Encrypt sensitive fields before persisting
+    const encryptedData = encryptPatientData(patientData);
+
     const [patient] = await db
       .insert(patients)
       .values({
-        ...patientData,
-        companyId, // Adiciona o companyId do usuário!
+        ...encryptedData,
+        companyId,
         createdAt: new Date(),
       })
       .returning();
-    return patient;
+    return decryptPatientData(patient);
   }
 
   async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
+    // LGPD: Encrypt sensitive fields before persisting
+    const encryptedData = encryptPatientData(data);
+
     const [updatedPatient] = await db
       .update(patients)
-      .set(data)
+      .set(encryptedData)
       .where(and(eq(patients.id, id), eq(patients.companyId, companyId)))
       .returning();
-    
+
     if (!updatedPatient) {
       throw new Error("Patient not found");
     }
-    
-    return updatedPatient;
+
+    return decryptPatientData(updatedPatient);
   }
 
   // Appointment methods
@@ -2100,8 +2150,8 @@ export class DatabaseStorage implements IStorage {
         .orderBy(appointments.startTime);
 
       // Step 3: Batch-load procedures for all appointments in 2 queries (instead of N*2)
-      const appointmentIds = rows.map(r => r.appointment.id);
-      let proceduresByAppointment = new Map<number, any[]>();
+      const appointmentIds = rows.map((r: any) => r.appointment.id);
+      const proceduresByAppointment = new Map<number, any[]>();
 
       if (appointmentIds.length > 0) {
         const apRows = await db
@@ -2142,7 +2192,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Step 4: Assemble enriched results
-      return rows.map(row => ({
+      return rows.map((row: any) => ({
         ...row.appointment,
         patient: row.patientId ? {
           id: row.patientId,
@@ -2227,7 +2277,7 @@ export class DatabaseStorage implements IStorage {
         id: row.roomId,
         name: row.roomName,
       } : undefined,
-      procedures: procedureRows.map(p => ({
+      procedures: procedureRows.map((p: any) => ({
         id: p.procedureId,
         name: p.procedureName,
         duration: p.procedureDuration,

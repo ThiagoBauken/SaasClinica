@@ -186,6 +186,111 @@ router.delete(
   })
 );
 
+/**
+ * POST /api/v1/patients/:id/lgpd-erasure
+ * LGPD Art. 18, III — Direito ao esquecimento
+ *
+ * Verifica retenção obrigatória (CFO Resolução 118/2012: 5 anos) antes de anonimizar.
+ * Se dentro do prazo de retenção, retorna a data em que a exclusão será possível.
+ * Se fora do prazo, anonimiza os dados identificáveis mantendo registros clínicos.
+ */
+router.post(
+  '/:id/lgpd-erasure',
+  authCheck,
+  validate({ params: idParamSchema }),
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const { id } = req.params as any;
+    const patientId = parseInt(id, 10);
+
+    // 1. Verificar se paciente existe
+    const patientResult = await db.$client.query(
+      `SELECT id, full_name, created_at FROM patients WHERE id = $1 AND company_id = $2`,
+      [patientId, companyId]
+    );
+    if (patientResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    // 2. Verificar última consulta (CFO: 5 anos de retenção a partir do último atendimento)
+    const lastAppointmentResult = await db.$client.query(
+      `SELECT MAX(start_time) as last_visit FROM appointments
+       WHERE patient_id = $1 AND company_id = $2 AND status = 'completed'`,
+      [patientId, companyId]
+    );
+
+    const lastVisit = lastAppointmentResult.rows[0]?.last_visit;
+    const referenceDate = lastVisit
+      ? new Date(lastVisit)
+      : new Date(patientResult.rows[0].created_at);
+
+    const retentionEndDate = new Date(referenceDate);
+    retentionEndDate.setFullYear(retentionEndDate.getFullYear() + 5);
+
+    // 3. Se dentro do prazo de retenção, informar ao solicitante
+    if (new Date() < retentionEndDate) {
+      return res.status(409).json({
+        error: 'retention_hold',
+        message: `Dados sujeitos a retenção legal obrigatória (CFO Resolução 118/2012 — mínimo 5 anos). A anonimização será possível após ${retentionEndDate.toISOString().split('T')[0]}.`,
+        retentionEndDate: retentionEndDate.toISOString(),
+        lastVisit: lastVisit || null,
+        legalBasis: 'CFO Resolução 118/2012, Art. 5 — Prontuários odontológicos devem ser mantidos por no mínimo 5 anos',
+      });
+    }
+
+    // 4. Fora do prazo — anonimizar dados identificáveis
+    await db.$client.query(
+      `UPDATE patients SET
+        full_name = '[ANONIMIZADO]',
+        cpf = NULL,
+        rg = NULL,
+        email = NULL,
+        phone = NULL,
+        cellphone = NULL,
+        whatsapp_phone = NULL,
+        birth_date = NULL,
+        address = NULL,
+        neighborhood = NULL,
+        city = NULL,
+        state = NULL,
+        cep = NULL,
+        emergency_contact_name = NULL,
+        emergency_contact_phone = NULL,
+        profile_photo = NULL,
+        notes = '[Dados anonimizados por solicitação LGPD Art. 18]',
+        active = false,
+        data_anonymization_date = NOW(),
+        updated_at = NOW()
+       WHERE id = $1 AND company_id = $2`,
+      [patientId, companyId]
+    );
+
+    // 5. Registrar no audit log
+    await db.$client.query(
+      `INSERT INTO audit_logs (company_id, user_id, action, resource, resource_id, sensitive_data, data_category, description, lgpd_justification)
+       VALUES ($1, $2, 'anonymize', 'patients', $3, true, 'health_data', 'LGPD Art. 18 - Patient data anonymized (right to erasure)', 'Solicitação de exclusão do titular dos dados — Art. 18, III da LGPD')`,
+      [companyId, user.id, String(patientId)]
+    );
+
+    invalidateClusterCache(`api:/api/v1/patients/${id}`);
+    invalidateClusterCache('api:/api/v1/patients');
+
+    res.json({
+      success: true,
+      message: 'Dados do paciente anonimizados com sucesso conforme LGPD Art. 18.',
+      patientId,
+      anonymizedAt: new Date().toISOString(),
+      note: 'Registros clínicos foram preservados de forma anônima para fins estatísticos.',
+    });
+  })
+);
+
 // =============== ANAMNESIS ROUTES ===============
 
 /**

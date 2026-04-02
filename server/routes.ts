@@ -28,6 +28,7 @@ import { registerModularRoutes } from "./routes/index";
 import { notificationService } from "./services/notificationService";
 import { authCheck, adminOnly, asyncHandler, tenantAwareAuth } from "./middleware/auth";
 import { rlsMiddleware } from "./middleware/rls";
+import { auditLogMiddleware } from "./middleware/auditLog";
 import { z } from "zod";
 import multer from "multer";
 
@@ -46,6 +47,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Row-Level Security policies can enforce tenant isolation at the DB level.
   // Must come after setupAuth so req.user is populated by Passport.
   app.use(rlsMiddleware);
+
+  // LGPD Art. 37: Audit trail for ALL routes (legacy + modular)
+  // Applied before route registration so all endpoints are covered.
+  app.use('/api', auditLogMiddleware);
 
   // Register new modular routes (v1 API with validation and pagination)
   registerModularRoutes(app);

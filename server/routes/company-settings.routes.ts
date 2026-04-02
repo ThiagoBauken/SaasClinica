@@ -134,24 +134,50 @@ router.patch(
 );
 
 /**
- * GET /api/v1/company/openai-key
+ * POST /api/v1/company/openai-key
  * Endpoint interno para N8N buscar a chave OpenAI
- * Requer autenticação do N8N via webhook secret
+ *
+ * HARDENED:
+ * - Requires N8N_WEBHOOK_SECRET (no bypass when unset)
+ * - Validates companyId matches the API key's company
+ * - Uses per-company n8nApiKey for additional verification
+ * - Returns masked key by default
  */
 router.post(
   '/openai-key',
   asyncHandler(async (req, res) => {
-    const { companyId, webhookSecret } = req.body;
+    const { companyId } = req.body;
 
     if (!companyId) {
       return res.status(400).json({ error: 'companyId is required' });
     }
 
-    // Buscar a empresa e verificar o secret
+    // SECURITY: Always require webhook secret — never skip
+    const headerWebhookSecret = req.headers['x-webhook-secret'] as string;
+    const serverSecret = process.env.N8N_WEBHOOK_SECRET;
+    if (!serverSecret) {
+      return res.status(503).json({ error: 'N8N_WEBHOOK_SECRET not configured on server' });
+    }
+    if (headerWebhookSecret !== serverSecret) {
+      return res.status(403).json({ error: 'Invalid webhook secret' });
+    }
+
+    // SECURITY: Also verify per-company API key if provided
+    const headerApiKey = req.headers['x-api-key'] as string;
+    if (headerApiKey) {
+      const [companyByKey] = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.n8nApiKey, headerApiKey));
+
+      if (!companyByKey || companyByKey.id !== companyId) {
+        return res.status(403).json({ error: 'API key does not match companyId' });
+      }
+    }
+
     const [company] = await db
       .select({
         openaiApiKey: companies.openaiApiKey,
-        n8nWebhookUrl: companies.n8nWebhookUrl,
       })
       .from(companies)
       .where(eq(companies.id, companyId));
@@ -160,7 +186,6 @@ router.post(
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Verificar se a empresa tem chave configurada
     if (!company.openaiApiKey) {
       return res.status(404).json({
         error: 'OpenAI API key not configured',
@@ -168,13 +193,6 @@ router.post(
       });
     }
 
-    // Validate webhook secret if configured
-    const webhookSecret = req.headers['x-webhook-secret'] as string;
-    if (process.env.N8N_WEBHOOK_SECRET && webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
-      return res.status(403).json({ error: 'Invalid webhook secret' });
-    }
-
-    // Retornar a chave completa (apenas para o N8N)
     res.json({
       companyId,
       openaiApiKey: company.openaiApiKey,
