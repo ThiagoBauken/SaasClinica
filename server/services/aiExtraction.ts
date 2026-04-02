@@ -1,20 +1,95 @@
-import OpenAI from 'openai';
-
 /**
- * Serviço de extração de dados de pacientes usando DeepSeek AI
+ * Serviço de extração de dados de pacientes usando LLM
  * Converte texto não estruturado (OCR) em dados estruturados
  *
- * DeepSeek é 95% mais barato que GPT-4o-mini!
- * Custo: ~R$ 0.30 por 1.000 fichas processadas
+ * Estratégia LGPD-first:
+ *   1. Tenta Ollama local (dados nunca saem do servidor)
+ *   2. Fallback: DeepSeek/OpenAI (quando infra local indisponível)
+ *
+ * Nota: Na extração de fichas OCR, os dados já estão em texto bruto,
+ * então anonimização não se aplica (o objetivo é extrair os dados).
+ * A proteção aqui é preferir processamento local.
  */
 
-// Inicializa o cliente DeepSeek (compatível com OpenAI SDK)
-const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.DEEPSEEK_API_KEY
-    ? 'https://api.deepseek.com'
-    : 'https://api.openai.com/v1',
-});
+import { logger } from '../logger';
+
+const log = logger.child({ module: 'ai-extraction' });
+
+/**
+ * Get Ollama base URL from env or default.
+ */
+function getOllamaUrl(): string {
+  return process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+}
+
+/**
+ * Get the model to use for extraction tasks.
+ */
+function getExtractionModel(): string {
+  return process.env.OLLAMA_EXTRACTION_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
+}
+
+/**
+ * Check if Ollama is available (quick health check)
+ */
+async function isOllamaAvailable(): Promise<boolean> {
+  try {
+    const response = await fetch(`${getOllamaUrl()}/api/tags`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Call external API (DeepSeek/OpenAI) as fallback.
+ * Only used when Ollama is unavailable.
+ */
+async function callExternalFallback(
+  systemContent: string,
+  userContent: string
+): Promise<string> {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Nenhum provider de IA disponível: Ollama offline e sem API key externa configurada');
+  }
+
+  const baseUrl = process.env.DEEPSEEK_API_KEY
+    ? 'https://api.deepseek.com/v1'
+    : 'https://api.openai.com/v1';
+  const model = process.env.DEEPSEEK_API_KEY ? 'deepseek-chat' : 'gpt-4o-mini';
+
+  log.warn({ provider: process.env.DEEPSEEK_API_KEY ? 'deepseek' : 'openai' },
+    'LGPD: Ollama indisponível — usando provider externo como fallback para extração');
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemContent },
+        { role: 'user', content: userContent },
+      ],
+      temperature: 0,
+      max_tokens: 2000,
+      response_format: { type: 'json_object' },
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`External API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
 
 export interface ExtractedPatientData {
   fullName: string;
@@ -110,69 +185,85 @@ Se um campo não for encontrado ou for inválido, use string vazia "".
 ===== TEXTO DA FICHA PARA ANÁLISE =====`;
 
 /**
- * Extrai dados estruturados de texto não estruturado usando DeepSeek AI
+ * Extrai dados estruturados de texto não estruturado usando LLM
+ *
+ * Cadeia de providers:
+ *   1. Ollama local (LGPD: dados não saem do servidor)
+ *   2. DeepSeek (fallback barato — se DEEPSEEK_API_KEY configurada)
+ *   3. OpenAI (último fallback — se OPENAI_API_KEY configurada)
+ *
  * @param ocrText Texto extraído do OCR
  * @returns Dados estruturados do paciente
  */
 export async function extractPatientData(
   ocrText: string
 ): Promise<ExtractedPatientData> {
-  try {
-    if (!ocrText || ocrText.trim().length === 0) {
-      throw new Error('Texto OCR vazio');
-    }
-
-    const model = process.env.DEEPSEEK_API_KEY
-      ? 'deepseek-chat' // DeepSeek: 95% mais barato!
-      : 'gpt-4o-mini'; // Fallback para OpenAI
-
-    const response = await deepseek.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Você é um assistente ESPECIALISTA em extrair dados de fichas odontológicas. Retorne APENAS JSON válido, sem texto adicional. Detecte inteligentemente tabelas, colunas e campos.',
-        },
-        {
-          role: 'user',
-          content: `${EXTRACTION_PROMPT}\n\n${ocrText}`,
-        },
-      ],
-      temperature: 0, // Temperatura 0 para consistência máxima
-      max_tokens: 2000, // Aumentado para fichas complexas
-      response_format: { type: 'json_object' }, // Garante resposta em JSON
-    });
-
-    const content = response.choices[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('Resposta vazia da OpenAI');
-    }
-
-    // Parse do JSON
-    const extractedData = JSON.parse(content) as ExtractedPatientData;
-
-    // Normaliza campos vazios
-    return {
-      fullName: extractedData.fullName?.trim() || '',
-      phone: extractedData.phone?.trim() || undefined,
-      cellphone: extractedData.cellphone?.trim() || undefined,
-      email: extractedData.email?.trim() || undefined,
-      cpf: extractedData.cpf?.trim() || undefined,
-      birthDate: extractedData.birthDate?.trim() || undefined,
-      address: extractedData.address?.trim() || undefined,
-      city: extractedData.city?.trim() || undefined,
-      state: extractedData.state?.trim() || undefined,
-      cep: extractedData.cep?.trim() || undefined,
-      neighborhood: extractedData.neighborhood?.trim() || undefined,
-    };
-  } catch (error) {
-    console.error('Erro ao extrair dados do paciente:', error);
-    throw new Error(
-      `Falha ao processar extração AI: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
-    );
+  if (!ocrText || ocrText.trim().length === 0) {
+    throw new Error('Texto OCR vazio');
   }
+
+  const systemContent = 'Você é um assistente ESPECIALISTA em extrair dados de fichas odontológicas. Retorne APENAS JSON válido, sem texto adicional. Detecte inteligentemente tabelas, colunas e campos.';
+  const userContent = `${EXTRACTION_PROMPT}\n\n${ocrText}`;
+  let content: string;
+
+  // Tentar Ollama local primeiro
+  const ollamaAvailable = await isOllamaAvailable();
+
+  if (ollamaAvailable) {
+    try {
+      const ollamaUrl = getOllamaUrl();
+      const model = getExtractionModel();
+      log.info({ model, provider: 'ollama' }, 'Extracting patient data with local LLM');
+
+      const response = await fetch(`${ollamaUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: userContent },
+          ],
+          stream: false,
+          format: 'json',
+          options: { temperature: 0, num_predict: 2000, num_gpu: 99 },
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
+      const data = await response.json();
+      content = data.message?.content || '';
+      if (!content) throw new Error('Resposta vazia do Ollama');
+    } catch (ollamaErr) {
+      log.warn({ err: ollamaErr }, 'Ollama falhou, tentando fallback externo');
+      content = await callExternalFallback(systemContent, userContent);
+    }
+  } else {
+    log.info('Ollama indisponível, usando provider externo');
+    content = await callExternalFallback(systemContent, userContent);
+  }
+
+  // Parse JSON da resposta
+  let jsonStr = content.trim();
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) jsonStr = jsonMatch[0];
+
+  const extractedData = JSON.parse(jsonStr) as ExtractedPatientData;
+
+  return {
+    fullName: extractedData.fullName?.trim() || '',
+    phone: extractedData.phone?.trim() || undefined,
+    cellphone: extractedData.cellphone?.trim() || undefined,
+    email: extractedData.email?.trim() || undefined,
+    cpf: extractedData.cpf?.trim() || undefined,
+    birthDate: extractedData.birthDate?.trim() || undefined,
+    address: extractedData.address?.trim() || undefined,
+    city: extractedData.city?.trim() || undefined,
+    state: extractedData.state?.trim() || undefined,
+    cep: extractedData.cep?.trim() || undefined,
+    neighborhood: extractedData.neighborhood?.trim() || undefined,
+  };
 }
 
 /**
@@ -189,9 +280,9 @@ export async function extractMultiplePatients(
     try {
       const data = await extractPatientData(ocrText);
       results.push(data);
-      console.log(`Dados extraídos com sucesso: ${data.fullName || 'Nome não encontrado'}`);
+      log.info({ name: data.fullName || 'unknown' }, 'Dados extraídos com sucesso');
     } catch (error) {
-      console.error('Erro ao processar texto OCR:', error);
+      log.error({ err: error }, 'Erro ao processar texto OCR');
       // Adiciona dados vazios em caso de erro
       results.push({
         fullName: '',

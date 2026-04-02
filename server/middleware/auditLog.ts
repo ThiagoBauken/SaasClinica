@@ -135,12 +135,27 @@ export const auditLogMiddleware = async (
         return;
       }
 
-      // Preparar dados de mudança (para updates)
+      // Skip audit log if no valid companyId (security: never fallback to 0)
+      if (!companyId) {
+        console.warn('Audit log skipped: no valid companyId for', method, url);
+        return;
+      }
+
+      // Preparar dados de mudança (para updates) — REDACT sensitive fields (LGPD)
+      const REDACTED_FIELDS = new Set([
+        'cpf', 'rg', 'password', 'allergies', 'medications', 'chronicDiseases',
+        'bloodType', 'blood_type', 'chronic_diseases', 'googleAccessToken',
+        'googleRefreshToken', 'openaiApiKey', 'anthropicApiKey', 'groqApiKey',
+      ]);
       let changes: any = null;
       if (action === 'update' && requestBody) {
+        const redactedValues: Record<string, any> = {};
+        for (const [key, value] of Object.entries(requestBody)) {
+          redactedValues[key] = REDACTED_FIELDS.has(key) ? '[REDACTED]' : value;
+        }
         changes = {
           fields: Object.keys(requestBody),
-          values: requestBody
+          values: redactedValues,
         };
       }
 
@@ -158,7 +173,7 @@ export const auditLogMiddleware = async (
 
       // Registrar no audit log
       await db.insert(auditLogs).values({
-        companyId: companyId || 0,
+        companyId,
         userId: userId || null,
         action,
         resource: resource || 'unknown',
@@ -215,11 +230,17 @@ export const auditDataExport = async (
         return;
       }
 
+      // Skip if no valid companyId (security: never fallback to 0)
+      if (!companyId) {
+        console.warn('Audit data export log skipped: no valid companyId');
+        return;
+      }
+
       const responseBody = getResponseBody();
       const recordCount = Array.isArray(responseBody) ? responseBody.length : 1;
 
       await db.insert(auditLogs).values({
-        companyId: companyId || 0,
+        companyId,
         userId: userId || null,
         action: 'export',
         resource: 'data_export',

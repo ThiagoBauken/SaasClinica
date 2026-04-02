@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { db } from '../db';
 import { patients, digitizationHistory } from '../../shared/schema';
 import { extractTextFromImage } from '../services/ocr';
-import OpenAI from 'openai';
 import xlsx from 'xlsx';
 import { eq, and, or, like, sql } from 'drizzle-orm';
 import AdmZip from 'adm-zip';
@@ -55,13 +54,20 @@ const upload = multer({
   },
 });
 
-// Initialize DeepSeek client with fallback
-let deepseek: OpenAI | null = null;
-if (process.env.DEEPSEEK_API_KEY) {
-  deepseek = new OpenAI({
-    apiKey: process.env.DEEPSEEK_API_KEY,
-    baseURL: 'https://api.deepseek.com',
-  });
+// LGPD: Prefer local Ollama, fallback to DeepSeek/OpenAI
+function getOllamaConfig() {
+  return {
+    baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    model: process.env.OLLAMA_EXTRACTION_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b',
+  };
+}
+
+async function isOllamaAvailable(): Promise<boolean> {
+  try {
+    const { baseUrl } = getOllamaConfig();
+    const response = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    return response.ok;
+  } catch { return false; }
 }
 
 // Extract ZIP file and return image paths
@@ -90,12 +96,11 @@ async function extractZipFile(zipPath: string): Promise<string[]> {
   return imageFiles;
 }
 
-// Process text with DeepSeek AI
-async function processTextWithDeepSeek(text: string): Promise<any> {
-  if (!deepseek) {
-    throw new Error('DeepSeek API not configured');
-  }
-
+/**
+ * Process text with LLM: Ollama local → DeepSeek → OpenAI (fallback chain)
+ * LGPD: Sempre tenta local primeiro para manter dados no servidor.
+ */
+async function processTextWithLocalLLM(text: string): Promise<any> {
   const systemPrompt = `Você é um assistente especializado em extrair dados de prontuários odontológicos.
 Extraia as seguintes informações do texto fornecido:
 - Nome completo do paciente
@@ -117,22 +122,69 @@ Retorne os dados no formato JSON:
 
 Se algum campo não for encontrado, use null. Seja preciso e extraia apenas informações que estejam claramente presentes no texto.`;
 
-  const response = await deepseek.chat.completions.create({
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Texto extraído:\n\n${text}` },
-    ],
-    temperature: 0.1,
-    response_format: { type: 'json_object' },
-  });
+  let content: string | null = null;
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error('No response from DeepSeek');
+  // 1. Try Ollama local
+  if (await isOllamaAvailable()) {
+    try {
+      const { baseUrl, model } = getOllamaConfig();
+      const response = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Texto extraído:\n\n${text}` },
+          ],
+          stream: false,
+          format: 'json',
+          options: { temperature: 0.1, num_predict: 2000, num_gpu: 99 },
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        content = data.message?.content || null;
+      }
+    } catch {
+      // Fall through to external
+    }
   }
 
-  return JSON.parse(content);
+  // 2. Fallback: DeepSeek or OpenAI
+  if (!content) {
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('Nenhum provider de IA disponível (Ollama offline, sem API key)');
+
+    const baseUrl = process.env.DEEPSEEK_API_KEY ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1';
+    const model = process.env.DEEPSEEK_API_KEY ? 'deepseek-chat' : 'gpt-4o-mini';
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Texto extraído:\n\n${text}` },
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`External API error: ${response.status}`);
+    const data = await response.json();
+    content = data.choices?.[0]?.message?.content || null;
+  }
+
+  if (!content) throw new Error('Nenhum provider retornou resposta');
+
+  let jsonStr = content.trim();
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) jsonStr = jsonMatch[0];
+  return JSON.parse(jsonStr);
 }
 
 // Check for duplicate patients using smart matching
@@ -396,7 +448,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
         }
 
         // Process with DeepSeek AI
-        const patientData = await processTextWithDeepSeek(ocrResult.text);
+        const patientData = await processTextWithLocalLLM(ocrResult.text);
 
         if (!patientData.name) {
           const fileName = path.basename(imagePath);

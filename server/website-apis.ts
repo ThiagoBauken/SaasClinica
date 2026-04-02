@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { db } from './db';
-import { companies } from '../shared/schema';
-import { eq } from 'drizzle-orm';
+import { companies, websites } from '../shared/schema';
+import { eq, and } from 'drizzle-orm';
+import { storageService } from './services/storage.service';
 
 interface WebsiteData {
   id?: number;
@@ -56,8 +57,24 @@ interface WebsiteData {
   updatedAt?: string;
 }
 
-// Armazenamento temporário em memória (em produção seria no banco)
-const websiteStorage = new Map<number, WebsiteData>();
+// Helper: convert DB row to WebsiteData
+function rowToWebsiteData(row: any): WebsiteData {
+  return {
+    id: row.id,
+    clinicName: row.clinicName,
+    domain: row.domain,
+    customDomain: row.customDomain,
+    template: row.template || 'modern',
+    colors: row.colors || { primary: '#0066cc', secondary: '#f8f9fa', accent: '#28a745' },
+    content: row.content || { hero: {}, about: {}, services: [], contact: {}, gallery: [] },
+    social: row.social || {},
+    seo: row.seo || { title: '', description: '', keywords: '' },
+    published: row.published || false,
+    companyId: row.companyId,
+    createdAt: row.createdAt?.toISOString(),
+    updatedAt: row.updatedAt?.toISOString(),
+  };
+}
 
 // Gerar slug do domínio
 function generateDomainSlug(clinicName: string): string {
@@ -78,12 +95,12 @@ export async function getWebsite(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
-    const website = websiteStorage.get(companyId);
-    if (!website) {
+    const [row] = await db.select().from(websites).where(eq(websites.companyId, companyId)).limit(1);
+    if (!row) {
       return res.status(404).json({ message: 'Site não encontrado' });
     }
 
-    res.json(website);
+    res.json(rowToWebsiteData(row));
   } catch (error) {
     console.error('Erro ao buscar site:', error);
     res.status(500).json({ message: 'Erro interno do servidor' });
@@ -139,22 +156,46 @@ export async function saveWebsite(req: Request, res: Response) {
       updatedAt: new Date().toISOString()
     };
 
-    // Se não existe, criar novo
-    if (!websiteStorage.has(companyId)) {
-      websiteData.createdAt = new Date().toISOString();
-    }
-
     // Gerar domínio se não existir
     if (!websiteData.domain && websiteData.clinicName) {
       const slug = generateDomainSlug(websiteData.clinicName);
       websiteData.domain = `${slug}.dentcare.com.br`;
     }
 
-    websiteStorage.set(companyId, websiteData);
+    // Upsert: check if exists
+    const [existing] = await db.select({ id: websites.id }).from(websites).where(eq(websites.companyId, companyId)).limit(1);
+
+    if (existing) {
+      await db.update(websites).set({
+        clinicName: websiteData.clinicName,
+        domain: websiteData.domain,
+        template: websiteData.template,
+        colors: websiteData.colors,
+        content: websiteData.content,
+        social: websiteData.social,
+        seo: websiteData.seo,
+        updatedAt: new Date(),
+      }).where(eq(websites.companyId, companyId));
+    } else {
+      await db.insert(websites).values({
+        companyId,
+        clinicName: websiteData.clinicName,
+        domain: websiteData.domain,
+        template: websiteData.template,
+        colors: websiteData.colors,
+        content: websiteData.content,
+        social: websiteData.social,
+        seo: websiteData.seo,
+        published: false,
+      });
+    }
+
+    // Fetch updated data
+    const [saved] = await db.select().from(websites).where(eq(websites.companyId, companyId)).limit(1);
 
     res.json({
       success: true,
-      data: websiteData,
+      data: saved ? rowToWebsiteData(saved) : websiteData,
       message: 'Site salvo com sucesso'
     });
   } catch (error) {
@@ -187,24 +228,42 @@ export async function publishWebsite(req: Request, res: Response) {
     const slug = generateDomainSlug(websiteData.clinicName);
     const domain = `${slug}.dentcare.com.br`;
 
-    // Marcar como publicado
-    const publishedWebsite: WebsiteData = {
-      ...websiteData,
-      id: companyId,
-      companyId,
-      domain,
-      published: true,
-      updatedAt: new Date().toISOString()
-    };
+    // Salvar e marcar como publicado no banco
+    const [existing] = await db.select({ id: websites.id }).from(websites).where(eq(websites.companyId, companyId)).limit(1);
 
-    if (!publishedWebsite.createdAt) {
-      publishedWebsite.createdAt = new Date().toISOString();
+    if (existing) {
+      await db.update(websites).set({
+        clinicName: websiteData.clinicName,
+        domain,
+        template: websiteData.template || 'modern',
+        colors: websiteData.colors,
+        content: websiteData.content,
+        social: websiteData.social,
+        seo: websiteData.seo,
+        published: true,
+        publishedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(websites.companyId, companyId));
+    } else {
+      await db.insert(websites).values({
+        companyId,
+        clinicName: websiteData.clinicName,
+        domain,
+        template: websiteData.template || 'modern',
+        colors: websiteData.colors,
+        content: websiteData.content,
+        social: websiteData.social,
+        seo: websiteData.seo,
+        published: true,
+        publishedAt: new Date(),
+      });
     }
 
-    websiteStorage.set(companyId, publishedWebsite);
-
-    // Simular criação do site estático
-    await generateStaticWebsite(publishedWebsite);
+    // Fetch for static generation
+    const [saved] = await db.select().from(websites).where(eq(websites.companyId, companyId)).limit(1);
+    if (saved) {
+      await generateStaticWebsite(rowToWebsiteData(saved));
+    }
 
     res.json({
       success: true,
@@ -226,29 +285,23 @@ export async function getPublicWebsite(req: Request, res: Response) {
   try {
     const { domain } = req.params;
     
-    // Procurar site pelo domínio
-    let foundWebsite: WebsiteData | null = null;
-    for (const website of websiteStorage.values()) {
-      if (website.domain === domain && website.published) {
-        foundWebsite = website;
-        break;
-      }
-    }
+    // Procurar site pelo domínio no banco
+    const [row] = await db.select().from(websites)
+      .where(and(eq(websites.domain, domain), eq(websites.published, true)))
+      .limit(1);
 
-    if (!foundWebsite) {
+    if (!row) {
       return res.status(404).json({ message: 'Site não encontrado' });
     }
 
     // Remover dados sensíveis para visualização pública
-    const publicData = {
-      clinicName: foundWebsite.clinicName,
-      template: foundWebsite.template,
-      colors: foundWebsite.colors,
-      content: foundWebsite.content,
-      seo: foundWebsite.seo
-    };
-
-    res.json(publicData);
+    res.json({
+      clinicName: row.clinicName,
+      template: row.template,
+      colors: row.colors,
+      content: row.content,
+      seo: row.seo,
+    });
   } catch (error) {
     console.error('Erro ao buscar site público:', error);
     res.status(500).json({ message: 'Erro interno do servidor' });
@@ -258,17 +311,15 @@ export async function getPublicWebsite(req: Request, res: Response) {
 // Listar todos os sites publicados (para administração)
 export async function listPublishedWebsites(req: Request, res: Response) {
   try {
-    const publishedSites = Array.from(websiteStorage.values())
-      .filter(site => site.published)
-      .map(site => ({
-        id: site.id,
-        clinicName: site.clinicName,
-        domain: site.domain,
-        template: site.template,
-        published: site.published,
-        createdAt: site.createdAt,
-        updatedAt: site.updatedAt
-      }));
+    const publishedSites = await db.select({
+      id: websites.id,
+      clinicName: websites.clinicName,
+      domain: websites.domain,
+      template: websites.template,
+      published: websites.published,
+      createdAt: websites.createdAt,
+      updatedAt: websites.updatedAt,
+    }).from(websites).where(eq(websites.published, true));
 
     res.json(publishedSites);
   } catch (error) {
@@ -285,14 +336,15 @@ export async function unpublishWebsite(req: Request, res: Response) {
       return res.status(401).json({ message: 'Não autorizado' });
     }
 
-    const website = websiteStorage.get(companyId);
+    const [website] = await db.select({ id: websites.id }).from(websites).where(eq(websites.companyId, companyId)).limit(1);
     if (!website) {
       return res.status(404).json({ message: 'Site não encontrado' });
     }
 
-    website.published = false;
-    website.updatedAt = new Date().toISOString();
-    websiteStorage.set(companyId, website);
+    await db.update(websites).set({
+      published: false,
+      updatedAt: new Date(),
+    }).where(eq(websites.companyId, companyId));
 
     res.json({
       success: true,
@@ -609,7 +661,7 @@ function generateModernTemplate(data: WebsiteData): string {
   `;
 }
 
-// Upload de imagem para galeria
+// Upload de imagem para galeria (usa S3/MinIO)
 export async function uploadImage(req: Request, res: Response) {
   try {
     const companyId = req.user?.companyId;
@@ -618,20 +670,30 @@ export async function uploadImage(req: Request, res: Response) {
     }
 
     const { imageData, filename } = req.body;
-    
+
     if (!imageData) {
       return res.status(400).json({ message: 'Dados da imagem são obrigatórios' });
     }
 
-    // Gerar URL única para a imagem baseada em timestamp
+    // Decode base64 image data
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
     const timestamp = Date.now();
     const extension = filename?.split('.').pop() || 'jpg';
-    const uniqueFilename = `${companyId}-${timestamp}.${extension}`;
-    const imageUrl = `/uploads/gallery/${uniqueFilename}`;
-    
-    res.json({ 
+    const uniqueFilename = `website-${companyId}-${timestamp}.${extension}`;
+
+    // Upload to S3/MinIO
+    const result = await storageService.upload(
+      buffer,
+      uniqueFilename,
+      'gallery' as any,
+      companyId
+    );
+
+    res.json({
       success: true,
-      url: imageUrl,
+      url: result.url,
       filename: uniqueFilename,
       message: 'Imagem enviada com sucesso'
     });
@@ -650,7 +712,8 @@ export async function previewWebsite(req: Request, res: Response) {
     }
 
     // Buscar dados salvos ou criar dados padrão
-    let websiteData = websiteStorage.get(companyId);
+    const [row] = await db.select().from(websites).where(eq(websites.companyId, companyId)).limit(1);
+    let websiteData: WebsiteData | undefined = row ? rowToWebsiteData(row) : undefined;
     
     if (!websiteData) {
       // Criar dados padrão se não existir
@@ -1097,8 +1160,9 @@ export async function getWebsitePreview(req: Request, res: Response) {
       return res.status(400).json({ error: 'Template inválido' });
     }
 
-    // Buscar dados salvos ou usar dados padrão da empresa
-    let websiteData = websiteStorage.get(companyId || 0);
+    // Buscar dados salvos do banco ou usar dados padrão da empresa
+    const [dbRow] = companyId ? await db.select().from(websites).where(eq(websites.companyId, companyId)).limit(1) : [];
+    let websiteData: WebsiteData | undefined = dbRow ? rowToWebsiteData(dbRow) : undefined;
     
     if (!websiteData && companyId) {
       // Buscar dados da empresa no banco para popular automaticamente
@@ -1144,7 +1208,7 @@ export async function getWebsitePreview(req: Request, res: Response) {
           keywords: 'dentista, odontologia, clínica dental, implante, clareamento, ortodontia'
         },
         published: false,
-        companyId: companyId || 0
+        companyId: companyId
       };
     }
 

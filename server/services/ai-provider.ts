@@ -12,7 +12,7 @@ import { clinicSettings, companies } from '@shared/schema';
 export interface AIProvider {
   id: string;
   name: string;
-  type: 'ollama' | 'openai' | 'groq' | 'lmstudio';
+  type: 'ollama' | 'openai' | 'groq' | 'lmstudio' | 'anthropic';
   baseUrl: string;
   apiKey?: string;
   model: string;
@@ -41,32 +41,20 @@ export interface AICompletionResponse {
 }
 
 // Configuração padrão de providers
+// LGPD: Ollama local é SEMPRE o provider primário — dados de saúde não saem do servidor.
 const DEFAULT_PROVIDERS: AIProvider[] = [
   {
     id: 'ollama-gpu-0',
     name: 'Ollama Local (GPU 0)',
     type: 'ollama',
-    baseUrl: 'http://localhost:11434',
-    model: 'llama3.1:8b', // Roda bem em 24GB VRAM
+    baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    model: process.env.OLLAMA_MODEL || 'llama3.1:8b',
     maxTokens: 2048,
     temperature: 0.7,
     isHealthy: false,
     lastHealthCheck: new Date(0),
     gpuId: 0,
-    priority: 1,
-  },
-  {
-    id: 'openai-fallback',
-    name: 'OpenAI (Fallback)',
-    type: 'openai',
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4o-mini',
-    maxTokens: 1024,
-    temperature: 0.7,
-    isHealthy: true,
-    lastHealthCheck: new Date(),
-    priority: 100, // Fallback
+    priority: 1, // Máxima prioridade — sempre local
   },
 ];
 
@@ -188,11 +176,17 @@ Avaliação: ${settings?.googleReviewLink || ''}
       });
     }
 
-    // Adicionar Groq se configurado (muito rápido, bom fallback antes do OpenAI)
+    // ===================================================================
+    // LGPD: Providers externos são APENAS fallback de emergência.
+    // Dados de saúde devem ser processados localmente sempre que possível.
+    // Prioridade: Ollama (local) → Groq (se configurado) → Anthropic → OpenAI
+    // ===================================================================
+
+    // Groq como primeiro fallback externo (rápido, mas ainda é externo)
     if (settings.groqApiKey) {
       providers.push({
         id: 'groq-fallback',
-        name: 'Groq (Fast Fallback)',
+        name: 'Groq (Fallback Externo 1)',
         type: 'groq',
         baseUrl: 'https://api.groq.com/openai/v1',
         apiKey: settings.groqApiKey,
@@ -201,16 +195,34 @@ Avaliação: ${settings?.googleReviewLink || ''}
         temperature: 0.7,
         isHealthy: true,
         lastHealthCheck: new Date(),
-        priority: 50,
+        priority: 50, // Muito abaixo do Ollama local (1-N)
       });
     }
 
-    // OpenAI como fallback final
+    // Anthropic Claude — fallback externo (LGPD: dados serão anonimizados antes de enviar)
+    const anthropicKey = settings.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      providers.push({
+        id: 'anthropic-claude',
+        name: 'Claude (Fallback Externo 2)',
+        type: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: anthropicKey,
+        model: 'claude-haiku-4-5-20251001',
+        maxTokens: 1024,
+        temperature: 0.7,
+        isHealthy: true,
+        lastHealthCheck: new Date(),
+        priority: 80, // Apenas quando Ollama e Groq falharem
+      });
+    }
+
+    // OpenAI — último fallback (LGPD: dados serão anonimizados antes de enviar)
     const openaiKey = settings.openaiApiKey || process.env.OPENAI_API_KEY;
     if (openaiKey) {
       providers.push({
         id: 'openai-fallback',
-        name: 'OpenAI (Fallback)',
+        name: 'OpenAI (Último Fallback)',
         type: 'openai',
         baseUrl: 'https://api.openai.com/v1',
         apiKey: openaiKey,
@@ -219,7 +231,7 @@ Avaliação: ${settings?.googleReviewLink || ''}
         temperature: 0.7,
         isHealthy: true,
         lastHealthCheck: new Date(),
-        priority: 100,
+        priority: 100, // Último recurso
       });
     }
 
@@ -262,9 +274,10 @@ Avaliação: ${settings?.googleReviewLink || ''}
           });
           return ollamaResponse.ok;
 
+        case 'anthropic':
         case 'openai':
         case 'groq':
-          // Para OpenAI/Groq, assumimos que está saudável se tiver API key
+          // Para Anthropic/OpenAI/Groq, assumimos que está saudável se tiver API key
           return !!provider.apiKey;
 
         case 'lmstudio':
@@ -288,11 +301,14 @@ Avaliação: ${settings?.googleReviewLink || ''}
     const healthyProviders = providers.filter((p) => p.isHealthy);
 
     if (healthyProviders.length === 0) {
-      // Se nenhum está saudável, tentar o OpenAI mesmo assim
-      return providers.find((p) => p.type === 'openai') || null;
+      // Tentar Ollama mesmo sem health check recente (pode ter voltado)
+      const ollamaProvider = providers.find((p) => p.type === 'ollama');
+      if (ollamaProvider) return ollamaProvider;
+      // Último recurso: qualquer provider disponível
+      return providers[0] || null;
     }
 
-    // Round-robin entre providers locais saudáveis
+    // LGPD: Preferir SEMPRE providers locais (Ollama)
     const localProviders = healthyProviders.filter((p) => p.type === 'ollama');
 
     if (localProviders.length > 0) {
@@ -300,7 +316,8 @@ Avaliação: ${settings?.googleReviewLink || ''}
       return localProviders[currentProviderIndex];
     }
 
-    // Fallback para primeiro provider saudável (Groq ou OpenAI)
+    // Fallback externo — log warning (dados saindo do servidor)
+    console.warn('[AI-Provider] LGPD: Ollama indisponível, usando provider externo como fallback');
     return healthyProviders[0];
   }
 
@@ -406,6 +423,9 @@ Avaliação: ${settings?.googleReviewLink || ''}
       case 'ollama':
         return this.callOllama(provider, request);
 
+      case 'anthropic':
+        return this.callAnthropic(provider, request);
+
       case 'openai':
       case 'groq':
         return this.callOpenAICompatible(provider, request);
@@ -416,6 +436,52 @@ Avaliação: ${settings?.googleReviewLink || ''}
       default:
         throw new Error(`Provider type ${provider.type} não suportado`);
     }
+  }
+
+  /**
+   * Chama Anthropic Claude API
+   */
+  private async callAnthropic(
+    provider: AIProvider,
+    request: AICompletionRequest
+  ): Promise<AICompletionResponse> {
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    const client = new Anthropic({ apiKey: provider.apiKey });
+
+    // Separar system message das demais
+    const systemMsg = request.messages.find(m => m.role === 'system');
+    const userMessages = request.messages
+      .filter(m => m.role !== 'system')
+      .map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: (m.content || '').replace('{{context}}', this.context),
+      }));
+
+    // Garantir que começa com 'user'
+    if (userMessages.length > 0 && userMessages[0].role !== 'user') {
+      userMessages.shift();
+    }
+
+    if (userMessages.length === 0) {
+      return { content: '', provider: provider.id, model: provider.model, tokensUsed: 0, latencyMs: 0 };
+    }
+
+    const response = await client.messages.create({
+      model: provider.model,
+      max_tokens: request.maxTokens || provider.maxTokens,
+      system: systemMsg ? (systemMsg.content || '').replace('{{context}}', this.context) : undefined,
+      messages: userMessages,
+    });
+
+    const textBlock = response.content.find(b => b.type === 'text');
+
+    return {
+      content: textBlock?.text || '',
+      provider: provider.id,
+      model: provider.model,
+      tokensUsed: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0),
+      latencyMs: 0,
+    };
   }
 
   /**
