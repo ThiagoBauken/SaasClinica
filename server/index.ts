@@ -39,6 +39,8 @@ import { createClient } from 'redis';
 import { isRedisAvailable } from './redis';
 import { startBillingCronJobs } from './jobs/billing-cron';
 import { startBackupCronJobs } from './jobs/backup-cron';
+import { requestTracingMiddleware } from './lib/tracing';
+import { startSlowQueryMonitor } from './lib/slow-query-monitor';
 
 // Setup process-level error handlers (unhandledRejection, uncaughtException)
 setupProcessErrorHandlers();
@@ -255,6 +257,9 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     }
   }));
 
+  // Request tracing middleware (slow request detection)
+  app.use(requestTracingMiddleware);
+
   // Middleware para logging e monitoramento de performance
   app.use((req, res, next) => {
     const start = Date.now();
@@ -374,6 +379,11 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
       if (cluster.isWorker && cluster.worker?.id === 1 || process.env.NODE_ENV === 'development') {
         startBillingCronJobs();
         startBackupCronJobs();
+
+        // Start slow query monitor (only on first worker)
+        import('./db').then(({ pool }) => {
+          startSlowQueryMonitor(pool);
+        }).catch(() => {});
       }
     });
 

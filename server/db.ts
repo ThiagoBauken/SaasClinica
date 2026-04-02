@@ -1,8 +1,11 @@
-// CRÍTICO: Carregar .env PRIMEIRO antes de tudo
+// CRITICO: Carregar .env PRIMEIRO antes de tudo
 import { config } from 'dotenv';
 config({ override: true });
 
 import * as schema from "@shared/schema";
+import { logger } from './logger';
+
+const dbLogger = logger.child({ module: 'database' });
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -10,7 +13,7 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-console.log('[DB] Usando DATABASE_URL:', process.env.DATABASE_URL?.substring(0, 30) + '...');
+dbLogger.info({ url: process.env.DATABASE_URL?.substring(0, 30) + '...' }, 'Initializing database');
 
 // Detectar se deve usar Neon (WebSocket) ou PostgreSQL tradicional (TCP)
 const isNeonDatabase = process.env.DATABASE_URL.includes('neon.tech');
@@ -18,7 +21,7 @@ const isNeonDatabase = process.env.DATABASE_URL.includes('neon.tech');
 let pool: any;
 let db: any;
 
-// Configurações do pool (customizáveis via .env)
+// Configuracoes do pool (customizaveis via .env)
 const isProduction = process.env.NODE_ENV === 'production';
 const poolSettings = {
   max: parseInt(process.env.DB_POOL_MAX || (isProduction ? '100' : '10')),
@@ -27,11 +30,10 @@ const poolSettings = {
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
 };
 
-console.log(`[DB] Pool config: max=${poolSettings.max}, min=${poolSettings.min}, idle=${poolSettings.idleTimeoutMillis}ms`);
+dbLogger.info({ max: poolSettings.max, min: poolSettings.min, idleTimeout: poolSettings.idleTimeoutMillis }, 'Pool config');
 
 if (isNeonDatabase) {
-  console.log('[DB] Usando driver Neon (WebSocket)');
-  // Usar driver Neon para bancos Neon.tech
+  dbLogger.info('Using Neon driver (WebSocket)');
   const { Pool: NeonPool, neonConfig } = await import('@neondatabase/serverless');
   const ws = await import('ws');
   neonConfig.webSocketConstructor = ws.default;
@@ -48,8 +50,7 @@ if (isNeonDatabase) {
   const { drizzle } = await import('drizzle-orm/neon-serverless');
   db = drizzle(pool, { schema });
 } else {
-  console.log('[DB] Usando driver PostgreSQL nativo (TCP)');
-  // Usar driver PostgreSQL tradicional para outros bancos
+  dbLogger.info('Using native PostgreSQL driver (TCP)');
   const pgModule = await import('pg');
   const PgPool = pgModule.default.Pool;
   const { drizzle } = await import('drizzle-orm/node-postgres');
@@ -58,6 +59,9 @@ if (isNeonDatabase) {
     connectionString: process.env.DATABASE_URL,
     ...poolSettings,
     allowExitOnIdle: false,
+    ssl: isProduction
+      ? { rejectUnauthorized: false } // Set rejectUnauthorized: true if you have proper CA certs
+      : undefined,
   };
 
   pool = new PgPool(poolConfig);
@@ -67,16 +71,15 @@ if (isNeonDatabase) {
 
 // Logging de eventos do pool para monitoramento
 pool.on('connect', () => {
-  console.log('✓ Nova conexão estabelecida com o banco de dados');
+  dbLogger.debug('New database connection established');
 });
 
 pool.on('error', (err: Error) => {
-  console.error('❌ Erro inesperado no pool do banco de dados:', err.message);
-  // Não lance erro aqui, deixa o pool tentar recuperar
+  dbLogger.error({ err }, 'Unexpected database pool error');
 });
 
 pool.on('remove', () => {
-  // console.log('Connection removed from pool');
+  // silent
 });
 
 // Health check do pool
@@ -87,7 +90,7 @@ export async function checkDatabaseHealth(): Promise<boolean> {
     client.release();
     return true;
   } catch (error) {
-    console.error('Database health check failed:', error);
+    dbLogger.error({ err: error }, 'Database health check failed');
     return false;
   }
 }
@@ -95,7 +98,7 @@ export async function checkDatabaseHealth(): Promise<boolean> {
 // Graceful shutdown do pool
 export async function closeDatabasePool() {
   await pool.end();
-  console.log('✓ Database pool closed');
+  dbLogger.info('Database pool closed');
 }
 
 export { pool, db };

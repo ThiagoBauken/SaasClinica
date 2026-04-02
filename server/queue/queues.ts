@@ -1,4 +1,5 @@
 import { createQueue, QueueNames, redisConnection } from './config';
+import { logger } from '../logger';
 
 /**
  * Filas do sistema
@@ -15,7 +16,7 @@ let _reportsQueue: any = null;
 export const automationsQueue = {
   get queue() {
     if (!redisConnection) {
-      console.warn('⚠️  Redis não configurado - jobs serão ignorados');
+      logger.warn({ module: 'queue' }, 'Redis not configured — jobs will be skipped');
       return null;
     }
     if (!_automationsQueue) {
@@ -56,7 +57,7 @@ export const automationsQueue = {
 export const notificationsQueue = {
   get queue() {
     if (!redisConnection) {
-      console.warn('⚠️  Redis não configurado - jobs serão ignorados');
+      logger.warn({ module: 'queue' }, 'Redis not configured — jobs will be skipped');
       return null;
     }
     if (!_notificationsQueue) {
@@ -97,7 +98,7 @@ export const notificationsQueue = {
 export const emailsQueue = {
   get queue() {
     if (!redisConnection) {
-      console.warn('⚠️  Redis não configurado - jobs serão ignorados');
+      logger.warn({ module: 'queue' }, 'Redis not configured — jobs will be skipped');
       return null;
     }
     if (!_emailsQueue) {
@@ -138,7 +139,7 @@ export const emailsQueue = {
 export const whatsappQueue = {
   get queue() {
     if (!redisConnection) {
-      console.warn('⚠️  Redis não configurado - jobs serão ignorados');
+      logger.warn({ module: 'queue' }, 'Redis not configured — jobs will be skipped');
       return null;
     }
     if (!_whatsappQueue) {
@@ -179,7 +180,7 @@ export const whatsappQueue = {
 export const reportsQueue = {
   get queue() {
     if (!redisConnection) {
-      console.warn('⚠️  Redis não configurado - jobs serão ignorados');
+      logger.warn({ module: 'queue' }, 'Redis not configured — jobs will be skipped');
       return null;
     }
     if (!_reportsQueue) {

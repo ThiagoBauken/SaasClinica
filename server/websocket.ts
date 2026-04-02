@@ -2,6 +2,9 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import type { Session } from 'express-session';
+import { logger } from './logger';
+
+const wsLogger = logger.child({ module: 'websocket' });
 
 interface AuthenticatedSocket extends WebSocket {
   userId?: number;
@@ -15,7 +18,7 @@ interface WebSocketMessage {
   timestamp: string;
 }
 
-// Mapa de conexões por empresa para broadcast direcionado
+// Mapa de conexoes por empresa para broadcast direcionado
 const companyConnections = new Map<number, Set<AuthenticatedSocket>>();
 
 let wss: WebSocketServer | null = null;
@@ -29,23 +32,19 @@ export function initializeWebSocket(server: Server) {
     path: '/ws',
   });
 
-  console.log('✅ WebSocket Server inicializado em /ws');
+  wsLogger.info('WebSocket server initialized on /ws');
 
   wss.on('connection', (ws: AuthenticatedSocket, request: IncomingMessage) => {
-    console.log('🔌 Nova conexão WebSocket estabelecida');
+    wsLogger.debug('New WebSocket connection');
 
     ws.isAlive = true;
 
-    // Extrair sessão do request para autenticação
     const session = (request as any).session as Session & { passport?: { user?: number } };
 
     if (session?.passport?.user) {
       ws.userId = session.passport.user;
-      // Aqui você pode buscar o companyId do usuário do banco
-      // Por simplicidade, vamos extrair do cookie ou header se disponível
     }
 
-    // Heartbeat para detectar conexões mortas
     ws.on('pong', () => {
       ws.isAlive = true;
     });
@@ -54,17 +53,15 @@ export function initializeWebSocket(server: Server) {
       try {
         const data = JSON.parse(message.toString());
 
-        // Mensagem de autenticação/registro
         if (data.type === 'auth' && data.companyId) {
           ws.companyId = data.companyId;
 
-          // Adicionar ao mapa de conexões da empresa
           if (!companyConnections.has(data.companyId)) {
             companyConnections.set(data.companyId, new Set());
           }
           companyConnections.get(data.companyId)?.add(ws);
 
-          console.log(`✅ Cliente autenticado - Company ID: ${data.companyId}`);
+          wsLogger.debug({ companyId: data.companyId }, 'Client authenticated');
 
           ws.send(JSON.stringify({
             type: 'auth_success',
@@ -73,14 +70,13 @@ export function initializeWebSocket(server: Server) {
           }));
         }
       } catch (error) {
-        console.error('❌ Erro ao processar mensagem WebSocket:', error);
+        wsLogger.error({ err: error }, 'Failed to process WebSocket message');
       }
     });
 
     ws.on('close', () => {
-      console.log('🔌 Conexão WebSocket fechada');
+      wsLogger.debug({ companyId: ws.companyId }, 'WebSocket connection closed');
 
-      // Remover do mapa de conexões
       if (ws.companyId) {
         const connections = companyConnections.get(ws.companyId);
         if (connections) {
@@ -93,11 +89,11 @@ export function initializeWebSocket(server: Server) {
     });
 
     ws.on('error', (error) => {
-      console.error('❌ Erro no WebSocket:', error);
+      wsLogger.error({ err: error }, 'WebSocket error');
     });
   });
 
-  // Heartbeat interval para limpar conexões mortas
+  // Heartbeat interval para limpar conexoes mortas
   const heartbeatInterval = setInterval(() => {
     if (!wss) return;
 
@@ -111,7 +107,7 @@ export function initializeWebSocket(server: Server) {
       socket.isAlive = false;
       socket.ping();
     });
-  }, 30000); // 30 segundos
+  }, 30000);
 
   wss.on('close', () => {
     clearInterval(heartbeatInterval);
@@ -119,13 +115,12 @@ export function initializeWebSocket(server: Server) {
 }
 
 /**
- * Envia notificação para todos os clientes de uma empresa
+ * Envia notificacao para todos os clientes de uma empresa
  */
 export function broadcastToCompany(companyId: number, message: WebSocketMessage) {
   const connections = companyConnections.get(companyId);
 
   if (!connections || connections.size === 0) {
-    console.log(`ℹ️ Nenhuma conexão ativa para company ${companyId}`);
     return;
   }
 
@@ -142,11 +137,11 @@ export function broadcastToCompany(companyId: number, message: WebSocketMessage)
     }
   });
 
-  console.log(`📢 Notificação enviada para ${successCount} cliente(s) da company ${companyId}`);
+  wsLogger.debug({ companyId, clients: successCount }, 'Broadcast sent');
 }
 
 /**
- * Envia notificação de novo agendamento
+ * Envia notificacao de novo agendamento
  */
 export function notifyAppointmentCreated(companyId: number, appointment: any) {
   broadcastToCompany(companyId, {
@@ -164,7 +159,7 @@ export function notifyAppointmentCreated(companyId: number, appointment: any) {
 }
 
 /**
- * Envia notificação de agendamento atualizado
+ * Envia notificacao de agendamento atualizado
  */
 export function notifyAppointmentUpdated(companyId: number, appointment: any) {
   broadcastToCompany(companyId, {
@@ -182,7 +177,7 @@ export function notifyAppointmentUpdated(companyId: number, appointment: any) {
 }
 
 /**
- * Envia notificação de agendamento deletado
+ * Envia notificacao de agendamento deletado
  */
 export function notifyAppointmentDeleted(companyId: number, appointmentId: number) {
   broadcastToCompany(companyId, {
@@ -206,7 +201,7 @@ export function notifyConflictWarning(companyId: number, conflictDetails: any) {
 }
 
 /**
- * Envia lembrete de consulta próxima
+ * Envia lembrete de consulta proxima
  */
 export function notifyReminder(companyId: number, appointment: any) {
   broadcastToCompany(companyId, {
@@ -223,7 +218,7 @@ export function notifyReminder(companyId: number, appointment: any) {
 }
 
 /**
- * Retorna estatísticas das conexões WebSocket
+ * Retorna estatisticas das conexoes WebSocket
  */
 export function getWebSocketStats() {
   if (!wss) {
@@ -240,11 +235,11 @@ export function getWebSocketStats() {
   };
 }
 
-// Mapa de conexões por usuário para notificações individuais
+// Mapa de conexoes por usuario para notificacoes individuais
 const userConnections = new Map<number, Set<AuthenticatedSocket>>();
 
 /**
- * Envia notificação para um usuário específico
+ * Envia notificacao para um usuario especifico
  */
 export function notifyUser(userId: number, message: any) {
   const connections = userConnections.get(userId);
@@ -266,7 +261,7 @@ export function notifyUser(userId: number, message: any) {
 }
 
 /**
- * Retorna o WebSocket Server para uso externo (automações)
+ * Retorna o WebSocket Server para uso externo (automacoes)
  */
 export function getWebSocketServer() {
   if (!wss) {

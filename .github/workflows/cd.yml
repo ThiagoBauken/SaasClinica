@@ -1,0 +1,161 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even without changes'
+        required: false
+        default: 'false'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ==========================================
+  # Build & Push Docker Image
+  # ==========================================
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # ==========================================
+  # Deploy to Production (EasyPanel)
+  # ==========================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to EasyPanel
+        if: ${{ vars.EASYPANEL_URL != '' }}
+        run: |
+          # Trigger EasyPanel rebuild via API
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "${{ vars.EASYPANEL_URL }}/api/deploy" \
+            -H "Authorization: Bearer ${{ secrets.EASYPANEL_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "service": "${{ vars.EASYPANEL_SERVICE }}",
+              "image": "${{ needs.build-and-push.outputs.image_tag }}"
+            }' 2>/dev/null || echo -e "\n000")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Deploy triggered successfully"
+            echo "$BODY"
+          else
+            echo "::warning::EasyPanel deploy API returned $HTTP_CODE. Deploy may need manual trigger."
+            echo "$BODY"
+          fi
+
+      - name: Wait for deployment health
+        if: ${{ vars.APP_URL != '' }}
+        run: |
+          echo "Waiting for deployment to be healthy..."
+          MAX_RETRIES=20
+          RETRY_INTERVAL=15
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "${{ vars.APP_URL }}/health/ready" 2>/dev/null || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Deployment healthy after $((i * RETRY_INTERVAL)) seconds"
+              exit 0
+            fi
+
+            echo "Attempt $i/$MAX_RETRIES: health check returned $HTTP_CODE, retrying in ${RETRY_INTERVAL}s..."
+            sleep $RETRY_INTERVAL
+          done
+
+          echo "::error::Deployment health check failed after $((MAX_RETRIES * RETRY_INTERVAL)) seconds"
+          exit 1
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "## Deployment Successful" >> $GITHUB_STEP_SUMMARY
+            echo "- **Image:** \`${{ needs.build-and-push.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Check logs for details. Previous version is still running." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ==========================================
+  # Rollback (manual trigger)
+  # ==========================================
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    if: ${{ failure() && needs.deploy.result == 'failure' }}
+    needs: [build-and-push, deploy]
+
+    steps:
+      - name: Rollback notification
+        run: |
+          echo "::error::Deploy failed. To rollback:"
+          echo "  1. Go to GitHub Packages and find the previous image tag"
+          echo "  2. Run: gh workflow run cd.yml -f force_deploy=true"
+          echo "  3. Or redeploy previous version in EasyPanel UI"
+          echo ""
+          echo "## Rollback Required" >> $GITHUB_STEP_SUMMARY
+          echo "The deployment failed. Manual rollback may be needed." >> $GITHUB_STEP_SUMMARY
+          echo "Previous container should still be running (EasyPanel keeps old container on build failure)." >> $GITHUB_STEP_SUMMARY

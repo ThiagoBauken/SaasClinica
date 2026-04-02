@@ -1,16 +1,19 @@
 /**
- * Sistema de Filas e Automações
+ * Sistema de Filas e Automacoes
  *
  * Exporta todas as funcionalidades do sistema de filas
  */
+import { logger } from '../logger';
 
-// Configuração
+const queueLogger = logger.child({ module: 'queue-system' });
+
+// Configuracao
 export * from './config';
 
 // Filas
 export * from './queues';
 
-// NÃO exportar workers automaticamente - eles serão carregados condicionalmente
+// NAO exportar workers automaticamente - eles serao carregados condicionalmente
 // export * from './workers';
 
 // Triggers
@@ -21,32 +24,29 @@ export * as queueApi from './api';
 
 /**
  * Inicializar sistema de filas
- * Retorna false se Redis não estiver disponível
+ * Retorna false se Redis nao estiver disponivel
  */
 export async function initializeQueueSystem() {
   try {
-    // Verificar se Redis está disponível
     const redisEnabled = process.env.REDIS_HOST &&
                         process.env.REDIS_HOST !== '' &&
                         !process.env.DISABLE_REDIS;
 
     if (!redisEnabled) {
-      console.log('⚠️  Sistema de filas desabilitado (Redis não configurado)');
-      console.log('   Jobs serão processados de forma síncrona');
+      queueLogger.warn('Queue system disabled (Redis not configured). Jobs will be processed synchronously');
       return { success: false, reason: 'redis_not_configured' };
     }
 
-    console.log('\n🚀 Inicializando sistema de filas...');
+    queueLogger.info('Initializing queue system');
 
     // Importar workers (isso os inicia automaticamente)
     await import('./workers');
 
-    console.log('✅ Sistema de filas inicializado com sucesso\n');
+    queueLogger.info('Queue system initialized successfully');
 
     return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao inicializar sistema de filas:', error);
-    console.log('   Jobs serão processados de forma síncrona');
+    queueLogger.error({ err: error }, 'Failed to initialize queue system. Jobs will be processed synchronously');
     return { success: false, error };
   }
 }

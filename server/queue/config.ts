@@ -1,5 +1,8 @@
 import { Queue, Worker, QueueEvents } from 'bullmq';
 import Redis from 'ioredis';
+import { logger } from '../logger';
+
+const queueLogger = logger.child({ module: 'queue-config' });
 
 /**
  * Configuração centralizada para BullMQ e Redis
@@ -26,11 +29,11 @@ export const redisConnection = isRedisEnabled ? new Redis(redisConfig) : null;
 // Health check do Redis (só se estiver habilitado)
 if (redisConnection) {
   redisConnection.on('connect', () => {
-    console.log('✅ Redis conectado para filas');
+    queueLogger.info('Redis connected for queues');
   });
 
   redisConnection.on('error', (err) => {
-    console.error('❌ Erro no Redis (filas):', err.message);
+    queueLogger.error({ error: err.message }, 'Redis queue connection error');
   });
 }
 
