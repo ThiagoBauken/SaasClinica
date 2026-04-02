@@ -37,7 +37,7 @@ router.get(
 
     // DB-level search and pagination
     const params: any[] = [companyId];
-    let whereClause = 'WHERE company_id = $1';
+    let whereClause = 'WHERE company_id = $1 AND deleted_at IS NULL';
     let paramIdx = 2;
 
     if (search) {
@@ -64,7 +64,7 @@ router.get(
     const total = parseInt(countResult.rows[0].count, 10);
 
     const dataResult = await db.$client.query(
-      `SELECT * FROM patients ${whereClause} ORDER BY name ASC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      `SELECT * FROM patients ${whereClause} ORDER BY full_name ASC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     );
 
@@ -342,6 +342,31 @@ router.post(
     });
 
     res.status(201).json(plan);
+  })
+);
+
+// =============== PRESCRIPTIONS ROUTES ===============
+
+/**
+ * GET /api/v1/patients/:id/prescriptions
+ * Busca receitas e atestados do paciente
+ */
+router.get(
+  '/:id/prescriptions',
+  authCheck,
+  validate({ params: idParamSchema }),
+  asyncHandler(async (req, res) => {
+    const user = req.user as any;
+    const companyId = user?.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const { id } = req.params as any;
+    const prescriptions = await storage.getPatientPrescriptions(parseInt(id), companyId);
+
+    res.json(prescriptions);
   })
 );
 

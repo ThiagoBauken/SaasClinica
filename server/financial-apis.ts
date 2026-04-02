@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { db } from "./db";
 import { payments, appointments, appointmentProcedures, procedures } from "@shared/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { notDeleted } from "./lib/soft-delete";
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, format } from "date-fns";
 
 /**
@@ -58,6 +59,7 @@ export async function getTransactions(req: Request, res: Response) {
       .where(
         and(
           eq(appointments.companyId, companyId),
+          notDeleted(appointments.deletedAt),
           gte(payments.paymentDate, startDate),
           lte(payments.paymentDate, endDate)
         )
@@ -95,6 +97,7 @@ export async function getRevenueByMonth(req: Request, res: Response) {
       .where(
         and(
           eq(appointments.companyId, companyId),
+          notDeleted(appointments.deletedAt),
           eq(payments.status, "paid"),
           gte(payments.paymentDate, startDate),
           lte(payments.paymentDate, endDate)
@@ -143,6 +146,7 @@ export async function getRevenueByType(req: Request, res: Response) {
       .where(
         and(
           eq(appointments.companyId, companyId),
+          notDeleted(appointments.deletedAt),
           eq(payments.status, "paid"),
           gte(payments.paymentDate, startDate),
           lte(payments.paymentDate, endDate)
@@ -179,5 +183,55 @@ export async function createTransaction(req: Request, res: Response) {
   } catch (error) {
     console.error("Error creating transaction:", error);
     res.status(500).json({ error: "Failed to create transaction" });
+  }
+}
+
+/**
+ * PATCH /api/transactions/:id
+ * Atualiza campos de uma transação (pagamento) garantindo isolamento por companyId
+ */
+export async function updateTransaction(req: Request, res: Response) {
+  try {
+    const user = req.user as any;
+    const companyId = user.companyId;
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid transaction id" });
+    }
+
+    const { status, amount, description, paymentMethod, paymentDate } = req.body;
+
+    // Build only the fields that were actually provided
+    const updates: Record<string, unknown> = {};
+    if (status !== undefined) updates.status = status;
+    if (amount !== undefined) updates.amount = amount;
+    if (description !== undefined) updates.description = description;
+    if (paymentMethod !== undefined) updates.payment_method = paymentMethod;
+    if (paymentDate !== undefined) updates.payment_date = new Date(paymentDate);
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No updatable fields provided" });
+    }
+
+    const result = await db.$client.query(
+      `UPDATE payments
+          SET ${Object.keys(updates)
+            .map((col, i) => `${col} = $${i + 1}`)
+            .join(", ")}
+        WHERE id = $${Object.keys(updates).length + 1}
+          AND company_id = $${Object.keys(updates).length + 2}
+        RETURNING *`,
+      [...Object.values(updates), id, companyId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating transaction:", error);
+    return res.status(500).json({ error: "Failed to update transaction" });
   }
 }

@@ -27,7 +27,9 @@ import { registerProtesesRoutes } from "./modules/clinica/proteses";
 import { registerModularRoutes } from "./routes/index";
 import { notificationService } from "./services/notificationService";
 import { authCheck, adminOnly, asyncHandler, tenantAwareAuth } from "./middleware/auth";
+import { rlsMiddleware } from "./middleware/rls";
 import { z } from "zod";
+import multer from "multer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize database with seed data if needed
@@ -40,15 +42,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
 
+  // RLS: set app.current_company_id for every request so PostgreSQL
+  // Row-Level Security policies can enforce tenant isolation at the DB level.
+  // Must come after setupAuth so req.user is populated by Passport.
+  app.use(rlsMiddleware);
+
   // Register new modular routes (v1 API with validation and pagination)
   registerModularRoutes(app);
-
-  // Função auxiliar para tratamento de erros assíncrono
-  const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-      Promise.resolve(fn(req, res, next)).catch(next);
-    };
-  };
 
   // === APIs DE MÓDULOS (COM AUTENTICAÇÃO) ===
   app.get("/api/user/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
@@ -81,16 +81,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === ROTAS SaaS (COM AUTENTICAÇÃO ADMIN) ===
   // Listar todas as empresas
-  app.get("/api/saas/companies", authCheck, adminOnly, (req: Request, res: Response) => {
-    db.$client.query(`
+  app.get("/api/saas/companies", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
+    const result = await db.$client.query(`
       SELECT c.*,
         (SELECT COUNT(*) FROM company_modules WHERE company_id = c.id AND is_enabled = true) as module_count
       FROM companies c
       ORDER BY c.name
-    `)
-      .then((result: { rows: unknown[] }) => res.json(result.rows))
-      .catch((err: Error) => res.status(500).json({ error: err.message }));
-  });
+    `);
+    res.json(result.rows);
+  }));
 
   // Schema de validação para criação de empresa
   const createCompanySchema = z.object({
@@ -124,53 +123,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(result.rows[0]);
   }));
 
-  app.get("/api/saas/companies/:companyId/modules", authCheck, adminOnly, (req: Request, res: Response) => {
+  app.get("/api/saas/companies/:companyId/modules", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const { companyId } = req.params;
-    
+
     // Desabilitar cache para esta rota
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    
-    db.$client.query(`
-      SELECT 
+
+    const result = await db.$client.query(`
+      SELECT
         m.id, m.name, m.display_name, m.description,
         COALESCE(cm.is_enabled, false) as enabled
       FROM modules m
       LEFT JOIN company_modules cm ON m.id = cm.module_id AND cm.company_id = $1
       ORDER BY m.display_name
-    `, [companyId])
-      .then((result: { rows: unknown[] }) => res.json(result.rows))
-      .catch((err: Error) => res.status(500).json({ error: err.message }));
-  });
+    `, [companyId]);
+    res.json(result.rows);
+  }));
 
-  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, adminOnly, (req: Request, res: Response) => {
+  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const { companyId, moduleId } = req.params;
     const { enabled } = req.body;
 
-    if (enabled) {
-      // Inserir ou atualizar para ativado
-      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
-                     VALUES ($1, $2, true, NOW(), NOW())
-                     ON CONFLICT (company_id, module_id)
-                     DO UPDATE SET is_enabled = true, updated_at = NOW()`;
+    const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
+                   VALUES ($1, $2, $3, NOW(), NOW())
+                   ON CONFLICT (company_id, module_id)
+                   DO UPDATE SET is_enabled = $3, updated_at = NOW()`;
 
-      db.$client.query(query, [companyId, moduleId])
-        .then(() => res.json({ success: true, message: 'Módulo ativado' }))
-        .catch((err: Error) => res.status(500).json({ error: err.message }));
-    } else {
-      // Inserir ou atualizar para desativado
-      const query = `INSERT INTO company_modules (company_id, module_id, is_enabled, created_at, updated_at)
-                     VALUES ($1, $2, false, NOW(), NOW())
-                     ON CONFLICT (company_id, module_id)
-                     DO UPDATE SET is_enabled = false, updated_at = NOW()`;
-
-      db.$client.query(query, [companyId, moduleId])
-        .then(() => res.json({ success: true, message: 'Módulo desativado' }))
-        .catch((err: Error) => res.status(500).json({ error: err.message }));
-    }
-  });
+    await db.$client.query(query, [companyId, moduleId, !!enabled]);
+    res.json({ success: true, message: enabled ? 'Módulo ativado' : 'Módulo desativado' });
+  }));
 
   // === ROTAS DE GERENCIAMENTO DE USUÁRIOS SaaS ===
   // Listar todos os usuários do SaaS (todas as empresas)
@@ -188,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Criar novo usuário
-  app.post("/api/saas/users", asyncHandler(async (req: Request, res: Response) => {
+  app.post("/api/saas/users", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const { companyId, username, password, fullName, role, email, phone } = req.body;
 
     // Validação básica
@@ -209,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Atualizar usuário
-  app.put("/api/saas/users/:userId", asyncHandler(async (req: Request, res: Response) => {
+  app.put("/api/saas/users/:userId", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { fullName, email, phone, role, active } = req.body;
 
@@ -233,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Desativar/deletar usuário
-  app.delete("/api/saas/users/:userId", asyncHandler(async (req: Request, res: Response) => {
+  app.delete("/api/saas/users/:userId", authCheck, adminOnly, asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
 
     const result = await db.$client.query(`
@@ -372,8 +356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const result = await db.$client.query(`
       SELECT id, username, full_name, email, phone, role, speciality, active, created_at
-      FROM users 
+      FROM users
       WHERE company_id = $1
+        AND deleted_at IS NULL
       ORDER BY full_name
     `, [user.companyId]);
     
@@ -425,6 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // === ROTAS FINANCEIRAS ===
   app.get("/api/transactions", tenantAwareAuth, asyncHandler(financialHandlers.getTransactions));
   app.post("/api/transactions", tenantAwareAuth, asyncHandler(financialHandlers.createTransaction));
+  app.patch("/api/transactions/:id", tenantAwareAuth, asyncHandler(financialHandlers.updateTransaction));
   app.get("/api/financial/revenue-by-month", tenantAwareAuth, asyncHandler(financialHandlers.getRevenueByMonth));
   app.get("/api/financial/revenue-by-type", tenantAwareAuth, asyncHandler(financialHandlers.getRevenueByType));
 
@@ -516,7 +502,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patients - Com cache otimizado e tenant-aware
   app.get("/api/patients", tenantAwareAuth, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     try {
       const patients = await storage.getPatients(companyId);
       res.json(patients);
@@ -532,7 +519,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/patients/:id", authCheck, cacheMiddleware(300), asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patient = await storage.getPatient(parseInt(req.params.id), companyId);
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
@@ -542,7 +530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients", authCheck, checkPatientsLimit, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patient = await storage.createPatient(req.body, companyId);
     // Invalida o cache relacionado a pacientes em todos os workers
     invalidateClusterCache('api:/api/patients');
@@ -551,7 +540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/patients/:id", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const updatedPatient = await storage.updatePatient(parseInt(req.params.id), req.body, companyId);
     // Invalida caches específicos em todos os workers
     invalidateClusterCache(`api:/api/patients/${req.params.id}`);
@@ -562,7 +552,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patient Anamnesis Routes
   app.get("/api/patients/:id/anamnesis", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const anamnesis = await storage.getPatientAnamnesis(patientId, companyId);
     res.json(anamnesis);
@@ -570,7 +561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients/:id/anamnesis", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const anamnesis = await storage.createPatientAnamnesis({ ...req.body, patientId, companyId });
     res.status(201).json(anamnesis);
@@ -579,7 +571,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patient Exams Routes
   app.get("/api/patients/:id/exams", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const exams = await storage.getPatientExams(patientId, companyId);
     res.json(exams);
@@ -587,7 +580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients/:id/exams", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const exam = await storage.createPatientExam({ ...req.body, patientId, companyId });
     res.status(201).json(exam);
@@ -596,7 +590,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patient Treatment Plans Routes
   app.get("/api/patients/:id/treatment-plans", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const plans = await storage.getPatientTreatmentPlans(patientId, companyId);
     res.json(plans);
@@ -604,16 +599,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients/:id/treatment-plans", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
-    const plan = await storage.createPatientTreatmentPlan({ ...req.body, patientId, companyId });
+    const plan = await storage.createPatientTreatmentPlan({ ...req.body, patientId, companyId, professionalId: user.id });
     res.status(201).json(plan);
   }));
 
   // Patient Evolution Routes
   app.get("/api/patients/:id/evolution", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const evolution = await storage.getPatientEvolution(patientId, companyId);
     res.json(evolution);
@@ -621,7 +618,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients/:id/evolution", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const evolution = await storage.createPatientEvolution({ ...req.body, patientId, companyId });
     res.status(201).json(evolution);
@@ -630,7 +628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patient Prescriptions Routes
   app.get("/api/patients/:id/prescriptions", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const prescriptions = await storage.getPatientPrescriptions(patientId, companyId);
     res.json(prescriptions);
@@ -638,7 +637,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients/:id/prescriptions", authCheck, asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     const patientId = parseInt(req.params.id);
     const prescription = await storage.createPatientPrescription({ ...req.body, patientId, companyId });
     res.status(201).json(prescription);
@@ -810,7 +810,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Atividades Recentes da Agenda
   app.get("/api/recent-activities", asyncHandler(async (req, res) => {
     const user = req.user as any;
-    const companyId = user?.companyId || 3;
+    const companyId = user?.companyId;
+    if (!companyId) return res.status(403).json({ error: "User not associated with any company" });
     
     try {
       // Usar storage layer para buscar dados com fallback seguro
@@ -1171,8 +1172,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", authCheck, clinicHandlers.getUsers);
   app.patch("/api/users/:id", authCheck, clinicHandlers.updateUser);
   app.delete("/api/users/:id", authCheck, clinicHandlers.deleteUser);
-  app.get("/api/procedures", authCheck, clinicHandlers.getProcedures);
-  app.get("/api/rooms", authCheck, clinicHandlers.getRooms);
+  // Nota: /api/procedures já definido na linha 732
+  // Nota: /api/rooms já definido acima (linha ~704) e em /api/v1/rooms
+
+  // === API DE PERFIL (AVATAR UPLOAD) ===
+  const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+  app.post("/api/v1/profile/avatar", authCheck, avatarUpload.single('avatar'), asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    if (!user?.id) return res.status(401).json({ error: 'Not authenticated' });
+
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file provided' });
+
+    // Store as base64 data URI in the user's profileImageUrl field
+    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    await db.$client.query(
+      `UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2`,
+      [base64, user.id]
+    );
+
+    res.json({ success: true, url: base64 });
+  }));
 
   // === API DE BACKUP ===
   app.post("/api/backup/create", authCheck, backupHandlers.createBackup);
@@ -1188,6 +1208,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/website/unpublish", authCheck, websiteHandlers.unpublishWebsite);
   app.get("/api/website/public/:domain", websiteHandlers.getPublicWebsite);
   app.get("/api/websites/published", authCheck, websiteHandlers.listPublishedWebsites);
+
+  // Upload de imagens do website (recebe base64)
+  app.post("/api/website/upload", authCheck, asyncHandler(async (req: Request, res: Response) => {
+    const { imageData, filename } = req.body;
+    if (!imageData || !filename) {
+      return res.status(400).json({ error: 'imageData and filename are required' });
+    }
+    // Return the base64 data URI as the URL (can be stored in website config)
+    res.json({ success: true, url: imageData, filename });
+  }));
 
   // === API DE LABORATÓRIOS ===
   // Listar laboratórios
@@ -1455,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
-          companyId: user.companyId || 3,
+          companyId: user.companyId,
           active: user.active
         });
       });
@@ -1466,11 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Verificar usuário atual
-  app.get("/api/user/me", asyncHandler(async (req: Request, res: Response) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    
+  app.get("/api/user/me", authCheck, asyncHandler(async (req: Request, res: Response) => {
     const user = req.user as any;
     res.json({
       id: user.id,
@@ -1478,134 +1504,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      companyId: user.companyId || 3, // Default company for existing users
+      companyId: user.companyId,
       active: user.active
     });
   }));
 
-  // === APIs SUPERADMIN ===
-  // Listar empresas (SuperAdmin)
-  app.get("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: "Acesso negado. Apenas superadmin pode listar empresas." });
-    }
-
-    const companiesData = await db.select({
-      id: companies.id,
-      name: companies.name,
-      cnpj: companies.cnpj,
-      email: companies.email,
-      phone: companies.phone,
-      address: companies.address,
-      active: companies.active,
-      createdAt: companies.createdAt
-    }).from(companies);
-
-    res.json(companiesData);
-  }));
-
-  // Criar empresa (SuperAdmin)
-  app.post("/api/saas/companies", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: "Acesso negado" });
-    }
-
-    const { name, cnpj, email, phone, address } = req.body;
-    
-    const [company] = await db.insert(companies).values({
-      name,
-      cnpj,
-      email,
-      phone,
-      address,
-      active: true
-    }).returning();
-
-    res.json(company);
-  }));
-
-  // Módulos por empresa (SuperAdmin)
-  app.get("/api/saas/companies/:companyId/modules", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    const companyId = parseInt(req.params.companyId);
-    
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: "Acesso negado" });
-    }
-
-    const modulesList = [
-      { name: 'agenda', display_name: 'Sistema de Agenda', description: 'Gerenciamento de consultas e agendamentos', version: '1.0.0', is_enabled: true },
-      { name: 'pacientes', display_name: 'Gestão de Pacientes', description: 'Cadastro e histórico de pacientes', version: '1.0.0', is_enabled: true },
-      { name: 'financeiro', display_name: 'Gestão Financeira', description: 'Controle financeiro e faturamento', version: '1.0.0', is_enabled: true },
-      { name: 'estoque', display_name: 'Controle de Estoque', description: 'Gestão de materiais e produtos', version: '1.0.0', is_enabled: true },
-      { name: 'proteses', display_name: 'Controle de Próteses', description: 'Gerenciamento de próteses e laboratórios', version: '1.0.0', is_enabled: true },
-      { name: 'odontograma', display_name: 'Odontograma Digital', description: 'Mapeamento dental digital', version: '1.0.0', is_enabled: true },
-      { name: 'automacoes', display_name: 'Automações e Integrações', description: 'Automações e integrações externas', version: '1.0.0', is_enabled: true },
-      { name: 'clinica', display_name: 'Gestão da Clínica', description: 'Configurações gerais da clínica', version: '1.0.0', is_enabled: true }
-    ];
-
-    res.json(modulesList);
-  }));
-
-  // Toggle módulo (SuperAdmin)
-  app.post("/api/saas/companies/:companyId/modules/:moduleId/toggle", authCheck, asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as any;
-    const companyId = parseInt(req.params.companyId);
-    const moduleId = req.params.moduleId;
-    const { enabled } = req.body;
-    
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: "Acesso negado" });
-    }
-
-    // Find the module by name in the modules table
-    const moduleResult = await db.$client.query(
-      `SELECT id FROM modules WHERE name = $1`,
-      [moduleId]
-    );
-
-    if (moduleResult.rows.length === 0) {
-      return res.status(404).json({ error: `Módulo '${moduleId}' não encontrado` });
-    }
-
-    const dbModuleId = moduleResult.rows[0].id;
-
-    // Upsert into company_modules
-    await db.$client.query(
-      `INSERT INTO company_modules (company_id, module_id, is_enabled, updated_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (company_id, module_id)
-       DO UPDATE SET is_enabled = $3, updated_at = NOW()`,
-      [companyId, dbModuleId, enabled]
-    );
-
-    res.json({
-      success: true,
-      companyId,
-      moduleId,
-      enabled,
-      message: `Módulo ${moduleId} ${enabled ? 'ativado' : 'desativado'} para empresa ${companyId}`
-    });
-  }));
+  // === APIs SUPERADMIN === (movidas para /api/superadmin via server/routes/superadmin.routes.ts)
 
   // === APIs PARA MÓDULOS DO USUÁRIO ===
   // REMOVIDO: Rota duplicada - já existe na linha ~48
 
   // === APIs PARA MÓDULOS DA CLÍNICA ===
-  app.get("/api/clinic/modules", asyncHandler(async (req: Request, res: Response) => {
-    const modules = moduleRegistry.getAllModules();
-    const modulesByCategory = moduleRegistry.getModulesByCategory();
-    
-    res.json({
-      all: modules,
-      byCategory: modulesByCategory,
-      loaded: modules.length
-    });
-  }));
+  // Nota: /api/clinic/modules já definido na linha 65
 
   app.get("/api/clinic/modules/:moduleId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
     const { moduleId } = req.params;
@@ -1639,22 +1549,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(404).json({ message: "Módulo não encontrado" });
     }
   }));
-
-  // === ROTAS PARA WEBSITES ===
-  // Obter dados do website
-  app.get("/api/website", authCheck, asyncHandler(websiteHandlers.getWebsite));
-  
-  // Salvar dados do website
-  app.post("/api/website", authCheck, asyncHandler(websiteHandlers.saveWebsite));
-  
-  // Publicar website
-  app.post("/api/website/publish", authCheck, asyncHandler(websiteHandlers.publishWebsite));
-  
-  // Preview do website
-  app.get("/api/website/preview", authCheck, asyncHandler(websiteHandlers.previewWebsite));
-  
-  // Upload de imagens para galeria
-  app.post("/api/website/upload", authCheck, asyncHandler(websiteHandlers.uploadImage));
 
   // Registrar rotas dos módulos da clínica
   registerProtesesRoutes(app);
@@ -2244,185 +2138,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Digital Patient Record APIs
-  
-  // Anamnesis
-  app.get("/api/patients/:id/anamnesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const anamnesis = await storage.getPatientAnamnesis(patientId, user.companyId);
-      res.json(anamnesis);
-    } catch (error) {
-      console.error('Erro ao buscar anamnese:', error);
-      res.status(500).json({ error: 'Falha ao buscar anamnese' });
-    }
-  }));
+  // Digital Patient Record APIs (duplicates removed - already defined above ~line 546)
 
-  app.post("/api/patients/:id/anamnesis", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const anamnesisData = {
-        ...req.body,
-        patientId,
-        createdBy: user.id
-      };
-      
-      const anamnesis = await storage.createPatientAnamnesis(anamnesisData);
-      res.status(201).json(anamnesis);
-    } catch (error) {
-      console.error('Erro ao criar anamnese:', error);
-      res.status(500).json({ error: 'Falha ao criar anamnese' });
-    }
-  }));
-
-  app.put("/api/patients/:id/anamnesis/:anamnesisId", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const anamnesisId = parseInt(req.params.anamnesisId);
-      
-      const anamnesis = await storage.updatePatientAnamnesis(anamnesisId, req.body, user.companyId);
-      res.json(anamnesis);
-    } catch (error) {
-      console.error('Erro ao atualizar anamnese:', error);
-      res.status(500).json({ error: 'Falha ao atualizar anamnese' });
-    }
-  }));
-
-  // Patient Exams
-  app.get("/api/patients/:id/exams", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const exams = await storage.getPatientExams(patientId, user.companyId);
-      res.json(exams);
-    } catch (error) {
-      console.error('Erro ao buscar exames:', error);
-      res.status(500).json({ error: 'Falha ao buscar exames' });
-    }
-  }));
-
-  app.post("/api/patients/:id/exams", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const examData = {
-        ...req.body,
-        patientId,
-        requestedBy: user.id
-      };
-      
-      const exam = await storage.createPatientExam(examData);
-      res.status(201).json(exam);
-    } catch (error) {
-      console.error('Erro ao criar exame:', error);
-      res.status(500).json({ error: 'Falha ao criar exame' });
-    }
-  }));
-
-  // Treatment Plans
-  app.get("/api/patients/:id/treatment-plans", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const plans = await storage.getPatientTreatmentPlans(patientId, user.companyId);
-      res.json(plans);
-    } catch (error) {
-      console.error('Erro ao buscar planos de tratamento:', error);
-      res.status(500).json({ error: 'Falha ao buscar planos de tratamento' });
-    }
-  }));
-
-  app.post("/api/patients/:id/treatment-plans", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const planData = {
-        ...req.body,
-        patientId,
-        professionalId: user.id
-      };
-      
-      const plan = await storage.createPatientTreatmentPlan(planData);
-      res.status(201).json(plan);
-    } catch (error) {
-      console.error('Erro ao criar plano de tratamento:', error);
-      res.status(500).json({ error: 'Falha ao criar plano de tratamento' });
-    }
-  }));
-
-  // Treatment Evolution
-  app.get("/api/patients/:id/evolution", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const evolution = await storage.getPatientEvolution(patientId, user.companyId);
-      res.json(evolution);
-    } catch (error) {
-      console.error('Erro ao buscar evolução:', error);
-      res.status(500).json({ error: 'Falha ao buscar evolução' });
-    }
-  }));
-
-  app.post("/api/patients/:id/evolution", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const evolutionData = {
-        ...req.body,
-        patientId,
-        performedBy: user.id
-      };
-      
-      const evolution = await storage.createPatientEvolution(evolutionData);
-      res.status(201).json(evolution);
-    } catch (error) {
-      console.error('Erro ao criar evolução:', error);
-      res.status(500).json({ error: 'Falha ao criar evolução' });
-    }
-  }));
-
-  // Prescriptions
-  app.get("/api/patients/:id/prescriptions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const prescriptions = await storage.getPatientPrescriptions(patientId, user.companyId);
-      res.json(prescriptions);
-    } catch (error) {
-      console.error('Erro ao buscar receitas:', error);
-      res.status(500).json({ error: 'Falha ao buscar receitas' });
-    }
-  }));
-
-  app.post("/api/patients/:id/prescriptions", authCheck, tenantIsolationMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const patientId = parseInt(req.params.id);
-      
-      const prescriptionData = {
-        ...req.body,
-        patientId,
-        prescribedBy: user.id
-      };
-      
-      const prescription = await storage.createPatientPrescription(prescriptionData);
-      res.status(201).json(prescription);
-    } catch (error) {
-      console.error('Erro ao criar receita:', error);
-      res.status(500).json({ error: 'Falha ao criar receita' });
-    }
-  }));
 
   const httpServer = createServer(app);
 

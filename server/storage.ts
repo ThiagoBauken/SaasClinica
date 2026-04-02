@@ -1,6 +1,7 @@
 import { companies, users, type User, type InsertUser, patients, appointments, procedures, rooms, workingHours, holidays, automations, patientRecords, odontogramEntries, appointmentProcedures, prosthesis, laboratories, prosthesisLabels, inventoryCategories, inventoryItems, inventoryTransactions, standardDentalProducts, anamnesis, patientExams, detailedTreatmentPlans, treatmentEvolution, prescriptions, type Patient, type Appointment, type Procedure, type Room, type WorkingHours, type Holiday, type Automation, type PatientRecord, type OdontogramEntry, type AppointmentProcedure, type Prosthesis, type InsertProsthesis, type Laboratory, type InsertLaboratory, type ProsthesisLabel, type InsertProsthesisLabel, type StandardDentalProduct, type Anamnesis, type PatientExam, type DetailedTreatmentPlan, type TreatmentEvolution, type Prescription } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, gte, lte, lt, count, sql, desc, inArray } from "drizzle-orm";
+import { notDeleted } from "./lib/soft-delete";
 
 // Data structure for transaction objects
 interface Transaction {
@@ -127,6 +128,10 @@ export interface IStorage {
   createInventoryTransaction(data: any): Promise<any>;
   getStandardDentalProducts(): Promise<StandardDentalProduct[]>;
   importStandardProducts(productIds: number[], companyId: number): Promise<any[]>;
+  getInventorySeedData(): {
+    categories: Array<{ name: string; description: string; color: string; items: Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }> }>;
+  };
+  seedInventoryDefaults(companyId: number, selection?: { categoryNames: string[]; itemsByCategory?: Record<string, string[]> }): Promise<{ categories: any[], items: any[] }>;
 
   // Digital Patient Record - tenant-aware
   getPatientAnamnesis(patientId: number, companyId: number): Promise<any | undefined>;
@@ -321,11 +326,17 @@ export class MemStorage implements IStorage {
       role: insertUser.role || "user",
       profileImageUrl: insertUser.profileImageUrl || null,
       speciality: speciality || null,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      totpSecret: null,
+      totpEnabled: false,
+      totpBackupCodes: null,
+      deletedAt: null,
     };
     this.users.set(id, user);
     return user;
   }
-  
+
   async updateUser(id: number, data: Partial<User>): Promise<User> {
     const user = await this.getUser(id);
     if (!user) {
@@ -973,6 +984,402 @@ export class MemStorage implements IStorage {
     return importedProducts;
   }
 
+  // Dados padrão de estoque para clínica odontológica
+  private getDefaultInventoryData() {
+    // Categorias padrão de uma clínica odontológica (expandidas)
+    const defaultCategories = [
+      { name: 'Descartáveis e Consumo', description: 'Luvas, máscaras, algodão, gaze, sugadores, babadores', color: '#3B82F6' },
+      { name: 'Anestésicos e Agulhas', description: 'Anestésicos locais, tubetes, agulhas gengivais', color: '#EF4444' },
+      { name: 'Medicamentos', description: 'Anti-inflamatórios, antibióticos, analgésicos', color: '#DC2626' },
+      { name: 'Materiais de Restauração', description: 'Resinas, adesivos, ionômeros, condicionadores', color: '#10B981' },
+      { name: 'Cimentos Odontológicos', description: 'Cimentos resinosos, provisórios, ionômeros', color: '#059669' },
+      { name: 'Materiais de Endodontia', description: 'Limas, cones, cimentos endodônticos, irrigantes', color: '#F59E0B' },
+      { name: 'Materiais de Moldagem', description: 'Alginato, silicone, gesso, moldeiras', color: '#8B5CF6' },
+      { name: 'Instrumentais Rotatórios', description: 'Brocas, pontas diamantadas, discos, polidores', color: '#EC4899' },
+      { name: 'EPI e Biossegurança', description: 'Equipamentos de proteção, desinfetantes, esterilização', color: '#06B6D4' },
+      { name: 'Material de Prótese', description: 'Ceras, resinas acrílicas, dentes, cimentos', color: '#84CC16' },
+      { name: 'Cirurgia e Periodontia', description: 'Fios de sutura, lâminas, hemostáticos', color: '#7C3AED' },
+      { name: 'Ortodontia', description: 'Bráquetes, fios, elásticos, ligaduras', color: '#F97316' },
+      { name: 'Radiologia', description: 'Filmes, posicionadores, capas para sensor', color: '#64748B' },
+      { name: 'Profilaxia e Prevenção', description: 'Pastas profiláticas, flúor, escovas', color: '#0EA5E9' },
+    ];
+
+    // Itens padrão por categoria - lista completa baseada em pesquisa
+    const defaultItemsByCategory: Record<string, Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }>> = {
+      'Descartáveis e Consumo': [
+        // Luvas
+        { name: 'Luva de Procedimento Látex P', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Luva de Procedimento Látex M', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Luva de Procedimento Látex G', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Luva de Nitrilo P', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Luva de Nitrilo M', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Luva de Nitrilo G', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Luva Cirúrgica Estéril 7.0', minimumStock: 20, unitOfMeasure: 'par' },
+        { name: 'Luva Cirúrgica Estéril 7.5', minimumStock: 20, unitOfMeasure: 'par' },
+        { name: 'Luva Cirúrgica Estéril 8.0', minimumStock: 20, unitOfMeasure: 'par' },
+        // Máscaras
+        { name: 'Máscara Descartável Tripla', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Máscara N95/PFF2', minimumStock: 20, unitOfMeasure: 'unidade' },
+        // Algodão e Gaze
+        { name: 'Algodão Rolete', minimumStock: 10, unitOfMeasure: 'pacote' },
+        { name: 'Algodão Bola', minimumStock: 5, unitOfMeasure: 'pacote' },
+        { name: 'Gaze Estéril 7,5x7,5', minimumStock: 20, unitOfMeasure: 'pacote' },
+        { name: 'Compressa de Gaze', minimumStock: 10, unitOfMeasure: 'pacote' },
+        // Sugadores e Babadores
+        { name: 'Sugador Descartável', minimumStock: 200, unitOfMeasure: 'unidade' },
+        { name: 'Babador Descartável Impermeável', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Guardanapo de Papel', minimumStock: 100, unitOfMeasure: 'unidade' },
+        // Outros descartáveis
+        { name: 'Copo Descartável 50ml', minimumStock: 200, unitOfMeasure: 'unidade' },
+        { name: 'Copo Descartável 200ml', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Toalha de Papel', minimumStock: 10, unitOfMeasure: 'rolo' },
+        { name: 'Lençol de Borracha (Isolamento)', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Dappen Descartável', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Aplicador Descartável (Microbrush)', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Seringa Descartável 5ml', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Seringa Descartável 10ml', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Seringa Descartável 20ml', minimumStock: 30, unitOfMeasure: 'unidade' },
+      ],
+      'Anestésicos e Agulhas': [
+        // Anestésicos
+        { name: 'Lidocaína 2% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Lidocaína 2% c/ Epinefrina 1:50.000', minimumStock: 20, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Mepivacaína 3% s/ Vasoconstritor', minimumStock: 30, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Mepivacaína 2% c/ Epinefrina', minimumStock: 20, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Articaína 4% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Articaína 4% c/ Epinefrina 1:200.000', minimumStock: 30, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Prilocaína 3% c/ Felipressina', minimumStock: 20, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Anestésico Tópico Benzocaína 20%', minimumStock: 5, unitOfMeasure: 'pote' },
+        { name: 'Anestésico Tópico Gel Tutti-Frutti', minimumStock: 3, unitOfMeasure: 'bisnaga' },
+        // Agulhas
+        { name: 'Agulha Gengival Curta 30G', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Agulha Gengival Longa 27G', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Agulha Gengival Extra-Curta 30G', minimumStock: 50, unitOfMeasure: 'unidade' },
+      ],
+      'Medicamentos': [
+        // Anti-inflamatórios
+        { name: 'Ibuprofeno 600mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+        { name: 'Nimesulida 100mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+        { name: 'Diclofenaco Sódico 50mg', minimumStock: 30, unitOfMeasure: 'comprimido' },
+        { name: 'Dexametasona 4mg', minimumStock: 20, unitOfMeasure: 'comprimido' },
+        // Analgésicos
+        { name: 'Paracetamol 750mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+        { name: 'Dipirona 500mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+        // Antibióticos
+        { name: 'Amoxicilina 500mg', minimumStock: 30, unitOfMeasure: 'cápsula' },
+        { name: 'Amoxicilina + Clavulanato 875mg', minimumStock: 20, unitOfMeasure: 'comprimido' },
+        { name: 'Azitromicina 500mg', minimumStock: 15, unitOfMeasure: 'comprimido' },
+        { name: 'Metronidazol 400mg', minimumStock: 20, unitOfMeasure: 'comprimido' },
+        { name: 'Clindamicina 300mg', minimumStock: 15, unitOfMeasure: 'cápsula' },
+      ],
+      'Materiais de Restauração': [
+        // Resinas Compostas
+        { name: 'Resina Composta A1', minimumStock: 3, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta A2', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta A3', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta A3.5', minimumStock: 3, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta B1', minimumStock: 2, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta B2', minimumStock: 2, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta C2', minimumStock: 2, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Flow A2', minimumStock: 3, unitOfMeasure: 'seringa' },
+        { name: 'Resina Flow A3', minimumStock: 3, unitOfMeasure: 'seringa' },
+        { name: 'Resina Bulk Fill', minimumStock: 2, unitOfMeasure: 'seringa', brand: '3M' },
+        // Adesivos
+        { name: 'Adesivo Single Bond Universal', minimumStock: 2, unitOfMeasure: 'frasco', brand: '3M' },
+        { name: 'Adesivo Prime & Bond', minimumStock: 2, unitOfMeasure: 'frasco', brand: 'Dentsply' },
+        { name: 'Adesivo Ambar Universal', minimumStock: 2, unitOfMeasure: 'frasco', brand: 'FGM' },
+        // Condicionadores
+        { name: 'Ácido Fosfórico 37%', minimumStock: 10, unitOfMeasure: 'seringa' },
+        { name: 'Ácido Fluorídrico 10%', minimumStock: 3, unitOfMeasure: 'seringa' },
+        { name: 'Silano', minimumStock: 2, unitOfMeasure: 'frasco' },
+        // Ionômeros
+        { name: 'Ionômero de Vidro Restaurador', minimumStock: 2, unitOfMeasure: 'kit', brand: 'FGM' },
+        { name: 'Ionômero de Vidro Forrador', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Ionômero de Vidro Fotopolimerizável', minimumStock: 2, unitOfMeasure: 'kit' },
+        // Acabamento e Polimento
+        { name: 'Tira de Lixa Aço', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Tira de Lixa Poliéster', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Disco Soflex (kit cores)', minimumStock: 2, unitOfMeasure: 'kit', brand: '3M' },
+        { name: 'Papel Carbono Oclusal', minimumStock: 3, unitOfMeasure: 'bloco' },
+        { name: 'Matriz Metálica', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Cunha de Madeira', minimumStock: 50, unitOfMeasure: 'unidade' },
+      ],
+      'Cimentos Odontológicos': [
+        { name: 'Cimento Resinoso Dual AllCem', minimumStock: 2, unitOfMeasure: 'kit', brand: 'FGM' },
+        { name: 'Cimento Resinoso RelyX U200', minimumStock: 2, unitOfMeasure: 'kit', brand: '3M' },
+        { name: 'Cimento de Ionômero para Cimentação', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Cimento de Zinco (Provisório)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Cimento de Óxido de Zinco e Eugenol', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Cimento Fosfato de Zinco', minimumStock: 1, unitOfMeasure: 'kit' },
+        { name: 'Hidróxido de Cálcio PA', minimumStock: 2, unitOfMeasure: 'pote' },
+        { name: 'Hidróxido de Cálcio Fotopolimerizável', minimumStock: 2, unitOfMeasure: 'seringa' },
+      ],
+      'Materiais de Endodontia': [
+        // Limas Manuais
+        { name: 'Lima K #08', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #10', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #15', minimumStock: 15, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #20', minimumStock: 15, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #25', minimumStock: 15, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #30', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #35', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #40', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima Hedstrom #15', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Lima Hedstrom #20', minimumStock: 5, unitOfMeasure: 'unidade' },
+        // Cones
+        { name: 'Cone de Guta-Percha Principal (sortido)', minimumStock: 5, unitOfMeasure: 'caixa' },
+        { name: 'Cone de Guta-Percha Acessório FM', minimumStock: 3, unitOfMeasure: 'caixa' },
+        { name: 'Cone de Guta-Percha Acessório FF', minimumStock: 3, unitOfMeasure: 'caixa' },
+        { name: 'Cone de Papel Absorvente', minimumStock: 5, unitOfMeasure: 'caixa' },
+        // Cimentos e Irrigantes
+        { name: 'Cimento Endodôntico AH Plus', minimumStock: 1, unitOfMeasure: 'kit', brand: 'Dentsply' },
+        { name: 'Cimento Endodôntico Sealer 26', minimumStock: 1, unitOfMeasure: 'kit' },
+        { name: 'Hipoclorito de Sódio 1%', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Hipoclorito de Sódio 2,5%', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Hipoclorito de Sódio 5,25%', minimumStock: 3, unitOfMeasure: 'litro' },
+        { name: 'EDTA 17%', minimumStock: 5, unitOfMeasure: 'frasco' },
+        { name: 'Clorexidina 2% Solução', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Pasta de Hidróxido de Cálcio', minimumStock: 3, unitOfMeasure: 'seringa' },
+        { name: 'Soro Fisiológico', minimumStock: 10, unitOfMeasure: 'frasco' },
+      ],
+      'Materiais de Moldagem': [
+        // Alginato
+        { name: 'Alginato Tipo I (presa rápida)', minimumStock: 5, unitOfMeasure: 'pacote' },
+        { name: 'Alginato Tipo II (presa normal)', minimumStock: 5, unitOfMeasure: 'pacote' },
+        // Silicones
+        { name: 'Silicone de Adição Pesado (putty)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Silicone de Adição Leve (light)', minimumStock: 3, unitOfMeasure: 'cartucho' },
+        { name: 'Silicone de Condensação Pesado', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Silicone de Condensação Leve', minimumStock: 2, unitOfMeasure: 'kit' },
+        // Gessos
+        { name: 'Gesso Comum Tipo II', minimumStock: 5, unitOfMeasure: 'kg' },
+        { name: 'Gesso Pedra Tipo III', minimumStock: 5, unitOfMeasure: 'kg' },
+        { name: 'Gesso Especial Tipo IV', minimumStock: 3, unitOfMeasure: 'kg' },
+        { name: 'Gesso Tipo V (Extra-duro)', minimumStock: 2, unitOfMeasure: 'kg' },
+        // Moldeiras e Acessórios
+        { name: 'Moldeira Descartável Superior P', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Moldeira Descartável Superior M', minimumStock: 30, unitOfMeasure: 'unidade' },
+        { name: 'Moldeira Descartável Superior G', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Moldeira Descartável Inferior P', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Moldeira Descartável Inferior M', minimumStock: 30, unitOfMeasure: 'unidade' },
+        { name: 'Moldeira Descartável Inferior G', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Fio Retrator #000', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Fio Retrator #00', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Fio Retrator #0', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Fio Retrator #1', minimumStock: 3, unitOfMeasure: 'frasco' },
+      ],
+      'Instrumentais Rotatórios': [
+        // Brocas Carbide
+        { name: 'Broca Carbide Esférica FG 1/4', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Esférica FG 1/2', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Esférica FG 1', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Esférica FG 2', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Esférica FG 4', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Esférica FG 6', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Cilíndrica FG 56', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Broca Carbide Cilíndrica FG 57', minimumStock: 5, unitOfMeasure: 'unidade' },
+        // Pontas Diamantadas
+        { name: 'Ponta Diamantada 1011 (esférica)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 1012 (esférica)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 1014 (esférica)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 2135 (tronco-cônica)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 3118 (chama)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 4138 (pêra)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Ponta Diamantada 1190 (cilíndrica)', minimumStock: 5, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        // Acabamento e Polimento
+        { name: 'Disco de Lixa (kit granulações)', minimumStock: 3, unitOfMeasure: 'kit' },
+        { name: 'Disco Diamantado Dupla Face', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Taça de Borracha para Polimento', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Escova de Robinson', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Pedra Montada Branca', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Ponta de Silicone para Polimento', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Pasta de Polimento Diamantada', minimumStock: 2, unitOfMeasure: 'seringa' },
+      ],
+      'EPI e Biossegurança': [
+        // EPIs
+        { name: 'Óculos de Proteção', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Protetor Facial (Face Shield)', minimumStock: 3, unitOfMeasure: 'unidade' },
+        { name: 'Gorro Descartável', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Propé Descartável', minimumStock: 100, unitOfMeasure: 'par' },
+        { name: 'Avental Descartável', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Avental de Chumbo (uso radiografia)', minimumStock: 2, unitOfMeasure: 'unidade' },
+        // Desinfetantes
+        { name: 'Álcool 70% Líquido', minimumStock: 10, unitOfMeasure: 'litro' },
+        { name: 'Álcool 70% Gel', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Glutaraldeído 2%', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Hipoclorito de Sódio 1% (desinfecção)', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Quaternário de Amônio', minimumStock: 3, unitOfMeasure: 'litro' },
+        { name: 'Spray Desinfetante Superfícies', minimumStock: 5, unitOfMeasure: 'frasco' },
+        // Esterilização
+        { name: 'Papel Grau Cirúrgico (rolo)', minimumStock: 5, unitOfMeasure: 'rolo' },
+        { name: 'Indicador Biológico', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fita para Autoclave', minimumStock: 5, unitOfMeasure: 'rolo' },
+        { name: 'Água Destilada', minimumStock: 10, unitOfMeasure: 'litro' },
+        // Descarte
+        { name: 'Coletor Perfurocortante 7L', minimumStock: 3, unitOfMeasure: 'unidade' },
+        { name: 'Saco de Lixo Infectante Branco', minimumStock: 50, unitOfMeasure: 'unidade' },
+      ],
+      'Material de Prótese': [
+        // Ceras
+        { name: 'Cera Utilidade', minimumStock: 5, unitOfMeasure: 'caixa' },
+        { name: 'Cera 7 (escultura)', minimumStock: 5, unitOfMeasure: 'caixa' },
+        { name: 'Cera Rosa (base)', minimumStock: 3, unitOfMeasure: 'caixa' },
+        // Resinas Acrílicas
+        { name: 'Resina Acrílica Autopolimerizável (pó)', minimumStock: 2, unitOfMeasure: 'pote' },
+        { name: 'Resina Acrílica Autopolimerizável (líquido)', minimumStock: 2, unitOfMeasure: 'frasco' },
+        { name: 'Resina Acrílica Termopolimerizável (pó)', minimumStock: 2, unitOfMeasure: 'pote' },
+        { name: 'Resina Acrílica Termopolimerizável (líquido)', minimumStock: 2, unitOfMeasure: 'frasco' },
+        // Dentes
+        { name: 'Dentes de Estoque Anteriores', minimumStock: 5, unitOfMeasure: 'cartela' },
+        { name: 'Dentes de Estoque Posteriores', minimumStock: 5, unitOfMeasure: 'cartela' },
+        // Cimentos e Acessórios
+        { name: 'Cimento Provisório (Temp Bond)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Adesivo para Prótese', minimumStock: 3, unitOfMeasure: 'tubo' },
+        { name: 'Pino de Fibra de Vidro (kit)', minimumStock: 1, unitOfMeasure: 'kit' },
+        { name: 'Pasta Zinco-Enólica', minimumStock: 2, unitOfMeasure: 'kit' },
+      ],
+      'Cirurgia e Periodontia': [
+        // Fios de Sutura
+        { name: 'Fio de Sutura Seda 3-0', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Sutura Seda 4-0', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Sutura Nylon 3-0', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Sutura Nylon 4-0', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Sutura Nylon 5-0', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Sutura Vicryl 4-0', minimumStock: 10, unitOfMeasure: 'unidade' },
+        // Lâminas e Hemostáticos
+        { name: 'Lâmina de Bisturi #15', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Lâmina de Bisturi #15C', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lâmina de Bisturi #12', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Esponja Hemostática', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Solução Hemostática', minimumStock: 3, unitOfMeasure: 'frasco' },
+        // Periodontia
+        { name: 'Clorexidina 0,12% (bochecho)', minimumStock: 10, unitOfMeasure: 'frasco' },
+        { name: 'Pasta Profilática Fina', minimumStock: 5, unitOfMeasure: 'pote' },
+        { name: 'Pasta Profilática Grossa', minimumStock: 3, unitOfMeasure: 'pote' },
+        { name: 'Bicarbonato de Sódio (jateamento)', minimumStock: 3, unitOfMeasure: 'pacote' },
+      ],
+      'Ortodontia': [
+        // Bráquetes
+        { name: 'Bráquete Metálico Roth (kit)', minimumStock: 5, unitOfMeasure: 'kit' },
+        { name: 'Bráquete Estético Cerâmico (kit)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Tubo Molar Simples', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Tubo Molar Duplo', minimumStock: 10, unitOfMeasure: 'unidade' },
+        // Fios
+        { name: 'Fio NiTi 0.014"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio NiTi 0.016"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio NiTi 0.018"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Aço 0.016"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Aço 0.018"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Fio de Aço 0.020"', minimumStock: 10, unitOfMeasure: 'unidade' },
+        // Elásticos e Ligaduras
+        { name: 'Elástico Corrente', minimumStock: 5, unitOfMeasure: 'carretel' },
+        { name: 'Elástico Intermaxilar (kit tamanhos)', minimumStock: 3, unitOfMeasure: 'kit' },
+        { name: 'Ligadura Elástica Colorida', minimumStock: 10, unitOfMeasure: 'cartela' },
+        { name: 'Ligadura Metálica', minimumStock: 5, unitOfMeasure: 'carretel' },
+        // Acessórios
+        { name: 'Cera para Ortodontia', minimumStock: 20, unitOfMeasure: 'estojo' },
+        { name: 'Cola Ortodôntica (Resina)', minimumStock: 3, unitOfMeasure: 'kit' },
+        { name: 'Banda Ortodôntica (kit)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Mola Aberta NiTi', minimumStock: 10, unitOfMeasure: 'unidade' },
+      ],
+      'Radiologia': [
+        { name: 'Filme Radiográfico Periapical #2', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Filme Radiográfico Periapical #0 (infantil)', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Capa Plástica para Sensor Digital', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Posicionador Radiográfico (kit)', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Revelador Radiográfico', minimumStock: 3, unitOfMeasure: 'litro' },
+        { name: 'Fixador Radiográfico', minimumStock: 3, unitOfMeasure: 'litro' },
+        { name: 'Envelope para Filme Periapical', minimumStock: 50, unitOfMeasure: 'unidade' },
+      ],
+      'Profilaxia e Prevenção': [
+        { name: 'Flúor Gel Acidulado 1,23%', minimumStock: 5, unitOfMeasure: 'frasco' },
+        { name: 'Flúor Gel Neutro', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Verniz de Flúor', minimumStock: 3, unitOfMeasure: 'frasco' },
+        { name: 'Moldeira para Flúor Descartável', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Selante Resinoso', minimumStock: 3, unitOfMeasure: 'seringa' },
+        { name: 'Escova Dental Adulto', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Escova Dental Infantil', minimumStock: 30, unitOfMeasure: 'unidade' },
+        { name: 'Fio Dental', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Evidenciador de Placa', minimumStock: 5, unitOfMeasure: 'frasco' },
+        { name: 'Enxaguante Bucal', minimumStock: 10, unitOfMeasure: 'frasco' },
+      ],
+    };
+
+    return { defaultCategories, defaultItemsByCategory };
+  }
+
+  // Retorna os dados de seed disponíveis para seleção
+  getInventorySeedData(): {
+    categories: Array<{ name: string; description: string; color: string; items: Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }> }>;
+  } {
+    const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryData();
+
+    return {
+      categories: defaultCategories.map(cat => ({
+        ...cat,
+        items: defaultItemsByCategory[cat.name] || []
+      }))
+    };
+  }
+
+  // Popula o estoque com categorias e itens selecionados
+  async seedInventoryDefaults(
+    companyId: number,
+    selection?: { categoryNames: string[]; itemsByCategory?: Record<string, string[]> }
+  ): Promise<{ categories: any[], items: any[] }> {
+    // Verifica se já existem categorias para esta empresa
+    const existingCategories = await this.getInventoryCategories(companyId);
+    if (existingCategories.length > 0) {
+      throw new Error('Esta empresa já possui categorias de estoque cadastradas');
+    }
+
+    const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryData();
+
+    // Filtrar categorias baseado na seleção
+    let categoriesToCreate = defaultCategories;
+    if (selection?.categoryNames && selection.categoryNames.length > 0) {
+      categoriesToCreate = defaultCategories.filter(cat =>
+        selection.categoryNames.includes(cat.name)
+      );
+    }
+
+    const createdCategories: any[] = [];
+    const createdItems: any[] = [];
+
+    // Criar categorias e seus itens
+    for (const categoryData of categoriesToCreate) {
+      const category = await this.createInventoryCategory({
+        ...categoryData,
+        companyId,
+      });
+      createdCategories.push(category);
+
+      // Criar itens para esta categoria
+      let itemsForCategory = defaultItemsByCategory[categoryData.name] || [];
+
+      // Filtrar itens se houver seleção específica
+      if (selection?.itemsByCategory && selection.itemsByCategory[categoryData.name]) {
+        const selectedItemNames = selection.itemsByCategory[categoryData.name];
+        itemsForCategory = itemsForCategory.filter(item =>
+          selectedItemNames.includes(item.name)
+        );
+      }
+
+      for (const itemData of itemsForCategory) {
+        const item = await this.createInventoryItem({
+          ...itemData,
+          categoryId: category.id,
+          companyId,
+          currentStock: 0,
+          price: 0,
+        });
+        createdItems.push(item);
+      }
+    }
+
+    return { categories: createdCategories, items: createdItems };
+  }
+
   // Digital Patient Record methods (missing implementations)
   private patientAnamnesis: Map<number, Anamnesis> = new Map();
   private patientExams: Map<number, PatientExam> = new Map();
@@ -1359,7 +1766,7 @@ export class DatabaseStorage implements IStorage {
 
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(and(eq(users.id, id), notDeleted(users.deletedAt)));
     return user || undefined;
   }
 
@@ -1389,7 +1796,7 @@ export class DatabaseStorage implements IStorage {
       .from(prosthesis)
       .leftJoin(patients, eq(prosthesis.patientId, patients.id))
       .leftJoin(users, eq(prosthesis.professionalId, users.id))
-      .where(eq(prosthesis.companyId, companyId))
+      .where(and(eq(prosthesis.companyId, companyId), notDeleted(prosthesis.deletedAt)))
       .orderBy(prosthesis.sortOrder, desc(prosthesis.createdAt));
 
     return results;
@@ -1421,7 +1828,7 @@ export class DatabaseStorage implements IStorage {
       .from(prosthesis)
       .leftJoin(patients, eq(prosthesis.patientId, patients.id))
       .leftJoin(users, eq(prosthesis.professionalId, users.id))
-      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)));
+      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId), notDeleted(prosthesis.deletedAt)));
 
     return result;
   }
@@ -1535,18 +1942,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db.select().from(users).where(and(eq(users.username, username), notDeleted(users.deletedAt)));
     return user || undefined;
   }
-  
+
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users).where(and(eq(users.email, email), notDeleted(users.deletedAt)));
     return user || undefined;
   }
-  
+
   async getUserByGoogleId(googleId: string): Promise<User | undefined> {
     if (!googleId) return undefined;
-    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    const [user] = await db.select().from(users).where(and(eq(users.googleId, googleId), notDeleted(users.deletedAt)));
     return user || undefined;
   }
 
@@ -1582,7 +1989,7 @@ export class DatabaseStorage implements IStorage {
 
   // Database Patient methods
   async getPatients(companyId: number): Promise<Patient[]> {
-    return db.select().from(patients).where(eq(patients.companyId, companyId));
+    return db.select().from(patients).where(and(eq(patients.companyId, companyId), notDeleted(patients.deletedAt)));
   }
 
   async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
@@ -1625,7 +2032,7 @@ export class DatabaseStorage implements IStorage {
       maritalStatus: patients.maritalStatus,
       profilePhoto: patients.profilePhoto
     }).from(patients).where(
-      and(eq(patients.id, id), eq(patients.companyId, companyId))
+      and(eq(patients.id, id), eq(patients.companyId, companyId), notDeleted(patients.deletedAt))
     );
     return patient || undefined;
   }
@@ -1635,6 +2042,7 @@ export class DatabaseStorage implements IStorage {
       .insert(patients)
       .values({
         ...patientData,
+        companyId, // Adiciona o companyId do usuário!
         createdAt: new Date(),
       })
       .returning();
@@ -1658,82 +2066,100 @@ export class DatabaseStorage implements IStorage {
   // Appointment methods
   async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
     try {
-      // Basic query with company filter
-      const appointmentsList = await db.select().from(appointments).where(eq(appointments.companyId, companyId));
-    
-      // Enrich with related data
-    type AppointmentRow = typeof appointments.$inferSelect;
-    const enrichedAppointments = await Promise.all(
-      appointmentsList.map(async (appointment: AppointmentRow) => {
-        // Get patient info
-        let patient;
-        if (appointment.patientId) {
-          const [patientData] = await db
-            .select({
-              id: patients.id,
-              fullName: patients.fullName,
-              phone: patients.phone,
-            })
-            .from(patients)
-            .where(eq(patients.id, appointment.patientId));
-          patient = patientData;
-        }
-        
-        // Get professional info
-        let professional;
-        if (appointment.professionalId) {
-          const [professionalData] = await db
-            .select({
-              id: users.id,
-              fullName: users.fullName,
-              speciality: users.speciality,
-            })
-            .from(users)
-            .where(eq(users.id, appointment.professionalId));
-          professional = professionalData;
-        }
-        
-        // Get room info
-        let room;
-        if (appointment.roomId) {
-          const [roomData] = await db
-            .select({
-              id: rooms.id,
-              name: rooms.name,
-            })
-            .from(rooms)
-            .where(eq(rooms.id, appointment.roomId));
-          room = roomData;
-        }
-        
-        // Get procedures for this appointment
-        const appointmentProceduresList = await db
-          .select()
-          .from(appointmentProcedures)
-          .where(eq(appointmentProcedures.appointmentId, appointment.id));
-        
-        type AppointmentProcedureRow = typeof appointmentProcedures.$inferSelect;
-        const proceduresList = await Promise.all(
-          appointmentProceduresList.map(async (ap: AppointmentProcedureRow) => {
-            const [procedure] = await db
-              .select()
-              .from(procedures)
-              .where(eq(procedures.id, ap.procedureId));
-            return procedure;
+      // PERFORMANCE: Single JOIN query instead of N+1 (was 400+ queries for 100 appointments)
+      // Step 1: Build WHERE conditions
+      const conditions: any[] = [eq(appointments.companyId, companyId), notDeleted(appointments.deletedAt)];
+      if (filters?.startDate) conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
+      if (filters?.endDate) conditions.push(lt(appointments.startTime, new Date(filters.endDate)));
+      if (filters?.professionalId !== undefined) conditions.push(eq(appointments.professionalId, filters.professionalId));
+      if (filters?.patientId !== undefined) conditions.push(eq(appointments.patientId, filters.patientId));
+      if (filters?.status) conditions.push(eq(appointments.status, filters.status));
+
+      // Step 2: Single query with LEFT JOINs for patient, professional, room
+      const rows = await db
+        .select({
+          // Appointment fields
+          appointment: appointments,
+          // Patient fields (nullable)
+          patientId: patients.id,
+          patientFullName: patients.fullName,
+          patientPhone: patients.phone,
+          // Professional fields (nullable)
+          professionalId: users.id,
+          professionalFullName: users.fullName,
+          professionalSpeciality: users.speciality,
+          // Room fields (nullable)
+          roomId: rooms.id,
+          roomName: rooms.name,
+        })
+        .from(appointments)
+        .leftJoin(patients, eq(appointments.patientId, patients.id))
+        .leftJoin(users, eq(appointments.professionalId, users.id))
+        .leftJoin(rooms, eq(appointments.roomId, rooms.id))
+        .where(and(...conditions))
+        .orderBy(appointments.startTime);
+
+      // Step 3: Batch-load procedures for all appointments in 2 queries (instead of N*2)
+      const appointmentIds = rows.map(r => r.appointment.id);
+      let proceduresByAppointment = new Map<number, any[]>();
+
+      if (appointmentIds.length > 0) {
+        const apRows = await db
+          .select({
+            appointmentId: appointmentProcedures.appointmentId,
+            procedureId: appointmentProcedures.procedureId,
+            quantity: appointmentProcedures.quantity,
+            price: appointmentProcedures.price,
+            notes: appointmentProcedures.notes,
+            // Procedure details via JOIN
+            procedureName: procedures.name,
+            procedureDuration: procedures.duration,
+            procedurePrice: procedures.price,
+            procedureDescription: procedures.description,
+            procedureColor: procedures.color,
+            procedureCategory: procedures.category,
           })
-        );
+          .from(appointmentProcedures)
+          .leftJoin(procedures, eq(appointmentProcedures.procedureId, procedures.id))
+          .where(inArray(appointmentProcedures.appointmentId, appointmentIds));
 
-        return {
-          ...appointment,
-          patient,
-          professional,
-          room,
-          procedures: proceduresList.filter(Boolean),
-        };
-      })
-    );
+        for (const row of apRows) {
+          const list = proceduresByAppointment.get(row.appointmentId) || [];
+          list.push({
+            id: row.procedureId,
+            name: row.procedureName,
+            duration: row.procedureDuration,
+            price: row.procedurePrice,
+            description: row.procedureDescription,
+            color: row.procedureColor,
+            category: row.procedureCategory,
+            quantity: row.quantity,
+            appointmentPrice: row.price,
+            notes: row.notes,
+          });
+          proceduresByAppointment.set(row.appointmentId, list);
+        }
+      }
 
-      return enrichedAppointments;
+      // Step 4: Assemble enriched results
+      return rows.map(row => ({
+        ...row.appointment,
+        patient: row.patientId ? {
+          id: row.patientId,
+          fullName: row.patientFullName,
+          phone: row.patientPhone,
+        } : undefined,
+        professional: row.professionalId ? {
+          id: row.professionalId,
+          fullName: row.professionalFullName,
+          speciality: row.professionalSpeciality,
+        } : undefined,
+        room: row.roomId ? {
+          id: row.roomId,
+          name: row.roomName,
+        } : undefined,
+        procedures: proceduresByAppointment.get(row.appointment.id) || [],
+      }));
     } catch (error) {
       console.error('Database error in getAppointments:', error);
       return [];
@@ -1741,83 +2167,78 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAppointment(id: number, companyId?: number): Promise<any | undefined> {
-    const conditions = [eq(appointments.id, id)];
+    // PERFORMANCE: Single JOIN query instead of 5+ separate queries
+    const conditions: any[] = [eq(appointments.id, id), notDeleted(appointments.deletedAt)];
     if (companyId !== undefined) {
       conditions.push(eq(appointments.companyId, companyId));
     }
 
-    const [appointment] = await db
-      .select()
-      .from(appointments)
-      .where(and(...conditions));
-    
-    if (!appointment) return undefined;
-    
-    // Enrich with related data (patient, professional, room, procedures)
-    // Get patient info
-    let patient;
-    if (appointment.patientId) {
-      const [patientData] = await db
-        .select({
-          id: patients.id,
-          fullName: patients.fullName,
-          phone: patients.phone,
-        })
-        .from(patients)
-        .where(eq(patients.id, appointment.patientId));
-      patient = patientData;
-    }
-    
-    // Get professional info
-    let professional;
-    if (appointment.professionalId) {
-      const [professionalData] = await db
-        .select({
-          id: users.id,
-          fullName: users.fullName,
-          speciality: users.speciality,
-        })
-        .from(users)
-        .where(eq(users.id, appointment.professionalId));
-      professional = professionalData;
-    }
-    
-    // Get room info
-    let room;
-    if (appointment.roomId) {
-      const [roomData] = await db
-        .select({
-          id: rooms.id,
-          name: rooms.name,
-        })
-        .from(rooms)
-        .where(eq(rooms.id, appointment.roomId));
-      room = roomData;
-    }
-    
-    // Get procedures for this appointment
-    const appointmentProceduresList = await db
-      .select()
-      .from(appointmentProcedures)
-      .where(eq(appointmentProcedures.appointmentId, appointment.id));
-    
-    type AppointmentProcedureRow = typeof appointmentProcedures.$inferSelect;
-    const proceduresList = await Promise.all(
-      appointmentProceduresList.map(async (ap: AppointmentProcedureRow) => {
-        const [procedure] = await db
-          .select()
-          .from(procedures)
-          .where(eq(procedures.id, ap.procedureId));
-        return procedure;
+    const [row] = await db
+      .select({
+        appointment: appointments,
+        patientId: patients.id,
+        patientFullName: patients.fullName,
+        patientPhone: patients.phone,
+        professionalId: users.id,
+        professionalFullName: users.fullName,
+        professionalSpeciality: users.speciality,
+        roomId: rooms.id,
+        roomName: rooms.name,
       })
-    );
+      .from(appointments)
+      .leftJoin(patients, eq(appointments.patientId, patients.id))
+      .leftJoin(users, eq(appointments.professionalId, users.id))
+      .leftJoin(rooms, eq(appointments.roomId, rooms.id))
+      .where(and(...conditions));
+
+    if (!row) return undefined;
+
+    // Single query for procedures (instead of N queries)
+    const procedureRows = await db
+      .select({
+        procedureId: appointmentProcedures.procedureId,
+        quantity: appointmentProcedures.quantity,
+        price: appointmentProcedures.price,
+        notes: appointmentProcedures.notes,
+        procedureName: procedures.name,
+        procedureDuration: procedures.duration,
+        procedurePrice: procedures.price,
+        procedureDescription: procedures.description,
+        procedureColor: procedures.color,
+        procedureCategory: procedures.category,
+      })
+      .from(appointmentProcedures)
+      .leftJoin(procedures, eq(appointmentProcedures.procedureId, procedures.id))
+      .where(eq(appointmentProcedures.appointmentId, id));
 
     return {
-      ...appointment,
-      patient,
-      professional,
-      room,
-      procedures: proceduresList.filter(Boolean),
+      ...row.appointment,
+      patient: row.patientId ? {
+        id: row.patientId,
+        fullName: row.patientFullName,
+        phone: row.patientPhone,
+      } : undefined,
+      professional: row.professionalId ? {
+        id: row.professionalId,
+        fullName: row.professionalFullName,
+        speciality: row.professionalSpeciality,
+      } : undefined,
+      room: row.roomId ? {
+        id: row.roomId,
+        name: row.roomName,
+      } : undefined,
+      procedures: procedureRows.map(p => ({
+        id: p.procedureId,
+        name: p.procedureName,
+        duration: p.procedureDuration,
+        price: p.procedurePrice,
+        description: p.procedureDescription,
+        color: p.procedureColor,
+        category: p.procedureCategory,
+        quantity: p.quantity,
+        appointmentPrice: p.price,
+        notes: p.notes,
+      })),
     };
   }
 
@@ -1935,6 +2356,7 @@ export class DatabaseStorage implements IStorage {
     // Build the where clause
     const conditions = [
       eq(appointments.companyId, companyId),
+      notDeleted(appointments.deletedAt),
       // Check for time overlap: (start < end AND end > start)
       and(
         lte(appointments.startTime, endTime),
@@ -1975,7 +2397,7 @@ export class DatabaseStorage implements IStorage {
           ? await db
               .select({ fullName: patients.fullName })
               .from(patients)
-              .where(eq(patients.id, conflict.patientId))
+              .where(and(eq(patients.id, conflict.patientId), notDeleted(patients.deletedAt)))
               .limit(1)
           : [];
 
@@ -1983,7 +2405,7 @@ export class DatabaseStorage implements IStorage {
           ? await db
               .select({ fullName: users.fullName })
               .from(users)
-              .where(eq(users.id, conflict.professionalId))
+              .where(and(eq(users.id, conflict.professionalId), notDeleted(users.deletedAt)))
               .limit(1)
           : [];
 
@@ -2015,7 +2437,8 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(and(
         eq(users.companyId, companyId),
-        eq(users.role, "dentist")
+        eq(users.role, "dentist"),
+        notDeleted(users.deletedAt)
       ));
   }
 
@@ -2154,7 +2577,7 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(patientRecords)
-      .where(eq(patientRecords.patientId, patientId));
+      .where(and(eq(patientRecords.patientId, patientId), notDeleted(patientRecords.deletedAt)));
   }
 
   async createPatientRecord(data: any): Promise<PatientRecord> {
@@ -2173,7 +2596,7 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(odontogramEntries)
-      .where(eq(odontogramEntries.patientId, patientId));
+      .where(and(eq(odontogramEntries.patientId, patientId), notDeleted(odontogramEntries.deletedAt)));
   }
 
   async createOdontogramEntry(data: any): Promise<OdontogramEntry> {
@@ -2512,7 +2935,8 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
         .where(and(
           eq(inventoryItems.companyId, companyId),
-          eq(inventoryItems.active, true)
+          eq(inventoryItems.active, true),
+          notDeleted(inventoryItems.deletedAt)
         ))
         .orderBy(inventoryItems.name);
       
@@ -2751,6 +3175,188 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Dados padrão de estoque para clínica odontológica - compartilhado com MemStorage
+  private getDefaultInventoryDataDB() {
+    const defaultCategories = [
+      { name: 'Descartáveis e Consumo', description: 'Luvas, máscaras, algodão, gaze, sugadores, babadores', color: '#3B82F6' },
+      { name: 'Anestésicos e Agulhas', description: 'Anestésicos locais, tubetes, agulhas gengivais', color: '#EF4444' },
+      { name: 'Medicamentos', description: 'Anti-inflamatórios, antibióticos, analgésicos', color: '#DC2626' },
+      { name: 'Materiais de Restauração', description: 'Resinas, adesivos, ionômeros, condicionadores', color: '#10B981' },
+      { name: 'Cimentos Odontológicos', description: 'Cimentos resinosos, provisórios, ionômeros', color: '#059669' },
+      { name: 'Materiais de Endodontia', description: 'Limas, cones, cimentos endodônticos, irrigantes', color: '#F59E0B' },
+      { name: 'Materiais de Moldagem', description: 'Alginato, silicone, gesso, moldeiras', color: '#8B5CF6' },
+      { name: 'Instrumentais Rotatórios', description: 'Brocas, pontas diamantadas, discos, polidores', color: '#EC4899' },
+      { name: 'EPI e Biossegurança', description: 'Equipamentos de proteção, desinfetantes, esterilização', color: '#06B6D4' },
+      { name: 'Material de Prótese', description: 'Ceras, resinas acrílicas, dentes, cimentos', color: '#84CC16' },
+      { name: 'Cirurgia e Periodontia', description: 'Fios de sutura, lâminas, hemostáticos', color: '#7C3AED' },
+      { name: 'Ortodontia', description: 'Bráquetes, fios, elásticos, ligaduras', color: '#F97316' },
+      { name: 'Radiologia', description: 'Filmes, posicionadores, capas para sensor', color: '#64748B' },
+      { name: 'Profilaxia e Prevenção', description: 'Pastas profiláticas, flúor, escovas', color: '#0EA5E9' },
+    ];
+
+    const defaultItemsByCategory: Record<string, Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }>> = {
+      'Descartáveis e Consumo': [
+        { name: 'Luva de Procedimento Látex P', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Luva de Procedimento Látex M', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Luva de Procedimento Látex G', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
+        { name: 'Máscara Descartável Tripla', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Algodão Rolete', minimumStock: 10, unitOfMeasure: 'pacote' },
+        { name: 'Gaze Estéril 7,5x7,5', minimumStock: 20, unitOfMeasure: 'pacote' },
+        { name: 'Sugador Descartável', minimumStock: 200, unitOfMeasure: 'unidade' },
+        { name: 'Babador Descartável Impermeável', minimumStock: 100, unitOfMeasure: 'unidade' },
+      ],
+      'Anestésicos e Agulhas': [
+        { name: 'Lidocaína 2% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Articaína 4% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
+        { name: 'Agulha Gengival Curta 30G', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Agulha Gengival Longa 27G', minimumStock: 100, unitOfMeasure: 'unidade' },
+      ],
+      'Medicamentos': [
+        { name: 'Ibuprofeno 600mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+        { name: 'Amoxicilina 500mg', minimumStock: 30, unitOfMeasure: 'cápsula' },
+        { name: 'Paracetamol 750mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
+      ],
+      'Materiais de Restauração': [
+        { name: 'Resina Composta A2', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Resina Composta A3', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
+        { name: 'Adesivo Single Bond Universal', minimumStock: 2, unitOfMeasure: 'frasco', brand: '3M' },
+        { name: 'Ácido Fosfórico 37%', minimumStock: 10, unitOfMeasure: 'seringa' },
+      ],
+      'Cimentos Odontológicos': [
+        { name: 'Cimento Resinoso Dual', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Cimento Provisório', minimumStock: 3, unitOfMeasure: 'pote' },
+      ],
+      'Materiais de Endodontia': [
+        { name: 'Lima K #15', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Lima K #20', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Hipoclorito de Sódio 2,5%', minimumStock: 5, unitOfMeasure: 'litro' },
+        { name: 'Cone de Guta-percha Principal', minimumStock: 20, unitOfMeasure: 'unidade' },
+      ],
+      'Materiais de Moldagem': [
+        { name: 'Alginato', minimumStock: 5, unitOfMeasure: 'kg' },
+        { name: 'Silicone de Adição Pesado', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Gesso Pedra Tipo III', minimumStock: 5, unitOfMeasure: 'kg' },
+      ],
+      'Instrumentais Rotatórios': [
+        { name: 'Broca Carbide Esférica FG', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Ponta Diamantada 1012', minimumStock: 10, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
+        { name: 'Disco de Lixa', minimumStock: 20, unitOfMeasure: 'unidade' },
+      ],
+      'EPI e Biossegurança': [
+        { name: 'Óculos de Proteção', minimumStock: 5, unitOfMeasure: 'unidade' },
+        { name: 'Gorro Descartável', minimumStock: 100, unitOfMeasure: 'unidade' },
+        { name: 'Álcool 70%', minimumStock: 10, unitOfMeasure: 'litro' },
+      ],
+      'Material de Prótese': [
+        { name: 'Resina Acrílica', minimumStock: 2, unitOfMeasure: 'kit' },
+        { name: 'Dentes de Estoque', minimumStock: 10, unitOfMeasure: 'cartela' },
+      ],
+      'Cirurgia e Periodontia': [
+        { name: 'Fio de Sutura Seda 3-0', minimumStock: 20, unitOfMeasure: 'unidade' },
+        { name: 'Lâmina de Bisturi #15', minimumStock: 20, unitOfMeasure: 'unidade' },
+      ],
+      'Ortodontia': [
+        { name: 'Bráquete Metálico', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Fio Ortodôntico NiTi', minimumStock: 10, unitOfMeasure: 'unidade' },
+        { name: 'Elástico Ligadura', minimumStock: 100, unitOfMeasure: 'unidade' },
+      ],
+      'Radiologia': [
+        { name: 'Filme Radiográfico Periapical', minimumStock: 50, unitOfMeasure: 'unidade' },
+        { name: 'Capa Plástica para Sensor', minimumStock: 100, unitOfMeasure: 'unidade' },
+      ],
+      'Profilaxia e Prevenção': [
+        { name: 'Flúor Gel Acidulado', minimumStock: 5, unitOfMeasure: 'frasco' },
+        { name: 'Pasta Profilática', minimumStock: 5, unitOfMeasure: 'pote' },
+        { name: 'Escova Robinson', minimumStock: 20, unitOfMeasure: 'unidade' },
+      ],
+    };
+
+    return { defaultCategories, defaultItemsByCategory };
+  }
+
+  getInventorySeedData(): {
+    categories: Array<{ name: string; description: string; color: string; items: Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }> }>;
+  } {
+    const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryDataDB();
+
+    return {
+      categories: defaultCategories.map(cat => ({
+        ...cat,
+        items: defaultItemsByCategory[cat.name] || []
+      }))
+    };
+  }
+
+  async seedInventoryDefaults(
+    companyId: number,
+    selection?: { categoryNames: string[]; itemsByCategory?: Record<string, string[]> }
+  ): Promise<{ categories: any[], items: any[] }> {
+    try {
+      // Verifica se já existem categorias
+      const existingCategories = await this.getInventoryCategories(companyId);
+      if (existingCategories.length > 0) {
+        throw new Error('Esta empresa já possui categorias de estoque cadastradas');
+      }
+
+      const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryDataDB();
+
+      // Filtrar categorias baseado na seleção
+      let categoriesToCreate = defaultCategories;
+      if (selection?.categoryNames && selection.categoryNames.length > 0) {
+        categoriesToCreate = defaultCategories.filter(cat =>
+          selection.categoryNames.includes(cat.name)
+        );
+      }
+
+      const createdCategories: any[] = [];
+      const createdItems: any[] = [];
+
+      for (const categoryData of categoriesToCreate) {
+        // Criar categoria
+        const [category] = await db
+          .insert(inventoryCategories)
+          .values({
+            ...categoryData,
+            companyId,
+          })
+          .returning();
+        createdCategories.push(category);
+
+        // Obter itens para esta categoria
+        let itemsForCategory = defaultItemsByCategory[categoryData.name] || [];
+
+        // Filtrar itens se houver seleção específica
+        if (selection?.itemsByCategory && selection.itemsByCategory[categoryData.name]) {
+          const selectedItemNames = selection.itemsByCategory[categoryData.name];
+          itemsForCategory = itemsForCategory.filter(item =>
+            selectedItemNames.includes(item.name)
+          );
+        }
+
+        // Criar itens
+        for (const itemData of itemsForCategory) {
+          const [item] = await db
+            .insert(inventoryItems)
+            .values({
+              ...itemData,
+              categoryId: category.id,
+              companyId,
+              currentStock: 0,
+              price: 0,
+              active: true,
+            })
+            .returning();
+          createdItems.push(item);
+        }
+      }
+
+      return { categories: createdCategories, items: createdItems };
+    } catch (error: any) {
+      console.error('Erro ao popular estoque:', error);
+      throw error;
+    }
+  }
+
   // Digital Patient Record Methods
   async getPatientAnamnesis(patientId: number, companyId: number): Promise<Anamnesis | undefined> {
     try {
@@ -2760,7 +3366,9 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(patients, eq(anamnesis.patientId, patients.id))
         .where(and(
           eq(anamnesis.patientId, patientId),
-          eq(patients.companyId, companyId)
+          eq(patients.companyId, companyId),
+          notDeleted(anamnesis.deletedAt),
+          notDeleted(patients.deletedAt)
         ))
         .limit(1);
       
@@ -2811,7 +3419,9 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(patients, eq(patientExams.patientId, patients.id))
         .where(and(
           eq(patientExams.patientId, patientId),
-          eq(patients.companyId, companyId)
+          eq(patients.companyId, companyId),
+          notDeleted(patientExams.deletedAt),
+          notDeleted(patients.deletedAt)
         ))
         .orderBy(desc(patientExams.examDate));
       
@@ -2862,7 +3472,9 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(patients, eq(detailedTreatmentPlans.patientId, patients.id))
         .where(and(
           eq(detailedTreatmentPlans.patientId, patientId),
-          eq(patients.companyId, companyId)
+          eq(patients.companyId, companyId),
+          notDeleted(detailedTreatmentPlans.deletedAt),
+          notDeleted(patients.deletedAt)
         ))
         .orderBy(desc(detailedTreatmentPlans.createdAt));
       
@@ -2913,7 +3525,9 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(patients, eq(treatmentEvolution.patientId, patients.id))
         .where(and(
           eq(treatmentEvolution.patientId, patientId),
-          eq(patients.companyId, companyId)
+          eq(patients.companyId, companyId),
+          notDeleted(treatmentEvolution.deletedAt),
+          notDeleted(patients.deletedAt)
         ))
         .orderBy(desc(treatmentEvolution.sessionDate));
       
@@ -2947,7 +3561,9 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(patients, eq(prescriptions.patientId, patients.id))
         .where(and(
           eq(prescriptions.patientId, patientId),
-          eq(patients.companyId, companyId)
+          eq(patients.companyId, companyId),
+          notDeleted(prescriptions.deletedAt),
+          notDeleted(patients.deletedAt)
         ))
         .orderBy(desc(prescriptions.createdAt));
       

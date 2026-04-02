@@ -116,6 +116,11 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  // Warn if ENCRYPTION_KEY is not set — API keys will be stored in plaintext
+  if (!process.env.ENCRYPTION_KEY) {
+    warnings.push('ENCRYPTION_KEY not set — API keys will be stored in plaintext. Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  }
+
   // Check for localhost in production
   if (process.env.NODE_ENV === 'production') {
     const baseUrl = process.env.BASE_URL || '';

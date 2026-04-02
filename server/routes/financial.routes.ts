@@ -13,6 +13,8 @@ import {
   companies
 } from '@shared/schema';
 import { eq, and, gte, lte, desc, sum, sql } from 'drizzle-orm';
+import { notDeleted } from '../lib/soft-delete';
+import { progressOpportunityByPhone } from '../services/crm-auto-progression';
 import { z } from 'zod';
 
 const router = Router();
@@ -39,7 +41,10 @@ router.get(
     const { startDate, endDate, type, category } = req.query as any;
 
     // Build where conditions
-    const conditions = [eq(financialTransactions.companyId, companyId)];
+    const conditions = [
+      eq(financialTransactions.companyId, companyId),
+      notDeleted(financialTransactions.deletedAt),
+    ];
 
     if (startDate) {
       conditions.push(gte(financialTransactions.date, new Date(startDate)));
@@ -255,6 +260,17 @@ router.post(
       })
       .returning();
 
+    // CRM: Progride pipeline para payment_done quando pagamento é registrado
+    const patient = await storage.getPatient(parseInt(patientId), companyId);
+    const patientPhone = patient?.phone || (patient as any)?.whatsappPhone;
+    if (patientPhone) {
+      progressOpportunityByPhone(companyId, patientPhone, 'payment_done', {
+        paymentId: payment.id,
+        appointmentId: appointmentId || null,
+        amount,
+      }).catch(err => console.error('CRM progression error (payment_done):', err));
+    }
+
     res.status(201).json(payment);
   })
 );
@@ -297,6 +313,7 @@ router.get(
       .from(financialTransactions)
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
         eq(financialTransactions.type, 'revenue'),
         gte(financialTransactions.date, startOfDay),
         lte(financialTransactions.date, endOfDay)
@@ -311,6 +328,7 @@ router.get(
       .from(financialTransactions)
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
         eq(financialTransactions.type, 'expense'),
         gte(financialTransactions.date, startOfDay),
         lte(financialTransactions.date, endOfDay)
@@ -369,6 +387,7 @@ router.get(
       .from(financialTransactions)
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
         eq(financialTransactions.type, 'revenue'),
         gte(financialTransactions.date, startOfMonth),
         lte(financialTransactions.date, endOfMonth)
@@ -383,6 +402,7 @@ router.get(
       .from(financialTransactions)
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
         eq(financialTransactions.type, 'expense'),
         gte(financialTransactions.date, startOfMonth),
         lte(financialTransactions.date, endOfMonth)
@@ -424,7 +444,10 @@ router.get(
 
     const { startDate, endDate } = req.query as any;
 
-    const conditions = [eq(financialTransactions.companyId, companyId)];
+    const conditions = [
+      eq(financialTransactions.companyId, companyId),
+      notDeleted(financialTransactions.deletedAt),
+    ];
 
     if (startDate) {
       conditions.push(gte(financialTransactions.date, new Date(startDate)));
@@ -514,6 +537,7 @@ router.get(
       .where(and(
         eq(users.companyId, companyId),
         eq(users.active, true),
+        notDeleted(users.deletedAt),
         sql`${users.role} IN ('dentist', 'admin')` // Apenas dentistas e admins
       ));
 
@@ -546,6 +570,7 @@ router.get(
           .from(financialTransactions)
           .where(and(
             eq(financialTransactions.companyId, companyId),
+            notDeleted(financialTransactions.deletedAt),
             eq(financialTransactions.professionalId, professional.id),
             sql`${financialTransactions.type} IN ('revenue', 'income')`,
             gte(financialTransactions.date, periodStart),
@@ -562,6 +587,7 @@ router.get(
           .from(financialTransactions)
           .where(and(
             eq(financialTransactions.companyId, companyId),
+            notDeleted(financialTransactions.deletedAt),
             eq(financialTransactions.professionalId, professional.id),
             eq(financialTransactions.type, 'expense'),
             gte(financialTransactions.date, periodStart),
@@ -579,6 +605,7 @@ router.get(
           .from(financialTransactions)
           .where(and(
             eq(financialTransactions.companyId, companyId),
+            notDeleted(financialTransactions.deletedAt),
             eq(financialTransactions.professionalId, professional.id),
             sql`${financialTransactions.type} IN ('revenue', 'income')`,
             gte(financialTransactions.date, periodStart),
@@ -595,6 +622,7 @@ router.get(
           .from(appointments)
           .where(and(
             eq(appointments.companyId, companyId),
+            notDeleted(appointments.deletedAt),
             eq(appointments.professionalId, professional.id),
             eq(appointments.status, 'completed'),
             gte(appointments.startTime, periodStart),
@@ -716,7 +744,8 @@ router.get(
       .from(users)
       .where(and(
         eq(users.id, parseInt(id)),
-        eq(users.companyId, companyId)
+        eq(users.companyId, companyId),
+        notDeleted(users.deletedAt)
       ));
 
     if (!professional) {
@@ -729,6 +758,7 @@ router.get(
       .from(financialTransactions)
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
         eq(financialTransactions.professionalId, parseInt(id)),
         gte(financialTransactions.date, periodStart),
         lte(financialTransactions.date, periodEnd),
@@ -866,6 +896,8 @@ router.get(
       .innerJoin(users, eq(financialTransactions.professionalId, users.id))
       .where(and(
         eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
+        notDeleted(users.deletedAt),
         sql`${financialTransactions.type} IN ('revenue', 'income')`,
         gte(financialTransactions.date, periodStart),
         lte(financialTransactions.date, periodEnd),

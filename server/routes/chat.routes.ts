@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { eq, and, desc, sql, gte, lte, or, isNull, ne } from 'drizzle-orm';
+import { notDeleted } from '../lib/soft-delete';
 import {
   chatSessions,
   chatMessages,
@@ -17,6 +18,7 @@ import { asyncHandler, requireAuth, getCompanyId } from '../middleware/auth';
 import { createChatProcessor } from '../services/chat-processor';
 import { createEvolutionService } from '../services/evolution-api.service';
 import { sendWuzapiTextMessage, getWuzapiStatus } from '../services/wuzapi-provisioning';
+import { getWhatsAppProvider } from '../services/whatsapp-provider';
 
 const router = Router();
 
@@ -71,7 +73,7 @@ router.get(
           const [patient] = await db
             .select({ fullName: patients.fullName })
             .from(patients)
-            .where(eq(patients.id, session.patientId))
+            .where(and(eq(patients.id, session.patientId), notDeleted(patients.deletedAt)))
             .limit(1);
           patientName = patient?.fullName;
         }
@@ -151,6 +153,33 @@ router.get(
 );
 
 /**
+ * GET /api/v1/chat/unread-count
+ * Retorna contagem de sessões que precisam de atenção (para badge no sidebar)
+ */
+router.get(
+  '/unread-count',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req);
+    if (!companyId) return res.status(403).json({ error: 'No company' });
+
+    const [counts] = await db
+      .select({
+        active: sql<number>`count(*) filter (where ${chatSessions.status} = 'active')::int`,
+        waitingHuman: sql<number>`count(*) filter (where ${chatSessions.status} = 'waiting_human')::int`,
+      })
+      .from(chatSessions)
+      .where(eq(chatSessions.companyId, companyId));
+
+    res.json({
+      unreadCount: (counts?.waitingHuman || 0) + (counts?.active || 0),
+      waitingHuman: counts?.waitingHuman || 0,
+      active: counts?.active || 0,
+    });
+  })
+);
+
+/**
  * GET /api/v1/chat/sessions/:id
  * Retorna uma sessão específica com histórico de mensagens
  */
@@ -189,7 +218,7 @@ router.get(
       const [p] = await db
         .select()
         .from(patients)
-        .where(eq(patients.id, session.patientId))
+        .where(and(eq(patients.id, session.patientId), notDeleted(patients.deletedAt)))
         .limit(1);
       patient = p;
     }
@@ -393,30 +422,19 @@ router.post(
       return res.status(404).json({ error: 'Sessão não encontrada' });
     }
 
-    // Tentar enviar via Wuzapi primeiro, depois Evolution API
-    let sendResult: { success: boolean; messageId?: string; error?: string };
-
-    // Verificar se Wuzapi esta configurado e conectado
-    const wuzapiStatus = await getWuzapiStatus(companyId);
-
-    if (wuzapiStatus.configured && wuzapiStatus.loggedIn) {
-      // Usar Wuzapi
-      console.log('[Chat] Enviando via Wuzapi para:', session.phone);
-      sendResult = await sendWuzapiTextMessage(companyId, session.phone, content);
-    } else {
-      // Fallback para Evolution API
-      const evolutionService = await createEvolutionService(companyId);
-      if (!evolutionService) {
-        return res.status(503).json({
-          error: 'Serviço de WhatsApp não configurado para esta empresa',
-        });
-      }
-      console.log('[Chat] Enviando via Evolution API para:', session.phone);
-      sendResult = await evolutionService.sendTextMessage({
-        phone: session.phone,
-        message: content,
+    // Enviar via provider unificado (respeita configuração da empresa)
+    const provider = await getWhatsAppProvider(companyId);
+    if (!provider) {
+      return res.status(503).json({
+        error: 'Serviço de WhatsApp não configurado para esta empresa',
       });
     }
+
+    console.log(`[Chat] Enviando via ${provider.providerType} para:`, session.phone);
+    const sendResult = await provider.sendTextMessage({
+      phone: session.phone,
+      message: content,
+    });
 
     if (!sendResult.success) {
       return res.status(500).json({
