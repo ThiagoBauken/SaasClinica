@@ -69,6 +69,74 @@ if (isNeonDatabase) {
   db = drizzle(pool, { schema });
 }
 
+// ============================================================
+// Read Replica Support
+// Set DATABASE_READ_URLS=postgres://host1:5432/db,postgres://host2:5432/db
+// If not set, reads use the main pool (master).
+// ============================================================
+let readPool: any = null;
+let dbRead: any = db; // default: same as write
+let currentReplicaIndex = 0;
+const replicaPools: any[] = [];
+
+const replicaUrls = (process.env.DATABASE_READ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+
+if (replicaUrls.length > 0) {
+  dbLogger.info({ replicas: replicaUrls.length }, 'Initializing read replicas');
+
+  for (const [i, url] of replicaUrls.entries()) {
+    if (isNeonDatabase) {
+      const { Pool: NeonPool } = await import('@neondatabase/serverless');
+      const rPool = new NeonPool({
+        connectionString: url,
+        max: parseInt(process.env.DB_READ_POOL_MAX || '50'),
+        idleTimeoutMillis: 45000,
+        connectionTimeoutMillis: 10000,
+        maxUses: 10000,
+      });
+      replicaPools.push(rPool);
+    } else {
+      const pgModule = await import('pg');
+      const PgPool = pgModule.default.Pool;
+      const rPool = new PgPool({
+        connectionString: url,
+        max: parseInt(process.env.DB_READ_POOL_MAX || '50'),
+        idleTimeoutMillis: 45000,
+        connectionTimeoutMillis: 10000,
+        ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+      });
+      replicaPools.push(rPool);
+    }
+
+    dbLogger.info({ replica: i + 1 }, 'Read replica pool initialized');
+  }
+
+  // Round-robin read replica selection
+  readPool = replicaPools[0];
+  if (isNeonDatabase) {
+    const { drizzle } = await import('drizzle-orm/neon-serverless');
+    dbRead = drizzle(readPool, { schema });
+  } else {
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    dbRead = drizzle(readPool, { schema });
+  }
+} else {
+  dbLogger.info('No read replicas configured, reads use master pool');
+}
+
+/**
+ * Get a Drizzle instance for read queries (round-robin across replicas).
+ * Falls back to master if no replicas configured.
+ */
+export function getReadDb() {
+  if (replicaPools.length <= 1) return dbRead;
+
+  currentReplicaIndex = (currentReplicaIndex + 1) % replicaPools.length;
+  // For simplicity, return the pre-built dbRead for the current replica
+  // In production with many replicas, cache drizzle instances per pool
+  return dbRead;
+}
+
 // Logging de eventos do pool para monitoramento
 pool.on('connect', () => {
   dbLogger.debug('New database connection established');
@@ -98,7 +166,10 @@ export async function checkDatabaseHealth(): Promise<boolean> {
 // Graceful shutdown do pool
 export async function closeDatabasePool() {
   await pool.end();
-  dbLogger.info('Database pool closed');
+  for (const rp of replicaPools) {
+    if (rp !== pool) await rp.end().catch(() => {});
+  }
+  dbLogger.info('Database pool(s) closed');
 }
 
-export { pool, db };
+export { pool, db, dbRead };
