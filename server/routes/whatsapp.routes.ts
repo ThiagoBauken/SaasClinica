@@ -18,8 +18,8 @@ router.post(
   '/send',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -61,8 +61,8 @@ router.post(
   '/send-appointment-confirmation',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -152,8 +152,8 @@ router.post(
   '/send-cancellation',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -230,8 +230,8 @@ router.post(
   '/test-connection',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -263,8 +263,8 @@ router.get(
   '/patients/:id/history',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });

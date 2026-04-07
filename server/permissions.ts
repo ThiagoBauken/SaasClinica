@@ -3,6 +3,7 @@ import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { modules, companyModules } from "@shared/schema";
 
+import { logger } from './logger';
 // Tipos de permissões disponíveis
 export type Permission = "read" | "write" | "delete" | "admin";
 
@@ -38,7 +39,7 @@ export function requireModulePermission(moduleName: string, permission: Permissi
 
       next();
     } catch (error) {
-      console.error("Permission check error:", error);
+      logger.error({ err: error }, 'Permission check error:');
       res.status(500).json({ message: "Permission check failed" });
     }
   };
@@ -94,7 +95,7 @@ export async function checkUserModulePermission(
     const userPermissions = result.rows[0].permissions;
     return Array.isArray(userPermissions) && userPermissions.includes(permission);
   } catch (error) {
-    console.error("Error checking module permission:", error);
+    logger.error({ err: error }, 'Error checking module permission:');
     return false;
   }
 }
@@ -126,7 +127,7 @@ export async function getUserModulePermissions(userId: number, companyId: number
       moduleEnabled: row.module_enabled
     }));
   } catch (error) {
-    console.error("Error getting user module permissions:", error);
+    logger.error({ err: error }, 'Error getting user module permissions:');
     return [];
   }
 }
@@ -165,7 +166,7 @@ export async function grantModulePermission(
 
     return true;
   } catch (error) {
-    console.error("Error granting module permission:", error);
+    logger.error({ err: error }, 'Error granting module permission:');
     return false;
   }
 }

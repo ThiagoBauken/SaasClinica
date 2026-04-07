@@ -14,6 +14,7 @@ import AdmZip from 'adm-zip';
 import { authCheck, asyncHandler } from '../middleware/auth';
 import { storageService } from '../services/storage.service';
 
+import { logger } from '../logger';
 const router = Router();
 
 // Directories - use system temp dir for temp files (works in Docker containers)
@@ -76,6 +77,15 @@ async function extractZipFile(zipPath: string): Promise<string[]> {
   await fs.mkdir(extractDir, { recursive: true });
 
   const zip = new AdmZip(zipPath);
+
+  // Security: Validate all entries before extraction (prevent Zip Slip CWE-22)
+  for (const entry of zip.getEntries()) {
+    const entryPath = path.resolve(extractDir, entry.entryName);
+    if (!entryPath.startsWith(extractDir + path.sep) && entryPath !== extractDir) {
+      throw new Error(`Zip Slip detected: ${entry.entryName}`);
+    }
+  }
+
   zip.extractAllTo(extractDir, true);
 
   // Find all image files in extracted directory
@@ -296,7 +306,7 @@ async function cleanupTempFiles(filePaths: string[]) {
         await fs.unlink(filePath);
       }
     } catch (error) {
-      console.error(`Error deleting ${filePath}:`, error);
+      logger.error({ err: error, filePath: filePath }, 'Error deleting file')
     }
   }
 }
@@ -316,7 +326,7 @@ async function getDirectorySize(dirPath: string): Promise<number> {
       }
     }
   } catch (error) {
-    console.error('Error calculating directory size:', error);
+    logger.error({ err: error }, 'Error calculating directory size:');
   }
   return size;
 }
@@ -377,9 +387,9 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
 
   try {
     const { outputFormat } = req.body;
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!uploadedFiles || uploadedFiles.length === 0) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -409,7 +419,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
       }
     }
 
-    console.log(`Processing ${imageFilePaths.length} image files...`);
+    logger.info({ imageCount: imageFilePaths.length }, 'Processing image files')
 
     const extractedPatients: any[] = [];
     const errors: { file: string; error: string; type: string }[] = [];
@@ -424,7 +434,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
 
       // Log progress every 10 images
       if (processedCount % 10 === 0 || processedCount === imageFilePaths.length) {
-        console.log(`📊 Progresso: ${processedCount}/${imageFilePaths.length} (${Math.round(processedCount/imageFilePaths.length*100)}%)`);
+        logger.info({ processedCount, total: imageFilePaths.length, percent: Math.round(processedCount/imageFilePaths.length*100) }, 'Digitization progress')
       }
       try {
         // Extract text using OCR
@@ -492,7 +502,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
         }
       } catch (error: any) {
         const fileName = path.basename(imagePath);
-        console.error(`❌ Error processing ${fileName}:`, error.message);
+        logger.error({ err: error, fileName }, 'Error processing file')
 
         // Categorize error type
         let errorType = 'UNKNOWN';
@@ -539,7 +549,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
               notes: `Importado via digitalização - Arquivo: ${patient.sourceFile}`,
             });
           } catch (dbError) {
-            console.error('Error saving patient to database:', dbError);
+            logger.error({ err: dbError }, 'Error saving patient to database:');
             patient.status = 'error';
             patient.error = 'Erro ao salvar no banco de dados';
           }
@@ -599,7 +609,7 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
       downloadUrl,
     });
   } catch (error) {
-    console.error('Error in digitization endpoint:', error);
+    logger.error({ err: error }, 'Error in digitization endpoint:');
 
     // Attempt cleanup even on error
     await cleanupTempFiles(tempFilesToCleanup);
@@ -613,8 +623,8 @@ router.post('/', authCheck, upload.array('files', 1000), asyncHandler(async (req
 
 // GET /api/v1/patients/digitization/history - Get digitization history
 router.get('/history', authCheck, asyncHandler(async (req, res) => {
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
@@ -643,8 +653,8 @@ router.get('/storage', authCheck, asyncHandler(async (req, res) => {
 // GET /api/v1/patients/digitization/history/:id/download - Download history file
 router.get('/history/:id/download', authCheck, asyncHandler(async (req, res) => {
   const historyId = parseInt(req.params.id);
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
@@ -672,7 +682,7 @@ router.get('/history/:id/download', authCheck, asyncHandler(async (req, res) => 
       const presignedUrl = await storageService.getPresignedUrl(s3Key, 3600); // 1 hour
       return res.redirect(presignedUrl);
     } catch (error) {
-      console.error('Error generating presigned URL:', error);
+      logger.error({ err: error }, 'Error generating presigned URL:');
       return res.status(500).json({ error: 'Erro ao gerar link de download' });
     }
   }
@@ -691,10 +701,10 @@ router.get('/history/:id/download', authCheck, asyncHandler(async (req, res) => 
 router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) => {
   const historyId = parseInt(req.params.id);
   const { action, format } = req.body; // action: 'database' or 'export', format: 'xlsx', 'csv', 'json'
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
-  console.log('🔄 Reprocessing history:', { historyId, action, format, companyId });
+  logger.info({ data: { historyId, action, format, companyId } }, 'Reprocessing history:')
 
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
@@ -710,12 +720,12 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
       )
     );
 
-  console.log('📊 History record found:', {
+  logger.info({
     hasRecord: !!historyRecord,
     hasMetadata: !!historyRecord?.metadata,
     hasPatients: !!historyRecord?.metadata?.patients,
     patientsCount: historyRecord?.metadata?.patients?.length
-  });
+  }, 'History record found');
 
   if (!historyRecord) {
     return res.status(404).json({ error: 'Registro de histórico não encontrado' });
@@ -734,10 +744,10 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
 
   if (action === 'database') {
     // Add patients to database (excluding duplicates and checking for existing records)
-    console.log(`💾 Saving ${extractedPatients.length} patients to database...`);
+    logger.info({ patientCount: extractedPatients.length }, 'Saving patients to database')
 
     for (const patient of extractedPatients) {
-      console.log(`  Patient: ${patient.name} - Status: ${patient.status}, IsDuplicate: ${patient.isDuplicate}`);
+      logger.info({ patientName: patient.name, status: patient.status, isDuplicate: patient.isDuplicate }, 'Processing patient')
 
       if (patient.status === 'success') {
         try {
@@ -745,7 +755,7 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
           const duplicateMatches = await findDuplicates(patient, companyId);
 
           if (duplicateMatches.length > 0) {
-            console.log(`  ⚠️  Patient ${patient.name} already exists in database (found ${duplicateMatches.length} match(es))`);
+            logger.info({ patientName: patient.name, matchCount: duplicateMatches.length }, 'Patient already exists in database')
             errorCount++;
             continue;
           }
@@ -761,19 +771,19 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
             notes: `Importado via digitalização (histórico ID: ${historyId}) - Arquivo: ${patient.sourceFile || 'reprocessado'}`,
           };
 
-          console.log(`  ✅ Inserting:`, patientData);
+          logger.info({ data: patientData }, 'Inserting:')
           await db.insert(patients).values(patientData);
           successCount++;
         } catch (dbError: any) {
-          console.error(`  ❌ Error saving patient ${patient.name}:`, dbError.message);
+          logger.error({ err: dbError, patientName: patient.name }, 'Error saving patient')
           errorCount++;
         }
       } else {
-        console.log(`  ⏭️  Skipping (status: ${patient.status})`);
+        logger.info({ patient_status: patient.status }, '⏭ Skipping (status: {patient_status})')
       }
     }
 
-    console.log(`✅ Database save complete: ${successCount} saved, ${errorCount} skipped (duplicates or errors)`);
+    logger.info({ successCount: successCount, errorCount: errorCount }, 'Database save complete: {successCount} saved, {errorCount} skipped (duplicates or errors)')
 
 
     return res.json({
@@ -816,8 +826,8 @@ router.post('/history/:id/reprocess', authCheck, asyncHandler(async (req, res) =
 // POST /api/v1/patients/digitization/resolve - Resolve duplicate patient
 router.post('/resolve', authCheck, asyncHandler(async (req, res) => {
   const { patient, decision, existingPatientId } = req.body;
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!patient || !decision) {
     return res.status(400).json({ error: 'Dados incompletos' });

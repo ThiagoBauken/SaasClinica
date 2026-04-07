@@ -5,6 +5,7 @@ import { db } from './db';
 import { subscriptions, mercadoPagoSubscriptions, payments } from '../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+import { logger } from './logger';
 // Configurar Mercado Pago
 // NOTA: idempotencyKey deve ser gerada POR REQUISIÇÃO, não globalmente
 const client = new MercadoPagoConfig({
@@ -46,7 +47,7 @@ const availablePlans = [
       'Agendamento avançado',
       'Relatórios completos',
       'Integração WhatsApp',
-      'Automações N8N',
+      'Automações com IA',
       'Suporte prioritário'
     ]
   },
@@ -72,7 +73,7 @@ export async function getPlans(req: Request, res: Response) {
   try {
     res.json(availablePlans);
   } catch (error) {
-    console.error('Erro ao buscar planos:', error);
+    logger.error({ err: error }, 'Erro ao buscar planos:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -100,7 +101,7 @@ export async function getCurrentSubscription(req: Request, res: Response) {
       planName: plan?.name || 'Plano Desconhecido'
     });
   } catch (error) {
-    console.error('Erro ao buscar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao buscar assinatura:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -178,7 +179,7 @@ export async function createSubscription(req: Request, res: Response) {
     });
 
   } catch (error) {
-    console.error('Erro ao criar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao criar assinatura:');
     res.status(500).json({ message: 'Erro ao processar assinatura' });
   }
 }
@@ -203,7 +204,7 @@ export async function cancelSubscription(req: Request, res: Response) {
 
     res.json({ message: 'Assinatura cancelada com sucesso' });
   } catch (error) {
-    console.error('Erro ao cancelar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao cancelar assinatura:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -223,7 +224,7 @@ export async function getPaymentHistory(req: Request, res: Response) {
 
     res.json(paymentHistory);
   } catch (error) {
-    console.error('Erro ao buscar histórico:', error);
+    logger.error({ err: error }, 'Erro ao buscar histórico:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -269,7 +270,7 @@ export async function handleWebhook(req: Request, res: Response) {
 
     res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Erro no webhook:', error);
+    logger.error({ err: error }, 'Erro no webhook:');
     res.status(500).json({ message: 'Erro no webhook' });
   }
 }
@@ -287,7 +288,7 @@ export async function getPaymentSuccess(req: Request, res: Response) {
       res.redirect('/payments?payment=error');
     }
   } catch (error) {
-    console.error('Erro na confirmação:', error);
+    logger.error({ err: error }, 'Erro na confirmação:');
     res.redirect('/payments?payment=error');
   }
 }

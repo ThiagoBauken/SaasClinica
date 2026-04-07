@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from './db';
 import { clinicSettings, workingHours, users, appointments, patients, procedures, inventoryItems } from '../shared/schema';
 import { eq, and, desc, sql, gte, lte, count } from 'drizzle-orm';
+import { logger } from './logger';
 
 // === CONFIGURAÇÕES DA CLÍNICA ===
 export async function getClinicSettings(req: Request, res: Response) {
@@ -51,7 +52,7 @@ export async function getClinicSettings(req: Request, res: Response) {
 
     res.json(settings || defaultSettings);
   } catch (error) {
-    console.error('Erro ao buscar configurações:', error);
+    logger.error({ err: error }, 'Error fetching clinic settings');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -86,7 +87,7 @@ export async function updateClinicSettings(req: Request, res: Response) {
 
     res.json({ message: 'Configurações atualizadas com sucesso' });
   } catch (error) {
-    console.error('Erro ao atualizar configurações:', error);
+    logger.error({ err: error }, 'Error updating clinic settings');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -112,7 +113,7 @@ export async function getRevenueReport(req: Request, res: Response) {
 
     res.json(revenueData);
   } catch (error) {
-    console.error('Erro ao buscar relatório de receita:', error);
+    logger.error({ err: error }, 'Error fetching revenue report');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -153,7 +154,7 @@ export async function getAppointmentStats(req: Request, res: Response) {
 
     res.json(stats);
   } catch (error) {
-    console.error('Erro ao buscar estatísticas:', error);
+    logger.error({ err: error }, 'Error fetching statistics');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -180,7 +181,7 @@ export async function getProcedureAnalytics(req: Request, res: Response) {
 
     res.json(procedureStats);
   } catch (error) {
-    console.error('Erro ao buscar analytics de procedimentos:', error);
+    logger.error({ err: error }, 'Error fetching procedure analytics');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -237,7 +238,7 @@ export async function getPatientAnalytics(req: Request, res: Response) {
 
     res.json(analytics);
   } catch (error) {
-    console.error('Erro ao buscar analytics de pacientes:', error);
+    logger.error({ err: error }, 'Error fetching patient analytics');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -264,7 +265,7 @@ export async function getUsers(req: Request, res: Response) {
 
     res.json(safeUsers);
   } catch (error) {
-    console.error('Erro ao buscar usuários:', error);
+    logger.error({ err: error }, 'Error fetching users');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -293,7 +294,7 @@ export async function updateUser(req: Request, res: Response) {
 
     res.json({ message: 'Usuário atualizado com sucesso' });
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error);
+    logger.error({ err: error }, 'Error updating user');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -334,7 +335,7 @@ export async function deleteUser(req: Request, res: Response) {
 
     res.json({ message: 'Usuário removido com sucesso' });
   } catch (error) {
-    console.error('Erro ao remover usuário:', error);
+    logger.error({ err: error }, 'Error removing user');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -354,7 +355,7 @@ export async function getProcedures(req: Request, res: Response) {
 
     res.json(procedureList);
   } catch (error) {
-    console.error('Erro ao buscar procedimentos:', error);
+    logger.error({ err: error }, 'Error fetching procedures');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -387,7 +388,7 @@ export async function getRooms(req: Request, res: Response) {
 
     res.json(roomList);
   } catch (error) {
-    console.error('Erro ao buscar salas:', error);
+    logger.error({ err: error }, 'Error fetching rooms');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }

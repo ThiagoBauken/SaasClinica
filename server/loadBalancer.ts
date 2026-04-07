@@ -1,6 +1,7 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
+import { logger } from './logger';
 interface ServerInstance {
   url: string;
   weight: number;
@@ -43,7 +44,7 @@ class LoadBalancer {
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      console.error(`Health check failed for ${server.url}:`, error);
+      logger.error({ err: error, server_url: server.url }, 'Health check failed for {server_url}:')
       return false;
     }
   }
@@ -86,7 +87,7 @@ class LoadBalancer {
       },
       on: {
         error: (err: any, req: any, res: any) => {
-          console.error('Proxy error:', err);
+          logger.error({ err: err }, 'Proxy error:');
           res.status(503).json({ error: 'Service temporarily unavailable' });
         }
       }

@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from "@shared/schema";
 import { log } from './vite';
 
+import { logger } from './logger';
 interface DatabaseConfig {
   connectionString: string;
   maxConnections: number;
@@ -164,7 +165,7 @@ class DistributedDatabase {
       
       log('Database connections closed');
     } catch (error) {
-      console.error('Error during database shutdown:', error);
+      logger.error({ err: error }, 'Error during database shutdown:');
     }
   }
 }

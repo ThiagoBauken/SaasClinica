@@ -83,4 +83,10 @@ export const odontogramProcedures = [
   { id: 5, name: "Tratamento de Canal", color: "#ffe0cc" },
   { id: 6, name: "Coroa", color: "#d8f7c8" },
   { id: 7, name: "Prótese", color: "#e0eaff" },
+  // Estéticos
+  { id: 8, name: "Faceta/Lente de Contato", color: "#E8D5B7" },
+  { id: 9, name: "Clareamento", color: "#F0F8FF" },
+  { id: 10, name: "Gengivoplastia", color: "#FFB6C1" },
+  { id: 11, name: "Restauração Estética", color: "#DEB887" },
+  { id: 12, name: "Prótese Estética", color: "#FFDAB9" },
 ];

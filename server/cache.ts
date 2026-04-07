@@ -1,48 +1,54 @@
 import Redis from 'ioredis';
 import { log } from './vite';
+import { logger } from './logger';
 
 // Configuração do client Redis
 const redisUrl = process.env.REDIS_URL;
 let redisClient: Redis | null = null;
 
-// Cache em memória para desenvolvimento ou fallback
-const memoryCache = new Map<string, { data: any; expiry: number }>();
+// Cache em memória — APENAS para desenvolvimento.
+// Em produção, a ausência de Redis faz o cache virar no-op (fail-open leitura, fail-closed escrita
+// distribuída), evitando inconsistências entre instâncias em cluster/horizontal scaling.
+const isProduction = process.env.NODE_ENV === 'production';
+const ALLOW_MEMORY_FALLBACK = !isProduction;
+const memoryCache: Map<string, { data: any; expiry: number }> | null =
+  ALLOW_MEMORY_FALLBACK ? new Map() : null;
 
 // Tempo padrão de cache em segundos
 const DEFAULT_CACHE_TTL = 300; // 5 minutos
 
-// Só tentamos conectar ao Redis se tivermos uma URL e estivermos em produção
-if (redisUrl && process.env.NODE_ENV === 'production') {
+// Tenta conectar ao Redis sempre que houver configuração (URL ou HOST),
+// independentemente do NODE_ENV. Em produção, a ausência de Redis é fatal
+// para consistência multi-instância — loga aviso crítico.
+const hasRedisConfig = !!(redisUrl || process.env.REDIS_HOST);
+if (hasRedisConfig) {
   try {
-    redisClient = new Redis(redisUrl, {
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
+    const connectionString =
+      redisUrl ||
+      `redis://${process.env.REDIS_PASSWORD ? `:${process.env.REDIS_PASSWORD}@` : ''}${process.env.REDIS_HOST}:${process.env.REDIS_PORT || '6379'}`;
+
+    redisClient = new Redis(connectionString, {
+      retryStrategy: (times) => Math.min(times * 50, 2000),
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       connectionName: 'dental-app-cache',
     });
-    
-    redisClient.on('connect', () => {
-      log('Redis client conectado com sucesso');
-    });
-    
+
+    redisClient.on('connect', () => log('Redis client conectado com sucesso'));
     redisClient.on('error', (err) => {
-      console.error('Erro ao conectar com Redis:', err);
-      log('Continuando com cache em memória como fallback');
-      redisClient = null;
+      logger.error({ err }, 'Error connecting to Redis');
     });
   } catch (error) {
-    console.error('Falha ao inicializar Redis:', error);
+    logger.error({ err: error }, 'Failed to initialize Redis');
     redisClient = null;
   }
+} else if (isProduction) {
+  logger.error(
+    'CRITICAL: REDIS_URL/REDIS_HOST not set in production — cache will be a no-op. ' +
+    'Horizontal scaling is UNSAFE without Redis. Configure Redis immediately.'
+  );
 } else {
-  if (process.env.NODE_ENV === 'development') {
-    log('Modo de desenvolvimento: usando cache em memória');
-  } else {
-    log('Redis URL não configurada: usando cache em memória');
-  }
+  log('Dev mode: Redis não configurado — usando cache em memória local');
 }
 
 /**
@@ -59,25 +65,24 @@ export async function getCache<T>(key: string): Promise<T | null> {
         return JSON.parse(cachedData) as T;
       }
     } catch (error) {
-      console.error(`Erro ao obter cache Redis para chave ${key}:`, error);
+      logger.error({ err: error, key }, 'Error getting Redis cache');
       // Continua para o fallback
     }
   }
   
-  // Fallback para o cache em memória
+  // Fallback em memória (apenas dev)
+  if (!memoryCache) return null;
   const now = Date.now();
   const cached = memoryCache.get(key);
 
-  // Verifica se o cache existe e não expirou
   if (cached && cached.expiry > now) {
     return cached.data as T;
   }
 
-  // Remove o cache expirado se existir
   if (cached) {
     memoryCache.delete(key);
   }
-  
+
   return null;
 }
 
@@ -96,26 +101,22 @@ export async function setCache<T>(key: string, data: T, ttl: number = DEFAULT_CA
       await redisClient.set(key, JSON.stringify(data), 'EX', ttl);
       return true;
     } catch (error) {
-      console.error(`Erro ao definir cache Redis para chave ${key}:`, error);
+      logger.error({ err: error, key }, 'Error setting Redis cache');
       // Continua para o fallback
     }
   }
   
-  // Fallback para o cache em memória
+  // Fallback em memória (apenas dev) — em produção vira no-op para não
+  // criar inconsistência entre instâncias
+  if (!memoryCache) return false;
   try {
-    memoryCache.set(key, { 
-      data, 
-      expiry: expiryTime 
-    });
-    
-    // Limpeza periódica do cache em memória para evitar memory leaks
-    if (memoryCache.size > 10000) { // Limita para 10.000 itens
+    memoryCache.set(key, { data, expiry: expiryTime });
+    if (memoryCache.size > 10000) {
       cleanupMemoryCache();
     }
-    
     return true;
   } catch (error) {
-    console.error(`Erro ao definir cache em memória para chave ${key}:`, error);
+    logger.error({ err: error, key }, 'Error setting memory cache');
     return false;
   }
 }
@@ -132,19 +133,21 @@ export async function removeCache(key: string): Promise<boolean> {
     try {
       await redisClient.del(key);
     } catch (error) {
-      console.error(`Erro ao remover cache Redis para chave ${key}:`, error);
+      logger.error({ err: error, key }, 'Error removing Redis cache');
       success = false;
     }
   }
   
-  // Remove do cache em memória
-  try {
-    memoryCache.delete(key);
-  } catch (error) {
-    console.error(`Erro ao remover cache em memória para chave ${key}:`, error);
-    success = false;
+  // Remove do cache em memória (apenas dev)
+  if (memoryCache) {
+    try {
+      memoryCache.delete(key);
+    } catch (error) {
+      logger.error({ err: error, key }, 'Error removing memory cache');
+      success = false;
+    }
   }
-  
+
   return success;
 }
 
@@ -163,21 +166,22 @@ export async function invalidateCacheByPrefix(prefix: string): Promise<boolean> 
         await redisClient.del(...keys);
       }
     } catch (error) {
-      console.error(`Erro ao invalidar cache Redis com prefixo ${prefix}:`, error);
+      logger.error({ err: error, prefix }, 'Error invalidating Redis cache by prefix');
       success = false;
     }
   }
   
-  // Invalida no cache em memória
+  // Invalida no cache em memória (apenas dev)
   try {
-    // Usando Array.from para evitar problemas de iteração
-    Array.from(memoryCache.keys()).forEach(key => {
-      if (key.startsWith(prefix)) {
-        memoryCache.delete(key);
-      }
-    });
+    if (memoryCache) {
+      Array.from(memoryCache.keys()).forEach(key => {
+        if (key.startsWith(prefix)) {
+          memoryCache.delete(key);
+        }
+      });
+    }
   } catch (error) {
-    console.error(`Erro ao invalidar cache em memória com prefixo ${prefix}:`, error);
+    logger.error({ err: error, prefix }, 'Error invalidating memory cache by prefix');
     success = false;
   }
   
@@ -188,10 +192,10 @@ export async function invalidateCacheByPrefix(prefix: string): Promise<boolean> 
  * Limpa itens expirados do cache em memória
  */
 function cleanupMemoryCache(): void {
+  if (!memoryCache) return;
   const now = Date.now();
   let cleanedCount = 0;
-  
-  // Usando Array.from para evitar problemas de iteração
+
   Array.from(memoryCache.entries()).forEach(([key, value]) => {
     if (value.expiry <= now) {
       memoryCache.delete(key);
@@ -254,7 +258,7 @@ export function cacheMiddleware(ttl: number = DEFAULT_CACHE_TTL) {
         
         // Armazena em cache apenas se for sucesso
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          setCache(cacheKey, data, ttl).catch(console.error);
+          setCache(cacheKey, data, ttl).catch(err => logger.error({ err }, 'Cache error'))
         }
         
         // Continua com o comportamento normal
@@ -263,7 +267,7 @@ export function cacheMiddleware(ttl: number = DEFAULT_CACHE_TTL) {
       
       next();
     } catch (error) {
-      console.error('Erro no middleware de cache:', error);
+      logger.error({ err: error }, 'Cache middleware error');
       next();
     }
   };

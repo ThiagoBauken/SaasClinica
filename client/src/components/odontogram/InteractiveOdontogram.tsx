@@ -10,7 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  RotateCcw, History, Save, Trash2, X, CheckCircle2
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
+  RotateCcw, History, Save, Trash2, X, CheckCircle2, Layers, XCircle
 } from 'lucide-react';
 import ToothSVG from './ToothSVG';
 import { permanentTeeth, deciduousTeeth, odontogramProcedures } from './teethData';
@@ -91,6 +96,11 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
   const [procedureNotes, setProcedureNotes] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
+  // Bulk selection state
+  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
+
   const teeth = dentition === 'permanente' ? permanentTeeth : deciduousTeeth;
 
   // Fetch current odontogram state
@@ -136,6 +146,29 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
     },
   });
 
+  // Bulk save mutation — applies same status to all selected teeth
+  const bulkSaveMutation = useMutation({
+    mutationFn: async ({ toothIds, status }: { toothIds: string[]; status: string }) => {
+      const isWholeTooth = WHOLE_TOOTH_STATUSES.includes(status);
+      await Promise.all(
+        toothIds.map(toothId =>
+          apiRequest('POST', `/api/patients/${patientId}/odontogram`, {
+            toothId,
+            faceId: isWholeTooth ? null : undefined,
+            status,
+            color: getStatusColor(status),
+          }).then(r => r.json())
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/odontogram`] });
+      setSelectedTeeth([]);
+      setBulkStatus('');
+      setShowBulkDialog(false);
+    },
+  });
+
   // Build face colors map from entries
   const toothFaceColors = useMemo(() => {
     const map: Record<string, Record<string, string>> = {};
@@ -177,6 +210,17 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
     setShowHistory(true);
   }, []);
 
+  // Intercept Ctrl+click at the wrapper level for bulk selection
+  const handleToothWrapperClick = useCallback((toothNumber: string, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.stopPropagation();
+      e.preventDefault();
+      setSelectedTeeth(prev =>
+        prev.includes(toothNumber) ? prev.filter(t => t !== toothNumber) : [...prev, toothNumber]
+      );
+    }
+  }, []);
+
   const handleSaveProcedure = () => {
     if (!selectedTooth || !procedureStatus) return;
     const isWholeTooth = WHOLE_TOOTH_STATUSES.includes(procedureStatus);
@@ -203,23 +247,79 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
   const lowerLeft = lowerTeeth.slice(0, halfL);
   const lowerRight = lowerTeeth.slice(halfL);
 
-  const renderTooth = (tooth: typeof teeth[0]) => (
-    <ToothSVG
-      key={tooth.number}
-      toothNumber={tooth.number}
-      group={tooth.group}
-      position={tooth.position}
-      faceColors={toothFaceColors[tooth.number]}
-      wholeToothStatus={wholeToothStatuses[tooth.number]}
-      selectedFace={selectedTooth === tooth.number ? selectedFace : null}
-      onFaceClick={handleFaceClick}
-      onToothClick={handleToothClick}
-      size={dentition === 'deciduo' ? 40 : 44}
-      isSelected={selectedTooth === tooth.number}
-    />
-  );
+  // Build per-tooth tooltip data from current entries
+  const toothTooltipData = useMemo(() => {
+    const map: Record<string, { statuses: string[]; notes: string[]; lastChange: string | null; historyCount: number }> = {};
+    for (const entry of entries) {
+      if (!map[entry.toothId]) {
+        map[entry.toothId] = { statuses: [], notes: [], lastChange: null, historyCount: 0 };
+      }
+      map[entry.toothId].statuses.push(getStatusLabel(entry.status));
+      if (entry.notes) map[entry.toothId].notes.push(entry.notes);
+      if (!map[entry.toothId].lastChange || (entry.createdAt && entry.createdAt > map[entry.toothId].lastChange!)) {
+        map[entry.toothId].lastChange = entry.createdAt;
+      }
+      map[entry.toothId].historyCount += 1;
+    }
+    return map;
+  }, [entries]);
+
+  const renderTooth = (tooth: typeof teeth[0]) => {
+    const isBulkSelected = selectedTeeth.includes(tooth.number);
+    const tooltipData = toothTooltipData[tooth.number];
+    const hasData = !!tooltipData;
+
+    const toothNode = (
+      <div
+        key={tooth.number}
+        className={isBulkSelected ? 'ring-2 ring-primary ring-offset-1 rounded' : undefined}
+        onClickCapture={(e) => handleToothWrapperClick(tooth.number, e)}
+      >
+        <ToothSVG
+          toothNumber={tooth.number}
+          group={tooth.group}
+          position={tooth.position}
+          faceColors={toothFaceColors[tooth.number]}
+          wholeToothStatus={wholeToothStatuses[tooth.number]}
+          selectedFace={selectedTooth === tooth.number ? selectedFace : null}
+          onFaceClick={handleFaceClick}
+          onToothClick={handleToothClick}
+          size={dentition === 'deciduo' ? 40 : 44}
+          isSelected={selectedTooth === tooth.number}
+        />
+      </div>
+    );
+
+    if (!hasData) return toothNode;
+
+    return (
+      <HoverCard key={tooth.number} openDelay={300} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          {toothNode}
+        </HoverCardTrigger>
+        <HoverCardContent side="top" className="w-56 p-3 text-xs" align="center">
+          <p className="font-semibold mb-1">Dente {tooth.number}</p>
+          {tooltipData.statuses.length > 0 && (
+            <p className="text-muted-foreground">Status: {tooltipData.statuses.join(', ')}</p>
+          )}
+          {tooltipData.notes.length > 0 && (
+            <p className="text-muted-foreground mt-1">Obs: {tooltipData.notes[0]}</p>
+          )}
+          {tooltipData.lastChange && (
+            <p className="text-muted-foreground mt-1">
+              Última alt.: {new Date(tooltipData.lastChange).toLocaleDateString('pt-BR')}
+            </p>
+          )}
+          <p className="text-muted-foreground mt-1">
+            {tooltipData.historyCount} registro{tooltipData.historyCount !== 1 ? 's' : ''}
+          </p>
+        </HoverCardContent>
+      </HoverCard>
+    );
+  };
 
   return (
+    <TooltipProvider>
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -229,14 +329,34 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
             <TabsTrigger value="deciduo">Decíduos (20)</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex gap-2">
-          {selectedTooth && (
+        <div className="flex gap-2 flex-wrap">
+          {selectedTeeth.length > 0 && !readOnly && (
+            <>
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Layers className="h-3 w-3" />
+                {selectedTeeth.length} dente{selectedTeeth.length !== 1 ? 's' : ''} selecionado{selectedTeeth.length !== 1 ? 's' : ''}
+              </Badge>
+              <Button variant="default" size="sm" onClick={() => setShowBulkDialog(true)}>
+                Aplicar Status em Lote
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedTeeth([])}>
+                <XCircle className="h-4 w-4 mr-1" /> Limpar Seleção
+              </Button>
+            </>
+          )}
+          {selectedTooth && selectedTeeth.length === 0 && (
             <Button variant="outline" size="sm" onClick={() => { setSelectedTooth(null); setShowHistory(false); }}>
               <X className="h-4 w-4 mr-1" /> Limpar Seleção
             </Button>
           )}
         </div>
       </div>
+
+      {selectedTeeth.length === 0 && !readOnly && (
+        <p className="text-xs text-muted-foreground">
+          Dica: segure <kbd className="px-1 py-0.5 bg-muted rounded text-xs font-mono">Ctrl</kbd> e clique em vários dentes para selecioná-los em lote.
+        </p>
+      )}
 
       {/* Status legend */}
       <div className="space-y-1.5">
@@ -374,6 +494,59 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
         </div>
       )}
 
+      {/* Bulk Status Dialog */}
+      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Aplicar Status em Lote — {selectedTeeth.length} dente{selectedTeeth.length !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Dentes selecionados: <span className="font-medium text-foreground">{selectedTeeth.sort().join(', ')}</span>
+            </p>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Condição / Procedimento</label>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Clínico</div>
+                  {STATUS_OPTIONS.filter(s => s.group === 'clinico').map(s => (
+                    <SelectItem key={s.value} value={s.value}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm border border-gray-200" style={{ backgroundColor: s.color }}/>
+                        {s.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide border-t mt-1 pt-2">Estético</div>
+                  {STATUS_OPTIONS.filter(s => s.group === 'estetico').map(s => (
+                    <SelectItem key={s.value} value={s.value}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm border border-gray-200" style={{ backgroundColor: s.color }}/>
+                        {s.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={() => bulkSaveMutation.mutate({ toothIds: selectedTeeth, status: bulkStatus })}
+              disabled={!bulkStatus || bulkSaveMutation.isPending}
+            >
+              {bulkSaveMutation.isPending ? 'Salvando...' : `Aplicar a ${selectedTeeth.length} dente${selectedTeeth.length !== 1 ? 's' : ''}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Procedure Dialog */}
       <Dialog open={showProcedureDialog} onOpenChange={setShowProcedureDialog}>
         <DialogContent>
@@ -437,5 +610,6 @@ export default function InteractiveOdontogram({ patientId, patientName, readOnly
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

@@ -54,12 +54,12 @@ router.get(
   '/channels',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const userId = (req.user as any)?.id;
+    const userId = (req.user!)?.id;
 
     const channels = await db.execute(sql`
       SELECT
@@ -93,12 +93,12 @@ router.post(
   authCheck,
   validate({ body: createChannelSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const userId = (req.user as any)?.id;
+    const userId = (req.user!)?.id;
     const { name, description } = req.body;
 
     // Verificar duplicidade de nome no mesmo empresa
@@ -135,12 +135,12 @@ router.get(
   authCheck,
   validate({ query: paginationQuerySchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const userId = (req.user as any)?.id;
+    const userId = (req.user!)?.id;
     const channelId = parseInt(req.params.channelId, 10);
     if (isNaN(channelId)) {
       return res.status(400).json({ error: 'Invalid channel ID' });
@@ -199,12 +199,12 @@ router.post(
   authCheck,
   validate({ body: sendMessageSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const userId = (req.user as any)?.id;
+    const userId = (req.user!)?.id;
     const channelId = parseInt(req.params.channelId, 10);
     if (isNaN(channelId)) {
       return res.status(400).json({ error: 'Invalid channel ID' });
@@ -270,12 +270,12 @@ router.get(
   '/dm/:userId',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const currentUserId = (req.user as any)?.id;
+    const currentUserId = (req.user!)?.id;
     const otherUserId = parseInt(req.params.userId, 10);
     if (isNaN(otherUserId)) {
       return res.status(400).json({ error: 'Invalid user ID' });
@@ -343,12 +343,12 @@ router.post(
   authCheck,
   validate({ body: sendMessageSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const currentUserId = (req.user as any)?.id;
+    const currentUserId = (req.user!)?.id;
     const recipientId = parseInt(req.params.userId, 10);
     if (isNaN(recipientId)) {
       return res.status(400).json({ error: 'Invalid user ID' });
@@ -414,12 +414,12 @@ router.get(
   '/unread',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
-    const userId = (req.user as any)?.id;
+    const userId = (req.user!)?.id;
     const userIdJson = JSON.stringify([userId]);
 
     // Não lidos em canais, agrupado por canal

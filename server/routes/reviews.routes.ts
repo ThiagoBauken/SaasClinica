@@ -13,7 +13,7 @@ import { z } from 'zod';
 const router = Router();
 
 function getCompanyId(req: any): number {
-  return (req.user as any)?.companyId;
+  return req.user!.companyId;
 }
 
 // ============================================================

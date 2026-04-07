@@ -301,7 +301,7 @@ const featureGuides: FeatureGuide[] = [
     tips: [
       "Comece com o lembrete de consulta - eh o mais impactante",
       "Mensagens de aniversario aumentam fidelizacao",
-      "Integre com N8N para fluxos mais complexos",
+      "O AI Agent nativo automatiza fluxos complexos de atendimento",
     ],
     link: "/automation",
   },
@@ -588,7 +588,7 @@ const knowledgeBase: KnowledgeEntry[] = [
     linkLabel: "Ir para Odontograma",
   },
   {
-    keywords: ["automacao", "automatizar", "fluxo", "gatilho", "n8n", "workflow"],
+    keywords: ["automacao", "automatizar", "fluxo", "gatilho", "ai", "workflow", "agente"],
     answer: "Para automacoes: acesse 'Automacoes' no menu. Crie um fluxo com gatilho (24h antes da consulta, aniversario, novo paciente) e acao (WhatsApp, email, SMS, tarefa). O lembrete de consulta e o mais impactante - reduz faltas em ate 40%!",
     link: "/automation",
     linkLabel: "Ir para Automacoes",
@@ -685,7 +685,7 @@ const knowledgeBase: KnowledgeEntry[] = [
   },
   {
     keywords: ["integracoes", "api", "webhook", "google", "calendario google"],
-    answer: "Configure integracoes externas em Configuracoes > Integracoes ou em Integracoes no menu de administracao. Conecte WhatsApp, Google Calendar, N8N e outros servicos.",
+    answer: "Configure integracoes externas em Configuracoes > Integracoes ou em Integracoes no menu de administracao. Conecte WhatsApp, Google Calendar e outros servicos.",
     link: "/integracoes",
     linkLabel: "Ir para Integracoes",
   },
@@ -1368,7 +1368,7 @@ export default function AjudaPage() {
                       { label: "Salas", path: "/configuracoes/salas", desc: "Consultorios" },
                       { label: "Financeiro", path: "/configuracoes/financeiro", desc: "Pagamentos e taxas" },
                       { label: "Notificacoes", path: "/configuracoes/notificacoes", desc: "Lembretes e alertas" },
-                      { label: "Integracoes", path: "/configuracoes/integracoes", desc: "WhatsApp, Google, N8N" },
+                      { label: "Integracoes", path: "/configuracoes/integracoes", desc: "WhatsApp, Google, AI" },
                       { label: "Aparencia", path: "/configuracoes/aparencia", desc: "Tema e visual" },
                       { label: "Backup", path: "/configuracoes/backup", desc: "Dados e segurança" },
                       { label: "Assistente IA", path: "/configuracoes/ia", desc: "Bot e chatbot" },

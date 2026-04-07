@@ -1,6 +1,6 @@
 /**
  * Automation API Routes
- * Substitui N8N com endpoints nativos
+ * Endpoints nativos de automação
  * Inclui notificações em tempo real via WebSocket
  */
 

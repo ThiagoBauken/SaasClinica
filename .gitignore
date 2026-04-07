@@ -129,3 +129,36 @@ qa-screenshots/
 
 # Build artifacts
 tsconfig.tsbuildinfo
+
+# Claude Code agent runtime/config (personal)
+.claude/
+
+# Database dumps
+dump*.json
+*.dump
+
+# Ad-hoc / debug scripts that should never reach production
+test-db.ts
+testdb.ts
+check_ids.ts
+check_ids.txt
+check-patients.mjs
+check-deps.mjs
+check-migrations.mjs
+verify-migrations.mjs
+dry-run-migrations.mjs
+run-root-migrations.mjs
+
+# Compiler/linter output captures
+tsc_errors.txt
+tsc_errors_utf8.txt
+db_summary.txt
+schema_lines.txt
+
+# Session-only documentation that lives outside the git history
+PLANO_CORRECAO.md
+TEST_FILES_INDEX.md
+UNIT_TESTS_*.md
+
+# Embedded N8N flows folder (large, machine-specific)
+fluxosn8n*/

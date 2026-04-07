@@ -6,8 +6,11 @@ import { Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
 
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Use existing request ID from proxy/load balancer or generate new one
-  const requestId = (req.headers['x-request-id'] as string) || generateRequestId();
+  // Use existing request ID from proxy/load balancer if valid, or generate new one
+  const incoming = req.headers['x-request-id'] as string | undefined;
+  const requestId = (incoming && /^[a-zA-Z0-9_\-]{1,64}$/.test(incoming))
+    ? incoming
+    : generateRequestId();
 
   // Set on request for logging
   req.headers['x-request-id'] = requestId;

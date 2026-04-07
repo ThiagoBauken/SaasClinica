@@ -4,6 +4,7 @@ import { subscriptions, subscriptionInvoices, companies, users, plans } from '@s
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
+import { logger } from '../logger';
 /**
  * Serviço de Integração com MercadoPago
  * Suporta assinaturas recorrentes, Pix, boleto e cartão
@@ -103,7 +104,7 @@ export class MercadoPagoService {
         status: response.status,
       };
     } catch (error: any) {
-      console.error('Erro ao criar assinatura MercadoPago:', error);
+      logger.error({ err: error }, 'Erro ao criar assinatura MercadoPago:');
       throw new Error(`Erro ao criar assinatura: ${error.message}`);
     }
   }
@@ -180,7 +181,7 @@ export class MercadoPagoService {
           : null,
       };
     } catch (error: any) {
-      console.error('Erro ao criar pagamento MercadoPago:', error);
+      logger.error({ err: error }, 'Erro ao criar pagamento MercadoPago:');
       throw new Error(`Erro ao criar pagamento: ${error.message}`);
     }
   }
@@ -193,7 +194,7 @@ export class MercadoPagoService {
       const response = await payment.get({ id: paymentId });
       return response;
     } catch (error) {
-      console.error('Erro ao buscar status do pagamento:', error);
+      logger.error({ err: error }, 'Erro ao buscar status do pagamento:');
       throw error;
     }
   }
@@ -206,7 +207,7 @@ export class MercadoPagoService {
       const response = await preApproval.get({ id: subscriptionId });
       return response;
     } catch (error) {
-      console.error('Erro ao buscar status da assinatura:', error);
+      logger.error({ err: error }, 'Erro ao buscar status da assinatura:');
       throw error;
     }
   }
@@ -233,7 +234,7 @@ export class MercadoPagoService {
 
       return response;
     } catch (error) {
-      console.error('Erro ao cancelar assinatura:', error);
+      logger.error({ err: error }, 'Erro ao cancelar assinatura:');
       throw error;
     }
   }
@@ -243,7 +244,7 @@ export class MercadoPagoService {
    */
   verifyWebhookSignature(payload: any, xSignature: string, xRequestId: string): boolean {
     if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) {
-      console.warn('⚠️ MERCADOPAGO_WEBHOOK_SECRET não configurado');
+      logger.warn('MERCADOPAGO_WEBHOOK_SECRET não configurado');
       return false;
     }
 
@@ -266,7 +267,7 @@ export class MercadoPagoService {
   async handleWebhook(payload: any) {
     const { type, data } = payload;
 
-    console.log(`🔔 MercadoPago Webhook: ${type} para ID ${data?.id}`);
+    logger.info({ type, dataId: data?.id }, 'MercadoPago Webhook received')
 
     try {
       switch (type) {
@@ -280,10 +281,10 @@ export class MercadoPagoService {
           break;
 
         default:
-          console.log(`⚠️ Tipo de webhook não tratado: ${type}`);
+          logger.info({ type: type }, 'Tipo de webhook não tratado: {type}')
       }
     } catch (error) {
-      console.error('❌ Erro ao processar webhook MercadoPago:', error);
+      logger.error({ err: error }, 'Erro ao processar webhook MercadoPago:');
       throw error;
     }
   }
@@ -302,7 +303,7 @@ export class MercadoPagoService {
       .limit(1);
 
     if (!invoice) {
-      console.warn(`⚠️ Fatura não encontrada para payment_id: ${paymentId}`);
+      logger.warn({ paymentId }, 'Invoice not found for payment')
       return;
     }
 
@@ -327,7 +328,7 @@ export class MercadoPagoService {
           })
           .where(eq(subscriptions.id, invoice.subscriptionId));
 
-        console.log(`✅ Pagamento MercadoPago confirmado: ${paymentId}`);
+        logger.info({ paymentId: paymentId }, 'Pagamento MercadoPago confirmado: {paymentId}')
         break;
 
       case 'rejected':
@@ -340,7 +341,7 @@ export class MercadoPagoService {
           })
           .where(eq(subscriptionInvoices.id, invoice.id));
 
-        console.log(`❌ Pagamento MercadoPago rejeitado: ${paymentId}`);
+        logger.info({ paymentId: paymentId }, 'Pagamento MercadoPago rejeitado: {paymentId}')
         break;
 
       case 'pending':
@@ -370,7 +371,7 @@ export class MercadoPagoService {
       .limit(1);
 
     if (!subscription) {
-      console.warn(`⚠️ Assinatura não encontrada: ${subscriptionId}`);
+      logger.warn({ subscriptionId: subscriptionId }, 'Assinatura não encontrada: {subscriptionId}')
       return;
     }
 
@@ -387,7 +388,7 @@ export class MercadoPagoService {
       })
       .where(eq(subscriptions.id, subscription.id));
 
-    console.log(`✅ Assinatura MercadoPago atualizada: ${subscriptionId} -> ${status}`);
+    logger.info({ subscriptionId: subscriptionId, status: status }, 'Assinatura MercadoPago atualizada: {subscriptionId} -> {status}')
   }
 }
 

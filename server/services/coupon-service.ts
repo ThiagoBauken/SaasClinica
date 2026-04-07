@@ -2,6 +2,7 @@ import { db } from '../db';
 import { coupons, couponUsages, subscriptions } from '@shared/schema';
 import { eq, and, gte, lte, or, isNull, sql } from 'drizzle-orm';
 
+import { logger } from '../logger';
 /**
  * Serviço de Cupons e Descontos
  */
@@ -108,7 +109,7 @@ export async function validateCoupon(params: ValidateCouponParams): Promise<Vali
       message: 'Cupom válido',
     };
   } catch (error) {
-    console.error('Erro ao validar cupom:', error);
+    logger.error({ err: error }, 'Erro ao validar cupom:');
     return {
       isValid: false,
       message: 'Erro ao validar cupom',

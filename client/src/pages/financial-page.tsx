@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import CashRegister from "@/components/financial/CashRegister";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,6 +53,10 @@ import {
   Loader2,
   CheckCircle,
   InboxIcon,
+  Receipt,
+  ExternalLink,
+  Copy,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -146,6 +151,9 @@ export default function FinancialPage() {
   const [dateFilter, setDateFilter] = useState("this-month");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [nfseDialogOpen, setNfseDialogOpen] = useState(false);
+  const [nfseResult, setNfseResult] = useState<{ number: string; validationUrl?: string; xml?: string } | null>(null);
+  const [nfseEmitting, setNfseEmitting] = useState<number | null>(null);
   const [newTransaction, setNewTransaction] = useState({
     type: "revenue",
     date: new Date().toISOString().split("T")[0],
@@ -242,6 +250,43 @@ export default function FinancialPage() {
       });
     },
   });
+
+  const emitNfseMutation = useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      const res = await apiRequest("POST", "/api/v1/financial/nfse/emit", {
+        transactionId: transaction.id,
+        description: transaction.description,
+        amount: transaction.amount,
+        date: transaction.date,
+        patientName: transaction.patientName,
+        procedure: transaction.procedure,
+        category: transaction.category,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setNfseResult({
+        number: data.number ?? data.nfseNumber ?? data.id ?? "—",
+        validationUrl: data.validationUrl ?? data.url ?? undefined,
+        xml: data.xml ?? undefined,
+      });
+      setNfseDialogOpen(true);
+      setNfseEmitting(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao emitir NFS-e",
+        description: error.message,
+        variant: "destructive",
+      });
+      setNfseEmitting(null);
+    },
+  });
+
+  const handleEmitNfse = (transaction: Transaction) => {
+    setNfseEmitting(transaction.id);
+    emitNfseMutation.mutate(transaction);
+  };
 
   // -------------------------------------------------------------------------
   // Helpers
@@ -397,12 +442,13 @@ export default function FinancialPage() {
     <DashboardLayout title="Financeiro" currentPath="/financial">
       <Tabs defaultValue="cashflow" value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full sm:w-auto">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full sm:w-auto">
             <TabsTrigger value="cashflow">Fluxo de Caixa</TabsTrigger>
             <TabsTrigger value="invoices">Faturamento</TabsTrigger>
             <TabsTrigger value="receivables">Contas a Receber</TabsTrigger>
             <TabsTrigger value="payables">Contas a Pagar</TabsTrigger>
             <TabsTrigger value="fixed-costs">Custos Fixos</TabsTrigger>
+            <TabsTrigger value="caixa">Caixa</TabsTrigger>
             <TabsTrigger value="reports">Relatórios</TabsTrigger>
           </TabsList>
 
@@ -516,6 +562,7 @@ export default function FinancialPage() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Método de Pagamento</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -564,6 +611,24 @@ export default function FinancialPage() {
                               ? "Cancelado"
                               : "Pendente"}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {transaction.type === "revenue" && transaction.status === "paid" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              disabled={nfseEmitting === transaction.id}
+                              onClick={() => handleEmitNfse(transaction)}
+                            >
+                              {nfseEmitting === transaction.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Receipt className="h-3 w-3 mr-1" />
+                              )}
+                              NFS-e
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -674,6 +739,7 @@ export default function FinancialPage() {
                       <TableHead>Categoria</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>NFS-e</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -702,6 +768,24 @@ export default function FinancialPage() {
                             >
                               {t.status === "paid" ? "Pago" : "Pendente"}
                             </span>
+                          </TableCell>
+                          <TableCell>
+                            {t.status === "paid" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                disabled={nfseEmitting === t.id}
+                                onClick={() => handleEmitNfse(t)}
+                              >
+                                {nfseEmitting === t.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <Receipt className="h-3 w-3 mr-1" />
+                                )}
+                                Emitir NFS-e
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1195,7 +1279,79 @@ export default function FinancialPage() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* ================================================================= */}
+        {/* TAB: CAIXA (Cash Register)                                        */}
+        {/* ================================================================= */}
+        <TabsContent value="caixa">
+          <CashRegister />
+        </TabsContent>
       </Tabs>
+
+      {/* ------------------------------------------------------------------- */}
+      {/* Dialog: NFS-e Result                                                 */}
+      {/* ------------------------------------------------------------------- */}
+      <Dialog open={nfseDialogOpen} onOpenChange={setNfseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-blue-600" />
+              NFS-e Emitida com Sucesso
+            </DialogTitle>
+          </DialogHeader>
+          {nfseResult && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg bg-green-50 border border-green-200 p-4 space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Número da NFS-e</p>
+                  <p className="text-2xl font-bold text-green-700 mt-0.5">{nfseResult.number}</p>
+                </div>
+                {nfseResult.validationUrl && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">URL de Validação</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-white border rounded px-2 py-1 truncate">
+                        {nfseResult.validationUrl}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 h-7 px-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(nfseResult.validationUrl!);
+                          toast({ title: "URL copiada!" });
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 h-7 px-2"
+                        onClick={() => window.open(nfseResult.validationUrl, "_blank")}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {nfseResult.xml && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">XML</p>
+                  <pre className="text-xs bg-muted rounded p-3 overflow-x-auto max-h-32">{nfseResult.xml}</pre>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNfseDialogOpen(false)}>
+              <X className="h-4 w-4 mr-1" />
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ------------------------------------------------------------------- */}
       {/* Dialog: Nova Transação                                               */}

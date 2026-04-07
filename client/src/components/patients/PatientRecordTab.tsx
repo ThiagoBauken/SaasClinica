@@ -44,7 +44,14 @@ import {
   Loader2,
   User,
   Calendar,
+  Lock,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format, formatDistance } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -139,6 +146,13 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
         prescriptions: [],
       },
     });
+  };
+
+  // Evolution records are immutable after 24 hours per CFO resolution
+  const isEvolutionLocked = (createdAt: string): boolean => {
+    const lockTime = new Date(createdAt);
+    lockTime.setHours(lockTime.getHours() + 24);
+    return new Date() > lockTime;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -754,26 +768,46 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
           </CardContent>
         </Card>
       ) : (
+        <TooltipProvider>
         <div className="space-y-4">
           {records
             ?.sort(
               (a, b) =>
                 new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             )
-            .map((record) => (
-              <Card key={record.id}>
+            .map((record) => {
+              const locked = record.recordType === 'evolution' && isEvolutionLocked(record.createdAt);
+              return (
+              <Card key={record.id} className={locked ? 'opacity-90' : undefined}>
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg flex items-center">
-                        {getRecordTypeIcon(record.recordType)}
-                        {record.content.title}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span className="flex items-center">
+                          {getRecordTypeIcon(record.recordType)}
+                          {record.content.title}
+                        </span>
+                        {locked && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Lock className="h-4 w-4 text-muted-foreground shrink-0 cursor-default" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Registro bloqueado (CFO — imutavel apos 24h)
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="flex items-center gap-2">
                         {getRecordTypeName(record.recordType)}
+                        {locked && (
+                          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                            bloqueado
+                          </span>
+                        )}
                       </CardDescription>
                     </div>
-                    <div className="text-right text-sm text-neutral-500">
+                    <div className="text-right text-sm text-neutral-500 shrink-0 ml-2">
                       <div className="flex items-center justify-end">
                         <Calendar className="h-3.5 w-3.5 mr-1.5" />
                         {new Date(record.createdAt).toLocaleDateString("pt-BR")}
@@ -787,8 +821,10 @@ export default function PatientRecordTab({ patientId }: PatientRecordTabProps) {
                 </CardHeader>
                 <CardContent>{renderRecordContent(record)}</CardContent>
               </Card>
-            ))}
+              );
+            })}
         </div>
+        </TooltipProvider>
       )}
 
       {/* Add Record Dialog */}

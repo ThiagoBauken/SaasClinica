@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { logger } from '../logger';
 export interface GoogleCalendarConfig {
   clientId: string;
   clientSecret: string;
@@ -137,7 +138,7 @@ export class GoogleCalendarService {
 
       return response.data.id;
     } catch (error: any) {
-      console.error('Error creating Google Calendar event:', error);
+      logger.error({ err: error }, 'Error creating Google Calendar event:');
       throw new Error(`Failed to create event: ${error.message}`);
     }
   }
@@ -190,7 +191,7 @@ export class GoogleCalendarService {
         sendUpdates: 'all',
       });
     } catch (error: any) {
-      console.error('Error updating Google Calendar event:', error);
+      logger.error({ err: error }, 'Error updating Google Calendar event:');
       throw new Error(`Failed to update event: ${error.message}`);
     }
   }
@@ -208,11 +209,11 @@ export class GoogleCalendarService {
     } catch (error: any) {
       // Se evento já foi deletado, não é erro
       if (error.code === 410 || error.code === 404) {
-        console.log('Event already deleted or not found');
+        logger.info('Event already deleted or not found');
         return;
       }
 
-      console.error('Error deleting Google Calendar event:', error);
+      logger.error({ err: error }, 'Error deleting Google Calendar event:');
       throw new Error(`Failed to delete event: ${error.message}`);
     }
   }
@@ -229,7 +230,7 @@ export class GoogleCalendarService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error getting Google Calendar event:', error);
+      logger.error({ err: error }, 'Error getting Google Calendar event:');
       throw new Error(`Failed to get event: ${error.message}`);
     }
   }
@@ -253,7 +254,7 @@ export class GoogleCalendarService {
 
       return response.data.items || [];
     } catch (error: any) {
-      console.error('Error listing Google Calendar events:', error);
+      logger.error({ err: error }, 'Error listing Google Calendar events:');
       throw new Error(`Failed to list events: ${error.message}`);
     }
   }
@@ -274,7 +275,7 @@ export class GoogleCalendarService {
 
       return response.data.id; // Retorna channelId
     } catch (error: any) {
-      console.error('Error setting up Google Calendar webhook:', error);
+      logger.error({ err: error }, 'Error setting up Google Calendar webhook:');
       throw new Error(`Failed to setup webhook: ${error.message}`);
     }
   }
@@ -291,7 +292,7 @@ export class GoogleCalendarService {
         },
       });
     } catch (error: any) {
-      console.error('Error stopping Google Calendar webhook:', error);
+      logger.error({ err: error }, 'Error stopping Google Calendar webhook:');
       throw new Error(`Failed to stop webhook: ${error.message}`);
     }
   }
@@ -337,7 +338,7 @@ export async function syncAppointmentToGoogle(
       .limit(1);
 
     if (!professional || !professional.googleCalendarId || !professional.googleAccessToken) {
-      console.log('Professional does not have Google Calendar connected');
+      logger.info('Professional does not have Google Calendar connected');
       return null;
     }
 
@@ -370,7 +371,7 @@ export async function syncAppointmentToGoogle(
 
     return eventId;
   } catch (error) {
-    console.error('Error syncing appointment to Google Calendar:', error);
+    logger.error({ err: error }, 'Error syncing appointment to Google Calendar:');
     return null;
   }
 }
@@ -421,7 +422,7 @@ export async function updateGoogleCalendarEvent(
 
     return true;
   } catch (error) {
-    console.error('Error updating Google Calendar event:', error);
+    logger.error({ err: error }, 'Error updating Google Calendar event:');
     return false;
   }
 }
@@ -454,7 +455,7 @@ export async function deleteGoogleCalendarEvent(
     await service.deleteEvent(eventId);
     return true;
   } catch (error) {
-    console.error('Error deleting Google Calendar event:', error);
+    logger.error({ err: error }, 'Error deleting Google Calendar event:');
     return false;
   }
 }

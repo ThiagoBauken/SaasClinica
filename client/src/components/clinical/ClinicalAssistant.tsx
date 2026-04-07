@@ -174,6 +174,55 @@ export default function ClinicalAssistant({ patientId, patientName }: ClinicalAs
   }, [audioUrl]);
 
   // ============================================================
+  // Auto-save: localStorage draft (prevents data loss on crash)
+  // ============================================================
+  const DRAFT_KEY = `clinical-draft-${patientId}`;
+
+  // Restore draft on mount
+  useEffect(() => {
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        // Only restore if less than 24h old
+        if (Date.now() - parsed.savedAt < 86400000) {
+          if (parsed.transcription && !transcription) {
+            setTranscription(parsed.transcription);
+          }
+          if (parsed.analysis && !analysis) {
+            setAnalysis(parsed.analysis);
+          }
+          toast({
+            title: 'Rascunho restaurado',
+            description: 'Um rascunho anterior foi recuperado automaticamente.',
+          });
+        } else {
+          localStorage.removeItem(DRAFT_KEY);
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [patientId]);
+
+  // Save draft to localStorage (debounced 3s)
+  useEffect(() => {
+    if (!transcription && !analysis) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          transcription,
+          analysis,
+          savedAt: Date.now(),
+        }));
+      } catch {
+        // localStorage full or unavailable
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [transcription, analysis, DRAFT_KEY]);
+
+  // ============================================================
   // Audio Recording
   // ============================================================
 
@@ -327,6 +376,8 @@ export default function ClinicalAssistant({ patientId, patientName }: ClinicalAs
       queryClient.invalidateQueries({
         queryKey: [`/api/v1/clinical-assistant/history/${patientId}`],
       });
+      // Clear auto-save draft after successful save
+      localStorage.removeItem(DRAFT_KEY);
       toast({ title: 'Nota clinica salva com sucesso!' });
     },
     onError: (err: Error) => {

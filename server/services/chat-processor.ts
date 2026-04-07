@@ -5,7 +5,8 @@
  */
 
 import { db } from '../db';
-import { eq, and, desc, or, gte } from 'drizzle-orm';
+import { eq, and, desc, or, gte, lte, inArray } from 'drizzle-orm';
+import { notifyAppointmentConfirmed } from '../websocket';
 import {
   chatSessions,
   chatMessages,
@@ -17,10 +18,13 @@ import {
   clinicSettings,
   companies,
   adminPhones,
+  users,
   type ChatSession,
   type ChatMessage,
 } from '@shared/schema';
+import { getAvailableSlots } from './availability.service';
 
+import { logger } from '../logger';
 // Tipos para o processador
 export interface ProcessedMessage {
   intent: string;
@@ -163,7 +167,7 @@ export class ChatProcessor {
         existing.push(regex);
         this.intentPatterns.set(pattern.intent, existing);
       } catch (e) {
-        console.error(`Invalid regex pattern for intent ${pattern.intent}:`, pattern.pattern);
+        logger.error({ err: e, intent: pattern.intent, pattern: pattern.pattern }, 'Invalid regex pattern for intent')
       }
     }
   }
@@ -274,7 +278,7 @@ export class ChatProcessor {
       });
     } catch (err) {
       // Don't block chat flow if CRM creation fails
-      console.error('CRM auto-create failed:', err);
+      logger.error({ err: err }, 'CRM auto-create failed:');
     }
 
     return newSession;
@@ -493,7 +497,7 @@ export class ChatProcessor {
           session.userType = 'patient';
         }
       } catch (err) {
-        console.error('[ChatProcessor] Patient extraction error:', err);
+        logger.error({ err: err }, '[ChatProcessor] Patient extraction error:');
       }
     }
 
@@ -542,6 +546,42 @@ export class ChatProcessor {
         type: 'transfer_to_human',
         data: { reason: 'emergency', urgencyLevel },
       });
+    }
+
+    // =============================================
+    // CONFIRMAÇÃO VIA WHATSAPP: Atualizar agendamento
+    // =============================================
+    if (intent === 'confirm' && session.patientId) {
+      try {
+        const confirmationResult = await this.handleWhatsAppAppointmentConfirmation(
+          session.patientId,
+          phone
+        );
+        if (confirmationResult.confirmed) {
+          // Salvar resposta de confirmação e retornar imediatamente
+          const confirmResponse = '✅ Consulta confirmada! Até lá!';
+          await this.saveMessage(session.id, 'assistant', confirmResponse, {
+            intent,
+            processedBy: 'regex',
+            tokensUsed: 0,
+          });
+          return {
+            intent,
+            confidence,
+            response: confirmResponse,
+            processedBy: 'regex',
+            tokensUsed: 0,
+            requiresHumanTransfer: false,
+            isUrgency: false,
+            actions: [{
+              type: 'confirm_appointment',
+              data: { appointmentId: confirmationResult.appointmentId },
+            }],
+          };
+        }
+      } catch (err) {
+        logger.error({ err: err }, '[ChatProcessor] Appointment confirmation via WhatsApp failed:');
+      }
     }
 
     // Buscar resposta pronta
@@ -761,8 +801,18 @@ _Aguarde um momento, por favor._`;
       case 'scheduling_confirm':
         return this.handleSchedulingConfirm(session, message, stateData);
 
-      case 'waiting_reschedule_date':
-        return this.handleRescheduleDate(session, message, stateData);
+      // --- Reagendamento self-service ---
+      case 'rescheduling_confirm':
+        return this.handleReschedulingConfirm(session, message, stateData);
+
+      case 'rescheduling_date':
+        return this.handleReschedulingDate(session, message, stateData);
+
+      case 'rescheduling_time':
+        return this.handleReschedulingTime(session, message, stateData);
+
+      case 'rescheduling_done':
+        return this.handleReschedulingDone(session, message, stateData);
 
       default:
         // Estado desconhecido, limpar
@@ -806,37 +856,133 @@ _Aguarde um momento, por favor._`;
     }
 
     if (intent === 'reschedule') {
-      // Verificar se tem consulta agendada
       if (session.patientId) {
+        // Buscar próxima consulta futura com status agendado ou confirmado
+        const now = new Date();
         const [appointment] = await db
-          .select()
+          .select({
+            id: appointments.id,
+            startTime: appointments.startTime,
+            endTime: appointments.endTime,
+            professionalId: appointments.professionalId,
+          })
           .from(appointments)
           .where(
             and(
               eq(appointments.patientId, session.patientId),
-              eq(appointments.companyId, this.companyId)
+              eq(appointments.companyId, this.companyId),
+              inArray(appointments.status, ['scheduled', 'confirmed']),
+              gte(appointments.startTime, now)
             )
           )
-          .orderBy(desc(appointments.startTime))
+          .orderBy(appointments.startTime)
           .limit(1);
 
         if (appointment) {
+          // Buscar nome do profissional
+          let doctorName = 'Dr(a).';
+          if (appointment.professionalId) {
+            const [prof] = await db
+              .select({ fullName: users.fullName })
+              .from(users)
+              .where(eq(users.id, appointment.professionalId))
+              .limit(1);
+            if (prof) doctorName = prof.fullName;
+          }
+
+          const apptDate = new Date(appointment.startTime);
+          const formattedDate = apptDate.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+          });
+          const formattedTime = apptDate.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
           return {
-            response: `🔄 *Reagendamento*\n\nPara qual data você gostaria de remarcar?\n\n_Informe a data desejada (ex: 15/01, próxima segunda)_`,
-            nextState: 'waiting_reschedule_date',
-            stateData: { appointmentId: appointment.id },
+            response: `🔄 *Reagendamento*\n\nSua consulta está marcada para *${formattedDate}* às *${formattedTime}* com *${doctorName}*.\n\nDeseja reagendar? Responda *SIM* ou *NÃO*`,
+            nextState: 'rescheduling_confirm',
+            stateData: {
+              appointmentId: appointment.id,
+              professionalId: appointment.professionalId,
+              doctorName,
+              originalDate: formattedDate,
+              originalTime: formattedTime,
+            },
           };
         }
       }
 
       return {
-        response: `Para reagendar, entre em contato:\n📞 ${this.company?.phone}`,
+        response: `Não encontrei nenhuma consulta agendada.\n\nPara agendar uma nova consulta ou obter ajuda, entre em contato:\n📞 ${this.company?.phone}`,
         nextState: '',
         stateData: {},
       };
     }
 
     return null;
+  }
+
+  /**
+   * Trata confirmação de agendamento via WhatsApp.
+   * Busca a próxima consulta 'scheduled' do paciente nas próximas 48h e a confirma.
+   */
+  async handleWhatsAppAppointmentConfirmation(
+    patientId: number,
+    phone: string
+  ): Promise<{ confirmed: boolean; appointmentId?: number }> {
+    const now = new Date();
+    const window48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+    // Buscar próxima consulta agendada nas próximas 48h
+    const [appointment] = await db
+      .select()
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.patientId, patientId),
+          eq(appointments.companyId, this.companyId),
+          eq(appointments.status, 'scheduled'),
+          gte(appointments.startTime, now),
+          lte(appointments.startTime, window48h)
+        )
+      )
+      .orderBy(appointments.startTime)
+      .limit(1);
+
+    if (!appointment) {
+      return { confirmed: false };
+    }
+
+    // Atualizar status para confirmado
+    await db
+      .update(appointments)
+      .set({
+        status: 'confirmed',
+        confirmedByPatient: true,
+        confirmationDate: new Date(),
+        confirmationMethod: 'whatsapp',
+        updatedAt: new Date(),
+      })
+      .where(eq(appointments.id, appointment.id));
+
+    // Buscar nome do paciente para a notificação
+    const [patient] = await db
+      .select({ fullName: patients.fullName })
+      .from(patients)
+      .where(eq(patients.id, patientId))
+      .limit(1);
+
+    // Emitir evento WebSocket para notificar recepção
+    notifyAppointmentConfirmed(
+      this.companyId,
+      appointment.id,
+      patient?.fullName || 'Paciente',
+      'whatsapp'
+    );
+
+    return { confirmed: true, appointmentId: appointment.id };
   }
 
   // Handlers da máquina de estados
@@ -1079,31 +1225,394 @@ _Aguarde um momento, por favor._`;
     };
   }
 
-  async handleRescheduleDate(
+  // =========================================================================
+  // Reagendamento self-service — 4 estados
+  // =========================================================================
+
+  /**
+   * rescheduling_confirm — paciente decide se quer reagendar
+   */
+  async handleReschedulingConfirm(
     session: ChatSession,
     message: string,
     stateData: Record<string, any>
   ): Promise<ProcessedMessage> {
-    // Similar ao handleSchedulingDate mas para reagendamento
-    await this.updateSessionState(session.id, null);
+    const { intent } = this.classifyIntent(message);
+
+    if (intent === 'confirm') {
+      await this.updateSessionState(session.id, 'rescheduling_date', stateData);
+
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `📅 Para qual *data* você gostaria de remarcar?\n\n_Informe a data (ex: 15/01, amanhã, próxima segunda)_`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+        nextState: 'rescheduling_date',
+        stateData,
+      };
+    }
+
+    if (intent === 'cancel') {
+      await this.updateSessionState(session.id, null);
+
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Tudo bem! Sua consulta continua marcada para *${stateData.originalDate}* às *${stateData.originalTime}*.\n\nAté lá! 😊`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
 
     return {
       intent: 'reschedule',
       confidence: 1,
-      response: `🔄 Solicitação de reagendamento recebida!\n\nEntraremos em contato para confirmar o novo horário.\n\n📞 Ou ligue: ${this.company?.phone}`,
+      response: `Por favor, responda *SIM* para reagendar ou *NÃO* para manter a consulta atual.`,
       processedBy: 'state_machine',
       tokensUsed: 0,
-      actions: [
-        {
-          type: 'transfer_to_human',
-          data: {
-            reason: 'reschedule_request',
-            appointmentId: stateData.appointmentId,
-            requestedDate: message,
-          },
-        },
-      ],
     };
+  }
+
+  /**
+   * Helper: parse date string using the same logic as handleSchedulingDate
+   */
+  private parseDateInput(input: string): Date | null {
+    const dateStr = input.trim();
+
+    if (/amanh[ãa]/i.test(dateStr)) {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d;
+    }
+
+    if (/hoje/i.test(dateStr)) {
+      return new Date();
+    }
+
+    if (/pr[oó]xim[ao]?\s*(segunda|ter[çc]a|quarta|quinta|sexta|s[aá]bado)/i.test(dateStr)) {
+      const days = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+      const match = dateStr.toLowerCase().match(/segunda|ter[çc]a|quarta|quinta|sexta|s[aá]bado/);
+      if (match) {
+        const dayName = match[0].replace('ç', 'c').replace('á', 'a');
+        const targetDayIndex = days.findIndex(d => d.includes(dayName.substring(0, 3)));
+        const result = new Date();
+        const currentDay = result.getDay();
+        let daysToAdd = targetDayIndex - currentDay;
+        if (daysToAdd <= 0) daysToAdd += 7;
+        result.setDate(result.getDate() + daysToAdd);
+        return result;
+      }
+    }
+
+    // DD/MM or DD/MM/YYYY
+    const dateMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]) - 1;
+      const year = dateMatch[3] ? parseInt(dateMatch[3]) : new Date().getFullYear();
+      return new Date(year < 100 ? 2000 + year : year, month, day);
+    }
+
+    return null;
+  }
+
+  /**
+   * rescheduling_date — paciente informa a nova data, bot mostra horários disponíveis
+   */
+  async handleReschedulingDate(
+    session: ChatSession,
+    message: string,
+    stateData: Record<string, any>
+  ): Promise<ProcessedMessage> {
+    const targetDate = this.parseDateInput(message);
+
+    if (!targetDate || isNaN(targetDate.getTime())) {
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Não consegui entender a data. Por favor, informe no formato:\n\n• DD/MM (ex: 15/01)\n• "amanhã"\n• "próxima segunda"`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (targetDate < today) {
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `A data precisa ser futura. Por favor, escolha outra data.`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
+
+    // Buscar horários disponíveis usando o availability service
+    const slots = await getAvailableSlots(
+      this.companyId,
+      targetDate,
+      30,
+      stateData.professionalId || undefined
+    );
+
+    if (slots.length === 0) {
+      const formattedDate = targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `😔 Não há horários disponíveis em *${formattedDate}*.\n\nPor favor, informe outra data.`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
+
+    // Mostrar até 8 opções numeradas
+    const slotLines = slots.map((slot, i) => {
+      const t = new Date(slot.startTime);
+      const hhmm = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const prof = slot.professionalName ? ` — ${slot.professionalName}` : '';
+      return `${i + 1}. ${hhmm}${prof}`;
+    });
+
+    const formattedDate = targetDate.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+
+    await this.updateSessionState(session.id, 'rescheduling_time', {
+      ...stateData,
+      newDate: targetDate.toISOString().split('T')[0],
+      formattedNewDate: targetDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      availableSlots: slots.map(s => ({
+        startTime: s.startTime.toISOString(),
+        endTime: s.endTime.toISOString(),
+        professionalId: s.professionalId,
+        professionalName: s.professionalName,
+      })),
+    });
+
+    return {
+      intent: 'reschedule',
+      confidence: 1,
+      response: `📅 *${formattedDate}*\n\nHorários disponíveis:\n\n${slotLines.join('\n')}\n\n_Digite o número do horário desejado_`,
+      processedBy: 'state_machine',
+      tokensUsed: 0,
+      nextState: 'rescheduling_time',
+    };
+  }
+
+  /**
+   * rescheduling_time — paciente escolhe o horário, bot cancela o antigo e cria o novo
+   */
+  async handleReschedulingTime(
+    session: ChatSession,
+    message: string,
+    stateData: Record<string, any>
+  ): Promise<ProcessedMessage> {
+    const availableSlots: Array<{
+      startTime: string;
+      endTime: string;
+      professionalId: number;
+      professionalName: string;
+    }> = stateData.availableSlots || [];
+
+    if (availableSlots.length === 0) {
+      await this.updateSessionState(session.id, null);
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Ocorreu um problema ao buscar os horários. Por favor, tente novamente ou ligue: 📞 ${this.company?.phone}`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
+
+    // Aceitar seleção por número (1, 2, …) ou horário HH:MM
+    const input = message.trim();
+    let selectedSlot: typeof availableSlots[number] | null = null;
+
+    const numSelection = parseInt(input);
+    if (!isNaN(numSelection) && numSelection >= 1 && numSelection <= availableSlots.length) {
+      selectedSlot = availableSlots[numSelection - 1];
+    } else {
+      // Tentar casar com "HH:MM"
+      const timeMatch = input.match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch) {
+        const hh = timeMatch[1].padStart(2, '0');
+        const mm = timeMatch[2];
+        selectedSlot = availableSlots.find(s => {
+          const t = new Date(s.startTime);
+          const slotHHMM = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          return slotHHMM === `${hh}:${mm}`;
+        }) ?? null;
+      }
+    }
+
+    if (!selectedSlot) {
+      const slotLines = availableSlots.map((s, i) => {
+        const t = new Date(s.startTime);
+        return `${i + 1}. ${t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      });
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Opção inválida. Por favor, escolha um número da lista:\n\n${slotLines.join('\n')}`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+      };
+    }
+
+    // Mostrar confirmação antes de efetivar
+    const newStart = new Date(selectedSlot.startTime);
+    const newDateFmt = stateData.formattedNewDate || newStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const newTimeFmt = newStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    await this.updateSessionState(session.id, 'rescheduling_done', {
+      ...stateData,
+      selectedSlot,
+      newDateFmt,
+      newTimeFmt,
+    });
+
+    return {
+      intent: 'reschedule',
+      confidence: 1,
+      response: `✅ Confirmar novo horário?\n\n📅 *${newDateFmt}* às *${newTimeFmt}*${selectedSlot.professionalName ? ` com *${selectedSlot.professionalName}*` : ''}\n\nResponda *SIM* para confirmar ou *NÃO* para escolher outro horário.`,
+      processedBy: 'state_machine',
+      tokensUsed: 0,
+      nextState: 'rescheduling_done',
+    };
+  }
+
+  /**
+   * rescheduling_done — confirmação final: cancela o antigo e cria o novo agendamento
+   * Note: this handler is reached when the state is 'rescheduling_done', meaning the
+   * patient has seen the confirmation prompt and is now replying SIM/NÃO.
+   */
+  /**
+   * rescheduling_done — paciente responde SIM/NÃO à confirmação do novo horário.
+   * SIM: chama applyReschedule.
+   * NÃO: volta ao estado rescheduling_date para escolher nova data.
+   */
+  async handleReschedulingDone(
+    session: ChatSession,
+    message: string,
+    stateData: Record<string, any>
+  ): Promise<ProcessedMessage> {
+    const { intent } = this.classifyIntent(message);
+
+    if (intent === 'confirm') {
+      return this.applyReschedule(session, stateData);
+    }
+
+    if (intent === 'cancel') {
+      // Volta para escolha de data
+      await this.updateSessionState(session.id, 'rescheduling_date', stateData);
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Ok! Para qual *data* você gostaria de reagendar?\n\n_Informe a data (ex: 15/01, amanhã, próxima segunda)_`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+        nextState: 'rescheduling_date',
+      };
+    }
+
+    return {
+      intent: 'reschedule',
+      confidence: 1,
+      response: `Por favor, responda *SIM* para confirmar o novo horário ou *NÃO* para escolher outro.`,
+      processedBy: 'state_machine',
+      tokensUsed: 0,
+    };
+  }
+
+  private async applyReschedule(
+    session: ChatSession,
+    stateData: Record<string, any>
+  ): Promise<ProcessedMessage> {
+    const { appointmentId, selectedSlot, newDateFmt, newTimeFmt } = stateData;
+
+    try {
+      const newStart = new Date(selectedSlot.startTime);
+      const newEnd = new Date(selectedSlot.endTime);
+
+      // 1. Cancelar agendamento original
+      await db
+        .update(appointments)
+        .set({
+          status: 'cancelled',
+          notes: 'Reagendado pelo paciente via WhatsApp',
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(appointments.id, appointmentId),
+            eq(appointments.companyId, this.companyId)
+          )
+        );
+
+      // 2. Buscar dados do agendamento original para herdar procedimento e sala
+      const [originalAppt] = await db
+        .select()
+        .from(appointments)
+        .where(eq(appointments.id, appointmentId))
+        .limit(1);
+
+      // 3. Criar novo agendamento
+      await db.insert(appointments).values({
+        companyId: this.companyId,
+        patientId: session.patientId!,
+        professionalId: selectedSlot.professionalId || originalAppt?.professionalId || null,
+        procedureId: originalAppt?.procedureId || null,
+        roomId: originalAppt?.roomId || null,
+        startTime: newStart,
+        endTime: newEnd,
+        status: 'scheduled',
+        notes: `Reagendado via WhatsApp (substituiu #${appointmentId})`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // 4. Slot hold (holdSlot) was not used in this flow since we immediately
+      //    wrote the appointment — no releaseSlot call needed.
+
+      await this.updateSessionState(session.id, null);
+
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `🎉 *Reagendamento confirmado!*\n\nSua nova consulta está marcada para:\n📅 *${newDateFmt}* às *${newTimeFmt}*${stateData.doctorName ? ` com *${stateData.doctorName}*` : ''}\n\nAté lá! 😊`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+        actions: [
+          {
+            type: 'confirm_appointment',
+            data: {
+              rescheduled: true,
+              cancelledAppointmentId: appointmentId,
+              newDate: newDateFmt,
+              newTime: newTimeFmt,
+            },
+          },
+        ],
+      };
+    } catch (err) {
+      logger.error({ err: err }, '[ChatProcessor] applyReschedule error:');
+      await this.updateSessionState(session.id, null);
+
+      return {
+        intent: 'reschedule',
+        confidence: 1,
+        response: `Ocorreu um erro ao reagendar. Por favor, ligue para nós:\n📞 ${this.company?.phone}`,
+        processedBy: 'state_machine',
+        tokensUsed: 0,
+        requiresHumanTransfer: true,
+      };
+    }
   }
 }
 

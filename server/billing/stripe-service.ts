@@ -24,9 +24,9 @@ if (stripeEnabled) {
   stripe = new Stripe(STRIPE_SECRET_KEY!, {
     apiVersion: '2025-04-30.basil',
   });
-  console.log('✓ Stripe initialized');
+  logger.info('Stripe initialized');
 } else {
-  console.log('⚠️  Stripe not configured - payment features disabled');
+  logger.warn('Stripe not configured - payment features disabled');
 }
 
 function requireStripe(): Stripe {
@@ -196,7 +196,7 @@ export class StripeService {
     try {
       const event = requireStripe().webhooks.constructEvent(payload, signature, webhookSecret);
 
-      console.log(`🔔 Stripe Webhook recebido: ${event.type}`);
+      logger.info({ eventType: event.type }, 'Stripe Webhook received')
 
       switch (event.type) {
         case 'customer.subscription.created':
@@ -224,12 +224,12 @@ export class StripeService {
           break;
 
         default:
-          console.log(`⚠️ Evento não tratado: ${event.type}`);
+          logger.info({ eventType: event.type }, 'Unhandled Stripe event')
       }
 
       return { received: true };
     } catch (error) {
-      console.error('❌ Erro ao processar webhook Stripe:', error);
+      logger.error({ err: error }, 'Erro ao processar webhook Stripe:')
       throw error;
     }
   }
@@ -241,11 +241,11 @@ export class StripeService {
     const companyId = parseInt(subscription.metadata.companyId || '0');
 
     if (!companyId) {
-      console.error('CompanyId não encontrado no metadata da assinatura');
+      logger.error('CompanyId not found in subscription metadata');
       return;
     }
 
-    console.log(`✅ Assinatura criada para empresa ${companyId}`);
+    logger.info({ companyId: companyId }, 'Assinatura criada para empresa {companyId}')
 
     // Atualizar assinatura no banco com IDs do Stripe
     await db
@@ -284,7 +284,7 @@ export class StripeService {
       })
       .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
-    console.log(`✅ Assinatura ${subscription.id} atualizada para status: ${status}`);
+    logger.info({ subscriptionId: subscription.id, status }, 'Subscription updated')
   }
 
   /**
@@ -300,7 +300,7 @@ export class StripeService {
       })
       .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
-    console.log(`✅ Assinatura ${subscription.id} cancelada`);
+    logger.info({ subscriptionId: subscription.id }, 'Subscription cancelled')
   }
 
   /**
@@ -309,7 +309,7 @@ export class StripeService {
   private async handleTrialWillEnd(subscription: Stripe.Subscription) {
     const companyId = parseInt(subscription.metadata.companyId || '0');
 
-    console.log(`⚠️ Trial vai acabar para empresa ${companyId} em 3 dias`);
+    logger.info({ companyId: companyId }, 'Trial vai acabar para empresa {companyId} em 3 dias')
 
     // Buscar informações da empresa e plano
     const [subscriptionData] = await db
@@ -387,7 +387,7 @@ export class StripeService {
       .onConflictDoNothing()
       .returning();
 
-    console.log(`✅ Fatura ${invoice.id} paga: R$ ${invoice.amount_paid / 100}`);
+    logger.info({ invoiceId: invoice.id, amountPaid: invoice.amount_paid / 100 }, 'Invoice paid')
 
     // Enviar email de confirmação de pagamento
     const [company] = await db
@@ -441,7 +441,7 @@ export class StripeService {
       })
       .where(eq(subscriptions.id, subscription.id));
 
-    console.log(`❌ Falha no pagamento da fatura ${invoice.id} para empresa ${subscription.companyId}`);
+    logger.info({ invoiceId: invoice.id, companyId: subscription.companyId }, 'Invoice payment failed')
 
     // Enviar email sobre falha no pagamento
     const [company] = await db
@@ -488,7 +488,7 @@ export class StripeService {
     appointmentId?: number;
   }): Promise<{ url: string; id: string } | null> {
     if (!stripe) {
-      console.warn('Stripe not configured - cannot create payment link');
+      logger.warn('Stripe not configured - cannot create payment link');
       return null;
     }
 
@@ -518,7 +518,7 @@ export class StripeService {
 
       return { url: session.url!, id: session.id };
     } catch (error) {
-      console.error('Error creating payment link:', error);
+      logger.error({ err: error }, 'Error creating payment link:')
       return null;
     }
   }

@@ -124,7 +124,9 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
             );
           })()}
 
-          <NotificationBell />
+          <span data-tour="header-notifications">
+            <NotificationBell />
+          </span>
 
           {/* Temporariamente removido tema */}
           <ThemeToggle />

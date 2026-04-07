@@ -17,6 +17,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import crypto from 'crypto';
 
+import { logger } from '../logger';
 // Storage configuration
 interface StorageConfig {
   endpoint: string;
@@ -44,7 +45,8 @@ type StorageFolder =
   | 'signatures'        // Digital signatures
   | 'chat'              // Chat media files
   | 'avatars'           // User/patient avatars
-  | 'websites';         // Website builder assets
+  | 'websites'          // Website builder assets
+  | 'photos';           // Before/after aesthetic photos
 
 class StorageService {
   private client: S3Client | null = null;
@@ -64,8 +66,8 @@ class StorageService {
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
     if (!endpoint || !accessKeyId || !secretAccessKey) {
-      console.warn('⚠️  S3/MinIO not configured. Using local filesystem fallback.');
-      console.warn('   Set S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY to enable cloud storage.');
+      logger.warn('S3/MinIO not configured. Using local filesystem fallback.');
+      logger.warn('Set S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY to enable cloud storage.');
       this.isConfigured = false;
       return;
     }
@@ -81,9 +83,9 @@ class StorageService {
         forcePathStyle: true, // Required for MinIO
       });
       this.isConfigured = true;
-      console.log(`✓ S3/MinIO storage initialized: ${endpoint}`);
+      logger.info({ endpoint }, 'S3/MinIO storage initialized')
     } catch (error) {
-      console.error('Failed to initialize S3 client:', error);
+      logger.error({ err: error }, 'Failed to initialize S3 client:');
       this.isConfigured = false;
     }
   }
@@ -183,7 +185,7 @@ class StorageService {
           contentType,
         };
       } catch (error) {
-        console.error('S3 upload failed, falling back to local storage:', error);
+        logger.error({ err: error }, 'S3 upload failed, falling back to local storage:');
       }
     }
 
@@ -267,7 +269,7 @@ class StorageService {
           return Buffer.concat(chunks);
         }
       } catch (error) {
-        console.error('S3 download failed:', error);
+        logger.error({ err: error }, 'S3 download failed:');
         throw error;
       }
     }
@@ -289,7 +291,7 @@ class StorageService {
         }));
         return;
       } catch (error) {
-        console.error('S3 delete failed:', error);
+        logger.error({ err: error }, 'S3 delete failed:');
       }
     }
 
@@ -348,7 +350,7 @@ class StorageService {
 
         return response.Contents?.map(obj => obj.Key!).filter(Boolean) || [];
       } catch (error) {
-        console.error('S3 list failed:', error);
+        logger.error({ err: error }, 'S3 list failed:');
         return [];
       }
     }

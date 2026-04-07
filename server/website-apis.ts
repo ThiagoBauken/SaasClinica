@@ -4,6 +4,7 @@ import { companies, websites } from '../shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { storageService } from './services/storage.service';
 
+import { logger } from './logger';
 interface WebsiteData {
   id?: number;
   clinicName: string;
@@ -102,7 +103,7 @@ export async function getWebsite(req: Request, res: Response) {
 
     res.json(rowToWebsiteData(row));
   } catch (error) {
-    console.error('Erro ao buscar site:', error);
+    logger.error({ err: error }, 'Erro ao buscar site:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -199,7 +200,7 @@ export async function saveWebsite(req: Request, res: Response) {
       message: 'Site salvo com sucesso'
     });
   } catch (error) {
-    console.error('Erro ao salvar site:', error);
+    logger.error({ err: error }, 'Erro ao salvar site:');
     res.status(500).json({ 
       error: 'Erro interno do servidor',
       message: 'Falha ao salvar site'
@@ -272,7 +273,7 @@ export async function publishWebsite(req: Request, res: Response) {
       url: `https://${domain}`
     });
   } catch (error) {
-    console.error('Erro ao publicar site:', error);
+    logger.error({ err: error }, 'Erro ao publicar site:');
     res.status(500).json({ 
       error: 'Erro interno do servidor',
       message: 'Falha ao publicar site'
@@ -303,7 +304,7 @@ export async function getPublicWebsite(req: Request, res: Response) {
       seo: row.seo,
     });
   } catch (error) {
-    console.error('Erro ao buscar site público:', error);
+    logger.error({ err: error }, 'Erro ao buscar site público:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -323,7 +324,7 @@ export async function listPublishedWebsites(req: Request, res: Response) {
 
     res.json(publishedSites);
   } catch (error) {
-    console.error('Erro ao listar sites:', error);
+    logger.error({ err: error }, 'Erro ao listar sites:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -351,7 +352,7 @@ export async function unpublishWebsite(req: Request, res: Response) {
       message: 'Site despublicado com sucesso'
     });
   } catch (error) {
-    console.error('Erro ao despublicar site:', error);
+    logger.error({ err: error }, 'Erro ao despublicar site:');
     res.status(500).json({ 
       error: 'Erro interno do servidor',
       message: 'Falha ao despublicar site'
@@ -362,7 +363,7 @@ export async function unpublishWebsite(req: Request, res: Response) {
 // Função auxiliar para gerar site estático (simular)
 async function generateStaticWebsite(websiteData: WebsiteData): Promise<void> {
   // Em produção, isso geraria arquivos HTML/CSS/JS estáticos
-  console.log(`Gerando site estático para: ${websiteData.domain}`);
+  logger.info({ websiteData_domain: websiteData.domain }, 'Gerando site estático para: {websiteData_domain}')
   
   // Simular templates diferentes
   const templates = {
@@ -372,7 +373,7 @@ async function generateStaticWebsite(websiteData: WebsiteData): Promise<void> {
   };
   
   const template = templates[websiteData.template];
-  console.log(`Template ${websiteData.template} gerado com sucesso`);
+  logger.info({ websiteData_template: websiteData.template }, 'Template {websiteData_template} gerado com sucesso')
   
   // Aqui salvaria os arquivos no sistema de arquivos ou CDN
   return Promise.resolve();
@@ -698,7 +699,7 @@ export async function uploadImage(req: Request, res: Response) {
       message: 'Imagem enviada com sucesso'
     });
   } catch (error) {
-    console.error('Erro ao fazer upload da imagem:', error);
+    logger.error({ err: error }, 'Erro ao fazer upload da imagem:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -772,7 +773,7 @@ export async function previewWebsite(req: Request, res: Response) {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (error) {
-    console.error('Erro ao gerar preview:', error);
+    logger.error({ err: error }, 'Erro ao gerar preview:');
     res.status(500).json({ message: 'Erro interno do servidor' });
   }
 }
@@ -1231,7 +1232,7 @@ export async function getWebsitePreview(req: Request, res: Response) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (error) {
-    console.error('Erro ao gerar preview:', error);
+    logger.error({ err: error }, 'Erro ao gerar preview:');
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 }

@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { companies, plans, subscriptions, subscriptionHistory, usageMetrics, subscriptionInvoices } from '@shared/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import { addMonths, addYears, addDays } from 'date-fns';
+import { addMonths, addYears, addDays, startOfMonth, endOfMonth } from 'date-fns';
 
 /**
  * Serviço de Gerenciamento de Assinaturas
@@ -260,6 +260,56 @@ export class SubscriptionService {
       limit,
       current: currentValue,
     };
+  }
+
+  /**
+   * Increment AI token usage for a tenant within the current calendar month.
+   *
+   * Uses an atomic INSERT … ON CONFLICT DO UPDATE so that concurrent AI
+   * requests for the same company never race each other into double-counting.
+   * The period is always the full calendar month so that monthly resets are
+   * predictable and independent of subscription billing cycles.
+   */
+  async incrementAITokenUsage(companyId: number, tokensUsed: number): Promise<void> {
+    const now = new Date();
+    const periodStart = startOfMonth(now);
+    const periodEnd = endOfMonth(now);
+
+    // Atomic upsert-increment.  Drizzle does not expose `col = col + $N` in
+    // its update DSL, so we drop to the underlying pg client for this one
+    // statement to keep it a single round-trip with no read-modify-write race.
+    await (db as any).$client.query(
+      `INSERT INTO usage_metrics (company_id, metric_type, current_value, period_start, period_end, created_at, updated_at)
+       VALUES ($1, 'ai_tokens', $2, $3, $4, NOW(), NOW())
+       ON CONFLICT (company_id, metric_type, period_start)
+       DO UPDATE SET
+         current_value = usage_metrics.current_value + EXCLUDED.current_value,
+         updated_at    = NOW()`,
+      [companyId, tokensUsed, periodStart, periodEnd],
+    );
+  }
+
+  /**
+   * Get the current AI token usage for a company in the current calendar month.
+   * Returns 0 if no record exists yet.
+   */
+  async getAITokenUsage(companyId: number): Promise<number> {
+    const now = new Date();
+    const periodStart = startOfMonth(now);
+
+    const rows = await db
+      .select({ currentValue: usageMetrics.currentValue })
+      .from(usageMetrics)
+      .where(
+        and(
+          eq(usageMetrics.companyId, companyId),
+          eq(usageMetrics.metricType, 'ai_tokens'),
+          gte(usageMetrics.periodStart, periodStart),
+        ),
+      )
+      .limit(1);
+
+    return rows[0]?.currentValue ?? 0;
   }
 
   /**

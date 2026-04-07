@@ -17,6 +17,7 @@ import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { addDays, subDays, subMonths, setHours, setMinutes, startOfMonth, endOfMonth } from "date-fns";
 
+import { logger } from './logger';
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
@@ -30,17 +31,17 @@ async function hashPassword(password: string) {
  */
 export async function seedDatabase() {
   try {
-    console.log("🌱 Iniciando seed do banco de dados...\n");
+    logger.info('Iniciando seed do banco de dados...\n');
 
     // 1. Criar ou buscar empresas de exemplo
-    console.log("📌 Criando empresas...");
+    logger.info('Criando empresas...');
 
     // Verificar se empresas já existem
     const existingCompanies = await db.select().from(companies).limit(2);
 
     let company1, company2;
     if (existingCompanies && existingCompanies.length > 0) {
-      console.log("ℹ️  Empresas já existem, usando existentes...");
+      logger.info('Empresas já existem, usando existentes...');
       company1 = existingCompanies[0];
       company2 = existingCompanies[1];
     } else {
@@ -72,11 +73,14 @@ export async function seedDatabase() {
       [company1, company2] = companiesResult;
     }
 
-    const companyId = company1?.id || 1;
-    console.log(`✅ Empresas criadas: ${company1?.name} (ID: ${companyId})\n`);
+    if (!company1?.id) {
+      throw new Error('SEED ERROR: Failed to find or create company — cannot proceed without a valid companyId');
+    }
+    const companyId = company1.id;
+    logger.info({ companyName: company1?.name, companyId }, 'Companies created')
 
     // 2. Criar ou buscar usuários (dentistas, recepcionistas, admin)
-    console.log("👥 Criando usuários...");
+    logger.info('Criando usuários...');
 
     // Verificar se usuários já existem para esta empresa
     const existingUsers = await db.select().from(users).where(eq(users.companyId, companyId));
@@ -84,7 +88,7 @@ export async function seedDatabase() {
     type UserRow = typeof users.$inferSelect;
     let admin, dentist1, dentist2, receptionist;
     if (existingUsers && existingUsers.length > 0) {
-      console.log("ℹ️  Usuários já existem, usando existentes...");
+      logger.info('Usuários já existem, usando existentes...');
       admin = existingUsers.find((u: UserRow) => u.role === 'admin');
       dentist1 = existingUsers.find((u: UserRow) => u.username === 'dra.ana');
       dentist2 = existingUsers.find((u: UserRow) => u.username === 'dr.pedro');
@@ -148,10 +152,10 @@ export async function seedDatabase() {
       [admin, dentist1, dentist2, receptionist] = usersResult;
     }
 
-    console.log(`✅ ${4} usuários criados\n`);
+    logger.info({ 4: 4 }, '{4} usuários criados\n')
 
     // 3. Criar pacientes realistas
-    console.log("🏥 Criando pacientes...");
+    logger.info('Criando pacientes...');
     const patientNames = [
       { name: "João da Silva", email: "joao.silva@email.com", phone: "(11) 99111-1111", cpf: "123.456.789-00" },
       { name: "Maria Oliveira", email: "maria.oliveira@email.com", phone: "(11) 99222-2222", cpf: "234.567.890-11" },
@@ -194,10 +198,10 @@ export async function seedDatabase() {
       .returning()
       .onConflictDoNothing();
 
-    console.log(`✅ ${createdPatients.length} pacientes criados\n`);
+    logger.info({ count: createdPatients.length }, 'Patients created')
 
     // 4. Criar procedimentos padrão
-    console.log("🦷 Criando procedimentos...");
+    logger.info('Criando procedimentos...');
     const proceduresData = [
       { name: "Limpeza e Profilaxia", description: "Limpeza profissional dos dentes", price: 150.00, duration: 30, companyId },
       { name: "Obturação (Resina)", description: "Restauração com resina composta", price: 250.00, duration: 45, companyId },
@@ -217,10 +221,10 @@ export async function seedDatabase() {
       .returning()
       .onConflictDoNothing();
 
-    console.log(`✅ ${createdProcedures.length} procedimentos criados\n`);
+    logger.info({ count: createdProcedures.length }, 'Procedures created')
 
     // 5. Criar agendamentos dos últimos 3 meses + futuro
-    console.log("📅 Criando agendamentos...");
+    logger.info('Criando agendamentos...');
     const appointmentsData = [];
     const statuses = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'];
     const dentistIds = [dentist1?.id, dentist2?.id].filter(Boolean);
@@ -290,10 +294,10 @@ export async function seedDatabase() {
       .returning()
       .onConflictDoNothing();
 
-    console.log(`✅ ${createdAppointments.length} agendamentos criados\n`);
+    logger.info({ count: createdAppointments.length }, 'Appointments created')
 
     // 6. Vincular procedimentos aos agendamentos
-    console.log("🔗 Vinculando procedimentos aos agendamentos...");
+    logger.info('Vinculando procedimentos aos agendamentos...');
     type AppointmentRow = typeof appointments.$inferSelect;
     const appointmentProceduresData = createdAppointments.map((apt: AppointmentRow) => ({
       appointmentId: apt.id,
@@ -307,10 +311,10 @@ export async function seedDatabase() {
       .values(appointmentProceduresData)
       .onConflictDoNothing();
 
-    console.log(`✅ Procedimentos vinculados\n`);
+    logger.info('Procedimentos vinculados\n')
 
     // 7. Criar pagamentos
-    console.log("💰 Criando pagamentos...");
+    logger.info('Criando pagamentos...');
     const paymentsData = [];
 
     // Pagamentos para agendamentos completados
@@ -337,10 +341,10 @@ export async function seedDatabase() {
       .values(paymentsData)
       .onConflictDoNothing();
 
-    console.log(`✅ ${paymentsData.length} pagamentos criados\n`);
+    logger.info({ count: paymentsData.length }, 'Payments created')
 
     // 8. Criar itens de estoque
-    console.log("📦 Criando itens de estoque...");
+    logger.info('Criando itens de estoque...');
     const inventoryData = [
       { name: "Luvas Descartáveis (cx c/ 100)", description: "Luvas descartáveis para procedimentos", currentStock: 50, minimumStock: 10, unitOfMeasure: "caixa", price: 2500, companyId },
       { name: "Máscaras Cirúrgicas (cx c/ 50)", description: "Máscaras cirúrgicas descartáveis", currentStock: 80, minimumStock: 20, unitOfMeasure: "caixa", price: 1500, companyId },
@@ -360,10 +364,10 @@ export async function seedDatabase() {
       .returning()
       .onConflictDoNothing();
 
-    console.log(`✅ ${createdInventory.length} itens de estoque criados\n`);
+    logger.info({ count: createdInventory.length }, 'Inventory items created')
 
     // 9. Criar transações de estoque
-    console.log("📊 Criando transações de estoque...");
+    logger.info('Criando transações de estoque...');
     const transactionsData = [];
 
     for (const item of createdInventory) {
@@ -407,10 +411,10 @@ export async function seedDatabase() {
       .values(transactionsData)
       .onConflictDoNothing();
 
-    console.log(`✅ ${transactionsData.length} transações criadas\n`);
+    logger.info({ count: transactionsData.length }, 'Inventory transactions created')
 
     // 9. Criar tipos de alertas de risco (globais)
-    console.log("⚠️  Criando tipos de alertas de risco...");
+    logger.info('Criando tipos de alertas de risco...');
 
     const riskAlertTypesData = [
       {
@@ -500,10 +504,10 @@ export async function seedDatabase() {
       .values(riskAlertTypesData as any)
       .onConflictDoNothing();
 
-    console.log(`✅ ${riskAlertTypesData.length} tipos de alerta de risco criados\n`);
+    logger.info({ count: riskAlertTypesData.length }, 'Risk alert types created')
 
     // 10. Criar etapas padrão do funil de vendas
-    console.log("📊 Criando etapas do funil de vendas...");
+    logger.info('Criando etapas do funil de vendas...');
 
     const funnelStagesData = [
       {
@@ -565,18 +569,18 @@ export async function seedDatabase() {
       .values(funnelStagesData)
       .onConflictDoNothing();
 
-    console.log(`✅ ${funnelStagesData.length} etapas do funil criadas\n`);
+    logger.info({ count: funnelStagesData.length }, 'Funnel stages created')
 
-    console.log("🎉 Seed do banco de dados concluído com sucesso!\n");
-    console.log("📋 Resumo:");
-    console.log(`   - ${1} empresa`);
-    console.log(`   - ${4} usuários`);
-    console.log(`   - ${createdPatients.length} pacientes`);
-    console.log(`   - ${createdProcedures.length} procedimentos`);
-    console.log(`   - ${createdAppointments.length} agendamentos`);
-    console.log(`   - ${paymentsData.length} pagamentos`);
-    console.log(`   - ${createdInventory.length} itens de estoque`);
-    console.log(`   - ${transactionsData.length} transações de estoque\n`);
+    logger.info('Seed do banco de dados concluído com sucesso!\n');
+    logger.info('Resumo:');
+    logger.info({ 1: 1 }, '- {1} empresa')
+    logger.info({ 4: 4 }, '- {4} usuários')
+    logger.info({ count: createdPatients.length }, 'Summary: patients')
+    logger.info({ count: createdProcedures.length }, 'Summary: procedures')
+    logger.info({ count: createdAppointments.length }, 'Summary: appointments')
+    logger.info({ count: paymentsData.length }, 'Summary: payments')
+    logger.info({ count: createdInventory.length }, 'Summary: inventory items')
+    logger.info({ count: transactionsData.length }, 'Summary: inventory transactions')
 
     return {
       success: true,
@@ -593,7 +597,7 @@ export async function seedDatabase() {
       }
     };
   } catch (error) {
-    console.error("❌ Erro ao fazer seed do banco:", error);
+    logger.error({ err: error }, 'Erro ao fazer seed do banco:');
     throw error;
   }
 }

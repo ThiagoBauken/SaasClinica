@@ -5,6 +5,7 @@ import { plans, subscriptions, subscriptionInvoices, usageMetrics, planFeatures,
 import { eq, desc } from 'drizzle-orm';
 import { sendEmail, getPlanChangedTemplate } from '../services/email-service';
 
+import { logger } from '../logger';
 /**
  * APIs de Billing e Assinaturas
  */
@@ -39,7 +40,7 @@ export async function getPlans(req: Request, res: Response) {
 
     res.json(plansWithFeatures);
   } catch (error) {
-    console.error('Erro ao buscar planos:', error);
+    logger.error({ err: error }, 'Erro ao buscar planos:');
     res.status(500).json({ error: 'Erro ao buscar planos' });
   }
 }
@@ -78,7 +79,7 @@ export async function getMySubscription(req: Request, res: Response) {
       usage,
     });
   } catch (error) {
-    console.error('Erro ao buscar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao buscar assinatura:');
     res.status(500).json({ error: 'Erro ao buscar assinatura' });
   }
 }
@@ -108,7 +109,7 @@ export async function createSubscription(req: Request, res: Response) {
 
     res.status(201).json(subscription);
   } catch (error: any) {
-    console.error('Erro ao criar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao criar assinatura:');
     res.status(400).json({ error: error.message || 'Erro ao criar assinatura' });
   }
 }
@@ -170,13 +171,13 @@ export async function changePlan(req: Request, res: Response) {
         });
       }
     } catch (emailError) {
-      console.error('Erro ao enviar email de mudança de plano:', emailError);
+      logger.error({ err: emailError }, 'Erro ao enviar email de mudança de plano:');
       // Não falhar a operação se o email falhar
     }
 
     res.json(updatedSubscription);
   } catch (error: any) {
-    console.error('Erro ao alterar plano:', error);
+    logger.error({ err: error }, 'Erro ao alterar plano:');
     res.status(400).json({ error: error.message || 'Erro ao alterar plano' });
   }
 }
@@ -204,7 +205,7 @@ export async function cancelSubscription(req: Request, res: Response) {
       subscription,
     });
   } catch (error: any) {
-    console.error('Erro ao cancelar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao cancelar assinatura:');
     res.status(400).json({ error: error.message || 'Erro ao cancelar assinatura' });
   }
 }
@@ -228,7 +229,7 @@ export async function getInvoices(req: Request, res: Response) {
 
     res.json(invoices);
   } catch (error) {
-    console.error('Erro ao buscar faturas:', error);
+    logger.error({ err: error }, 'Erro ao buscar faturas:');
     res.status(500).json({ error: 'Erro ao buscar faturas' });
   }
 }
@@ -287,7 +288,7 @@ export async function getUsage(req: Request, res: Response) {
       limits,
     });
   } catch (error) {
-    console.error('Erro ao buscar métricas de uso:', error);
+    logger.error({ err: error }, 'Erro ao buscar métricas de uso:');
     res.status(500).json({ error: 'Erro ao buscar métricas de uso' });
   }
 }
@@ -318,7 +319,7 @@ export async function checkLimit(req: Request, res: Response) {
 
     res.json(check);
   } catch (error) {
-    console.error('Erro ao verificar limite:', error);
+    logger.error({ err: error }, 'Erro ao verificar limite:');
     res.status(500).json({ error: 'Erro ao verificar limite' });
   }
 }

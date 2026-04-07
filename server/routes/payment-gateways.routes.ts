@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { nowpaymentsService } from '../billing/nowpayments-service';
 import { mercadopagoService } from '../billing/mercadopago-service';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
@@ -19,7 +20,7 @@ router.get('/nowpayments/currencies', async (req: Request, res: Response) => {
     const currencies = await nowpaymentsService.getAvailableCurrencies();
     res.json({ currencies });
   } catch (error: any) {
-    console.error('Erro ao buscar moedas:', error);
+    logger.error({ err: error }, 'Erro ao buscar moedas:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -30,7 +31,7 @@ router.get('/nowpayments/currencies', async (req: Request, res: Response) => {
  */
 router.post('/nowpayments/create-payment', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || !user.companyId) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
@@ -50,7 +51,7 @@ router.post('/nowpayments/create-payment', async (req: Request, res: Response) =
 
     res.json(payment);
   } catch (error: any) {
-    console.error('Erro ao criar pagamento crypto:', error);
+    logger.error({ err: error }, 'Erro ao criar pagamento crypto:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -65,7 +66,7 @@ router.get('/nowpayments/payment/:id', async (req: Request, res: Response) => {
     const status = await nowpaymentsService.getPaymentStatus(id);
     res.json(status);
   } catch (error: any) {
-    console.error('Erro ao buscar status:', error);
+    logger.error({ err: error }, 'Erro ao buscar status:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -82,7 +83,7 @@ router.get('/nowpayments/payment/:id', async (req: Request, res: Response) => {
  */
 router.post('/mercadopago/create-subscription', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || !user.companyId) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
@@ -103,7 +104,7 @@ router.post('/mercadopago/create-subscription', async (req: Request, res: Respon
 
     res.json(subscription);
   } catch (error: any) {
-    console.error('Erro ao criar assinatura MercadoPago:', error);
+    logger.error({ err: error }, 'Erro ao criar assinatura MercadoPago:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -114,7 +115,7 @@ router.post('/mercadopago/create-subscription', async (req: Request, res: Respon
  */
 router.post('/mercadopago/create-payment', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || !user.companyId) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
@@ -136,7 +137,7 @@ router.post('/mercadopago/create-payment', async (req: Request, res: Response) =
 
     res.json(payment);
   } catch (error: any) {
-    console.error('Erro ao criar pagamento MercadoPago:', error);
+    logger.error({ err: error }, 'Erro ao criar pagamento MercadoPago:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -151,7 +152,7 @@ router.get('/mercadopago/payment/:id', async (req: Request, res: Response) => {
     const status = await mercadopagoService.getPaymentStatus(id);
     res.json(status);
   } catch (error: any) {
-    console.error('Erro ao buscar status:', error);
+    logger.error({ err: error }, 'Erro ao buscar status:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -166,7 +167,7 @@ router.get('/mercadopago/subscription/:id', async (req: Request, res: Response) 
     const status = await mercadopagoService.getSubscriptionStatus(id);
     res.json(status);
   } catch (error: any) {
-    console.error('Erro ao buscar status:', error);
+    logger.error({ err: error }, 'Erro ao buscar status:');
     res.status(500).json({ error: error.message });
   }
 });
@@ -177,7 +178,7 @@ router.get('/mercadopago/subscription/:id', async (req: Request, res: Response) 
  */
 router.post('/mercadopago/cancel-subscription/:id', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || !user.companyId) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
@@ -186,7 +187,7 @@ router.post('/mercadopago/cancel-subscription/:id', async (req: Request, res: Re
     const result = await mercadopagoService.cancelSubscription(id);
     res.json(result);
   } catch (error: any) {
-    console.error('Erro ao cancelar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao cancelar assinatura:');
     res.status(500).json({ error: error.message });
   }
 });

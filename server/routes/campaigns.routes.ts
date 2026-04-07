@@ -13,7 +13,7 @@ import { z } from 'zod';
 const router = Router();
 
 function getCompanyId(req: any): number {
-  return (req.user as any)?.companyId;
+  return req.user!.companyId;
 }
 
 // ============================================================
@@ -72,7 +72,7 @@ function buildSegmentConditions(
     whereClauses.push(
       `(
          SELECT MAX(a.start_time) FROM appointments a
-         WHERE a.patient_id = p.id AND a.status = 'completed'
+         WHERE a.patient_id = p.id AND a.company_id = $1 AND a.status = 'completed' AND a.deleted_at IS NULL
        ) < $${params.length}::date`
     );
   }
@@ -82,7 +82,7 @@ function buildSegmentConditions(
     whereClauses.push(
       `(
          SELECT MAX(a.start_time) FROM appointments a
-         WHERE a.patient_id = p.id AND a.status = 'completed'
+         WHERE a.patient_id = p.id AND a.company_id = $1 AND a.status = 'completed' AND a.deleted_at IS NULL
        ) > $${params.length}::date`
     );
   }
@@ -94,7 +94,7 @@ function buildSegmentConditions(
          SELECT 1 FROM appointments a
          JOIN appointment_procedures ap ON ap.appointment_id = a.id
          JOIN procedures pr ON ap.procedure_id = pr.id
-         WHERE a.patient_id = p.id AND pr.category = $${params.length}
+         WHERE a.patient_id = p.id AND a.company_id = $1 AND pr.category = $${params.length} AND a.deleted_at IS NULL
        )`
     );
   }

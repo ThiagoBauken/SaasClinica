@@ -3,6 +3,7 @@ import { db } from './db';
 import { companies, users, patients, appointments, procedures } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 
+import { logger } from './logger';
 interface BackupData {
   company: any;
   users: any[];
@@ -63,7 +64,7 @@ export async function createBackup(req: Request, res: Response) {
     res.send(backupJson);
 
   } catch (error) {
-    console.error('Erro ao criar backup:', error);
+    logger.error({ err: error }, 'Erro ao criar backup:');
     res.status(500).json({ message: 'Erro ao criar backup' });
   }
 }
@@ -78,7 +79,7 @@ export async function scheduleBackup(req: Request, res: Response) {
     const { frequency } = req.body; // daily, weekly, monthly
 
     // Em produção, configurar cron job ou similar
-    console.log(`Backup automático configurado para empresa ${companyId}: ${frequency}`);
+    logger.info({ companyId: companyId, frequency: frequency }, 'Backup automático configurado para empresa {companyId}: {frequency}')
 
     res.json({ 
       message: 'Backup automático configurado com sucesso',
@@ -87,7 +88,7 @@ export async function scheduleBackup(req: Request, res: Response) {
     });
 
   } catch (error) {
-    console.error('Erro ao configurar backup:', error);
+    logger.error({ err: error }, 'Erro ao configurar backup:');
     res.status(500).json({ message: 'Erro ao configurar backup' });
   }
 }
@@ -128,7 +129,7 @@ export async function getBackupStatus(req: Request, res: Response) {
     res.json(status);
 
   } catch (error) {
-    console.error('Erro ao buscar status do backup:', error);
+    logger.error({ err: error }, 'Erro ao buscar status do backup:');
     res.status(500).json({ message: 'Erro ao buscar status' });
   }
 }

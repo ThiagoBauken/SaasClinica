@@ -30,7 +30,8 @@ import InteractiveOdontogram from "@/components/odontogram/InteractiveOdontogram
 import ClinicalAssistant from "@/components/clinical/ClinicalAssistant";
 import TreatmentPlanTab from "@/components/patients/TreatmentPlanTab";
 import DocumentsTab from "@/components/patients/DocumentsTab";
-import { Sparkles } from "lucide-react";
+import BeforeAfterGallery from "@/components/aesthetic/BeforeAfterGallery";
+import { Sparkles, Camera } from "lucide-react";
 
 interface Patient {
   id: number;
@@ -265,6 +266,10 @@ export default function PatientRecordPage() {
           <TabsTrigger value="prescriptions">
             <Pill className="h-4 w-4 mr-2" />
             Receitas
+          </TabsTrigger>
+          <TabsTrigger value="aesthetic">
+            <Camera className="h-4 w-4 mr-2" />
+            Estetica
           </TabsTrigger>
           <TabsTrigger value="documents">
             <FileText className="h-4 w-4 mr-2" />
@@ -602,6 +607,17 @@ export default function PatientRecordPage() {
         {/* Prescriptions and Documents Tabs */}
         <TabsContent value="prescriptions">
           <DocumentsTab patientId={parseInt(patientId)} />
+        </TabsContent>
+
+        <TabsContent value="aesthetic">
+          <Card>
+            <CardContent className="pt-6">
+              <BeforeAfterGallery
+                patientId={parseInt(patientId)}
+                patientName={patient?.fullName || "Paciente"}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="documents">

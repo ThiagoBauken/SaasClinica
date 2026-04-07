@@ -12,6 +12,7 @@ import { validate } from '../middleware/validation';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { treatmentEvolution } from '@shared/schema';
 
 const router = Router();
 
@@ -26,6 +27,8 @@ const createTeleconsultationSchema = z.object({
 
 const endTeleconsultationSchema = z.object({
   notes: z.string().max(2000).optional(),
+  clinicalNotes: z.string().max(5000).optional(),
+  observations: z.string().max(2000).optional(),
 });
 
 // ==================== ROUTES ====================
@@ -38,7 +41,7 @@ router.get(
   '/',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -81,7 +84,7 @@ router.post(
   authCheck,
   validate({ body: createTeleconsultationSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -152,7 +155,7 @@ router.get(
   '/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -190,7 +193,7 @@ router.get(
  * Marca uma teleconsulta como iniciada
  */
 const startHandler = asyncHandler(async (req, res) => {
-  const companyId = (req.user as any)?.companyId;
+  const companyId = (req.user!)?.companyId;
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
   }
@@ -229,7 +232,7 @@ router.post('/:id/start', authCheck, startHandler);
  * Marca uma teleconsulta como concluída e calcula duração em minutos
  */
 const endHandler = asyncHandler(async (req, res) => {
-  const companyId = (req.user as any)?.companyId;
+  const companyId = (req.user!)?.companyId;
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
   }
@@ -239,11 +242,11 @@ const endHandler = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid teleconsultation ID' });
   }
 
-  const { notes } = req.body;
+  const { notes, clinicalNotes, observations } = req.body;
 
-  // Buscar started_at para calcular duração
+  // Buscar started_at e patient_id para calcular duração e criar evolução clínica
   const existing = await db.execute(sql`
-    SELECT started_at FROM teleconsultations
+    SELECT started_at, patient_id FROM teleconsultations
     WHERE id = ${teleconsultationId}
       AND company_id = ${companyId}
       AND status = 'in_progress'
@@ -256,6 +259,7 @@ const endHandler = asyncHandler(async (req, res) => {
   }
 
   const startedAt = (existing.rows[0] as any).started_at;
+  const patientId = (existing.rows[0] as any).patient_id;
   const durationMinutes = startedAt
     ? Math.round((Date.now() - new Date(startedAt).getTime()) / 60000)
     : null;
@@ -273,6 +277,19 @@ const endHandler = asyncHandler(async (req, res) => {
     RETURNING *
   `);
 
+  // If the dentist provided clinical notes, persist them as a treatment evolution record
+  if (clinicalNotes && patientId) {
+    const user = req.user!;
+    await db.insert(treatmentEvolution).values({
+      companyId,
+      patientId,
+      sessionDate: new Date(),
+      proceduresPerformed: clinicalNotes,
+      clinicalObservations: observations ?? '',
+      performedBy: user.id,
+    });
+  }
+
   res.json(result.rows[0]);
 });
 
@@ -287,7 +304,7 @@ router.delete(
   '/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }

@@ -47,7 +47,7 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   // Handler personalizado para log de tentativas bloqueadas
   handler: (req, res) => {
-    console.warn(`⚠️  SECURITY: Rate limit exceeded for IP ${req.ip} on path ${req.path}`);
+    logger.warn({ ip: req.ip, path: req.path }, 'SECURITY: Rate limit exceeded');
     res.status(429).json({
       error: isProduction
         ? "Muitas tentativas de login. Por favor, tente novamente em 15 minutos."
@@ -63,7 +63,7 @@ const registerLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    console.warn(`⚠️  SECURITY: Registration rate limit exceeded for IP ${req.ip}`);
+    logger.warn({ ip: req.ip }, 'SECURITY: Registration rate limit exceeded');
     res.status(429).json({ error: "Muitas tentativas de registro. Tente novamente mais tarde." });
   }
 });
@@ -75,7 +75,7 @@ const passwordResetLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    console.warn(`⚠️  SECURITY: Password reset rate limit exceeded for IP ${req.ip}`);
+    logger.warn({ ip: req.ip }, 'SECURITY: Password reset rate limit exceeded');
     res.status(429).json({ error: "Muitas tentativas de recuperação. Tente novamente em 15 minutos." });
   }
 });
@@ -104,7 +104,7 @@ async function comparePasswords(supplied: string, stored: string) {
 
     return timingSafeEqual(hashedBuf, suppliedBuf);
   } catch (error) {
-    console.error("Error comparing passwords:", error);
+    logger.error({ err: error }, 'Error comparing passwords');
     return false;
   }
 }
@@ -135,20 +135,20 @@ export function setupAuth(app: Express) {
         const cleanUsername = username?.trim();
         const user = await storage.getUserByUsername(cleanUsername);
         if (!user) {
-          console.warn(`⚠️  Failed login attempt for username: "${cleanUsername}" len=${cleanUsername?.length} (user not found)`);
+          logger.warn({ username: cleanUsername, usernameLength: cleanUsername?.length }, 'Failed login attempt (user not found)');
           return done(null, false, { message: 'Usuário ou senha inválidos' });
         }
 
         const passwordMatches = await comparePasswords(password, user.password);
         if (!passwordMatches) {
-          console.warn(`⚠️  Failed login attempt for username: ${cleanUsername} (wrong password)`);
+          logger.warn({ username: cleanUsername }, 'Failed login attempt (wrong password)');
           return done(null, false, { message: 'Usuário ou senha inválidos' });
         }
 
-        console.log(`✓ Successful login for user: ${cleanUsername} (ID: ${user.id})`);
+        logger.info({ username: cleanUsername, userId: user.id }, 'Successful login');
         return done(null, user);
       } catch (error) {
-        console.error("❌ Erro na estratégia de login:", error);
+        logger.error({ err: error }, 'Login strategy error');
         return done(error);
       }
     }),
@@ -170,7 +170,7 @@ export function setupAuth(app: Express) {
             let user = await storage.getUserByGoogleId(profile.id);
 
             if (user) {
-              console.log(`✓ Google login for existing user: ${user.username}`);
+              logger.info({ username: user.username }, 'Google login for existing user');
               return done(null, user);
             }
 
@@ -182,7 +182,7 @@ export function setupAuth(app: Express) {
               if (user) {
                 // Update user with Google ID
                 user = await storage.updateUser(user.id, { googleId: profile.id });
-                console.log(`✓ Linked Google account to existing user: ${user.username}`);
+                logger.info({ username: user.username }, 'Linked Google account to existing user');
                 return done(null, user);
               }
             }
@@ -201,7 +201,7 @@ export function setupAuth(app: Express) {
               const { companies } = await import("@shared/schema");
               const companiesList = await db.select().from(companies).limit(1);
               if (!companiesList || companiesList.length === 0) {
-                console.error('❌ CRITICAL: No companies found in database for Google OAuth registration');
+                logger.error('CRITICAL: No companies found in database for Google OAuth registration');
                 return done(new Error('No companies available for registration'));
               }
               const defaultCompanyId = companiesList[0].id;
@@ -245,20 +245,20 @@ export function setupAuth(app: Express) {
                       planId: basicPlan.id,
                       billingCycle: 'monthly',
                     });
-                    console.log(`✓ Subscription criada para empresa ${defaultCompanyId} (Google OAuth)`);
+                    logger.info({ companyId: defaultCompanyId }, 'Subscription created (Google OAuth)');
                   }
                 }
               } catch (subError) {
-                console.error('⚠️ Erro ao criar subscription (Google OAuth):', subError);
+                logger.error({ err: subError }, 'Error creating subscription (Google OAuth)');
               }
 
-              console.log(`✓ Created new user via Google: ${newUser.username}`);
+              logger.info({ username: newUser.username }, 'Created new user via Google');
               return done(null, newUser);
             }
 
             return done(null, false);
           } catch (error) {
-            console.error("❌ Google authentication error:", error);
+            logger.error({ err: error }, 'Google authentication error');
             return done(error);
           }
         }
@@ -277,13 +277,13 @@ export function setupAuth(app: Express) {
       const user = await storage.getUser(id);
 
       if (!user) {
-        console.warn(`⚠️  Session invalid: User ID ${id} not found in database`);
+        logger.warn({ userId: id }, 'Session invalid: User not found in database');
         return done(new Error('User not found'));
       }
 
       done(null, user);
     } catch (error) {
-      console.error('❌ Deserialization error:', error);
+      logger.error({ err: error }, 'Deserialization error');
       done(error);
     }
   });
@@ -293,6 +293,15 @@ export function setupAuth(app: Express) {
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ error: "Nome de usuário já existe" });
+      }
+
+      // Validar força da senha
+      const password = req.body.password;
+      if (!password || password.length < 12) {
+        return res.status(400).json({ error: "A senha deve ter pelo menos 12 caracteres" });
+      }
+      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({ error: "A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número" });
       }
 
       // Verificar se email já existe
@@ -352,11 +361,11 @@ export function setupAuth(app: Express) {
               planId: basicPlan.id,
               billingCycle: 'monthly',
             });
-            console.log(`✓ Subscription criada para empresa ${defaultCompanyId}`);
+            logger.info({ companyId: defaultCompanyId }, 'Subscription created for company');
           }
         }
       } catch (subError) {
-        console.error('⚠️ Erro ao criar subscription (não crítico):', subError);
+        logger.error({ err: subError }, 'Error creating subscription (non-critical)');
       }
 
       // Enviar email de boas-vindas (não aguardar para não bloquear o login)
@@ -373,7 +382,7 @@ export function setupAuth(app: Express) {
             'Básico', // Default plan for new users
             trialDays
           ),
-        }).catch(err => console.error('Erro ao enviar email de boas-vindas:', err));
+        }).catch(err => logger.error({ err }, 'Error sending welcome email'));
       }
 
       req.login(user, (err) => {
@@ -422,14 +431,28 @@ export function setupAuth(app: Express) {
       });
     }
 
-    // Sem MFA: fluxo normal
+    // Sem MFA: regenerar sessao para prevenir session fixation (CWE-384)
+    const userData = req.user as SelectUser;
     const rememberMe = req.body.rememberMe === true;
-    if (rememberMe && req.session.cookie) {
-      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 dias
-    }
 
-    const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, ...safeUser } = req.user as SelectUser;
-    res.status(200).json(safeUser);
+    req.session.regenerate((regenerateErr) => {
+      if (regenerateErr) {
+        logger.error({ err: regenerateErr }, 'Session regeneration error');
+      }
+
+      req.login(userData, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ error: 'Erro ao criar sessao' });
+        }
+
+        if (rememberMe && req.session.cookie) {
+          req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 dias
+        }
+
+        const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, ...safeUser } = userData;
+        res.status(200).json(safeUser);
+      });
+    });
   });
 
   // MFA: Verificar código TOTP após login com senha
@@ -623,8 +646,12 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ error: "Token, email e nova senha são obrigatórios" });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "A senha deve ter pelo menos 8 caracteres" });
+    if (newPassword.length < 12) {
+      return res.status(400).json({ error: "A senha deve ter pelo menos 12 caracteres" });
+    }
+    // Require at least: 1 uppercase, 1 lowercase, 1 number
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: "A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número" });
     }
 
     const user = await storage.getUserByEmail(email);
@@ -664,7 +691,7 @@ export function setupAuth(app: Express) {
     const userId = (req.user as SelectUser)?.id;
     req.logout((err) => {
       if (err) return next(err);
-      console.log(`✓ User logged out: ${userId}`);
+      logger.info({ userId }, 'User logged out');
       res.sendStatus(200);
     });
   });
@@ -710,7 +737,7 @@ export function setupAuth(app: Express) {
 
       res.json(company);
     } catch (error) {
-      console.error('Erro ao buscar empresa do usuário:', error);
+      logger.error({ err: error }, 'Error fetching user company');
       res.status(500).json({ error: "Erro ao buscar informações da empresa" });
     }
   });

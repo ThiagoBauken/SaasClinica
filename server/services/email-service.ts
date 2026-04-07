@@ -1,5 +1,6 @@
 import * as nodemailer from 'nodemailer';
 
+import { logger } from '../logger';
 // Função para criar transporter sob demanda (lazy loading)
 function getTransporter() {
   return nodemailer.createTransport({
@@ -29,10 +30,10 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
       html,
     });
 
-    console.log('Email sent successfully:', info.messageId);
+    logger.info({ messageId: info.messageId }, 'Email sent successfully:');
     return { success: true, data: info };
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error({ err: error }, 'Error sending email:');
     return { success: false, error };
   }
 }

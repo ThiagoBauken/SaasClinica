@@ -226,7 +226,7 @@ export interface AppointmentReminderJob {
   appointmentId: number;
   patientId: number;
   companyId: number;
-  reminderType: '24h' | '1h' | 'now';
+  reminderType: '48h' | '24h' | '2h' | '1h' | 'now';
 }
 
 export interface AppointmentConfirmationJob {
@@ -250,12 +250,23 @@ export interface EmailJob {
   companyId: number;
 }
 
-export interface WhatsAppJob {
+export interface WhatsAppGenericJob {
   to: string;
   message: string;
   companyId: number;
   mediaUrl?: string;
 }
+
+export interface WhatsAppPaymentReceiptJob {
+  type: 'payment-receipt-whatsapp';
+  patientId: number;
+  companyId: number;
+  paymentId: number;
+  amount: number;
+  paymentMethod: string;
+}
+
+export type WhatsAppJob = WhatsAppGenericJob | WhatsAppPaymentReceiptJob;
 
 export interface ReportJob {
   type: 'monthly-revenue' | 'inventory' | 'appointments';
@@ -321,6 +332,40 @@ export async function addReportJob(data: ReportJob) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Recall (Return) Reminder Job
+// ---------------------------------------------------------------------------
+
+export interface RecallReminderJob {
+  companyId: number;
+  patientId: number;
+  patientName: string;
+  patientPhone: string;
+  lastVisitDate: string; // ISO-8601 date string
+  companyName: string;
+}
+
+/**
+ * Schedules a WhatsApp recall reminder 6 months after the patient's last visit.
+ * If the 6-month mark has already passed the job is enqueued for immediate delivery.
+ *
+ * @param data - Recall reminder payload
+ * @returns The BullMQ job instance, or null when Redis is unavailable
+ */
+export async function scheduleRecallReminder(data: RecallReminderJob) {
+  const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+  const lastVisitMs = new Date(data.lastVisitDate).getTime();
+  const sendAt = lastVisitMs + SIX_MONTHS_MS;
+  const delay = Math.max(sendAt - Date.now(), 0);
+
+  return await whatsappQueue.add('recall-reminder', data, {
+    delay,
+    priority: 3,
+    // Unique job per patient+company prevents duplicate reminders if rescheduled
+    jobId: `recall:${data.companyId}:${data.patientId}`,
+  });
+}
+
 /**
  * Agendar lembrete de agendamento
  * @param appointmentDate Data do agendamento
@@ -335,6 +380,10 @@ export async function scheduleAppointmentReminder(
   // Lembrete 24h antes
   if (data.reminderType === '24h') {
     reminderTime.setHours(reminderTime.getHours() - 24);
+  }
+  // Lembrete 2h antes
+  else if (data.reminderType === '2h') {
+    reminderTime.setHours(reminderTime.getHours() - 2);
   }
   // Lembrete 1h antes
   else if (data.reminderType === '1h') {

@@ -66,6 +66,10 @@ import TermosDeUsoPage from "@/pages/termos-de-uso";
 import PoliticaDePrivacidadePage from "@/pages/politica-de-privacidade";
 import LGPDPage from "@/pages/lgpd-page";
 import AjudaPage from "@/pages/ajuda-page";
+import PublicQuotePage from "@/pages/public-quote-page";
+import PublicBookingPage from "@/pages/public-booking-page";
+import PatientPortalPage from "@/pages/patient-portal-page";
+import PacotesEsteticosPage from "@/pages/pacotes-esteticos-page";
 
 export default function App() {
   // Initialize CSRF token on app startup
@@ -110,6 +114,9 @@ export default function App() {
             <Route path="/politica-de-privacidade" component={PoliticaDePrivacidadePage} />
             <Route path="/lgpd" component={LGPDPage} />
             <Route path="/confirmar/:token" component={PublicConfirmationPage} />
+            <Route path="/orcamento/:token" component={PublicQuotePage} />
+            <Route path="/agendar/:companyId" component={PublicBookingPage} />
+            <Route path="/portal/:token" component={PatientPortalPage} />
 
             {/* Rotas protegidas */}
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
@@ -135,6 +142,7 @@ export default function App() {
             <ProtectedRoute path="/configuracoes/chat" component={ConfiguracoesChatPage} />
             <ProtectedRoute path="/configuracoes/usuarios" component={ConfiguracoesUsuariosPage} />
             <ProtectedRoute path="/configuracoes/procedimentos" component={ConfiguracoesProcedimentosPage} />
+            <ProtectedRoute path="/pacotes-esteticos" component={PacotesEsteticosPage} />
             <ProtectedRoute path="/configuracoes/salas" component={ConfiguracoesSalasPage} />
             <ProtectedRoute path="/configuracoes/notificacoes" component={ConfiguracoesNotificacoesPage} />
             <ProtectedRoute path="/configuracoes/financeiro" component={ConfiguracoesFinanceiroPage} />

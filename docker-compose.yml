@@ -13,7 +13,11 @@ services:
       - "${PORT:-5000}:5000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL:-postgresql://dental:dental123@db:5432/dental_clinic}
+      # Routed through PgBouncer (transaction pooling) so a high DB_POOL_MAX
+      # per instance doesn't explode Postgres max_connections when scaling horizontally.
+      - DATABASE_URL=${DATABASE_URL:-postgresql://dental:dental123@pgbouncer:6432/dental_clinic}
+      - DB_POOL_MAX=${DB_POOL_MAX:-20}
+      - DB_POOL_MIN=${DB_POOL_MIN:-2}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -22,6 +26,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      pgbouncer:
+        condition: service_started
       redis:
         condition: service_started
     restart: unless-stopped
@@ -57,6 +63,36 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dental} -d ${POSTGRES_DB:-dental_clinic}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # PgBouncer (transaction pooling) — desbloqueia horizontal scaling
+  # ===========================================
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: dental-pgbouncer
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dental}:${POSTGRES_PASSWORD:-dental123}@db:5432/${POSTGRES_DB:-dental_clinic}
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=${PGBOUNCER_MAX_CLIENT_CONN:-1000}
+      - DEFAULT_POOL_SIZE=${PGBOUNCER_POOL_SIZE:-25}
+      - RESERVE_POOL_SIZE=5
+      - SERVER_IDLE_TIMEOUT=60
+      - SERVER_LIFETIME=3600
+      - ADMIN_USERS=${POSTGRES_USER:-dental}
+      - AUTH_TYPE=scram-sha-256
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:6432"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dental-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER:-dental}"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { subscriptionService } from './subscription-service';
-import { getAvailableFeatures } from './feature-gate';
+import { getAvailableFeatures, getCompanyPlanName, PLAN_AI_TOKEN_LIMITS } from './feature-gate';
 import { db } from '../db';
 import { users, patients, appointments } from '@shared/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
+import { logger } from '../logger';
 /**
  * Middleware para enforcement de limites por plano
  */
@@ -52,7 +53,7 @@ export async function checkUsersLimit(req: Request, res: Response, next: NextFun
 
     next();
   } catch (error) {
-    console.error('Erro ao verificar limite de usuários:', error);
+    logger.error({ err: error }, 'Erro ao verificar limite de usuários:');
     next(error);
   }
 }
@@ -94,7 +95,7 @@ export async function checkPatientsLimit(req: Request, res: Response, next: Next
 
     next();
   } catch (error) {
-    console.error('Erro ao verificar limite de pacientes:', error);
+    logger.error({ err: error }, 'Erro ao verificar limite de pacientes:');
     next(error);
   }
 }
@@ -146,8 +147,54 @@ export async function checkAppointmentsLimit(req: Request, res: Response, next: 
 
     next();
   } catch (error) {
-    console.error('Erro ao verificar limite de agendamentos:', error);
+    logger.error({ err: error }, 'Erro ao verificar limite de agendamentos:');
     next(error);
+  }
+}
+
+/**
+ * Verificar se a empresa ainda tem orçamento de tokens de IA no mês atual.
+ * Bloqueia 429 se exceder o limite mensal do plano.
+ *
+ * Aplicar em rotas que disparam chamadas LLM (ex.: chatbot, IA clínica).
+ */
+export async function checkAITokensLimit(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = req.user as any;
+    if (!user || !user.companyId) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+
+    const plan = await getCompanyPlanName(user.companyId);
+    const planLimit = PLAN_AI_TOKEN_LIMITS[plan] ?? 0;
+
+    if (planLimit === 0) {
+      return res.status(403).json({
+        error: 'Recurso de IA não disponível',
+        message: `Seu plano (${plan}) não inclui acesso a IA. Faça upgrade para professional ou enterprise.`,
+        upgradeUrl: '/settings/billing',
+      });
+    }
+
+    const used = await subscriptionService.getAITokenUsage(user.companyId);
+
+    if (used >= planLimit) {
+      return res.status(429).json({
+        error: 'Limite mensal de tokens de IA atingido',
+        message: `Seu plano (${plan}) permite ${planLimit.toLocaleString('pt-BR')} tokens de IA por mês. Você já usou ${used.toLocaleString('pt-BR')}. O limite reseta no primeiro dia do próximo mês.`,
+        limit: planLimit,
+        used,
+        upgradeUrl: '/settings/billing',
+      });
+    }
+
+    // Anexar para uso opcional do handler downstream
+    (req as any).aiTokenBudget = { plan, used, limit: planLimit, remaining: planLimit - used };
+    next();
+  } catch (error) {
+    logger.error({ err: error }, 'Erro ao verificar limite de tokens de IA');
+    // Fail-closed: não permitir uso ilimitado em caso de falha
+    return res.status(503).json({ error: 'Não foi possível verificar limite de IA. Tente novamente.' });
   }
 }
 
@@ -174,7 +221,7 @@ export function requireFeature(featureKey: string) {
 
       next();
     } catch (error) {
-      console.error('Erro ao verificar feature:', error);
+      logger.error({ err: error }, 'Erro ao verificar feature:');
       next(error);
     }
   };
@@ -202,7 +249,7 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
 
     next();
   } catch (error) {
-    console.error('Erro ao verificar assinatura:', error);
+    logger.error({ err: error }, 'Erro ao verificar assinatura:');
     next(error);
   }
 }

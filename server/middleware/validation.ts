@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodSchema, ZodError } from 'zod';
 
+import { logger } from '../logger';
 /**
  * Middleware genérico de validação usando Zod
  * Valida body, query, e params da requisição
@@ -41,7 +42,7 @@ export function validate(schema: {
       }
 
       // Erro inesperado
-      console.error('Validation middleware error:', error);
+      logger.error({ err: error }, 'Validation middleware error:');
       return res.status(500).json({
         error: 'Internal server error during validation',
       });

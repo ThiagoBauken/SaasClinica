@@ -10,6 +10,7 @@ import fsSync from 'fs';
 import { authCheck, asyncHandler } from '../middleware/auth';
 import { storageService, type StorageFolder } from '../services/storage.service';
 
+import { logger } from '../logger';
 const router = Router();
 
 // GET /api/storage/files/:key(*) - Serve local files (fallback when S3 not available)
@@ -30,6 +31,13 @@ router.get('/files/*', authCheck, asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
 
+  // Tenant isolation: ensure file belongs to the user's company
+  const user = req.user!;
+  const companyId = user.companyId;
+  if (companyId && !normalizedKey.startsWith(`company-${companyId}/`) && !normalizedKey.startsWith('public/')) {
+    return res.status(403).json({ error: 'Access denied: file belongs to another company' });
+  }
+
   if (!fsSync.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found' });
   }
@@ -40,15 +48,15 @@ router.get('/files/*', authCheck, asyncHandler(async (req, res) => {
 // GET /api/storage/presigned/:folder/:filename - Get presigned URL for upload
 router.get('/presigned/:folder/:filename', authCheck, asyncHandler(async (req, res) => {
   const { folder, filename } = req.params;
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
   }
 
   // Validate folder
-  const validFolders: StorageFolder[] = ['digitization', 'xrays', 'documents', 'signatures', 'chat', 'avatars', 'websites'];
+  const validFolders: StorageFolder[] = ['digitization', 'xrays', 'documents', 'signatures', 'chat', 'avatars', 'websites', 'photos'];
   if (!validFolders.includes(folder as StorageFolder)) {
     return res.status(400).json({ error: 'Invalid folder' });
   }
@@ -67,7 +75,7 @@ router.get('/presigned/:folder/:filename', authCheck, asyncHandler(async (req, r
       expiresIn: 3600,
     });
   } catch (error) {
-    console.error('Error generating presigned upload URL:', error);
+    logger.error({ err: error }, 'Error generating presigned upload URL:');
     res.status(500).json({ error: 'Could not generate upload URL' });
   }
 }));
@@ -91,15 +99,15 @@ router.get('/download/*', authCheck, asyncHandler(async (req, res) => {
     // Otherwise redirect to the presigned S3 URL
     res.redirect(presignedUrl);
   } catch (error) {
-    console.error('Error generating presigned download URL:', error);
+    logger.error({ err: error }, 'Error generating presigned download URL:');
     res.status(500).json({ error: 'Could not generate download URL' });
   }
 }));
 
 // GET /api/storage/info - Get storage information
 router.get('/info', authCheck, asyncHandler(async (req, res) => {
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!companyId) {
     return res.status(403).json({ error: 'User not associated with any company' });
@@ -128,8 +136,8 @@ router.get('/info', authCheck, asyncHandler(async (req, res) => {
 // DELETE /api/storage/files/:key(*) - Delete a file
 router.delete('/files/*', authCheck, asyncHandler(async (req, res) => {
   const key = req.params[0];
-  const user = req.user as any;
-  const companyId = user?.companyId;
+  const user = req.user!;
+  const companyId = user.companyId;
 
   if (!key) {
     return res.status(400).json({ error: 'File key is required' });
@@ -148,7 +156,7 @@ router.delete('/files/*', authCheck, asyncHandler(async (req, res) => {
     await storageService.delete(key);
     res.json({ success: true, message: 'File deleted' });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    logger.error({ err: error }, 'Error deleting file:');
     res.status(500).json({ error: 'Could not delete file' });
   }
 }));

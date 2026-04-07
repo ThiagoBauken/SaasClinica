@@ -40,6 +40,8 @@ import {
   Database,
   Loader2,
 } from "lucide-react";
+import { GoalsWidget } from "@/components/dashboard/GoalsWidget";
+import { AlertsWidget } from "@/components/dashboard/AlertsWidget";
 
 // Dashboard types
 interface MetricData {
@@ -149,29 +151,29 @@ export default function DashboardPage() {
   return (
     <DashboardLayout title="Dashboard" currentPath="/">
       {/* Quick Actions */}
-      <div className="mb-6">
+      <div className="mb-6" role="region" aria-label="Acoes rapidas">
         <div className="flex flex-wrap gap-3">
           <Link href="/agenda/novo">
-            <Button className="gap-2">
-              <CalendarPlus className="h-4 w-4" />
+            <Button className="gap-2" aria-label="Criar novo agendamento">
+              <CalendarPlus className="h-4 w-4" aria-hidden="true" />
               Novo Agendamento
             </Button>
           </Link>
           <Link href="/patients?action=new">
-            <Button variant="outline" className="gap-2">
-              <UserPlus className="h-4 w-4" />
+            <Button variant="outline" className="gap-2" aria-label="Cadastrar novo paciente">
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
               Novo Paciente
             </Button>
           </Link>
           <Link href="/agenda">
-            <Button variant="outline" className="gap-2">
-              <Calendar className="h-4 w-4" />
+            <Button variant="outline" className="gap-2" aria-label="Ver agenda">
+              <Calendar className="h-4 w-4" aria-hidden="true" />
               Ver Agenda
             </Button>
           </Link>
           <Link href="/financial">
-            <Button variant="outline" className="gap-2">
-              <DollarSign className="h-4 w-4" />
+            <Button variant="outline" className="gap-2" aria-label="Ir para o financeiro">
+              <DollarSign className="h-4 w-4" aria-hidden="true" />
               Financeiro
             </Button>
           </Link>
@@ -181,15 +183,21 @@ export default function DashboardPage() {
               className="gap-2 border-dashed border-orange-400 text-orange-600 hover:bg-orange-50"
               onClick={() => seedMutation.mutate()}
               disabled={seedMutation.isPending}
+              aria-label={seedMutation.isPending ? "Populando dados de teste, aguarde" : "Popular dados de teste"}
+              aria-busy={seedMutation.isPending}
             >
-              {seedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {seedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Database className="h-4 w-4" aria-hidden="true" />}
               {seedMutation.isPending ? 'Populando...' : 'Popular Dados de Teste'}
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div
+        className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
+        role="region"
+        aria-label="Metricas do dia"
+      >
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Agendamentos</CardTitle>
@@ -264,7 +272,7 @@ export default function DashboardPage() {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Weekly appointments chart */}
-        <Card>
+        <Card role="region" aria-label="Grafico de agendamentos da semana">
           <CardHeader>
             <CardTitle>Agendamentos da Semana</CardTitle>
             <CardDescription>Total de agendamentos por dia</CardDescription>
@@ -314,7 +322,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Monthly revenue chart */}
-        <Card>
+        <Card role="region" aria-label="Grafico de receita mensal">
           <CardHeader>
             <CardTitle>Receita Mensal</CardTitle>
             <CardDescription>Receita dos últimos 7 meses</CardDescription>
@@ -372,6 +380,12 @@ export default function DashboardPage() {
         </Card>
       </div>
       
+      {/* Goals + Alerts widgets row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <GoalsWidget />
+        <AlertsWidget />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Procedures chart */}
         <Card>

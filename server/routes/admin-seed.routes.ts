@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
@@ -12,8 +13,8 @@ const router = Router();
  */
 router.post('/seed-complete', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId;
-    const userRole = req.user?.role;
+    const companyId = req.user!.companyId;
+    const userRole = req.user!.role;
 
     if (!companyId) {
       return res.status(400).json({ error: 'Empresa não encontrada' });
@@ -28,7 +29,7 @@ router.post('/seed-complete', requireAuth, async (req, res) => {
 
     res.json(result);
   } catch (error: any) {
-    console.error('Erro ao executar seed completo:', error);
+    logger.error({ err: error }, 'Erro ao executar seed completo:');
     res.status(500).json({ error: 'Erro ao popular dados: ' + (error.message || 'Erro desconhecido') });
   }
 });

@@ -7,9 +7,14 @@ import { nowpaymentsService } from '../billing/nowpayments-service';
 import { mercadopagoService } from '../billing/mercadopago-service';
 import { stripeService } from '../billing/stripe-service';
 import { logger } from '../logger';
+import { timingSafeEqual } from 'crypto';
+import { webhookIdempotency } from '../middleware/webhook-idempotency';
 
 const log = logger.child({ module: 'webhooks' });
 const router = Router();
+
+// Shared idempotency middleware instance (24-hour TTL)
+const dedup = webhookIdempotency();
 
 /**
  * POST /api/webhooks/wuzapi/incoming
@@ -22,6 +27,7 @@ const router = Router();
  */
 router.post(
   '/wuzapi/incoming',
+  dedup,
   asyncHandler(async (req, res) => {
     const { type, data } = req.body;
 
@@ -29,9 +35,13 @@ router.post(
     const webhookSecret = req.headers['x-webhook-secret'] as string;
     const expectedSecret = process.env.WUZAPI_WEBHOOK_SECRET;
 
-    if (expectedSecret && webhookSecret !== expectedSecret) {
-      log.warn('Invalid Wuzapi webhook secret received');
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (expectedSecret) {
+      if (!webhookSecret ||
+          webhookSecret.length !== expectedSecret.length ||
+          !timingSafeEqual(Buffer.from(webhookSecret), Buffer.from(expectedSecret))) {
+        log.warn('Invalid Wuzapi webhook secret received');
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
 
     if (type === 'message') {
@@ -102,12 +112,12 @@ router.post(
             })
             .where(eq(appointments.id, appointment.id));
 
-          console.log('Patient confirmation processed:', {
+          logger.info({
             appointmentId: appointment.id,
             patientId: patient.id,
             confirmed: isConfirmation,
             response: message,
-          });
+          }, 'Patient confirmation processed');
 
           return res.json({
             success: true,
@@ -119,12 +129,12 @@ router.post(
       }
 
       // Mensagem não relacionada a confirmação - apenas log
-      console.log('Received WhatsApp message (not a confirmation):', {
+      logger.info({
         from: cleanPhone,
         patientId: patient?.id,
         message,
         messageId,
-      });
+      }, 'Received WhatsApp message (not a confirmation)');
 
       res.json({ success: true, received: true });
     } else if (type === 'status') {
@@ -156,7 +166,7 @@ router.post(
  * POST /api/webhooks/nowpayments
  * Webhook do NOWPayments para pagamentos crypto
  */
-router.post('/nowpayments', async (req, res) => {
+router.post('/nowpayments', dedup, async (req, res) => {
   try {
     const signature = req.headers['x-nowpayments-sig'] as string;
     const payload = JSON.stringify(req.body);
@@ -183,7 +193,7 @@ router.post('/nowpayments', async (req, res) => {
  * POST /api/webhooks/mercadopago
  * Webhook do MercadoPago para pagamentos Pix/Boleto/Cartão
  */
-router.post('/mercadopago', async (req, res) => {
+router.post('/mercadopago', dedup, async (req, res) => {
   try {
     const xSignature = req.headers['x-signature'] as string;
     const xRequestId = req.headers['x-request-id'] as string;
@@ -210,7 +220,7 @@ router.post('/mercadopago', async (req, res) => {
  * POST /api/webhooks/stripe
  * Webhook do Stripe (já existe no stripe-service, mas adicionamos aqui para centralizar)
  */
-router.post('/stripe', async (req, res) => {
+router.post('/stripe', dedup, async (req, res) => {
   try {
     const signature = req.headers['stripe-signature'] as string;
     const payload = Buffer.from(JSON.stringify(req.body));
@@ -242,6 +252,7 @@ router.post('/stripe', async (req, res) => {
  */
 router.post(
   '/wuzapi/:companyId',
+  dedup,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId);
     const event = req.body;

@@ -11,19 +11,18 @@ const router = Router();
 // Schema para atualização de configurações
 const updateSettingsSchema = z.object({
   openaiApiKey: z.string().optional(),
-  n8nWebhookUrl: z.string().url().optional().or(z.literal('')),
 });
 
 /**
  * GET /api/v1/company/settings
- * Busca as configurações da empresa (OpenAI, N8N, etc)
+ * Busca as configurações da empresa (OpenAI, etc)
  */
 router.get(
   '/settings',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -36,7 +35,6 @@ router.get(
         email: companies.email,
         phone: companies.phone,
         openaiApiKey: companies.openaiApiKey,
-        n8nWebhookUrl: companies.n8nWebhookUrl,
       })
       .from(companies)
       .where(eq(companies.id, companyId));
@@ -68,8 +66,8 @@ router.patch(
   authCheck,
   validate({ body: updateSettingsSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -83,7 +81,7 @@ router.patch(
       });
     }
 
-    const { openaiApiKey, n8nWebhookUrl } = req.body;
+    const { openaiApiKey } = req.body;
 
     // Construir objeto de atualização
     const updateData: any = {
@@ -101,10 +99,6 @@ router.patch(
       updateData.openaiApiKey = openaiApiKey || null;
     }
 
-    if (n8nWebhookUrl !== undefined) {
-      updateData.n8nWebhookUrl = n8nWebhookUrl || null;
-    }
-
     // Atualizar no banco
     const [updated] = await db
       .update(companies)
@@ -114,7 +108,6 @@ router.patch(
         id: companies.id,
         name: companies.name,
         openaiApiKey: companies.openaiApiKey,
-        n8nWebhookUrl: companies.n8nWebhookUrl,
       });
 
     // Mascarar a chave na resposta
@@ -135,13 +128,12 @@ router.patch(
 
 /**
  * POST /api/v1/company/openai-key
- * Endpoint interno para N8N buscar a chave OpenAI
+ * Endpoint para integrações externas buscarem a chave OpenAI
  *
- * HARDENED:
- * - Requires N8N_WEBHOOK_SECRET (no bypass when unset)
+ * Security:
+ * - Requires WEBHOOK_SECRET header
  * - Validates companyId matches the API key's company
- * - Uses per-company n8nApiKey for additional verification
- * - Returns masked key by default
+ * - Uses per-company apiKey for additional verification
  */
 router.post(
   '/openai-key',
@@ -154,9 +146,9 @@ router.post(
 
     // SECURITY: Always require webhook secret — never skip
     const headerWebhookSecret = req.headers['x-webhook-secret'] as string;
-    const serverSecret = process.env.N8N_WEBHOOK_SECRET;
+    const serverSecret = process.env.N8N_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
     if (!serverSecret) {
-      return res.status(503).json({ error: 'N8N_WEBHOOK_SECRET not configured on server' });
+      return res.status(503).json({ error: 'WEBHOOK_SECRET not configured on server' });
     }
     if (headerWebhookSecret !== serverSecret) {
       return res.status(403).json({ error: 'Invalid webhook secret' });
@@ -168,7 +160,7 @@ router.post(
       const [companyByKey] = await db
         .select({ id: companies.id })
         .from(companies)
-        .where(eq(companies.n8nApiKey, headerApiKey));
+        .where(eq(companies.apiKey, headerApiKey));
 
       if (!companyByKey || companyByKey.id !== companyId) {
         return res.status(403).json({ error: 'API key does not match companyId' });

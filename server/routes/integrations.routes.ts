@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import * as WuzapiService from '../services/wuzapi-provisioning';
 import { getWhatsAppProvider, getWhatsAppProviderInfo, type WhatsAppProviderType } from '../services/whatsapp-provider';
 
+import { logger } from '../logger';
 const router = Router();
 
 // Schema para atualização de configurações de integração
@@ -44,8 +45,8 @@ router.get(
   '/',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -96,8 +97,8 @@ router.patch(
   authCheck,
   validate({ body: updateIntegrationsSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -150,8 +151,8 @@ router.post(
   '/test-whatsapp',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -199,8 +200,8 @@ router.post(
   '/test-wuzapi',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     const settings = await storage.getClinicSettings(companyId);
@@ -275,8 +276,8 @@ router.post(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -352,8 +353,8 @@ router.post(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -412,8 +413,8 @@ router.get(
   '/config',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     const [settings] = await db
@@ -461,8 +462,8 @@ router.get(
   '/wuzapi/qrcode',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     // Usa o servico de provisionamento automatico
@@ -494,8 +495,8 @@ router.get(
   '/wuzapi/status',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     // Usa o servico de provisionamento automatico
@@ -512,8 +513,8 @@ router.post(
   '/wuzapi/disconnect',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -537,8 +538,8 @@ router.post(
   '/wuzapi/reconnect',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     const result = await WuzapiService.reconnectWuzapi(companyId);
@@ -574,8 +575,8 @@ router.post(
   '/wuzapi/connect',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -623,8 +624,8 @@ router.post(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -702,8 +703,8 @@ router.post(
   '/wuzapi/logout',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -726,8 +727,8 @@ router.get(
   '/wuzapi/webhook-info',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     const settings = await storage.getClinicSettings(companyId);
@@ -757,8 +758,8 @@ router.post(
   '/wuzapi/reconfigure',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -794,8 +795,8 @@ router.post(
   '/wuzapi/configure-webhook-only',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     const success = await WuzapiService.configureWuzapiWebhook(companyId);
@@ -815,8 +816,8 @@ router.post(
   '/wuzapi/reconfigure-legacy',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -852,7 +853,7 @@ router.post(
 
     try {
       // 1. Configurar Webhook (formato correto da API Wuzapi 3.0)
-      console.log(`[Wuzapi Reconfigure] Configurando webhook: ${webhookUrl}`);
+      logger.info({ webhookUrl: webhookUrl }, '[Wuzapi Reconfigure] Configurando webhook: {webhookUrl}')
       const webhookResponse = await fetch(`${baseUrl}/webhook`, {
           method: 'POST',
           headers: {
@@ -865,10 +866,10 @@ router.post(
         });
 
         const hmacData = await hmacResponse.json().catch(() => ({}));
-        console.log(`[Wuzapi Reconfigure] HMAC response:`, hmacData);
+        logger.info({ data: hmacData }, '[Wuzapi Reconfigure] HMAC response:')
         results.hmac = hmacResponse.ok;
       } else {
-        console.log('[Wuzapi Reconfigure] HMAC não configurado no .env');
+        logger.info('[Wuzapi Reconfigure] HMAC não configurado no .env');
         results.hmac = null;
       }
 
@@ -888,7 +889,7 @@ router.post(
         webhookUrl,
       });
     } catch (error: any) {
-      console.error('[Wuzapi Reconfigure] Erro:', error);
+      logger.error({ err: error }, '[Wuzapi Reconfigure] Erro:');
       res.status(500).json({
         success: false,
         message: 'Erro ao reconfigurar',
@@ -910,8 +911,8 @@ router.post(
   '/wuzapi/reset',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: "User not associated with any company" });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: "User not associated with any company" });
     const companyId = user.companyId;
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
@@ -921,7 +922,7 @@ router.post(
       });
     }
 
-    console.log(`[API Reset] Resetando instância Wuzapi para company ${companyId}`);
+    logger.info({ companyId: companyId }, '[API Reset] Resetando instância Wuzapi para company {companyId}')
     const result = await WuzapiService.resetWuzapiInstance(companyId);
 
     if (result.success) {
@@ -950,8 +951,8 @@ router.get(
   '/whatsapp-provider',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: 'User not associated with any company' });
 
     const info = await getWhatsAppProviderInfo(user.companyId);
     res.json(info);
@@ -966,8 +967,8 @@ router.put(
   '/whatsapp-provider',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: 'User not associated with any company' });
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Apenas administradores podem alterar o provider' });
@@ -997,8 +998,8 @@ router.post(
   '/whatsapp-provider/test',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: 'User not associated with any company' });
 
     const provider = await getWhatsAppProvider(user.companyId);
     if (!provider) {
@@ -1041,8 +1042,8 @@ router.put(
   '/meta-cloud-api',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: 'User not associated with any company' });
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Apenas administradores podem configurar integrações' });
@@ -1077,8 +1078,8 @@ router.put(
   '/evolution-api',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    if (!user?.companyId) return res.status(403).json({ error: 'User not associated with any company' });
+    const user = req.user!;
+    if (!user.companyId) return res.status(403).json({ error: 'User not associated with any company' });
 
     if (user.role !== 'admin' && user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Apenas administradores podem configurar integrações' });
@@ -1118,7 +1119,7 @@ router.get(
   authCheck,
   asyncHandler(async (req: any, res) => {
     const user = req.user;
-    if (!user?.companyId) {
+    if (!user.companyId) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -1274,7 +1275,7 @@ router.get(
   authCheck,
   asyncHandler(async (req: any, res) => {
     const user = req.user;
-    if (!user?.companyId) {
+    if (!user.companyId) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -1298,7 +1299,7 @@ router.post(
   authCheck,
   asyncHandler(async (req: any, res) => {
     const user = req.user;
-    if (!user?.companyId) {
+    if (!user.companyId) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 

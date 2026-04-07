@@ -5,6 +5,7 @@ import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+import { logger } from './logger';
 /**
  * Dashboard APIs - Retorna estatísticas e métricas reais do banco de dados
  */
@@ -134,7 +135,7 @@ export async function getDashboardStats(req: Request, res: Response) {
       }
     });
   } catch (error) {
-    console.error("Erro ao buscar estatísticas do dashboard:", error);
+    logger.error({ err: error }, 'Erro ao buscar estatísticas do dashboard:');
     res.status(500).json({ error: "Erro ao buscar estatísticas" });
   }
 }
@@ -180,7 +181,7 @@ export async function getWeeklyAppointments(req: Request, res: Response) {
 
     res.json(result);
   } catch (error) {
-    console.error("Erro ao buscar agendamentos da semana:", error);
+    logger.error({ err: error }, 'Erro ao buscar agendamentos da semana:');
     res.status(500).json({ error: "Erro ao buscar agendamentos da semana" });
   }
 }
@@ -223,7 +224,7 @@ export async function getMonthlyRevenue(req: Request, res: Response) {
 
     res.json(results);
   } catch (error) {
-    console.error("Erro ao buscar receita mensal:", error);
+    logger.error({ err: error }, 'Erro ao buscar receita mensal:');
     res.status(500).json({ error: "Erro ao buscar receita mensal" });
   }
 }
@@ -265,7 +266,7 @@ export async function getProceduresDistribution(req: Request, res: Response) {
     // Se não houver dados, retornar array vazio ao invés de dados mockados
     res.json(result.length > 0 ? result : []);
   } catch (error) {
-    console.error("Erro ao buscar distribuição de procedimentos:", error);
+    logger.error({ err: error }, 'Erro ao buscar distribuição de procedimentos:');
     res.status(500).json({ error: "Erro ao buscar distribuição de procedimentos" });
   }
 }
@@ -316,7 +317,7 @@ export async function getRecentActivities(req: Request, res: Response) {
 
     res.json(activities);
   } catch (error) {
-    console.error("Erro ao buscar atividades recentes:", error);
+    logger.error({ err: error }, 'Erro ao buscar atividades recentes:');
     res.status(500).json({ error: "Erro ao buscar atividades recentes" });
   }
 }

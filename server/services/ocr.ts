@@ -2,6 +2,7 @@ import vision from '@google-cloud/vision';
 import fs from 'fs';
 import path from 'path';
 
+import { logger } from '../logger';
 /**
  * Serviço de OCR usando Google Cloud Vision API
  * Extrai texto de imagens de fichas físicas de pacientes
@@ -85,7 +86,7 @@ export async function extractTextFromImage(
       confidence: confidence * 100, // Converte para porcentagem
     };
   } catch (error) {
-    console.error('Erro ao extrair texto da imagem:', error);
+    logger.error({ err: error }, 'Erro ao extrair texto da imagem:');
     throw new Error(
       `Falha ao processar OCR: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
     );
@@ -106,11 +107,9 @@ export async function extractTextFromMultipleImages(
     try {
       const result = await extractTextFromImage(imagePath);
       results.push(result);
-      console.log(
-        `OCR processado com sucesso. Confiança: ${result.confidence.toFixed(2)}%`
-      );
+      logger.info({ confidence: result.confidence.toFixed(2) }, 'OCR processed successfully');
     } catch (error) {
-      console.error('Erro ao processar imagem:', error);
+      logger.error({ err: error }, 'Erro ao processar imagem:');
       // Adiciona resultado vazio em caso de erro
       results.push({ text: '', confidence: 0 });
     }

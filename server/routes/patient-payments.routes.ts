@@ -13,6 +13,7 @@ import { db } from '../db';
 import { payments, patients, treatmentPlans } from '@shared/schema';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 
+import { logger } from '../logger';
 const router = Router();
 
 // MercadoPago client
@@ -44,8 +45,8 @@ router.post(
   authCheck,
   validate({ body: createPaymentSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
     if (!companyId) return res.status(403).json({ error: 'Empresa nao identificada' });
 
     const { patientId, amount, description, paymentMethod, treatmentPlanId, installments } = req.body;
@@ -121,7 +122,7 @@ router.post(
         mpPaymentId: mpResponse.id,
       });
     } catch (error: any) {
-      console.error('[PatientPayments] MercadoPago error:', error);
+      logger.error({ err: error }, '[PatientPayments] MercadoPago error:');
       res.status(500).json({ error: 'Erro ao gerar cobranca', details: error.message });
     }
   }),
@@ -141,8 +142,8 @@ router.get(
   '/',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
     if (!companyId) return res.status(403).json({ error: 'Empresa nao identificada' });
 
     const { patientId, status, dateFrom, dateTo } = req.query as Record<string, string | undefined>;
@@ -209,8 +210,8 @@ router.get(
   '/:patientId',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
     if (!companyId) return res.status(403).json({ error: 'Empresa nao identificada' });
 
     const patientId = parseInt(req.params.patientId);

@@ -2,6 +2,7 @@ import { db } from "./db";
 import { companies, users, modules, companyModules } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+import { logger } from './logger';
 /**
  * Cria uma empresa padrão para desenvolvimento e migração
  */
@@ -33,7 +34,7 @@ export async function createDefaultCompany() {
       { name: "clinic", displayName: "Gestão Clínica", description: "Agendamentos e pacientes" },
       { name: "financial", displayName: "Financeiro", description: "Controle financeiro" },
       { name: "inventory", displayName: "Estoque", description: "Controle de estoque" },
-      { name: "automation", displayName: "Automações", description: "N8N e WhatsApp" },
+      { name: "automation", displayName: "Automações", description: "AI Agent e WhatsApp" },
     ];
 
     for (const moduleData of moduleNames) {
@@ -62,10 +63,10 @@ export async function createDefaultCompany() {
       }
     }
 
-    console.log(`✅ Empresa padrão criada: ${defaultCompany.name} (ID: ${defaultCompany.id})`);
+    logger.info({ companyName: defaultCompany.name, companyId: defaultCompany.id }, 'Default company created')
     return defaultCompany;
   } catch (error) {
-    console.error("❌ Erro ao criar empresa padrão:", error);
+    logger.error({ err: error }, 'Erro ao criar empresa padrão:');
     throw error;
   }
 }
@@ -90,12 +91,12 @@ export async function migrateUsersToDefaultCompany() {
         .set({ companyId: defaultCompany.id })
         .where(eq(users.companyId, 0));
       
-      console.log(`✅ ${usersWithoutCompany.length} usuários migrados para empresa padrão`);
+      logger.info({ count: usersWithoutCompany.length }, 'Users migrated to default company')
     }
 
     return defaultCompany;
   } catch (error) {
-    console.error("❌ Erro na migração de usuários:", error);
+    logger.error({ err: error }, 'Erro na migração de usuários:');
     throw error;
   }
 }

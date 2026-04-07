@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
 
@@ -10,10 +10,13 @@ const rlsLogger = logger.child({ module: "rls" });
  * `app.current_company_id` for Row-Level Security (RLS) enforcement at the
  * database level.
  *
- * Uses `set_config(..., true)` which is equivalent to `SET LOCAL` — the
- * variable is scoped to the current transaction and is automatically cleared
- * when the transaction ends, preventing cross-request leakage on pooled
- * connections.
+ * IMPORTANT: Uses `set_config(..., false)` which is `SET` (session-scoped).
+ * `SET LOCAL` (is_local=true) only persists within an explicit transaction
+ * and gets lost immediately for standalone queries (which is how Drizzle
+ * works by default). Session-scoped is correct here because:
+ *   1. We clear the variable at the END of the request via res.on('finish')
+ *   2. This ensures pooled connections don't leak tenant context
+ *   3. All queries within the request see the correct company_id
  *
  * Placement requirement: must be registered AFTER `setupAuth` (Passport
  * session middleware) so that `req.user` is already populated, and BEFORE
@@ -21,15 +24,10 @@ const rlsLogger = logger.child({ module: "rls" });
  *
  * RLS policies on tables reference this value via:
  *   `current_setting('app.current_company_id', true)::integer`
- *
- * @param req  - Express request object. `req.user.companyId` is read from the
- *               deserialized Passport session.
- * @param _res - Express response object (unused).
- * @param next - Express next function.
  */
 export function rlsMiddleware(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ): void {
   const user = req.user as { companyId?: number | null } | undefined;
@@ -44,17 +42,30 @@ export function rlsMiddleware(
   const companyIdStr = String(user.companyId);
 
   // set_config(setting_name, new_value, is_local)
-  //   is_local = true  →  equivalent to SET LOCAL (transaction-scoped)
-  //   is_local = false →  equivalent to SET (session-scoped, leaks across
-  //                        requests on the same pooled connection)
+  //   is_local = false →  SET (session-scoped, persists for all queries in this request)
+  //   is_local = true  →  SET LOCAL (transaction-scoped only — useless without BEGIN/COMMIT)
   //
-  // Using `true` here is the safe default. If a route uses an explicit
-  // BEGIN/COMMIT transaction the variable will be reset at COMMIT, which is
-  // the desired behaviour — each statement bundle gets its own company scope.
+  // We use `false` so standalone (auto-commit) queries also see the variable.
+  // The cleanup handler below resets it when the response finishes, preventing
+  // cross-request leakage on the same pooled connection.
   db.execute(
-    sql`SELECT set_config('app.current_company_id', ${companyIdStr}, true)`,
+    sql`SELECT set_config('app.current_company_id', ${companyIdStr}, false)`,
   )
-    .then(() => next())
+    .then(() => {
+      // Register cleanup handler to clear the session variable when the
+      // response finishes, BEFORE the connection returns to the pool.
+      res.on("finish", () => {
+        db.execute(
+          sql`SELECT set_config('app.current_company_id', '', false)`,
+        ).catch((cleanupErr: unknown) => {
+          rlsLogger.warn(
+            { err: cleanupErr, companyId: user.companyId },
+            "Failed to clear app.current_company_id on response finish",
+          );
+        });
+      });
+      next();
+    })
     .catch((err: unknown) => {
       // Log but do not block the request. The app-level companyId checks in
       // route handlers and tenantIsolationMiddleware provide a secondary

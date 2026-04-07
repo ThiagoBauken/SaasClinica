@@ -1,0 +1,593 @@
+[
+  {
+    "id": 1,
+    "name": "Amoxicilina",
+    "category": "antibiotico",
+    "contraindications": "Alergia a penicilinas ou cefalosporinas. Mononucleose infecciosa.",
+    "presentations": [
+      {
+        "dosage": "500mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 500mg a cada 8 horas por 7 dias."
+      },
+      {
+        "dosage": "875mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 875mg a cada 12 horas por 7 dias."
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Amoxicilina + Clavulanato de Potássio",
+    "category": "antibiotico",
+    "contraindications": "Alergia a penicilinas ou cefalosporinas. Histórico de icterícia colestática associada ao uso de amoxicilina/clavulanato.",
+    "presentations": [
+      {
+        "dosage": "875mg/125mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 875/125mg a cada 12 horas por 7 dias, preferencialmente durante as refeições."
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Azitromicina",
+    "category": "antibiotico",
+    "contraindications": "Alergia a macrolídeos. Hepatopatia grave. Cautela com medicamentos que prolongam o intervalo QT.",
+    "presentations": [
+      {
+        "dosage": "500mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 500mg uma vez ao dia por 3 dias, com estômago vazio."
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Metronidazol",
+    "category": "antibiotico",
+    "contraindications": "Primeiro trimestre de gravidez. Hipersensibilidade ao metronidazol ou derivados nitroimidazólicos. Não ingerir álcool durante o tratamento e por 48h após.",
+    "presentations": [
+      {
+        "dosage": "400mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 400mg a cada 8 horas por 7 dias, de preferência durante as refeições."
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Clindamicina",
+    "category": "antibiotico",
+    "contraindications": "Hipersensibilidade à clindamicina ou lincomicina. Histórico de colite pseudomembranosa. Cautela em pacientes com doença inflamatória intestinal.",
+    "presentations": [
+      {
+        "dosage": "300mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 300mg a cada 6 horas por 7 dias, com um copo de água."
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Cefalexina",
+    "category": "antibiotico",
+    "contraindications": "Hipersensibilidade a cefalosporinas. Cautela em pacientes com alergia a penicilina (reação cruzada em até 10%).",
+    "presentations": [
+      {
+        "dosage": "500mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 500mg a cada 6 horas por 7 dias."
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Doxiciclina",
+    "category": "antibiotico",
+    "contraindications": "Gravidez, lactação e crianças menores de 8 anos. Hipersensibilidade a tetraciclinas. Não usar com antiácidos, ferro ou cálcio.",
+    "presentations": [
+      {
+        "dosage": "100mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 100mg a cada 12 horas por 7-14 dias, sempre com grande quantidade de água e em posição ereta."
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "Ibuprofeno",
+    "category": "anti-inflamatorio",
+    "contraindications": "Úlcera péptica ativa. Hipersensibilidade a AINEs. Insuficiência renal ou hepática grave. Gravidez (especialmente no 3º trimestre). Uso concomitante com anticoagulantes.",
+    "presentations": [
+      {
+        "dosage": "400mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 400mg a cada 8 horas por 3-5 dias, com alimentos."
+      },
+      {
+        "dosage": "600mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 600mg a cada 8 horas por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Nimesulida",
+    "category": "anti-inflamatorio",
+    "contraindications": "Hepatopatia. Insuficiência renal grave. Úlcera péptica ativa. Gravidez e lactação. Crianças menores de 12 anos. Histórico de reações adversas hepáticas a AINEs.",
+    "presentations": [
+      {
+        "dosage": "100mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 100mg a cada 12 horas por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Diclofenaco Sódico",
+    "category": "anti-inflamatorio",
+    "contraindications": "Úlcera péptica ativa. Hipersensibilidade a AINEs ou aspirina. Insuficiência renal, hepática ou cardíaca grave. Gravidez (3º trimestre).",
+    "presentations": [
+      {
+        "dosage": "50mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 50mg a cada 8 horas por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Meloxicam",
+    "category": "anti-inflamatorio",
+    "contraindications": "Úlcera péptica ativa. Hipersensibilidade a AINEs. Insuficiência renal ou hepática grave. Gravidez e lactação.",
+    "presentations": [
+      {
+        "dosage": "15mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 15mg uma vez ao dia por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "Piroxicam",
+    "category": "anti-inflamatorio",
+    "contraindications": "Úlcera péptica ativa. Hipersensibilidade a AINEs. Insuficiência renal ou hepática grave. Gravidez e lactação.",
+    "presentations": [
+      {
+        "dosage": "20mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 20mg uma vez ao dia por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "Cetoprofeno",
+    "category": "anti-inflamatorio",
+    "contraindications": "Hipersensibilidade a AINEs. Úlcera péptica ativa. Insuficiência renal, hepática ou cardíaca grave. Gravidez (3º trimestre).",
+    "presentations": [
+      {
+        "dosage": "100mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 100mg a cada 12 horas por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "Paracetamol (Acetaminofeno)",
+    "category": "analgesico",
+    "contraindications": "Hepatopatia grave. Hipersensibilidade ao paracetamol. Não exceder 4g/dia no adulto. Evitar uso com álcool.",
+    "presentations": [
+      {
+        "dosage": "500mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1-2 comprimidos de 500mg a cada 6 horas se necessário, não excedendo 8 comprimidos por dia."
+      },
+      {
+        "dosage": "750mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 750mg a cada 6 horas se necessário, não excedendo 6 comprimidos por dia."
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "name": "Dipirona Monoidratada",
+    "category": "analgesico",
+    "contraindications": "Hipersensibilidade à dipirona ou pirazolonas. Agranulocitose prévia por medicamentos. Deficiência de G6PD. Gravidez no 1º e 3º trimestre.",
+    "presentations": [
+      {
+        "dosage": "500mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1-2 comprimidos de 500mg a cada 6 horas se necessário."
+      },
+      {
+        "dosage": "1g",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 1g a cada 6-8 horas se necessário."
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "name": "Tramadol",
+    "category": "analgesico",
+    "contraindications": "Hipersensibilidade ao tramadol. Uso concomitante com inibidores da MAO. Epilepsia não controlada. Insuficiência respiratória grave. Gravidez e lactação. Potencial de dependência.",
+    "presentations": [
+      {
+        "dosage": "50mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 50mg a cada 6-8 horas se necessário para dor intensa. Uso máximo de 5 dias."
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "name": "Codeína",
+    "category": "analgesico",
+    "contraindications": "Hipersensibilidade a opioides. Asma brônquica aguda. Crianças menores de 12 anos. Gravidez e lactação. Potencial de dependência. Uso controlado (Portaria 344/98).",
+    "presentations": [
+      {
+        "dosage": "30mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 30mg a cada 4-6 horas se necessário. Uso máximo de 3-5 dias."
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "name": "Dexametasona",
+    "category": "corticoide",
+    "contraindications": "Infecções sistêmicas não tratadas. Diabetes mellitus descompensado. Hipertensão grave não controlada. Úlcera péptica ativa. Osteoporose grave. Uso prolongado pode causar supressão adrenal.",
+    "presentations": [
+      {
+        "dosage": "4mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 4mg por dia pela manhã por 3-5 dias, com alimentos."
+      },
+      {
+        "dosage": "8mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 8mg por dia pela manhã por 3 dias (dose de ataque para edema pós-cirúrgico), com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "name": "Prednisona",
+    "category": "corticoide",
+    "contraindications": "Infecções sistêmicas sem antibioticoterapia. Diabetes mellitus descompensado. Hipertensão grave. Úlcera péptica ativa. Osteoporose. Nunca interromper abruptamente após uso prolongado.",
+    "presentations": [
+      {
+        "dosage": "20mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 20mg pela manhã por 5 dias, com alimentos. Descontinuar gradualmente se uso for superior a 7 dias."
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "name": "Betametasona",
+    "category": "corticoide",
+    "contraindications": "Infecções locais sem tratamento adequado. Rosácea. Acne. Dermatite perioral. Uso prolongado pode causar atrofia cutânea.",
+    "presentations": [
+      {
+        "dosage": "0.5mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 0.5mg a cada 6 horas por 3-5 dias, com alimentos."
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "name": "Nistatina",
+    "category": "antifungico",
+    "contraindications": "Hipersensibilidade à nistatina. Uso sistêmico não recomendado (não absorvível). Seguro na gravidez para uso tópico/oral.",
+    "presentations": [
+      {
+        "dosage": "100.000UI/mL",
+        "form": "solucao",
+        "defaultPosology": "Aplicar 4-6mL (1 colher de chá) na boca, bochechar por 2 minutos e engolir, 4 vezes ao dia por 7-14 dias. Continuar por 48h após o desaparecimento dos sintomas."
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "name": "Fluconazol",
+    "category": "antifungico",
+    "contraindications": "Hipersensibilidade ao fluconazol ou azóis. Uso concomitante com terfenadina, astemizol ou cisaprida. Cautela com anticoagulantes orais, hipoglicemiantes e fenitoína. Cautela na gravidez.",
+    "presentations": [
+      {
+        "dosage": "150mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 150mg em dose única para candidíase oral leve. Para casos moderados a graves: 1 cápsula de 150mg por dia por 7-14 dias."
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "name": "Miconazol",
+    "category": "antifungico",
+    "contraindications": "Hipersensibilidade ao miconazol ou imidazóis. Cautela com anticoagulantes orais (warfarina). Evitar ingestão de alimentos logo após aplicação do gel.",
+    "presentations": [
+      {
+        "dosage": "20mg/g",
+        "form": "gel",
+        "defaultPosology": "Aplicar uma pequena quantidade do gel nas lesões 4 vezes ao dia após as refeições e ao deitar por 7-14 dias. Manter o gel em contato com as lesões o maior tempo possível."
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "name": "Clorexidina",
+    "category": "antisseptico",
+    "contraindications": "Hipersensibilidade à clorexidina. Não ingerir. Evitar contato com olhos e ouvidos. Pode causar manchamento dentário e alteração do paladar com uso prolongado.",
+    "presentations": [
+      {
+        "dosage": "0.12%",
+        "form": "solucao",
+        "defaultPosology": "Bochechar com 15mL durante 1 minuto, duas vezes ao dia (manhã e noite), por 7-14 dias. Não enxaguar a boca após o bochecho."
+      },
+      {
+        "dosage": "0.2%",
+        "form": "solucao",
+        "defaultPosology": "Bochechar com 10mL durante 1 minuto, duas vezes ao dia, por 7-14 dias. Não enxaguar após o bochecho."
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "name": "Periogard (Clorexidina 0.12%)",
+    "category": "antisseptico",
+    "contraindications": "Hipersensibilidade à clorexidina. Não ingerir. Pode causar manchamento dentário e alteração temporária do paladar. Não substituir a higiene oral mecânica.",
+    "presentations": [
+      {
+        "dosage": "0.12%",
+        "form": "solucao",
+        "defaultPosology": "Bochechar com 15mL por 30 segundos a 1 minuto, duas vezes ao dia, por 14 dias. Usar após a higiene oral habitual."
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "name": "Triclosan",
+    "category": "antisseptico",
+    "contraindications": "Hipersensibilidade ao triclosan. Não ingerir em grandes quantidades. Uso tópico oral.",
+    "presentations": [
+      {
+        "dosage": "0.03%",
+        "form": "solucao",
+        "defaultPosology": "Bochechar com 15mL por 30 segundos, duas vezes ao dia, por 4 semanas."
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "name": "Omeprazol",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade ao omeprazol ou benzimidazóis. Uso concomitante com atazanavir ou nelfinavir. Pode mascarar sintomas de neoplasia gástrica.",
+    "presentations": [
+      {
+        "dosage": "20mg",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 20mg em jejum, 30-60 minutos antes do café da manhã, por 7-14 dias (proteção gástrica durante antibioticoterapia ou uso de AINEs)."
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "name": "Ranitidina",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade à ranitidina. Insuficiência renal (ajustar dose). Porfiria aguda. Nota: verifique disponibilidade local (recall em alguns mercados).",
+    "presentations": [
+      {
+        "dosage": "150mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 150mg a cada 12 horas por 7-14 dias, preferencialmente com as refeições."
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "name": "Lidocaína",
+    "category": "anestesico",
+    "contraindications": "Hipersensibilidade à lidocaína ou anestésicos do tipo amida. Bloqueio atrioventricular grave. Hipotensão grave. Insuficiência hepática grave.",
+    "presentations": [
+      {
+        "dosage": "2% com Epinefrina 1:100.000",
+        "form": "solucao",
+        "defaultPosology": "Administração intrabucal pelo cirurgião-dentista conforme técnica anestésica indicada. Dose máxima: 4,4mg/kg (não exceder 300mg)."
+      },
+      {
+        "dosage": "2% sem vasoconstritor",
+        "form": "solucao",
+        "defaultPosology": "Administração intrabucal pelo cirurgião-dentista. Indicado para pacientes com contraindicação a vasoconstritores. Dose máxima: 4,4mg/kg."
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "name": "Articaína",
+    "category": "anestesico",
+    "contraindications": "Hipersensibilidade à articaína ou anestésicos do tipo amida. Metemoglobinemia idiopática ou congênita. Deficiência de G6PD. Insuficiência cardíaca grave.",
+    "presentations": [
+      {
+        "dosage": "4% com Epinefrina 1:100.000",
+        "form": "solucao",
+        "defaultPosology": "Administração intrabucal pelo cirurgião-dentista. Dose máxima: 7mg/kg (não exceder 500mg por procedimento)."
+      },
+      {
+        "dosage": "4% com Epinefrina 1:200.000",
+        "form": "solucao",
+        "defaultPosology": "Administração intrabucal pelo cirurgião-dentista. Opção para pacientes com risco cardiovascular moderado. Dose máxima: 7mg/kg."
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "name": "Mepivacaína",
+    "category": "anestesico",
+    "contraindications": "Hipersensibilidade à mepivacaína ou anestésicos do tipo amida. Insuficiência hepática grave.",
+    "presentations": [
+      {
+        "dosage": "3% sem vasoconstritor",
+        "form": "solucao",
+        "defaultPosology": "Administração intrabucal pelo cirurgião-dentista. Indicado para pacientes com contraindicação absoluta a vasoconstritores. Dose máxima: 6,6mg/kg."
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "name": "Benzocaína",
+    "category": "anestesico",
+    "contraindications": "Hipersensibilidade a anestésicos do tipo éster ou PABA. Lactentes menores de 2 anos. Risco de metemoglobinemia em doses elevadas. Não usar em grandes áreas mucosas.",
+    "presentations": [
+      {
+        "dosage": "20%",
+        "form": "gel",
+        "defaultPosology": "Aplicar pequena quantidade (0,2mL) na mucosa para anestesia tópica pré-injeção. Aguardar 1-2 minutos antes da punção."
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "name": "Aciclovir",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade ao aciclovir ou valaciclovir. Cautela em insuficiência renal (ajustar dose). Adequada hidratação durante o tratamento.",
+    "presentations": [
+      {
+        "dosage": "200mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 200mg 5 vezes ao dia (a cada 4 horas, com pausa noturna) por 5 dias para herpes labial."
+      },
+      {
+        "dosage": "5%",
+        "form": "pomada",
+        "defaultPosology": "Aplicar nas lesões de herpes labial 5 vezes ao dia a cada 4 horas (omitindo dose noturna) por 5-10 dias, iniciando ao primeiro sinal de sintoma."
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "name": "Triamcinolona Acetonida",
+    "category": "corticoide",
+    "contraindications": "Infecções orais ativas (fungos, vírus, bactérias). Tuberculose. Hipersensibilidade ao componente. Uso prolongado pode causar atrofia mucosa e candidíase secundária.",
+    "presentations": [
+      {
+        "dosage": "0.1%",
+        "form": "pomada",
+        "defaultPosology": "Aplicar uma camada fina na lesão 2-3 vezes ao dia após as refeições e ao deitar, sem esfregar. Não utilizar por mais de 14 dias sem reavaliação."
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "name": "Clobetasol",
+    "category": "corticoide",
+    "contraindications": "Infecções orais ativas sem tratamento. Rosácea perioral. Hipersensibilidade ao clobetasol. Não usar por mais de 2 semanas consecutivas na mucosa oral.",
+    "presentations": [
+      {
+        "dosage": "0.05%",
+        "form": "pomada",
+        "defaultPosology": "Aplicar pequena quantidade na lesão 2-3 vezes ao dia após as refeições e ao deitar por até 14 dias. Indicado para lesões ulcerosas orais recorrentes graves (AFT maior)."
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "name": "Vitamina E (Tocoferol)",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade. Cautela em pacientes com deficiência de vitamina K ou coagulopatias em doses elevadas.",
+    "presentations": [
+      {
+        "dosage": "400UI",
+        "form": "capsula",
+        "defaultPosology": "Tomar 1 cápsula de 400UI uma vez ao dia por 30 dias como adjuvante no tratamento de mucosites e lesões orais."
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "name": "Álcool Polivinílico + Povidona (Colugel)",
+    "category": "antisseptico",
+    "contraindications": "Hipersensibilidade ao iodo ou iodetos (para formulações iodadas). Hipertireoidismo. Não ingerir.",
+    "presentations": [
+      {
+        "dosage": "0.5%",
+        "form": "gel",
+        "defaultPosology": "Aplicar nas gengivas e mucosas com o dedo ou cotonete 2-3 vezes ao dia por 7-14 dias. Não enxaguar por 30 minutos após aplicação."
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "name": "Diazepam",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade a benzodiazepínicos. Glaucoma de ângulo fechado. Miastenia grave. Insuficiência respiratória grave. Gravidez e lactação. Dependência química prévia. Uso controlado (Portaria 344/98).",
+    "presentations": [
+      {
+        "dosage": "5mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 5mg via oral 30-60 minutos antes do procedimento (sedação pré-operatória em pacientes ansiosos). Prescrição controlada especial — tarja preta."
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "name": "Bromazepam",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade a benzodiazepínicos. Glaucoma de ângulo fechado. Miastenia grave. Insuficiência respiratória grave. Gravidez. Potencial de dependência. Uso controlado.",
+    "presentations": [
+      {
+        "dosage": "3mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 3mg 30-60 minutos antes do procedimento dental para ansiedade leve a moderada. Prescrição controlada especial — tarja preta."
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "name": "Cetirizina",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade à cetirizina ou hidroxizina. Insuficiência renal grave. Cautela em idosos e pacientes com epilepsia.",
+    "presentations": [
+      {
+        "dosage": "10mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 10mg uma vez ao dia (preferencialmente à noite) por 7-10 dias como adjuvante em reações alérgicas orais."
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "name": "Loratadina",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade à loratadina. Insuficiência hepática grave (reduzir frequência da dose). Cautela em pacientes com prolongamento do QT.",
+    "presentations": [
+      {
+        "dosage": "10mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1 comprimido de 10mg uma vez ao dia por 7-10 dias como adjuvante em reações alérgicas orais. Não causa sonolência significativa."
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "name": "Ácido Tranexâmico",
+    "category": "outros",
+    "contraindications": "Hipersensibilidade ao ácido tranexâmico. Trombose venosa profunda ou embolia pulmonar ativas. Hematúria de origem renal. Insuficiência renal grave.",
+    "presentations": [
+      {
+        "dosage": "250mg",
+        "form": "comprimido",
+        "defaultPosology": "Tomar 1-2 comprimidos de 250mg a cada 6-8 horas por 5-7 dias. Indicado como antifibrinolítico em pacientes anticoagulados submetidos a exodontias."
+      }
+    ]
+  }
+]

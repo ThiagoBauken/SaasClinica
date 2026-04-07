@@ -3,6 +3,7 @@ import { db } from '../db';
 import { periodontalChart } from '../../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+import { logger } from '../logger';
 const router = express.Router();
 
 // Middleware simples de autenticação (assumindo que req.user existe)
@@ -20,7 +21,7 @@ const requireAuth = (req: any, res: any, next: any) => {
 router.get('/patients/:patientId/periodontal-charts', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
 
     const charts = await db
@@ -36,7 +37,7 @@ router.get('/patients/:patientId/periodontal-charts', requireAuth, async (req, r
 
     res.json(charts);
   } catch (error) {
-    console.error('Error fetching periodontal charts:', error);
+    logger.error({ err: error }, 'Error fetching periodontal charts:');
     res.status(500).json({ error: 'Failed to fetch periodontal charts' });
   }
 });
@@ -48,7 +49,7 @@ router.get('/patients/:patientId/periodontal-charts', requireAuth, async (req, r
 router.get('/patients/:patientId/periodontal-charts/:chartId', requireAuth, async (req, res) => {
   try {
     const { patientId, chartId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
 
     const [chart] = await db
@@ -68,7 +69,7 @@ router.get('/patients/:patientId/periodontal-charts/:chartId', requireAuth, asyn
 
     res.json(chart);
   } catch (error) {
-    console.error('Error fetching periodontal chart:', error);
+    logger.error({ err: error }, 'Error fetching periodontal chart:');
     res.status(500).json({ error: 'Failed to fetch periodontal chart' });
   }
 });
@@ -80,7 +81,7 @@ router.get('/patients/:patientId/periodontal-charts/:chartId', requireAuth, asyn
 router.get('/patients/:patientId/periodontal-charts-latest', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
 
     const [latestChart] = await db
@@ -101,7 +102,7 @@ router.get('/patients/:patientId/periodontal-charts-latest', requireAuth, async 
 
     res.json(latestChart);
   } catch (error) {
-    console.error('Error fetching latest periodontal chart:', error);
+    logger.error({ err: error }, 'Error fetching latest periodontal chart:');
     res.status(500).json({ error: 'Failed to fetch latest periodontal chart' });
   }
 });
@@ -113,7 +114,7 @@ router.get('/patients/:patientId/periodontal-charts-latest', requireAuth, async 
 router.post('/patients/:patientId/periodontal-charts', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
     const professionalId = user.id;
 
@@ -161,7 +162,7 @@ router.post('/patients/:patientId/periodontal-charts', requireAuth, async (req, 
 
     res.status(201).json(newChart);
   } catch (error) {
-    console.error('Error creating periodontal chart:', error);
+    logger.error({ err: error }, 'Error creating periodontal chart:');
     res.status(500).json({ error: 'Failed to create periodontal chart' });
   }
 });
@@ -173,7 +174,7 @@ router.post('/patients/:patientId/periodontal-charts', requireAuth, async (req, 
 router.patch('/patients/:patientId/periodontal-charts/:chartId', requireAuth, async (req, res) => {
   try {
     const { patientId, chartId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
 
     const {
@@ -223,7 +224,7 @@ router.patch('/patients/:patientId/periodontal-charts/:chartId', requireAuth, as
 
     res.json(updatedChart);
   } catch (error) {
-    console.error('Error updating periodontal chart:', error);
+    logger.error({ err: error }, 'Error updating periodontal chart:');
     res.status(500).json({ error: 'Failed to update periodontal chart' });
   }
 });
@@ -235,7 +236,7 @@ router.patch('/patients/:patientId/periodontal-charts/:chartId', requireAuth, as
 router.delete('/patients/:patientId/periodontal-charts/:chartId', requireAuth, async (req, res) => {
   try {
     const { patientId, chartId } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const companyId = user.companyId;
 
     const [deletedChart] = await db
@@ -258,7 +259,7 @@ router.delete('/patients/:patientId/periodontal-charts/:chartId', requireAuth, a
       deletedId: deletedChart.id
     });
   } catch (error) {
-    console.error('Error deleting periodontal chart:', error);
+    logger.error({ err: error }, 'Error deleting periodontal chart:');
     res.status(500).json({ error: 'Failed to delete periodontal chart' });
   }
 });

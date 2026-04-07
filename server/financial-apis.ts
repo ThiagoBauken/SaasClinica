@@ -5,6 +5,7 @@ import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { notDeleted } from "./lib/soft-delete";
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, format } from "date-fns";
 
+import { logger } from './logger';
 /**
  * Financial APIs - Endpoints para dados financeiros
  */
@@ -68,7 +69,7 @@ export async function getTransactions(req: Request, res: Response) {
 
     res.json(paymentsData);
   } catch (error) {
-    console.error("Error fetching transactions:", error);
+    logger.error({ err: error }, 'Error fetching transactions:');
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 }
@@ -115,7 +116,7 @@ export async function getRevenueByMonth(req: Request, res: Response) {
 
     res.json(formattedData);
   } catch (error) {
-    console.error("Error fetching revenue by month:", error);
+    logger.error({ err: error }, 'Error fetching revenue by month:');
     res.status(500).json({ error: "Failed to fetch revenue data" });
   }
 }
@@ -157,7 +158,7 @@ export async function getRevenueByType(req: Request, res: Response) {
 
     res.json(revenueByType);
   } catch (error) {
-    console.error("Error fetching revenue by type:", error);
+    logger.error({ err: error }, 'Error fetching revenue by type:');
     res.status(500).json({ error: "Failed to fetch revenue by type" });
   }
 }
@@ -181,7 +182,7 @@ export async function createTransaction(req: Request, res: Response) {
       createdAt: new Date(),
     });
   } catch (error) {
-    console.error("Error creating transaction:", error);
+    logger.error({ err: error }, 'Error creating transaction:');
     res.status(500).json({ error: "Failed to create transaction" });
   }
 }
@@ -231,7 +232,7 @@ export async function updateTransaction(req: Request, res: Response) {
 
     return res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating transaction:", error);
+    logger.error({ err: error }, 'Error updating transaction:');
     return res.status(500).json({ error: "Failed to update transaction" });
   }
 }

@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { db } from '../db';
 import { patients, type InsertPatient, type Patient } from '@shared/schema';
 import { eq, or, and } from 'drizzle-orm';
+import { logger } from '../logger';
 import {
   extractTextFromImage,
   extractTextFromMultipleImages,
@@ -94,7 +95,7 @@ export async function importPatientsFromXLSX(
     // Converte para JSON
     const data = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-    console.log(`Processando ${data.length} pacientes do XLSX...`);
+    logger.info({ patientCount: data.length }, 'Processing XLSX patients')
 
     for (const row of data) {
       try {
@@ -138,11 +139,9 @@ export async function importPatientsFromXLSX(
       }
     }
 
-    console.log(
-      `Importação XLSX concluída: ${result.success} sucesso, ${result.failed} falhas, ${result.skipped} ignorados`
-    );
+    logger.info({ success: result.success, failed: result.failed, skipped: result.skipped }, 'XLSX import completed');
   } catch (error) {
-    console.error('Erro ao importar XLSX:', error);
+    logger.error({ err: error }, 'Erro ao importar XLSX:');
     throw new Error(`Falha ao processar arquivo XLSX: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 
@@ -176,14 +175,14 @@ export async function importPatientsFromImages(
   const startTime = Date.now();
 
   try {
-    console.log(`Processando ${imageBuffers.length} imagens...`);
+    logger.info({ imageCount: imageBuffers.length }, 'Processing images')
 
     // Passo 1: OCR em todas as imagens
-    console.log('Executando OCR...');
+    logger.info('Executando OCR...');
     const ocrResults = await extractTextFromMultipleImages(imageBuffers);
 
     // Passo 2: Extração de dados com AI
-    console.log('Extraindo dados com AI...');
+    logger.info('Extraindo dados com AI...');
     const extractedData = await extractMultiplePatients(
       ocrResults.map((r) => r.text)
     );
@@ -225,9 +224,7 @@ export async function importPatientsFromImages(
         if (patient) {
           result.success++;
           result.patients.push(patient);
-          console.log(
-            `Paciente ${patient.fullName} importado (confiança: ${ocrConfidence.toFixed(2)}%)`
-          );
+          logger.info({ patientName: patient.fullName, ocrConfidence: ocrConfidence.toFixed(2) }, 'Patient imported');
         } else {
           result.skipped++;
         }
@@ -271,23 +268,17 @@ export async function importPatientsFromImages(
         alert: alert.send ? { level: alert.level!, message: alert.message } : undefined,
       };
 
-      console.log(
-        `💰 Custo desta importação: R$ ${(cost / 100).toFixed(2)} (${result.success} fichas)`
-      );
-      console.log(
-        `📊 Total do mês: ${billingResult.usage.currentCycleCount} fichas (R$ ${(billingResult.usage.estimatedCost / 100).toFixed(2)})`
-      );
+      logger.info({ cost: (cost / 100).toFixed(2), fichas: result.success }, 'Import cost');
+      logger.info({ monthlyTotal: billingResult.usage.currentCycleCount, estimatedCost: (billingResult.usage.estimatedCost / 100).toFixed(2) }, 'Monthly usage');
 
       if (alert.send) {
-        console.warn(`⚠️  ${alert.message}`);
+        logger.warn({ alertMessage: alert.message }, 'Usage alert')
       }
     }
 
-    console.log(
-      `Importação de imagens concluída: ${result.success} sucesso, ${result.failed} falhas, ${result.skipped} ignorados`
-    );
+    logger.info({ success: result.success, failed: result.failed, skipped: result.skipped }, 'Image import completed');
   } catch (error) {
-    console.error('Erro ao importar imagens:', error);
+    logger.error({ err: error }, 'Erro ao importar imagens:');
     throw new Error(
       `Falha ao processar imagens: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
     );
@@ -349,7 +340,7 @@ async function insertOrUpdatePatient(
   if (existing) {
     // Paciente já existe
     if (mergeOptions.skipDuplicates) {
-      console.log(`Paciente ${existing.fullName} já existe - pulado`);
+      logger.info({ existing_fullName: existing.fullName }, 'Paciente {existing_fullName} já existe - pulado')
       return null;
     }
 
@@ -363,7 +354,7 @@ async function insertOrUpdatePatient(
       .where(eq(patients.id, existing.id))
       .returning();
 
-    console.log(`Paciente ${updated.fullName} atualizado`);
+    logger.info({ updated_fullName: updated.fullName }, 'Paciente {updated_fullName} atualizado')
     return updated;
   } else {
     // Novo paciente
@@ -372,7 +363,7 @@ async function insertOrUpdatePatient(
       .values(patientData as InsertPatient)
       .returning();
 
-    console.log(`Paciente ${created.fullName} criado`);
+    logger.info({ created_fullName: created.fullName }, 'Paciente {created_fullName} criado')
     return created;
   }
 }

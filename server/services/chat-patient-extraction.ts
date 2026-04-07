@@ -9,6 +9,7 @@ import { eq, and } from 'drizzle-orm';
 import { patients, chatSessions, chatMessages, salesOpportunities } from '@shared/schema';
 import { AIProviderService } from './ai-provider';
 
+import { logger } from '../logger';
 interface ExtractedPatientData {
   fullName?: string;
   phone?: string;
@@ -106,13 +107,11 @@ export async function tryExtractAndCreatePatient(
     // 6. Vincular paciente à sessão e oportunidade CRM
     await linkPatientToSession(newPatient.id, newPatient.fullName, sessionId, companyId);
 
-    console.log(
-      `[ChatExtraction] Auto-created patient "${newPatient.fullName}" (ID: ${newPatient.id}) for company ${companyId}`,
-    );
+    logger.info({ patientName: newPatient.fullName, patientId: newPatient.id, companyId }, '[ChatExtraction] Auto-created patient');
 
     return { patientId: newPatient.id, fullName: newPatient.fullName };
   } catch (error) {
-    console.error('[ChatExtraction] Error extracting/creating patient:', error);
+    logger.error({ err: error }, '[ChatExtraction] Error extracting/creating patient:');
     return null;
   }
 }
@@ -172,7 +171,7 @@ REGRAS:
     const parsed = JSON.parse(jsonStr);
     return parsed as ExtractedPatientData;
   } catch (error) {
-    console.error('[ChatExtraction] AI extraction failed:', error);
+    logger.error({ err: error }, '[ChatExtraction] AI extraction failed:');
     return null;
   }
 }

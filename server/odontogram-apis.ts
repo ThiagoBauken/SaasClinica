@@ -4,6 +4,7 @@ import { odontogramEntries, users, procedures } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { notDeleted } from "./lib/soft-delete";
 
+import { logger } from './logger';
 /**
  * Odontogram APIs - Endpoints para odontograma com histórico completo
  */
@@ -42,7 +43,7 @@ export async function getPatientOdontogram(req: Request, res: Response) {
 
     res.json(Array.from(currentState.values()));
   } catch (error) {
-    console.error("Error fetching odontogram:", error);
+    logger.error({ err: error }, 'Error fetching odontogram:');
     res.status(500).json({ error: "Failed to fetch odontogram" });
   }
 }
@@ -83,7 +84,7 @@ export async function saveToothStatus(req: Request, res: Response) {
 
     res.json(result);
   } catch (error) {
-    console.error("Error saving tooth status:", error);
+    logger.error({ err: error }, 'Error saving tooth status:');
     res.status(500).json({ error: "Failed to save tooth status" });
   }
 }
@@ -126,7 +127,7 @@ export async function getToothHistory(req: Request, res: Response) {
 
     res.json(history);
   } catch (error) {
-    console.error("Error fetching tooth history:", error);
+    logger.error({ err: error }, 'Error fetching tooth history:');
     res.status(500).json({ error: "Failed to fetch tooth history" });
   }
 }
@@ -158,7 +159,7 @@ export async function deleteToothStatus(req: Request, res: Response) {
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting tooth status:", error);
+    logger.error({ err: error }, 'Error deleting tooth status:');
     res.status(500).json({ error: "Failed to delete tooth status" });
   }
 }

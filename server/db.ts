@@ -60,8 +60,11 @@ if (isNeonDatabase) {
     ...poolSettings,
     allowExitOnIdle: false,
     ssl: isProduction
-      ? { rejectUnauthorized: false } // Set rejectUnauthorized: true if you have proper CA certs
-      : undefined,
+      ? {
+          rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+          ca: process.env.DB_SSL_CA || undefined,
+        }
+      : (process.env.DB_SSL_ENABLED === 'true' ? { rejectUnauthorized: false } : undefined),
   };
 
   pool = new PgPool(poolConfig);

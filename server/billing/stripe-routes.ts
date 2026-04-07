@@ -2,6 +2,7 @@ import { Request, Response, Express } from 'express';
 import { stripeService } from './stripe-service';
 import express from 'express';
 
+import { logger } from '../logger';
 /**
  * Rotas do Stripe
  */
@@ -26,7 +27,7 @@ export function registerStripeRoutes(app: Express) {
 
         res.json({ received: true });
       } catch (error: any) {
-        console.error('Erro no webhook Stripe:', error);
+        logger.error({ err: error }, 'Erro no webhook Stripe:');
         res.status(400).json({ error: error.message });
       }
     }
@@ -61,7 +62,7 @@ export function registerStripeRoutes(app: Express) {
 
       res.json({ sessionId: session.id, url: session.url });
     } catch (error: any) {
-      console.error('Erro ao criar checkout session:', error);
+      logger.error({ err: error }, 'Erro ao criar checkout session:');
       res.status(500).json({ error: error.message });
     }
   });
@@ -92,7 +93,7 @@ export function registerStripeRoutes(app: Express) {
 
       res.json({ url: session.url });
     } catch (error: any) {
-      console.error('Erro ao criar portal session:', error);
+      logger.error({ err: error }, 'Erro ao criar portal session:');
       res.status(500).json({ error: error.message });
     }
   });

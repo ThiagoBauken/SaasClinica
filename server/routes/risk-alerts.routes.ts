@@ -17,6 +17,7 @@ import {
 } from '@shared/schema';
 import { requireAuth } from '../middleware/auth';
 
+import { logger } from '../logger';
 const router = Router();
 
 // Types
@@ -33,7 +34,7 @@ interface AlertWithType {
  */
 router.get('/types', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
 
     const types = await db
       .select()
@@ -51,7 +52,7 @@ router.get('/types', requireAuth, async (req, res) => {
 
     res.json(types);
   } catch (error: any) {
-    console.error('Erro ao listar tipos de alerta:', error);
+    logger.error({ err: error }, 'Erro ao listar tipos de alerta:');
     res.status(500).json({ error: 'Erro ao listar tipos de alerta' });
   }
 });
@@ -62,7 +63,7 @@ router.get('/types', requireAuth, async (req, res) => {
  */
 router.post('/types', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
     const data = insertRiskAlertTypeSchema.parse(req.body);
 
     const [newType] = await db
@@ -75,7 +76,7 @@ router.post('/types', requireAuth, async (req, res) => {
 
     res.status(201).json(newType);
   } catch (error: any) {
-    console.error('Erro ao criar tipo de alerta:', error);
+    logger.error({ err: error }, 'Erro ao criar tipo de alerta:');
     res.status(500).json({ error: 'Erro ao criar tipo de alerta' });
   }
 });
@@ -87,7 +88,7 @@ router.post('/types', requireAuth, async (req, res) => {
 router.put('/types/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
     const data = req.body;
 
     // Só pode editar alertas da própria empresa
@@ -113,7 +114,7 @@ router.put('/types/:id', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao atualizar tipo de alerta:', error);
+    logger.error({ err: error }, 'Erro ao atualizar tipo de alerta:');
     res.status(500).json({ error: 'Erro ao atualizar tipo de alerta' });
   }
 });
@@ -127,7 +128,7 @@ router.put('/types/:id', requireAuth, async (req, res) => {
 router.get('/patient/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
 
     // Verificar se paciente pertence à empresa
     const [patient] = await db
@@ -175,7 +176,7 @@ router.get('/patient/:patientId', requireAuth, async (req, res) => {
 
     res.json(formattedAlerts);
   } catch (error: any) {
-    console.error('Erro ao listar alertas do paciente:', error);
+    logger.error({ err: error }, 'Erro ao listar alertas do paciente:');
     res.status(500).json({ error: 'Erro ao listar alertas do paciente' });
   }
 });
@@ -187,7 +188,7 @@ router.get('/patient/:patientId', requireAuth, async (req, res) => {
 router.post('/patient/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const { alertTypeId, details, notes } = req.body;
 
@@ -235,7 +236,7 @@ router.post('/patient/:patientId', requireAuth, async (req, res) => {
 
     res.status(201).json(newAlert);
   } catch (error: any) {
-    console.error('Erro ao adicionar alerta:', error);
+    logger.error({ err: error }, 'Erro ao adicionar alerta:');
     res.status(500).json({ error: 'Erro ao adicionar alerta' });
   }
 });
@@ -262,7 +263,7 @@ router.put('/:alertId', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao atualizar alerta:', error);
+    logger.error({ err: error }, 'Erro ao atualizar alerta:');
     res.status(500).json({ error: 'Erro ao atualizar alerta' });
   }
 });
@@ -286,7 +287,7 @@ router.delete('/:alertId', requireAuth, async (req, res) => {
 
     res.json({ success: true, alert: updated });
   } catch (error: any) {
-    console.error('Erro ao remover alerta:', error);
+    logger.error({ err: error }, 'Erro ao remover alerta:');
     res.status(500).json({ error: 'Erro ao remover alerta' });
   }
 });
@@ -298,7 +299,7 @@ router.delete('/:alertId', requireAuth, async (req, res) => {
 router.post('/auto-detect/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
-    const companyId = req.user?.companyId;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
 
     // Buscar paciente
@@ -454,7 +455,7 @@ router.post('/auto-detect/:patientId', requireAuth, async (req, res) => {
       alerts: inserted,
     });
   } catch (error: any) {
-    console.error('Erro na auto-detecção de alertas:', error);
+    logger.error({ err: error }, 'Erro na auto-detecção de alertas:');
     res.status(500).json({ error: 'Erro na auto-detecção de alertas' });
   }
 });

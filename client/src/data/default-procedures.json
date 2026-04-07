@@ -1,0 +1,22 @@
+[
+  { "name": "Limpeza (Profilaxia)", "duration": 30, "price": 150 },
+  { "name": "Clareamento", "duration": 60, "price": 800 },
+  { "name": "Restauracao Resina", "duration": 45, "price": 200 },
+  { "name": "Extracao Simples", "duration": 30, "price": 250 },
+  { "name": "Canal (Endodontia)", "duration": 90, "price": 600 },
+  { "name": "Implante Unitario", "duration": 120, "price": 3500 },
+  { "name": "Ortodontia Consulta", "duration": 30, "price": 200 },
+  { "name": "Coroa de Porcelana", "duration": 60, "price": 1500 },
+  { "name": "Protese Total", "duration": 90, "price": 2000 },
+  { "name": "Faceta de Porcelana", "duration": 60, "price": 2000 },
+  { "name": "Gengivoplastia", "duration": 45, "price": 500 },
+  { "name": "Raspagem Periodontal", "duration": 60, "price": 300 },
+  { "name": "Aplicacao Fluor", "duration": 15, "price": 80 },
+  { "name": "Selante", "duration": 20, "price": 100 },
+  { "name": "Raio-X Panoramico", "duration": 15, "price": 120 },
+  { "name": "Raio-X Periapical", "duration": 10, "price": 60 },
+  { "name": "Consulta Avaliacao", "duration": 30, "price": 0 },
+  { "name": "Retorno", "duration": 20, "price": 0 },
+  { "name": "Cirurgia Siso", "duration": 60, "price": 500 },
+  { "name": "Protese Parcial Removivel", "duration": 60, "price": 1200 }
+]

@@ -13,7 +13,7 @@ import { sql, eq, and } from 'drizzle-orm';
 const router = Router();
 
 function getCompanyId(req: any): number {
-  return (req.user as any)?.companyId;
+  return req.user!.companyId;
 }
 
 // ============================================================
@@ -192,7 +192,7 @@ router.get('/claims', authCheck, asyncHandler(async (req, res) => {
 
 router.post('/claims', authCheck, validate({ body: claimSchema }), asyncHandler(async (req, res) => {
   const companyId = getCompanyId(req);
-  const user = req.user as any;
+  const user = req.user!;
   const { patientId, insurancePlanId, claimType, tussCode, procedureDescription, toothNumber, toothFace, quantity, claimedValue, serviceDate } = req.body;
 
   const guideNumber = `G${companyId}-${Date.now()}`;

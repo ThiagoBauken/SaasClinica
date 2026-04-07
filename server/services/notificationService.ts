@@ -4,6 +4,7 @@ import { db } from '../db';
 import { notifications } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+import { logger } from '../logger';
 /**
  * Serviço de Notificações em Tempo Real
  *
@@ -30,7 +31,7 @@ class NotificationService {
     });
 
     this.wss.on('connection', (ws: AuthenticatedWebSocket, req) => {
-      console.log('Nova conexão WebSocket recebida');
+      logger.info('Nova conexão WebSocket recebida');
 
       // Autenticação via query params ou cookie
       const url = new URL(req.url || '', `http://${req.headers.host}`);
@@ -38,7 +39,7 @@ class NotificationService {
       const companyId = url.searchParams.get('companyId');
 
       if (!userId || !companyId) {
-        console.log('WebSocket rejeitado: falta userId ou companyId');
+        logger.info('WebSocket rejeitado: falta userId ou companyId');
         ws.close(1008, 'Unauthorized - Missing credentials');
         return;
       }
@@ -53,7 +54,7 @@ class NotificationService {
       }
       this.clients.get(ws.userId)!.add(ws);
 
-      console.log(`Cliente conectado: userId=${ws.userId}, companyId=${ws.companyId}`);
+      logger.info({ userId: ws.userId, companyId: ws.companyId }, 'Client connected')
 
       // Enviar notificações não lidas ao conectar
       this.sendUnreadNotifications(ws.userId, ws.companyId, ws);
@@ -69,13 +70,13 @@ class NotificationService {
           const message = JSON.parse(data.toString());
           this.handleClientMessage(ws, message);
         } catch (error) {
-          console.error('Erro ao processar mensagem do cliente:', error);
+          logger.error({ err: error }, 'Erro ao processar mensagem do cliente:');
         }
       });
 
       // Desconexão
       ws.on('close', () => {
-        console.log(`Cliente desconectado: userId=${ws.userId}`);
+        logger.info({ userId: ws.userId }, 'Client disconnected')
         if (ws.userId) {
           const userClients = this.clients.get(ws.userId);
           if (userClients) {
@@ -89,7 +90,7 @@ class NotificationService {
 
       // Erro
       ws.on('error', (error) => {
-        console.error('Erro no WebSocket:', error);
+        logger.error({ err: error }, 'Erro no WebSocket:');
       });
     });
 
@@ -98,7 +99,7 @@ class NotificationService {
       this.wss?.clients.forEach((ws: WebSocket) => {
         const authWs = ws as AuthenticatedWebSocket;
         if (authWs.isAlive === false) {
-          console.log(`Terminando conexão inativa: userId=${authWs.userId}`);
+          logger.info({ userId: authWs.userId }, 'Terminating inactive connection')
           return authWs.terminate();
         }
         authWs.isAlive = false;
@@ -110,7 +111,7 @@ class NotificationService {
       clearInterval(heartbeatInterval);
     });
 
-    console.log('✓ WebSocket Server initialized at /ws/notifications');
+    logger.info('WebSocket Server initialized at /ws/notifications');
   }
 
   /**
@@ -139,7 +140,7 @@ class NotificationService {
         }));
       }
     } catch (error) {
-      console.error('Erro ao buscar notificações não lidas:', error);
+      logger.error({ err: error }, 'Erro ao buscar notificações não lidas:');
     }
   }
 
@@ -160,11 +161,11 @@ class NotificationService {
 
       case 'subscribe':
         // Cliente pode se inscrever em eventos específicos
-        console.log(`Cliente ${ws.userId} inscrito em: ${message.topics}`);
+        logger.info({ userId: ws.userId, topics: message.topics }, 'Client subscribed to topics')
         break;
 
       default:
-        console.log('Tipo de mensagem desconhecido:', message.type);
+        logger.info({ type: message.type }, 'Tipo de mensagem desconhecido:');
     }
   }
 
@@ -186,7 +187,7 @@ class NotificationService {
           )
         );
     } catch (error) {
-      console.error('Erro ao marcar notificação como lida:', error);
+      logger.error({ err: error }, 'Erro ao marcar notificação como lida:');
     }
   }
 
@@ -237,7 +238,7 @@ class NotificationService {
         });
       }
     } catch (error) {
-      console.error('Erro ao criar e enviar notificação:', error);
+      logger.error({ err: error }, 'Erro ao criar e enviar notificação:');
       throw error;
     }
   }

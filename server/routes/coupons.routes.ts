@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { logger } from '../logger';
 import {
   validateCoupon,
   createCoupon,
@@ -16,7 +17,7 @@ const router = Router();
  */
 router.post('/validate', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || !user.companyId) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
@@ -35,7 +36,7 @@ router.post('/validate', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error: any) {
-    console.error('Erro ao validar cupom:', error);
+    logger.error({ err: error }, 'Erro ao validar cupom:');
     res.status(500).json({ error: error.message || 'Erro ao validar cupom' });
   }
 });
@@ -46,7 +47,7 @@ router.post('/validate', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -58,7 +59,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(coupon);
   } catch (error: any) {
-    console.error('Erro ao criar cupom:', error);
+    logger.error({ err: error }, 'Erro ao criar cupom:');
     res.status(400).json({ error: error.message || 'Erro ao criar cupom' });
   }
 });
@@ -69,7 +70,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -88,7 +89,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json(coupons);
   } catch (error: any) {
-    console.error('Erro ao listar cupons:', error);
+    logger.error({ err: error }, 'Erro ao listar cupons:');
     res.status(500).json({ error: error.message || 'Erro ao listar cupons' });
   }
 });
@@ -99,7 +100,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -109,7 +110,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao atualizar cupom:', error);
+    logger.error({ err: error }, 'Erro ao atualizar cupom:');
     res.status(400).json({ error: error.message || 'Erro ao atualizar cupom' });
   }
 });
@@ -120,7 +121,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -130,7 +131,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     res.json(deactivated);
   } catch (error: any) {
-    console.error('Erro ao desativar cupom:', error);
+    logger.error({ err: error }, 'Erro ao desativar cupom:');
     res.status(400).json({ error: error.message || 'Erro ao desativar cupom' });
   }
 });
@@ -141,7 +142,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
  */
 router.get('/:id/usage', async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -151,7 +152,7 @@ router.get('/:id/usage', async (req: Request, res: Response) => {
 
     res.json(usage);
   } catch (error: any) {
-    console.error('Erro ao buscar histórico de uso:', error);
+    logger.error({ err: error }, 'Erro ao buscar histórico de uso:');
     res.status(500).json({ error: error.message || 'Erro ao buscar histórico de uso' });
   }
 });

@@ -8,6 +8,7 @@ import { db } from '../db';
 import { eq } from 'drizzle-orm';
 import { clinicSettings, companies } from '@shared/schema';
 
+import { logger } from '../logger';
 // Tipos
 export interface AIProvider {
   id: string;
@@ -317,7 +318,7 @@ Avaliação: ${settings?.googleReviewLink || ''}
     }
 
     // Fallback externo — log warning (dados saindo do servidor)
-    console.warn('[AI-Provider] LGPD: Ollama indisponível, usando provider externo como fallback');
+    logger.warn('[AI-Provider] LGPD: Ollama indisponível, usando provider externo como fallback');
     return healthyProviders[0];
   }
 
@@ -403,7 +404,7 @@ Avaliação: ${settings?.googleReviewLink || ''}
           latencyMs: Date.now() - startTime,
         };
       } catch (error) {
-        console.error(`Provider ${provider.id} falhou:`, error);
+        logger.error({ err: error, provider_id: provider.id }, 'Provider {provider_id} falhou:')
         provider.isHealthy = false;
         continue;
       }
@@ -602,7 +603,7 @@ Avaliação: ${settings?.googleReviewLink || ''}
 
       return validIntents.includes(intent) ? intent : 'unknown';
     } catch (error) {
-      console.error('Erro ao classificar intent:', error);
+      logger.error({ err: error }, 'Erro ao classificar intent:');
       return 'unknown';
     }
   }

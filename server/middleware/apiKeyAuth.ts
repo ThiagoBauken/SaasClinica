@@ -4,8 +4,9 @@ import { companies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
+import { logger } from '../logger';
 /**
- * Middleware de autenticação via API Key para integrações externas (N8N, webhooks)
+ * Middleware de autenticação via API Key para integrações externas (webhooks, automações)
  *
  * Uso:
  * - Header: X-API-Key: <api_key_da_empresa>
@@ -29,7 +30,7 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
     const [company] = await db
       .select()
       .from(companies)
-      .where(eq(companies.n8nApiKey, apiKey))
+      .where(eq(companies.apiKey, apiKey))
       .limit(1);
 
     if (!company) {
@@ -52,7 +53,7 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
 
     next();
   } catch (error) {
-    console.error('API Key auth error:', error);
+    logger.error({ err: error }, 'API Key auth error:');
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Erro ao validar API Key',
@@ -62,7 +63,7 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
 
 /**
  * Middleware híbrido que aceita autenticação por sessão OU API Key
- * Útil para rotas que podem ser chamadas tanto pelo frontend quanto pelo N8N
+ * Útil para rotas que podem ser chamadas tanto pelo frontend quanto por integrações externas
  */
 export function hybridAuth(req: Request, res: Response, next: NextFunction) {
   // Se já tem usuário autenticado por sessão, prossegue

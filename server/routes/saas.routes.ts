@@ -5,10 +5,11 @@ import { eq, and } from 'drizzle-orm';
 import { asyncHandler } from '../middleware/auth';
 import { apiKeyAuth, generateApiKey } from '../middleware/apiKeyAuth';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
- * Middleware para autenticar requisições do N8N com API Key Master
+ * Middleware para autenticar requisições externas com API Key Master
  * A API Key Master tem acesso a dados de TODAS as empresas
  */
 async function masterApiKeyAuth(req: any, res: any, next: any) {
@@ -16,7 +17,7 @@ async function masterApiKeyAuth(req: any, res: any, next: any) {
   const masterKey = process.env.SAAS_MASTER_API_KEY;
 
   if (!masterKey) {
-    console.error('SAAS_MASTER_API_KEY não configurada no ambiente');
+    logger.error('SAAS_MASTER_API_KEY não configurada no ambiente');
     return res.status(500).json({ error: 'Master API Key not configured' });
   }
 
@@ -33,7 +34,7 @@ async function masterApiKeyAuth(req: any, res: any, next: any) {
 /**
  * GET /api/v1/saas/companies/active
  * Retorna TODAS as empresas ativas com suas configurações de integração
- * Usado pelos workflows N8N multi-tenant
+ * Usado por integrações externas multi-tenant
  *
  * Requer: Header X-API-Key com a SAAS_MASTER_API_KEY
  */
@@ -69,7 +70,9 @@ router.get(
             phone: settings.phone,
             address: settings.address,
             // Wuzapi (WhatsApp) - API 3.0 usa token ao invés de instance_id
-            wuzapiApiKey: settings.wuzapiApiKey, // Token do usuário Wuzapi
+            wuzapiApiKey: settings.wuzapiApiKey
+              ? `***${settings.wuzapiApiKey.slice(-4)}`
+              : null, // Masked for security
             wuzapiBaseUrl: process.env.WUZAPI_BASE_URL || 'http://private_wuzapi:8080',
             // WhatsApp Admin
             adminWhatsappPhone: settings.adminWhatsappPhone,
@@ -165,8 +168,8 @@ router.post(
     await db
       .update(companies)
       .set({
-        n8nApiKey: newApiKey,
-        n8nApiKeyCreatedAt: new Date(),
+        apiKey: newApiKey,
+        apiKeyCreatedAt: new Date(),
       })
       .where(eq(companies.id, companyId));
 
@@ -275,7 +278,7 @@ router.get(
  * Onboarding completo de uma nova empresa
  * - Cria configurações iniciais de integração
  * - Configura URL base do Wuzapi compartilhado
- * - Gera API Key para N8N
+ * - Gera API Key para integrações externas
  *
  * Requer: Master API Key
  *
@@ -323,8 +326,8 @@ router.post(
     // mas pode ter tokens individuais no futuro
     const finalWuzapiToken = wuzapiToken || process.env.WUZAPI_ADMIN_TOKEN || '';
 
-    // Gerar API Key para N8N
-    const n8nApiKey = generateApiKey();
+    // Gerar API Key para integrações externas (webhooks, automações)
+    const generatedApiKey = generateApiKey();
 
     // Gerar webhook secret
     const crypto = await import('crypto');
@@ -371,12 +374,12 @@ router.post(
       });
     }
 
-    // Atualizar N8N API Key na empresa
+    // Atualizar API Key na empresa
     await db
       .update(companies)
       .set({
-        n8nApiKey,
-        n8nApiKeyCreatedAt: new Date(),
+        apiKey: generatedApiKey,
+        apiKeyCreatedAt: new Date(),
       })
       .where(eq(companies.id, companyId));
 
@@ -394,10 +397,10 @@ router.post(
             status: 'disconnected',
             nextStep: 'Acesse a página de integrações para conectar o WhatsApp via QR Code',
           },
-          n8n: {
+          api: {
             configured: true,
-            apiKey: n8nApiKey,
-            apiKeyPreview: `${n8nApiKey.substring(0, 8)}...${n8nApiKey.substring(n8nApiKey.length - 4)}`,
+            apiKey: generatedApiKey,
+            apiKeyPreview: `${generatedApiKey.substring(0, 8)}...${generatedApiKey.substring(generatedApiKey.length - 4)}`,
           },
         },
         setupUrl: `${systemBaseUrl}/setup?companyId=${companyId}`,
@@ -566,9 +569,9 @@ router.get(
       },
       integrations: {
         whatsapp: whatsappStatus,
-        n8n: {
-          configured: !!company.n8nApiKey,
-          apiKeyCreatedAt: company.n8nApiKeyCreatedAt,
+        api: {
+          configured: !!company.apiKey,
+          apiKeyCreatedAt: company.apiKeyCreatedAt,
         },
         googleCalendar: {
           configured: !!settings?.defaultGoogleCalendarId,
@@ -578,7 +581,7 @@ router.get(
           url: settings?.wuzapiWebhookUrl || null,
         },
       },
-      setupComplete: whatsappStatus.loggedIn && !!company.n8nApiKey,
+      setupComplete: whatsappStatus.loggedIn && !!company.apiKey,
     });
   })
 );

@@ -6,6 +6,7 @@
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
+import { logger } from '../logger';
 /**
  * Deduz materiais do estoque quando um agendamento/procedimento e concluido
  * Chamado quando appointment.status muda para 'completed'
@@ -24,7 +25,9 @@ export async function autoDeductStock(
       SELECT ap.procedure_id, ap.quantity as proc_quantity, pr.name as procedure_name
       FROM appointment_procedures ap
       JOIN procedures pr ON ap.procedure_id = pr.id
+      JOIN appointments a ON ap.appointment_id = a.id
       WHERE ap.appointment_id = ${appointmentId}
+        AND a.company_id = ${companyId}
     `);
 
     if (procedures.rows.length === 0) return { deducted, alerts };
@@ -66,7 +69,7 @@ export async function autoDeductStock(
       }
     }
   } catch (error) {
-    console.error('[StockAutoDeduct] Error:', error);
+    logger.error({ err: error }, '[StockAutoDeduct] Error:');
   }
 
   return { deducted, alerts };

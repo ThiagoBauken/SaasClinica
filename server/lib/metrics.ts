@@ -90,3 +90,12 @@ export const cacheMisses = new Counter({
   help: 'Total cache misses',
   registers: [register],
 });
+
+// --- Dead Letter Queue ---
+
+export const dlqJobs = new Counter({
+  name: 'dental_dlq_jobs_total',
+  help: 'Jobs moved to the dead-letter queue after exhausting retries',
+  labelNames: ['queue'] as const,
+  registers: [register],
+});

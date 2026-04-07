@@ -1,5 +1,6 @@
 import { log } from './vite';
 
+import { logger } from './logger';
 // Cache simples em memória
 interface CacheItem {
   data: any;
@@ -51,7 +52,7 @@ class SimpleCache {
 
       return true;
     } catch (error) {
-      console.error(`Erro ao definir cache para ${key}:`, error);
+      logger.error({ err: error, key: key }, 'Erro ao definir cache para {key}:')
       return false;
     }
   }
@@ -162,7 +163,7 @@ export function cacheMiddleware(ttl: number = 300) {
       
       next();
     } catch (error) {
-      console.error('Erro no middleware de cache:', error);
+      logger.error({ err: error }, 'Erro no middleware de cache:');
       next();
     }
   };

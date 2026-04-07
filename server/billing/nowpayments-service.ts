@@ -3,6 +3,7 @@ import { subscriptions, subscriptionInvoices, companies, users, plans } from '@s
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
+import { logger } from '../logger';
 /**
  * Serviço de Integração com NOWPayments (Crypto)
  * Suporta Bitcoin, Ethereum, USDT, e mais de 300 criptomoedas
@@ -75,7 +76,7 @@ export class NOWPaymentsService {
       const response = await this.makeRequest('/currencies');
       return response.currencies || [];
     } catch (error) {
-      console.error('Erro ao buscar moedas:', error);
+      logger.error({ err: error }, 'Erro ao buscar moedas:');
       return ['btc', 'eth', 'usdt', 'bnb', 'ltc']; // Fallback para moedas populares
     }
   }
@@ -92,7 +93,7 @@ export class NOWPaymentsService {
       const response = await this.makeRequest('/estimate', 'GET');
       return response.estimated_amount || 0;
     } catch (error) {
-      console.error('Erro ao estimar preço:', error);
+      logger.error({ err: error }, 'Erro ao estimar preço:');
       return 0;
     }
   }
@@ -180,7 +181,7 @@ export class NOWPaymentsService {
     try {
       return await this.makeRequest(`/payment/${paymentId}`);
     } catch (error) {
-      console.error('Erro ao buscar status do pagamento:', error);
+      logger.error({ err: error }, 'Erro ao buscar status do pagamento:');
       throw error;
     }
   }
@@ -190,7 +191,7 @@ export class NOWPaymentsService {
    */
   verifyWebhookSignature(payload: string, signature: string): boolean {
     if (!NOWPAYMENTS_IPN_SECRET) {
-      console.warn('⚠️ NOWPAYMENTS_IPN_SECRET não configurado');
+      logger.warn('NOWPAYMENTS_IPN_SECRET não configurado');
       return false;
     }
 
@@ -206,7 +207,7 @@ export class NOWPaymentsService {
   async handleWebhook(payload: any) {
     const { payment_id, payment_status, order_id, pay_currency, outcome_amount } = payload;
 
-    console.log(`🔔 NOWPayments Webhook: ${payment_status} para pagamento ${payment_id}`);
+    logger.info({ paymentStatus: payment_status, paymentId: payment_id }, 'NOWPayments Webhook received')
 
     try {
       // Buscar fatura pelo payment_id
@@ -217,7 +218,7 @@ export class NOWPaymentsService {
         .limit(1);
 
       if (!invoice) {
-        console.warn(`⚠️ Fatura não encontrada para payment_id: ${payment_id}`);
+        logger.warn({ paymentId: payment_id }, 'Invoice not found for payment')
         return;
       }
 
@@ -270,7 +271,7 @@ export class NOWPaymentsService {
           break;
       }
     } catch (error) {
-      console.error('❌ Erro ao processar webhook NOWPayments:', error);
+      logger.error({ err: error }, 'Erro ao processar webhook NOWPayments:');
       throw error;
     }
   }
@@ -305,7 +306,7 @@ export class NOWPaymentsService {
       })
       .where(eq(subscriptions.id, invoice.subscriptionId));
 
-    console.log(`✅ Pagamento crypto confirmado para invoice ${invoice.id}`);
+    logger.info({ invoiceId: invoice.id }, 'Crypto payment confirmed')
 
     // Send confirmation email
     try {
@@ -326,7 +327,7 @@ export class NOWPaymentsService {
         });
       }
     } catch (emailError) {
-      console.error('Erro ao enviar email de confirmação:', emailError);
+      logger.error({ err: emailError }, 'Erro ao enviar email de confirmação:');
     }
   }
 
@@ -347,7 +348,7 @@ export class NOWPaymentsService {
       })
       .where(eq(subscriptionInvoices.id, invoice.id));
 
-    console.log(`❌ Pagamento crypto falhou para invoice ${invoice.id}`);
+    logger.info({ invoiceId: invoice.id }, 'Crypto payment failed')
 
     // Send failure notification email
     try {
@@ -368,7 +369,7 @@ export class NOWPaymentsService {
         });
       }
     } catch (emailError) {
-      console.error('Erro ao enviar email de falha:', emailError);
+      logger.error({ err: emailError }, 'Erro ao enviar email de falha:');
     }
   }
 }

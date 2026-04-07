@@ -3,6 +3,7 @@ import { db } from "./db";
 import { appointments } from "@shared/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
+import { logger } from "./logger";
 
 /**
  * Calendar APIs - Endpoints para calendário e ocupação
@@ -79,7 +80,7 @@ export async function getOccupationStatus(req: Request, res: Response) {
 
     res.json(occupationMap);
   } catch (error) {
-    console.error("Error fetching occupation status:", error);
+    logger.error({ err: error }, 'Error fetching occupation status');
     res.status(500).json({ error: "Failed to fetch occupation status" });
   }
 }
@@ -113,7 +114,7 @@ export async function getProcedureStats(req: Request, res: Response) {
       { name: "Extração", count: Math.floor((stats[0]?.count || 0) * 0.1), value: Math.floor((stats[0]?.value || 0) * 0.1) },
     ]);
   } catch (error) {
-    console.error("Error fetching procedure stats:", error);
+    logger.error({ err: error }, 'Error fetching procedure stats');
     res.status(500).json({ error: "Failed to fetch procedure stats" });
   }
 }

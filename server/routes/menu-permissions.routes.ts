@@ -3,13 +3,14 @@ import { db } from "../db";
 import { menuPermissions, type InsertMenuPermission } from "../../shared/schema";
 import { eq, and } from "drizzle-orm";
 
+import { logger } from '../logger';
 const router = Router();
 
 // GET - Buscar permissões por role e empresa
 router.get("/by-role/:role", async (req, res) => {
   try {
     const { role } = req.params;
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -28,7 +29,7 @@ router.get("/by-role/:role", async (req, res) => {
 
     res.json(permissions);
   } catch (error) {
-    console.error("Erro ao buscar permissões:", error);
+    logger.error({ err: error }, 'Erro ao buscar permissões:');
     res.status(500).json({ message: "Erro ao buscar permissões" });
   }
 });
@@ -36,7 +37,7 @@ router.get("/by-role/:role", async (req, res) => {
 // GET - Buscar todas as permissões da empresa
 router.get("/", async (req, res) => {
   try {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -50,7 +51,7 @@ router.get("/", async (req, res) => {
 
     res.json(permissions);
   } catch (error) {
-    console.error("Erro ao buscar permissões:", error);
+    logger.error({ err: error }, 'Erro ao buscar permissões:');
     res.status(500).json({ message: "Erro ao buscar permissões" });
   }
 });
@@ -58,8 +59,8 @@ router.get("/", async (req, res) => {
 // POST - Criar nova permissão
 router.post("/", async (req, res) => {
   try {
-    const companyId = (req.user as any)?.companyId;
-    const userRole = (req.user as any)?.role;
+    const companyId = (req.user!)?.companyId;
+    const userRole = (req.user!)?.role;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -82,7 +83,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(newPermission);
   } catch (error) {
-    console.error("Erro ao criar permissão:", error);
+    logger.error({ err: error }, 'Erro ao criar permissão:');
     res.status(500).json({ message: "Erro ao criar permissão" });
   }
 });
@@ -91,8 +92,8 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = (req.user as any)?.companyId;
-    const userRole = (req.user as any)?.role;
+    const companyId = (req.user!)?.companyId;
+    const userRole = (req.user!)?.role;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -123,7 +124,7 @@ router.put("/:id", async (req, res) => {
 
     res.json(updatedPermission);
   } catch (error) {
-    console.error("Erro ao atualizar permissão:", error);
+    logger.error({ err: error }, 'Erro ao atualizar permissão:');
     res.status(500).json({ message: "Erro ao atualizar permissão" });
   }
 });
@@ -132,8 +133,8 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = (req.user as any)?.companyId;
-    const userRole = (req.user as any)?.role;
+    const companyId = (req.user!)?.companyId;
+    const userRole = (req.user!)?.role;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -160,7 +161,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "Permissão deletada com sucesso" });
   } catch (error) {
-    console.error("Erro ao deletar permissão:", error);
+    logger.error({ err: error }, 'Erro ao deletar permissão:');
     res.status(500).json({ message: "Erro ao deletar permissão" });
   }
 });
@@ -168,8 +169,8 @@ router.delete("/:id", async (req, res) => {
 // POST - Popular com permissões padrão
 router.post("/seed-defaults", async (req, res) => {
   try {
-    const companyId = (req.user as any)?.companyId;
-    const userRole = (req.user as any)?.role;
+    const companyId = (req.user!)?.companyId;
+    const userRole = (req.user!)?.role;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -214,7 +215,7 @@ router.post("/seed-defaults", async (req, res) => {
       permissions: insertedPermissions,
     });
   } catch (error) {
-    console.error("Erro ao popular permissões padrão:", error);
+    logger.error({ err: error }, 'Erro ao popular permissões padrão:');
     res.status(500).json({ message: "Erro ao popular permissões padrão" });
   }
 });
@@ -223,8 +224,8 @@ router.post("/seed-defaults", async (req, res) => {
 router.put("/bulk-update", async (req, res) => {
   try {
     const { permissions } = req.body;
-    const companyId = (req.user as any)?.companyId;
-    const userRole = (req.user as any)?.role;
+    const companyId = (req.user!)?.companyId;
+    const userRole = (req.user!)?.role;
 
     if (!companyId) {
       return res.status(403).json({ message: "Empresa não encontrada" });
@@ -267,7 +268,7 @@ router.put("/bulk-update", async (req, res) => {
       permissions: updatedPermissions,
     });
   } catch (error) {
-    console.error("Erro ao atualizar permissões em lote:", error);
+    logger.error({ err: error }, 'Erro ao atualizar permissões em lote:');
     res.status(500).json({ message: "Erro ao atualizar permissões em lote" });
   }
 });

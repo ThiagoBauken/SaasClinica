@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { tenantIsolationMiddleware } from "../tenantMiddleware";
 
+import { logger } from '../logger';
 export function registerLaboratoryRoutes(app: Express) {
   const authCheck = (req: Request, res: Response, next: Function) => {
     if (!req.user) {
@@ -19,14 +20,14 @@ export function registerLaboratoryRoutes(app: Express) {
     authCheck, 
     tenantIsolationMiddleware, 
     asyncHandler(async (req: Request, res: Response) => {
-      const user = req.user as any;
+      const user = req.user!;
       const companyId = user.companyId;
       
       try {
         const laboratories = await storage.getLaboratories(companyId);
         res.json(laboratories);
       } catch (error) {
-        console.error('Erro ao listar laboratórios:', error);
+        logger.error({ err: error }, 'Erro ao listar laboratórios:');
         res.status(500).json({ 
           error: 'Erro ao listar laboratórios',
           details: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -40,25 +41,25 @@ export function registerLaboratoryRoutes(app: Express) {
     authCheck,
     tenantIsolationMiddleware,
     asyncHandler(async (req: Request, res: Response) => {
-      const user = req.user as any;
+      const user = req.user!;
       const companyId = user.companyId;
       
       try {
-        console.log('Dados recebidos para criação de laboratório:', req.body);
+        logger.info({ body: req.body }, 'Dados recebidos para criação de laboratório:');
         
         const laboratoryData = {
           ...req.body,
           companyId
         };
         
-        console.log('Dados processados para inserção:', laboratoryData);
+        logger.info({ laboratoryData }, 'Dados processados para inserção:');
         
         const newLaboratory = await storage.createLaboratory(laboratoryData);
-        console.log('Laboratório criado com sucesso:', newLaboratory);
+        logger.info({ newLaboratory }, 'Laboratório criado com sucesso:');
         
         res.status(201).json(newLaboratory);
       } catch (error) {
-        console.error('Erro detalhado ao criar laboratório:', error);
+        logger.error({ err: error }, 'Erro detalhado ao criar laboratório:');
         res.status(500).json({ 
           error: 'Erro ao criar laboratório',
           details: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -73,7 +74,7 @@ export function registerLaboratoryRoutes(app: Express) {
     tenantIsolationMiddleware,
     asyncHandler(async (req: Request, res: Response) => {
       try {
-        const user = req.user as any;
+        const user = req.user!;
         const companyId = user.companyId;
         const laboratoryId = parseInt(req.params.id);
         
@@ -89,7 +90,7 @@ export function registerLaboratoryRoutes(app: Express) {
         
         res.json(updatedLaboratory);
       } catch (error) {
-        console.error('Erro ao atualizar laboratório:', error);
+        logger.error({ err: error }, 'Erro ao atualizar laboratório:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao atualizar laboratório'
@@ -104,7 +105,7 @@ export function registerLaboratoryRoutes(app: Express) {
     tenantIsolationMiddleware,
     asyncHandler(async (req: Request, res: Response) => {
       try {
-        const user = req.user as any;
+        const user = req.user!;
         const companyId = user.companyId;
         const laboratoryId = parseInt(req.params.id);
         
@@ -120,7 +121,7 @@ export function registerLaboratoryRoutes(app: Express) {
         
         res.json({ message: 'Laboratório excluído com sucesso' });
       } catch (error) {
-        console.error('Erro ao excluir laboratório:', error);
+        logger.error({ err: error }, 'Erro ao excluir laboratório:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao excluir laboratório'
@@ -135,7 +136,7 @@ export function registerLaboratoryRoutes(app: Express) {
     tenantIsolationMiddleware,
     asyncHandler(async (req: Request, res: Response) => {
       try {
-        const user = req.user as any;
+        const user = req.user!;
         const companyId = user.companyId;
         const laboratoryId = parseInt(req.params.id);
         
@@ -151,7 +152,7 @@ export function registerLaboratoryRoutes(app: Express) {
         
         res.json(laboratory);
       } catch (error) {
-        console.error('Erro ao buscar laboratório:', error);
+        logger.error({ err: error }, 'Erro ao buscar laboratório:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao buscar laboratório'

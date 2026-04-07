@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
@@ -15,7 +16,7 @@ router.get(
   '/auth',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
 
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -88,7 +89,7 @@ router.get(
         })
         .where(eq(users.id, userId));
 
-      console.log('Google Calendar connected successfully for user:', userId);
+      logger.info({ userId }, 'Google Calendar connected successfully for user:');
 
       // Redirecionar para página de sucesso
       res.send(`
@@ -151,7 +152,7 @@ router.get(
         </html>
       `);
     } catch (error: any) {
-      console.error('Error in Google OAuth callback:', error);
+      logger.error({ err: error }, 'Error in Google OAuth callback:');
       res.status(500).json({ error: error.message });
     }
   })
@@ -165,7 +166,7 @@ router.post(
   '/disconnect',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
 
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -197,7 +198,7 @@ router.get(
   '/status',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
 
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -229,7 +230,7 @@ router.post(
   '/sync-appointment/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
     const { id } = req.params;
 
     if (!user) {
@@ -299,7 +300,7 @@ router.post(
         eventId,
       });
     } catch (error: any) {
-      console.error('Error syncing appointment to Google Calendar:', error);
+      logger.error({ err: error }, 'Error syncing appointment to Google Calendar:');
       res.status(500).json({
         success: false,
         error: error.message,
@@ -317,7 +318,7 @@ router.post(
   '/test-connection',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
 
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -359,7 +360,7 @@ router.post(
         eventsCount: events.length,
       });
     } catch (error: any) {
-      console.error('Google Calendar connection test failed:', error);
+      logger.error({ err: error }, 'Google Calendar connection test failed:');
       res.json({
         connected: false,
         message: `Connection failed: ${error.message}`,

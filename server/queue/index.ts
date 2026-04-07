@@ -42,6 +42,11 @@ export async function initializeQueueSystem() {
     // Importar workers (isso os inicia automaticamente)
     await import('./workers');
 
+    // Attach Dead Letter Queue handlers — forwards permanently-failed
+    // jobs (attempts exhausted) to the DLQ for manual replay.
+    const { attachDeadLetterHandlers } = await import('./dead-letter');
+    attachDeadLetterHandlers();
+
     queueLogger.info('Queue system initialized successfully');
 
     return { success: true };

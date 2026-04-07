@@ -2,6 +2,7 @@ import express, { type Request, type Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { authCheck } from '../middleware/auth';
 import {
   importPatientsFromImages,
   importPatientsFromXLSX,
@@ -11,6 +12,7 @@ import {
 import { extractTextFromImage } from '../services/ocr';
 import { extractPatientData } from '../services/aiExtraction';
 
+import { logger } from '../logger';
 const router = express.Router();
 
 // Configuração do multer para upload de arquivos
@@ -61,6 +63,7 @@ const upload = multer({
  */
 router.post(
   '/import/images',
+  authCheck,
   upload.array('images', 50), // Máximo 50 imagens
   async (req: Request, res: Response) => {
     try {
@@ -71,7 +74,7 @@ router.post(
       }
 
       // Pega companyId do usuário autenticado
-      const companyId = (req.user as any)?.companyId;
+      const companyId = (req.user!)?.companyId;
       if (!companyId) {
         return res.status(401).json({ error: 'Usuário não autenticado' });
       }
@@ -83,7 +86,7 @@ router.post(
         skipDuplicates: req.body.skipDuplicates === 'true',
       };
 
-      console.log(`Iniciando importação de ${files.length} imagens...`);
+      logger.info({ fileCount: files.length }, 'Starting image import')
 
       // Lê os arquivos em buffers
       const imageBuffers = files.map((file) => fs.readFileSync(file.path));
@@ -100,7 +103,7 @@ router.post(
         try {
           fs.unlinkSync(file.path);
         } catch (err) {
-          console.error('Erro ao remover arquivo temporário:', err);
+          logger.error({ err: err }, 'Erro ao remover arquivo temporário:');
         }
       });
 
@@ -109,7 +112,7 @@ router.post(
         result,
       });
     } catch (error) {
-      console.error('Erro na importação de imagens:', error);
+      logger.error({ err: error }, 'Erro na importação de imagens:');
       res.status(500).json({
         error: 'Erro ao processar importação',
         details: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -124,6 +127,7 @@ router.post(
  */
 router.post(
   '/import/xlsx',
+  authCheck,
   upload.single('file'),
   async (req: Request, res: Response) => {
     try {
@@ -134,7 +138,7 @@ router.post(
       }
 
       // Pega companyId do usuário autenticado
-      const companyId = (req.user as any)?.companyId;
+      const companyId = (req.user!)?.companyId;
       if (!companyId) {
         return res.status(401).json({ error: 'Usuário não autenticado' });
       }
@@ -146,7 +150,7 @@ router.post(
         skipDuplicates: req.body.skipDuplicates === 'true',
       };
 
-      console.log(`Iniciando importação de XLSX: ${file.originalname}`);
+      logger.info({ filename: file.originalname }, 'Starting XLSX import')
 
       // Processa importação
       const result = await importPatientsFromXLSX(
@@ -159,7 +163,7 @@ router.post(
       try {
         fs.unlinkSync(file.path);
       } catch (err) {
-        console.error('Erro ao remover arquivo temporário:', err);
+        logger.error({ err: err }, 'Erro ao remover arquivo temporário:');
       }
 
       res.json({
@@ -167,7 +171,7 @@ router.post(
         result,
       });
     } catch (error) {
-      console.error('Erro na importação de XLSX:', error);
+      logger.error({ err: error }, 'Erro na importação de XLSX:');
       res.status(500).json({
         error: 'Erro ao processar importação',
         details: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -182,6 +186,7 @@ router.post(
  */
 router.post(
   '/import/preview',
+  authCheck,
   upload.array('files', 50),
   async (req: Request, res: Response) => {
     try {
@@ -191,12 +196,12 @@ router.post(
         return res.status(400).json({ error: 'Nenhum arquivo fornecido' });
       }
 
-      const companyId = (req.user as any)?.companyId;
+      const companyId = (req.user!)?.companyId;
       if (!companyId) {
         return res.status(401).json({ error: 'Usuário não autenticado' });
       }
 
-      console.log(`Gerando preview de ${files.length} arquivos...`);
+      logger.info({ fileCount: files.length }, 'Generating file preview')
 
       const extractedData: any[] = [];
 
@@ -240,14 +245,14 @@ router.post(
             }
           }
         } catch (error) {
-          console.error(`Erro ao processar ${file.originalname}:`, error);
+          logger.error({ err: error, filename: file.originalname }, 'Error processing file')
         }
 
         // Remove arquivo temporário
         try {
           fs.unlinkSync(file.path);
         } catch (err) {
-          console.error('Erro ao remover arquivo temporário:', err);
+          logger.error({ err: err }, 'Erro ao remover arquivo temporário:');
         }
       }
 
@@ -260,7 +265,7 @@ router.post(
         extractedData,
       });
     } catch (error) {
-      console.error('Erro ao gerar preview:', error);
+      logger.error({ err: error }, 'Erro ao gerar preview:');
       res.status(500).json({
         error: 'Erro ao gerar preview',
         details: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -275,6 +280,7 @@ router.post(
  */
 router.post(
   '/import/test-ocr',
+  authCheck,
   upload.single('image'),
   async (req: Request, res: Response) => {
     try {
@@ -284,7 +290,7 @@ router.post(
         return res.status(400).json({ error: 'Nenhuma imagem fornecida' });
       }
 
-      console.log(`Testando OCR em: ${file.originalname}`);
+      logger.info({ filename: file.originalname }, 'Testing OCR')
 
       const buffer = fs.readFileSync(file.path);
       const ocrResult = await extractTextFromImage(buffer);
@@ -294,7 +300,7 @@ router.post(
       try {
         fs.unlinkSync(file.path);
       } catch (err) {
-        console.error('Erro ao remover arquivo temporário:', err);
+        logger.error({ err: err }, 'Erro ao remover arquivo temporário:');
       }
 
       res.json({
@@ -306,7 +312,7 @@ router.post(
         extractedData,
       });
     } catch (error) {
-      console.error('Erro no teste de OCR:', error);
+      logger.error({ err: error }, 'Erro no teste de OCR:');
       res.status(500).json({
         error: 'Erro ao processar OCR',
         details: error instanceof Error ? error.message : 'Erro desconhecido',

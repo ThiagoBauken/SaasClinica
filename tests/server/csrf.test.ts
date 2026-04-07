@@ -104,13 +104,24 @@ describe('CSRF Protection', () => {
   });
 
   describe('Bypass Rules', () => {
-    it('should skip CSRF for API key authenticated requests', () => {
+    it('should skip CSRF only for valid master API key (not any key)', () => {
+      // Set the master key in env
+      const originalKey = process.env.SAAS_MASTER_API_KEY;
+      process.env.SAAS_MASTER_API_KEY = 'valid-master-key';
+
       mockReq.method = 'POST';
-      mockReq.headers = { 'x-api-key': 'some-api-key' };
+      mockReq.headers = { 'x-api-key': 'valid-master-key' };
 
       csrfProtection(mockReq, mockRes, mockNext);
-
       expect(mockNext).toHaveBeenCalled();
+
+      // Invalid key should NOT bypass CSRF
+      const mockNext2 = vi.fn();
+      const mockReq2 = { ...mockReq, headers: { 'x-api-key': 'invalid-key' }, cookies: {} };
+      csrfProtection(mockReq2, mockRes, mockNext2);
+      expect(mockNext2).not.toHaveBeenCalled();
+
+      process.env.SAAS_MASTER_API_KEY = originalKey;
     });
 
     it('should skip CSRF for webhook endpoints', () => {

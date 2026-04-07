@@ -3,6 +3,7 @@ import { db } from "./db";
 import { patientRecords, users } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
+import { logger } from './logger';
 /**
  * Patient Records APIs - Endpoints para prontuários
  */
@@ -39,7 +40,7 @@ export async function getPatientRecords(req: Request, res: Response) {
 
     res.json(records);
   } catch (error) {
-    console.error("Error fetching patient records:", error);
+    logger.error({ err: error }, 'Error fetching patient records:');
     res.status(500).json({ error: "Failed to fetch patient records" });
   }
 }
@@ -70,7 +71,7 @@ export async function createPatientRecord(req: Request, res: Response) {
 
     res.status(201).json(newRecord);
   } catch (error) {
-    console.error("Error creating patient record:", error);
+    logger.error({ err: error }, 'Error creating patient record:');
     res.status(500).json({ error: "Failed to create patient record" });
   }
 }
@@ -107,7 +108,7 @@ export async function updatePatientRecord(req: Request, res: Response) {
 
     res.json(updatedRecord);
   } catch (error) {
-    console.error("Error updating patient record:", error);
+    logger.error({ err: error }, 'Error updating patient record:');
     res.status(500).json({ error: "Failed to update patient record" });
   }
 }
@@ -139,7 +140,7 @@ export async function deletePatientRecord(req: Request, res: Response) {
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting patient record:", error);
+    logger.error({ err: error }, 'Error deleting patient record:');
     res.status(500).json({ error: "Failed to delete patient record" });
   }
 }

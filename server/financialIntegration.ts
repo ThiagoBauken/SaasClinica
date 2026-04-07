@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { eq, and, sum, desc } from "drizzle-orm";
 
+import { logger } from './logger';
 // Financial Transaction interface for integration
 interface FinancialTransaction {
   companyId: number;
@@ -134,7 +135,7 @@ export class FinancialIntegrationService {
 
       return transactions;
     } catch (error) {
-      console.error('Error creating financial transactions from appointment:', error);
+      logger.error({ err: error }, 'Error creating financial transactions from appointment:');
       throw error;
     }
   }
@@ -195,7 +196,7 @@ export class FinancialIntegrationService {
 
       return treatmentPlan;
     } catch (error) {
-      console.error('Error creating treatment plan:', error);
+      logger.error({ err: error }, 'Error creating treatment plan:');
       throw error;
     }
   }
@@ -259,7 +260,7 @@ export class FinancialIntegrationService {
         upcomingPayments: upcomingTransactions.slice(0, 5) // Next 5 payments
       };
     } catch (error) {
-      console.error('Error getting patient financial summary:', error);
+      logger.error({ err: error }, 'Error getting patient financial summary:');
       throw error;
     }
   }
@@ -331,7 +332,7 @@ export class FinancialIntegrationService {
         processedAt: new Date()
       };
     } catch (error) {
-      console.error('Error processing payment:', error);
+      logger.error({ err: error }, 'Error processing payment:');
       throw error;
     }
   }

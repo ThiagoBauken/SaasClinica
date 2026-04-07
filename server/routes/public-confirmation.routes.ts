@@ -18,6 +18,7 @@ import {
 } from '@shared/schema';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/auth';
+import { publicTokenLimiter, publicSubmitLimiter } from '../middleware/public-rate-limit';
 
 const router = Router();
 
@@ -46,6 +47,7 @@ async function validateToken(token: string) {
  */
 router.get(
   '/:token',
+  publicTokenLimiter,
   asyncHandler(async (req, res) => {
     const { token } = req.params;
 
@@ -126,6 +128,7 @@ router.get(
  */
 router.post(
   '/:token/confirm',
+  publicSubmitLimiter,
   asyncHandler(async (req, res) => {
     const { token } = req.params;
 
@@ -175,6 +178,7 @@ router.post(
  */
 router.post(
   '/:token/cancel',
+  publicSubmitLimiter,
   asyncHandler(async (req, res) => {
     const { token } = req.params;
 
@@ -228,7 +232,7 @@ router.post(
   '/generate',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const companyId = (req as any).user?.companyId as number;
+    const companyId = req.user!.companyId;
     const { appointmentId, expiresInHours = 48 } = req.body;
 
     if (!appointmentId) {

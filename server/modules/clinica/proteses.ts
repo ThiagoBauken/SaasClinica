@@ -3,6 +3,7 @@ import { storage } from "../../storage";
 import { tenantIsolationMiddleware } from "../../tenantMiddleware";
 import { requireModulePermission } from "../../permissions";
 
+import { logger } from '../../logger';
 export function registerProtesesRoutes(app: Express) {
   const authCheck = (req: Request, res: Response, next: Function) => {
     if (!req.user) {
@@ -27,7 +28,7 @@ export function registerProtesesRoutes(app: Express) {
         const prosthesis = await storage.getProsthesis(companyId);
         res.json(prosthesis);
       } catch (error) {
-        console.error('Erro ao buscar próteses:', error);
+        logger.error({ err: error }, 'Erro ao buscar próteses:');
         res.status(500).json({ error: 'Erro ao buscar próteses' });
       }
     })
@@ -42,21 +43,21 @@ export function registerProtesesRoutes(app: Express) {
       const companyId = user.companyId;
       
       try {
-        console.log('Dados recebidos para criação:', req.body);
+        logger.info({ body: req.body }, 'Dados recebidos para criação:');
         
         const prosthesisData = {
           ...req.body,
           companyId
         };
         
-        console.log('Dados processados para inserção:', prosthesisData);
+        logger.info({ prosthesisData }, 'Dados processados para inserção:');
         
         const newProsthesis = await storage.createProsthesis(prosthesisData);
-        console.log('Prótese criada com sucesso:', newProsthesis);
+        logger.info({ newProsthesis }, 'Prótese criada com sucesso:');
         
         // Verificar se newProsthesis tem dados válidos
         if (!newProsthesis || !newProsthesis.id) {
-          console.error('Prótese criada mas sem dados válidos:', newProsthesis);
+          logger.error({ err: newProsthesis }, 'Prótese criada mas sem dados válidos:');
           return res.status(500).json({ 
             error: 'Erro interno',
             details: 'Prótese criada mas dados inválidos'
@@ -65,7 +66,7 @@ export function registerProtesesRoutes(app: Express) {
         
         res.status(200).json(newProsthesis);
       } catch (error) {
-        console.error('Erro detalhado ao criar prótese:', error);
+        logger.error({ err: error }, 'Erro detalhado ao criar prótese:');
         res.status(500).json({ 
           error: 'Erro ao criar prótese',
           details: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -96,7 +97,7 @@ export function registerProtesesRoutes(app: Express) {
         
         res.json(updatedProsthesis);
       } catch (error) {
-        console.error('Erro ao atualizar prótese:', error);
+        logger.error({ err: error }, 'Erro ao atualizar prótese:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao atualizar status da prótese'
@@ -178,7 +179,7 @@ export function registerProtesesRoutes(app: Express) {
         const laboratories = await storage.getLaboratories(companyId);
         res.json(laboratories);
       } catch (error) {
-        console.error('Erro ao buscar laboratórios:', error);
+        logger.error({ err: error }, 'Erro ao buscar laboratórios:');
         res.status(500).json({ error: 'Erro ao buscar laboratórios' });
       }
     })
@@ -202,7 +203,7 @@ export function registerProtesesRoutes(app: Express) {
         const newLaboratory = await storage.createLaboratory(laboratoryData);
         res.status(201).json(newLaboratory);
       } catch (error) {
-        console.error('Erro ao criar laboratório:', error);
+        logger.error({ err: error }, 'Erro ao criar laboratório:');
         res.status(500).json({ 
           error: 'Erro ao criar laboratório',
           details: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -234,7 +235,7 @@ export function registerProtesesRoutes(app: Express) {
         
         res.json(updatedLaboratory);
       } catch (error) {
-        console.error('Erro ao atualizar laboratório:', error);
+        logger.error({ err: error }, 'Erro ao atualizar laboratório:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao atualizar laboratório'
@@ -261,7 +262,7 @@ export function registerProtesesRoutes(app: Express) {
         await storage.deleteLaboratory(laboratoryId, companyId);
         res.status(204).send();
       } catch (error) {
-        console.error('Erro ao excluir laboratório:', error);
+        logger.error({ err: error }, 'Erro ao excluir laboratório:');
         res.status(500).json({ 
           error: 'Erro interno do servidor',
           message: 'Falha ao excluir laboratório'

@@ -97,7 +97,7 @@ router.get(
   '/templates',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -130,7 +130,7 @@ router.post(
   authCheck,
   validate({ body: createTemplateSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -156,7 +156,7 @@ router.put(
   authCheck,
   validate({ body: updateTemplateSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -203,7 +203,7 @@ router.delete(
   '/templates/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -240,7 +240,7 @@ router.get(
   '/patient/:patientId',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -278,7 +278,7 @@ router.post(
   authCheck,
   validate({ body: generateContractSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -378,7 +378,7 @@ router.put(
   '/:id/sign',
   authCheck,
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
@@ -417,7 +417,7 @@ router.post(
   authCheck,
   validate({ body: sendContractSchema }),
   asyncHandler(async (req, res) => {
-    const companyId = (req.user as any)?.companyId;
+    const companyId = (req.user!)?.companyId;
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }

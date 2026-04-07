@@ -52,8 +52,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     return next();
   }
 
-  // Skip CSRF for API key authenticated requests (N8N webhooks, external APIs)
-  if (req.headers['x-api-key']) {
+  // Skip CSRF for API key authenticated requests — ONLY if key is actually valid
+  // (Previously skipped for ANY request with the header present, regardless of key validity)
+  if (req.headers['x-api-key'] && process.env.SAAS_MASTER_API_KEY &&
+      req.headers['x-api-key'] === process.env.SAAS_MASTER_API_KEY) {
     return next();
   }
 

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { notificationService } from '../services/notificationService';
 
+import { logger } from '../logger';
 const router = Router();
 
 // Schema para query params de listagem
@@ -40,9 +41,9 @@ router.get(
   authCheck,
   validate({ query: listNotificationsQuerySchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -92,7 +93,7 @@ router.get(
 
       res.json(createPaginatedResponse(results, count, page, limit));
     } catch (error: any) {
-      console.error('Error fetching notifications:', error);
+      logger.error({ err: error }, 'Error fetching notifications:');
       // Se a tabela não existe, retornar array vazio em vez de erro 500
       if (error.message?.includes('does not exist') || error.code === '42P01') {
         return res.json(createPaginatedResponse([], 0, page, limit));
@@ -110,9 +111,9 @@ router.get(
   '/unread-count',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -132,7 +133,7 @@ router.get(
 
       res.json({ count });
     } catch (error: any) {
-      console.error('Error fetching unread count:', error);
+      logger.error({ err: error }, 'Error fetching unread count:');
       // Se a tabela não existe, retornar count 0
       if (error.message?.includes('does not exist') || error.code === '42P01') {
         return res.json({ count: 0 });
@@ -150,9 +151,9 @@ router.get(
   '/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -187,9 +188,9 @@ router.patch(
   '/:id/read',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -228,9 +229,9 @@ router.post(
   '/mark-all-read',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -262,9 +263,9 @@ router.delete(
   '/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const userId = user?.id;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const userId = user.id;
+    const companyId = user.companyId;
 
     if (!userId || !companyId) {
       return res.status(403).json({ error: 'User not authenticated' });
@@ -295,8 +296,8 @@ router.post(
   authCheck,
   validate({ body: createNotificationSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -329,7 +330,7 @@ router.get(
   '/ws/stats',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
 
     // Verificar se é admin
     if (user.role !== 'admin' && user.role !== 'super_admin') {

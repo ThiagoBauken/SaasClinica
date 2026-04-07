@@ -2,6 +2,7 @@ import { log } from './vite';
 import path from 'path';
 import fs from 'fs/promises';
 
+import { logger } from './logger';
 interface CDNConfig {
   images: string;
   assets: string;
@@ -42,7 +43,7 @@ class CDNManager {
       
       log('CDN storage directories initialized');
     } catch (error) {
-      console.error('CDN storage initialization error:', error);
+      logger.error({ err: error }, 'CDN storage initialization error:');
     }
   }
 
@@ -80,7 +81,7 @@ class CDNManager {
       log(`File uploaded: ${filename} for company ${companyId}`);
       return cdnUrl;
     } catch (error) {
-      console.error('File upload error:', error);
+      logger.error({ err: error }, 'File upload error:');
       throw new Error('Upload failed');
     }
   }
@@ -98,7 +99,7 @@ class CDNManager {
       log(`File deleted: ${filename} for company ${companyId}`);
       return true;
     } catch (error) {
-      console.error('File deletion error:', error);
+      logger.error({ err: error }, 'File deletion error:');
       return false;
     }
   }
@@ -204,7 +205,7 @@ class CDNManager {
       
       log(`Cleaned up ${deletedCount} old files for company ${companyId}`);
     } catch (error) {
-      console.error('Cleanup error:', error);
+      logger.error({ err: error }, 'Cleanup error:');
     }
     
     return deletedCount;
@@ -248,7 +249,7 @@ class CDNManager {
         }
       }
     } catch (error) {
-      console.error('Storage usage calculation error:', error);
+      logger.error({ err: error }, 'Storage usage calculation error:');
     }
     
     return {
@@ -318,7 +319,7 @@ class CDNManager {
         imagesUrls
       };
     } catch (error) {
-      console.error('Website assets generation error:', error);
+      logger.error({ err: error }, 'Website assets generation error:');
       throw new Error('Failed to generate website assets');
     }
   }
@@ -373,7 +374,7 @@ class CDNManager {
           form.addEventListener('submit', function(e) {
             e.preventDefault();
             // Add form submission logic here
-            console.log('Form submitted');
+            logger.info('Form submitted');
           });
         });
         
@@ -392,7 +393,7 @@ class CDNManager {
         
         images.forEach(img => imageObserver.observe(img));
         
-        console.log('Website JavaScript initialized');
+        logger.info('Website JavaScript initialized');
       });
     `;
   }

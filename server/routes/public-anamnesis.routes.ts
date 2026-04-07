@@ -22,7 +22,9 @@ import {
   patientRiskAlerts,
 } from '@shared/schema';
 import { requireAuth } from '../middleware/auth';
+import { publicTokenLimiter, publicSubmitLimiter } from '../middleware/public-rate-limit';
 
+import { logger } from '../logger';
 const router = Router();
 
 // ==================== ROTAS AUTENTICADAS (Admin) ====================
@@ -33,7 +35,7 @@ const router = Router();
  */
 router.post('/create-link', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const { patientId, appointmentId, templateId, expiresInHours } = req.body;
 
@@ -75,7 +77,7 @@ router.post('/create-link', requireAuth, async (req, res) => {
       expiresAt,
     });
   } catch (error: any) {
-    console.error('Erro ao criar link de anamnese:', error);
+    logger.error({ err: error }, 'Erro ao criar link de anamnese:');
     res.status(500).json({ error: 'Erro ao criar link de anamnese' });
   }
 });
@@ -86,7 +88,7 @@ router.post('/create-link', requireAuth, async (req, res) => {
  */
 router.post('/send-whatsapp', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { patientId, appointmentId, templateId } = req.body;
 
     // Buscar paciente
@@ -175,7 +177,7 @@ ${settings?.name || company?.name || ''}`;
       whatsappResult: result,
     });
   } catch (error: any) {
-    console.error('Erro ao enviar link de anamnese:', error);
+    logger.error({ err: error }, 'Erro ao enviar link de anamnese:');
     res.status(500).json({ error: 'Erro ao enviar link de anamnese' });
   }
 });
@@ -186,7 +188,7 @@ ${settings?.name || company?.name || ''}`;
  */
 router.get('/links', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
 
     const links = await db
       .select({
@@ -200,7 +202,7 @@ router.get('/links', requireAuth, async (req, res) => {
 
     res.json(links);
   } catch (error: any) {
-    console.error('Erro ao listar links:', error);
+    logger.error({ err: error }, 'Erro ao listar links:');
     res.status(500).json({ error: 'Erro ao listar links' });
   }
 });
@@ -211,7 +213,7 @@ router.get('/links', requireAuth, async (req, res) => {
  */
 router.get('/responses', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { status = 'pending' } = req.query;
 
     const responses = await db
@@ -227,7 +229,7 @@ router.get('/responses', requireAuth, async (req, res) => {
 
     res.json(responses);
   } catch (error: any) {
-    console.error('Erro ao listar respostas:', error);
+    logger.error({ err: error }, 'Erro ao listar respostas:');
     res.status(500).json({ error: 'Erro ao listar respostas' });
   }
 });
@@ -239,7 +241,7 @@ router.get('/responses', requireAuth, async (req, res) => {
 router.post('/process/:responseId', requireAuth, async (req, res) => {
   try {
     const { responseId } = req.params;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
 
     // Buscar resposta
@@ -324,7 +326,7 @@ router.post('/process/:responseId', requireAuth, async (req, res) => {
       alertsCreated: detectedAlerts.length,
     });
   } catch (error: any) {
-    console.error('Erro ao processar resposta:', error);
+    logger.error({ err: error }, 'Erro ao processar resposta:');
     res.status(500).json({ error: 'Erro ao processar resposta' });
   }
 });
@@ -335,7 +337,7 @@ router.post('/process/:responseId', requireAuth, async (req, res) => {
  * GET /api/public-anamnesis/form/:token
  * Retorna dados do formulário público de anamnese
  */
-router.get('/form/:token', async (req, res) => {
+router.get('/form/:token', publicTokenLimiter, async (req, res) => {
   try {
     const { token } = req.params;
 
@@ -408,7 +410,7 @@ router.get('/form/:token', async (req, res) => {
       hasPatient: !!link.patientId,
     });
   } catch (error: any) {
-    console.error('Erro ao buscar formulário:', error);
+    logger.error({ err: error }, 'Erro ao buscar formulário:');
     res.status(500).json({ error: 'Erro ao buscar formulário' });
   }
 });
@@ -417,7 +419,7 @@ router.get('/form/:token', async (req, res) => {
  * POST /api/public-anamnesis/submit/:token
  * Submete respostas do formulário público
  */
-router.post('/submit/:token', async (req, res) => {
+router.post('/submit/:token', publicSubmitLimiter, async (req, res) => {
   try {
     const { token } = req.params;
     const { responses, patientData, consent } = req.body;
@@ -498,7 +500,7 @@ router.post('/submit/:token', async (req, res) => {
       message: 'Obrigado por preencher sua ficha de saúde!',
     });
   } catch (error: any) {
-    console.error('Erro ao submeter anamnese:', error);
+    logger.error({ err: error }, 'Erro ao submeter anamnese:');
     res.status(500).json({ error: 'Erro ao submeter anamnese' });
   }
 });

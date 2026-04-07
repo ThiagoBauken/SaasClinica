@@ -21,7 +21,8 @@ import {
   Video,
   MessageSquare,
   FlaskConical,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 } from "lucide-react";
 
 interface SidebarProps {
@@ -58,13 +59,13 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
         </Link>
 
         {/* Agenda */}
-        <Link href="/agenda" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/agenda" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+        <Link href="/agenda" data-tour="sidebar-agenda" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/agenda" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Calendar className="mr-3 h-5 w-5" />
           Agenda
         </Link>
 
         {/* Atendimento WhatsApp */}
-        <Link href="/atendimento" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/atendimento" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+        <Link href="/atendimento" data-tour="sidebar-atendimento" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/atendimento" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <MessageCircle className="mr-3 h-5 w-5" />
           Atendimento
           {(chatCounts?.unreadCount ?? 0) > 0 && (
@@ -75,13 +76,13 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
         </Link>
 
         {/* Pacientes */}
-        <Link href="/patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+        <Link href="/patients" data-tour="sidebar-patients" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/patients" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Users className="mr-3 h-5 w-5" />
           Pacientes
         </Link>
 
         {/* Financeiro */}
-        <Link href="/financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+        <Link href="/financial" data-tour="sidebar-financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <DollarSign className="mr-3 h-5 w-5" />
           Financeiro
         </Link>
@@ -96,6 +97,12 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
         <Link href="/automation" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/automation" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <Bot className="mr-3 h-5 w-5" />
           Automações
+        </Link>
+
+        {/* Pacotes Estéticos */}
+        <Link href="/pacotes-esteticos" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/pacotes-esteticos" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Sparkles className="mr-3 h-5 w-5" />
+          Estetica
         </Link>
 
         {/* Próteses */}

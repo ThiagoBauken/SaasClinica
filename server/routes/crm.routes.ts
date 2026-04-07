@@ -23,6 +23,7 @@ import {
   insertSalesTaskSchema,
 } from '@shared/schema';
 import { requireAuth } from '../middleware/auth';
+import { logger } from '../logger';
 import {
   ensureOpportunityForSession,
   progressOpportunity,
@@ -50,7 +51,7 @@ interface OpportunityWithRelations {
  */
 router.get('/stages', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
 
     const stages = await db
       .select()
@@ -65,7 +66,7 @@ router.get('/stages', requireAuth, async (req, res) => {
 
     res.json(stages);
   } catch (error: any) {
-    console.error('Erro ao listar etapas:', error);
+    logger.error({ err: error }, 'Erro ao listar etapas:');
     res.status(500).json({ error: 'Erro ao listar etapas do funil' });
   }
 });
@@ -76,7 +77,7 @@ router.get('/stages', requireAuth, async (req, res) => {
  */
 router.post('/stages', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const data = insertSalesFunnelStageSchema.parse(req.body);
 
     // Buscar maior ordem atual
@@ -96,7 +97,7 @@ router.post('/stages', requireAuth, async (req, res) => {
 
     res.status(201).json(stage);
   } catch (error: any) {
-    console.error('Erro ao criar etapa:', error);
+    logger.error({ err: error }, 'Erro ao criar etapa:');
     res.status(500).json({ error: 'Erro ao criar etapa' });
   }
 });
@@ -108,7 +109,7 @@ router.post('/stages', requireAuth, async (req, res) => {
 router.put('/stages/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const data = req.body;
 
     const [updated] = await db
@@ -124,7 +125,7 @@ router.put('/stages/:id', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao atualizar etapa:', error);
+    logger.error({ err: error }, 'Erro ao atualizar etapa:');
     res.status(500).json({ error: 'Erro ao atualizar etapa' });
   }
 });
@@ -135,7 +136,7 @@ router.put('/stages/:id', requireAuth, async (req, res) => {
  */
 router.put('/stages/reorder', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { stageIds } = req.body; // Array de IDs na nova ordem
 
     for (let i = 0; i < stageIds.length; i++) {
@@ -152,7 +153,7 @@ router.put('/stages/reorder', requireAuth, async (req, res) => {
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('Erro ao reordenar etapas:', error);
+    logger.error({ err: error }, 'Erro ao reordenar etapas:');
     res.status(500).json({ error: 'Erro ao reordenar etapas' });
   }
 });
@@ -165,7 +166,7 @@ router.put('/stages/reorder', requireAuth, async (req, res) => {
  */
 router.get('/opportunities', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { stageId, assignedTo, treatmentType } = req.query;
 
     // Buscar etapas
@@ -224,7 +225,7 @@ router.get('/opportunities', requireAuth, async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error('Erro ao listar oportunidades:', error);
+    logger.error({ err: error }, 'Erro ao listar oportunidades:');
     res.status(500).json({ error: 'Erro ao listar oportunidades' });
   }
 });
@@ -236,7 +237,7 @@ router.get('/opportunities', requireAuth, async (req, res) => {
 router.get('/opportunities/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
 
     const [result] = await db
       .select({
@@ -289,7 +290,7 @@ router.get('/opportunities/:id', requireAuth, async (req, res) => {
       tasks,
     });
   } catch (error: any) {
-    console.error('Erro ao buscar oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao buscar oportunidade:');
     res.status(500).json({ error: 'Erro ao buscar oportunidade' });
   }
 });
@@ -300,7 +301,7 @@ router.get('/opportunities/:id', requireAuth, async (req, res) => {
  */
 router.post('/opportunities', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const data = req.body;
 
@@ -346,7 +347,7 @@ router.post('/opportunities', requireAuth, async (req, res) => {
 
     res.status(201).json(opportunity);
   } catch (error: any) {
-    console.error('Erro ao criar oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao criar oportunidade:');
     res.status(500).json({ error: 'Erro ao criar oportunidade' });
   }
 });
@@ -358,7 +359,7 @@ router.post('/opportunities', requireAuth, async (req, res) => {
 router.put('/opportunities/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const data = req.body;
 
@@ -422,7 +423,7 @@ router.put('/opportunities/:id', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao atualizar oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao atualizar oportunidade:');
     res.status(500).json({ error: 'Erro ao atualizar oportunidade' });
   }
 });
@@ -435,7 +436,7 @@ router.put('/opportunities/:id/move', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { stageId } = req.body;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
 
     // Buscar oportunidade atual
@@ -493,7 +494,7 @@ router.put('/opportunities/:id/move', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error: any) {
-    console.error('Erro ao mover oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao mover oportunidade:');
     res.status(500).json({ error: 'Erro ao mover oportunidade' });
   }
 });
@@ -505,7 +506,7 @@ router.put('/opportunities/:id/move', requireAuth, async (req, res) => {
 router.delete('/opportunities/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
 
     // Verificar se existe e pertence à empresa
     const [opportunity] = await db
@@ -539,7 +540,7 @@ router.delete('/opportunities/:id', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: 'Oportunidade removida com sucesso' });
   } catch (error: any) {
-    console.error('Erro ao excluir oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao excluir oportunidade:');
     res.status(500).json({ error: 'Erro ao excluir oportunidade' });
   }
 });
@@ -552,7 +553,7 @@ router.delete('/opportunities/:id', requireAuth, async (req, res) => {
  */
 router.get('/tasks', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const { status = 'pending', mine } = req.query;
 
@@ -579,7 +580,7 @@ router.get('/tasks', requireAuth, async (req, res) => {
 
     res.json(tasks);
   } catch (error: any) {
-    console.error('Erro ao listar tarefas:', error);
+    logger.error({ err: error }, 'Erro ao listar tarefas:');
     res.status(500).json({ error: 'Erro ao listar tarefas' });
   }
 });
@@ -590,7 +591,7 @@ router.get('/tasks', requireAuth, async (req, res) => {
  */
 router.post('/tasks', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const data = insertSalesTaskSchema.parse(req.body);
 
@@ -605,7 +606,7 @@ router.post('/tasks', requireAuth, async (req, res) => {
 
     res.status(201).json(task);
   } catch (error: any) {
-    console.error('Erro ao criar tarefa:', error);
+    logger.error({ err: error }, 'Erro ao criar tarefa:');
     res.status(500).json({ error: 'Erro ao criar tarefa' });
   }
 });
@@ -631,7 +632,7 @@ router.put('/tasks/:id/complete', requireAuth, async (req, res) => {
 
     res.json(task);
   } catch (error: any) {
-    console.error('Erro ao completar tarefa:', error);
+    logger.error({ err: error }, 'Erro ao completar tarefa:');
     res.status(500).json({ error: 'Erro ao completar tarefa' });
   }
 });
@@ -644,7 +645,7 @@ router.put('/tasks/:id/complete', requireAuth, async (req, res) => {
  */
 router.get('/analytics', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { startDate, endDate } = req.query;
 
     // Métricas por etapa
@@ -705,7 +706,7 @@ router.get('/analytics', requireAuth, async (req, res) => {
       byTreatment,
     });
   } catch (error: any) {
-    console.error('Erro ao buscar analytics:', error);
+    logger.error({ err: error }, 'Erro ao buscar analytics:');
     res.status(500).json({ error: 'Erro ao buscar analytics' });
   }
 });
@@ -718,7 +719,7 @@ router.get('/analytics', requireAuth, async (req, res) => {
  */
 router.get('/pipeline', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
 
     // Inline pipeline to avoid import caching issues
     const stages = await db
@@ -814,7 +815,7 @@ router.get('/pipeline', requireAuth, async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error('Erro ao buscar pipeline:', error);
+    logger.error({ err: error }, 'Erro ao buscar pipeline:');
     res.status(500).json({ error: 'Erro ao buscar pipeline', details: error?.message });
   }
 });
@@ -826,7 +827,7 @@ router.get('/pipeline', requireAuth, async (req, res) => {
  */
 router.post('/auto-progress', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
     const { trigger, sessionId, opportunityId, metadata } = req.body;
 
@@ -851,7 +852,7 @@ router.post('/auto-progress', requireAuth, async (req, res) => {
 
     res.json({ success: true, opportunity: result });
   } catch (error: any) {
-    console.error('Erro ao progredir oportunidade:', error);
+    logger.error({ err: error }, 'Erro ao progredir oportunidade:');
     res.status(500).json({ error: 'Erro ao progredir oportunidade' });
   }
 });
@@ -863,7 +864,7 @@ router.post('/auto-progress', requireAuth, async (req, res) => {
  */
 router.post('/from-session', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { sessionId } = req.body;
 
     if (!sessionId) {
@@ -904,7 +905,7 @@ router.post('/from-session', requireAuth, async (req, res) => {
 
     res.status(201).json({ success: true, opportunity });
   } catch (error: any) {
-    console.error('Erro ao criar oportunidade de sessão:', error);
+    logger.error({ err: error }, 'Erro ao criar oportunidade de sessão:');
     res.status(500).json({ error: 'Erro ao criar oportunidade' });
   }
 });
@@ -915,7 +916,7 @@ router.post('/from-session', requireAuth, async (req, res) => {
  */
 router.get('/opportunities/:id/timeline', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const opportunityId = parseInt(req.params.id);
 
     const timeline = await getOpportunityTimeline(companyId, opportunityId);
@@ -939,7 +940,7 @@ router.get('/opportunities/:id/timeline', requireAuth, async (req, res) => {
       recentMessages: recentMessages.reverse(),
     });
   } catch (error: any) {
-    console.error('Erro ao buscar timeline:', error);
+    logger.error({ err: error }, 'Erro ao buscar timeline:');
     res.status(500).json({ error: 'Erro ao buscar timeline' });
   }
 });
@@ -961,7 +962,7 @@ router.get('/ai-stages', requireAuth, async (_req, res) => {
  */
 router.post('/seed-stages', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const { seedDefaultStages } = await import('../services/crm-auto-progression');
     await seedDefaultStages(companyId);
 
@@ -978,7 +979,7 @@ router.post('/seed-stages', requireAuth, async (req, res) => {
 
     res.json({ success: true, stages });
   } catch (error: any) {
-    console.error('Erro ao criar etapas padrão:', error);
+    logger.error({ err: error }, 'Erro ao criar etapas padrão:');
     res.status(500).json({ error: 'Erro ao criar etapas padrão' });
   }
 });
@@ -989,7 +990,7 @@ router.post('/seed-stages', requireAuth, async (req, res) => {
  */
 router.post('/seed-test-data', requireAuth, async (req, res) => {
   try {
-    const companyId = req.user?.companyId!;
+    const companyId = req.user!.companyId;
     const userId = req.user?.id;
 
     // Ensure stages exist
@@ -1080,7 +1081,7 @@ router.post('/seed-test-data', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: `${testOpportunities.length} oportunidades de teste criadas` });
   } catch (error: any) {
-    console.error('Erro ao criar dados de teste:', error);
+    logger.error({ err: error }, 'Erro ao criar dados de teste:');
     res.status(500).json({ error: 'Erro ao criar dados de teste' });
   }
 });

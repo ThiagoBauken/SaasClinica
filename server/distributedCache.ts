@@ -1,6 +1,7 @@
 import { Cluster } from 'ioredis';
 import { log } from './vite';
 
+import { logger } from './logger';
 interface CacheConfig {
   ttl: number;
   compress: boolean;
@@ -43,12 +44,12 @@ class DistributedCache {
         });
 
         this.cluster.on('error', (err) => {
-          console.error('Redis cluster error:', err);
+          logger.error({ err: err }, 'Redis cluster error:');
           log('Falling back to local cache');
         });
 
       } catch (error) {
-        console.error('Failed to initialize Redis cluster:', error);
+        logger.error({ err: error }, 'Failed to initialize Redis cluster:');
         this.cluster = null;
       }
     } else {
@@ -111,7 +112,7 @@ class DistributedCache {
           return parsed as T;
         }
       } catch (error) {
-        console.error('Redis get error:', error);
+        logger.error({ err: error }, 'Redis get error:');
       }
     }
 
@@ -143,7 +144,7 @@ class DistributedCache {
 
       return true;
     } catch (error) {
-      console.error('Cache set error:', error);
+      logger.error({ err: error }, 'Cache set error:');
       return false;
     }
   }
@@ -162,7 +163,7 @@ class DistributedCache {
 
       return true;
     } catch (error) {
-      console.error('Cache invalidation error:', error);
+      logger.error({ err: error }, 'Cache invalidation error:');
       return false;
     }
   }
@@ -188,7 +189,7 @@ class DistributedCache {
 
       return true;
     } catch (error) {
-      console.error('Pattern invalidation error:', error);
+      logger.error({ err: error }, 'Pattern invalidation error:');
       return false;
     }
   }

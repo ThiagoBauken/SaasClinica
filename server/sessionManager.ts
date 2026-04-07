@@ -61,7 +61,7 @@ class SessionManager {
       );
       log(`Cleaned up ${result.rowCount} expired sessions`);
     } catch (error) {
-      console.error('Session cleanup error:', error);
+      logger.error({ err: error }, 'Session cleanup error:')
     }
   }
 
@@ -90,7 +90,7 @@ class SessionManager {
       
       return result.rows[0];
     } catch (error) {
-      console.error('Session stats error:', error);
+      logger.error({ err: error }, 'Session stats error:')
       return { total_sessions: 0, active_sessions: 0, expired_sessions: 0 };
     }
   }

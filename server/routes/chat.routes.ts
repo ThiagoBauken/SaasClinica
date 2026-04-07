@@ -20,6 +20,7 @@ import { createEvolutionService } from '../services/evolution-api.service';
 import { sendWuzapiTextMessage, getWuzapiStatus } from '../services/wuzapi-provisioning';
 import { getWhatsAppProvider } from '../services/whatsapp-provider';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
@@ -42,87 +43,66 @@ router.get(
       conditions.push(eq(chatSessions.status, status as string));
     }
 
-    const sessions = await db
-      .select({
-        id: chatSessions.id,
-        phone: chatSessions.phone,
-        userType: chatSessions.userType,
-        patientId: chatSessions.patientId,
-        status: chatSessions.status,
-        currentState: chatSessions.currentState,
-        lastMessageAt: chatSessions.lastMessageAt,
-        createdAt: chatSessions.createdAt,
-        updatedAt: chatSessions.updatedAt,
-      })
-      .from(chatSessions)
-      .where(and(...conditions))
-      .orderBy(desc(chatSessions.lastMessageAt))
-      .limit(Number(limit))
-      .offset(Number(offset));
+    // Single query with JOINs + LATERAL subqueries to avoid N+1 (was 150+ queries, now 1)
+    const sessionsWithDetails = await db.execute(sql`
+      SELECT
+        cs.id, cs.phone, cs.user_type AS "userType", cs.patient_id AS "patientId",
+        cs.status, cs.current_state AS "currentState",
+        cs.last_message_at AS "lastMessageAt", cs.created_at AS "createdAt",
+        cs.updated_at AS "updatedAt",
+        p.full_name AS "patientName",
+        last_msg.content AS "lastMessageContent",
+        last_msg.role AS "lastMessageRole",
+        last_msg.created_at AS "lastMessageCreatedAt",
+        COALESCE(unread.cnt, 0)::int AS "unreadCount"
+      FROM chat_sessions cs
+      LEFT JOIN patients p ON p.id = cs.patient_id AND p.deleted_at IS NULL
+      LEFT JOIN LATERAL (
+        SELECT content, role, created_at
+        FROM chat_messages
+        WHERE session_id = cs.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) last_msg ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM chat_messages
+        WHERE session_id = cs.id
+          AND role = 'user'
+          AND (cs.updated_at IS NULL OR created_at >= cs.updated_at)
+      ) unread ON true
+      WHERE cs.company_id = ${companyId}
+        ${status && status !== 'all' ? sql`AND cs.status = ${status as string}` : sql``}
+      ORDER BY cs.last_message_at DESC NULLS LAST
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+    `);
 
-    // Buscar nome do paciente e última mensagem para cada sessão
-    type SessionRow = typeof sessions[0];
-    const sessionsWithDetails = await Promise.all(
-      sessions.map(async (session: SessionRow) => {
-        let patientName = null;
-        let lastMessage = null;
-        let unreadCount = 0;
-
-        // Buscar nome do paciente
-        if (session.patientId) {
-          const [patient] = await db
-            .select({ fullName: patients.fullName })
-            .from(patients)
-            .where(and(eq(patients.id, session.patientId), notDeleted(patients.deletedAt)))
-            .limit(1);
-          patientName = patient?.fullName;
-        }
-
-        // Buscar última mensagem
-        const [lastMsg] = await db
-          .select({
-            content: chatMessages.content,
-            role: chatMessages.role,
-            createdAt: chatMessages.createdAt,
-          })
-          .from(chatMessages)
-          .where(eq(chatMessages.sessionId, session.id))
-          .orderBy(desc(chatMessages.createdAt))
-          .limit(1);
-
-        if (lastMsg) {
-          lastMessage = {
-            content: lastMsg.content.substring(0, 100) + (lastMsg.content.length > 100 ? '...' : ''),
-            role: lastMsg.role,
-            createdAt: lastMsg.createdAt,
-          };
-        }
-
-        // Contar mensagens não lidas (mensagens de usuário após última resposta)
-        const [count] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(chatMessages)
-          .where(
-            and(
-              eq(chatMessages.sessionId, session.id),
-              eq(chatMessages.role, 'user'),
-              // Mensagens após a última atualização da sessão (aproximação)
-              session.updatedAt
-                ? gte(chatMessages.createdAt, session.updatedAt)
-                : sql`true`
-            )
-          );
-
-        return {
-          ...session,
-          patientName,
-          lastMessage,
-          unreadCount: count?.count || 0,
-          // Indicador se precisa atenção (waiting_human ou sem resposta)
-          needsAttention: session.status === 'waiting_human' || (count?.count || 0) > 0,
-        };
-      })
-    );
+    // Map raw rows to the expected shape
+    const sessionsResult = (sessionsWithDetails.rows || sessionsWithDetails).map((row: any) => {
+      const lastMessage = row.lastMessageContent
+        ? {
+            content: row.lastMessageContent.substring(0, 100) + (row.lastMessageContent.length > 100 ? '...' : ''),
+            role: row.lastMessageRole,
+            createdAt: row.lastMessageCreatedAt,
+          }
+        : null;
+      const unreadCount = row.unreadCount || 0;
+      return {
+        id: row.id,
+        phone: row.phone,
+        userType: row.userType,
+        patientId: row.patientId,
+        status: row.status,
+        currentState: row.currentState,
+        lastMessageAt: row.lastMessageAt,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        patientName: row.patientName,
+        lastMessage,
+        unreadCount,
+        needsAttention: row.status === 'waiting_human' || unreadCount > 0,
+      };
+    });
 
     // Contar totais por status
     const [statusCounts] = await db
@@ -137,7 +117,7 @@ router.get(
 
     res.json({
       success: true,
-      data: sessionsWithDetails,
+      data: sessionsResult,
       counts: {
         active: statusCounts?.active || 0,
         waitingHuman: statusCounts?.waitingHuman || 0,
@@ -430,7 +410,7 @@ router.post(
       });
     }
 
-    console.log(`[Chat] Enviando via ${provider.providerType} para:`, session.phone);
+    logger.info({ provider_providerType: provider.providerType, data: session.phone }, '[Chat] Enviando via {provider_providerType} para:')
     const sendResult = await provider.sendTextMessage({
       phone: session.phone,
       message: content,
@@ -711,7 +691,7 @@ router.get(
 
 /**
  * POST /api/v1/chat/process
- * Processa uma mensagem de chat (endpoint principal para N8N)
+ * Processa uma mensagem de chat (endpoint principal)
  */
 router.post(
   '/process',
@@ -756,7 +736,7 @@ router.post(
         },
       });
     } catch (error: any) {
-      console.error('Erro ao processar mensagem:', error);
+      logger.error({ err: error }, 'Erro ao processar mensagem:');
       res.status(500).json({
         success: false,
         error: error.message || 'Erro ao processar mensagem',
@@ -991,7 +971,7 @@ router.get(
       const normalizedPath = path.normalize(filePath);
 
       if (!normalizedPath.startsWith(expectedDir)) {
-        console.warn(`[Security] Tentativa de acesso a arquivo fora do diretório: ${filePath}`);
+        logger.warn({ filePath: filePath }, '[Security] Tentativa de acesso a arquivo fora do diretório: {filePath}')
         return res.status(403).json({ error: 'Acesso negado' });
       }
 
@@ -1086,4 +1066,88 @@ router.get(
   })
 );
 
+/**
+ * GET /api/v1/chat/patient/:patientId/history
+ * Returns all chat sessions and their messages for a specific patient.
+ * Used to display chat history inside the patient record.
+ *
+ * Each element in the response array represents one session with its
+ * messages aggregated (ordered chronologically).
+ * At most 20 most-recent sessions are returned.
+ */
+router.get(
+  '/patient/:patientId/history',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const companyId = getCompanyId(req);
+    const patientId = parseInt(req.params.patientId, 10);
+
+    if (isNaN(patientId)) {
+      return res.status(400).json({ error: 'patientId invalido' });
+    }
+
+    // Verify the patient belongs to this company before exposing messages
+    const [patient] = await db
+      .select({ id: patients.id, fullName: patients.fullName })
+      .from(patients)
+      .where(and(eq(patients.id, patientId), eq(patients.companyId, companyId)))
+      .limit(1);
+
+    if (!patient) {
+      return res.status(404).json({ error: 'Paciente nao encontrado ou sem permissao' });
+    }
+
+    // Aggregate sessions + messages in a single query — avoids N+1
+    // INDEX HINT: chat_sessions(company_id, patient_id), chat_messages(session_id, created_at)
+    const result = await db.$client.query(
+      `SELECT
+         cs.id              AS session_id,
+         cs.status,
+         cs.phone,
+         cs.current_state,
+         cs.created_at      AS session_start,
+         cs.last_message_at,
+         json_agg(
+           json_build_object(
+             'id',           cm.id,
+             'content',      cm.content,
+             'role',         cm.role,
+             'direction',    cm.direction,
+             'messageType',  cm.message_type,
+             'processedBy',  cm.processed_by,
+             'tokensUsed',   cm.tokens_used,
+             'createdAt',    cm.created_at
+           )
+           ORDER BY cm.created_at ASC
+         ) FILTER (WHERE cm.id IS NOT NULL) AS messages
+       FROM chat_sessions cs
+       LEFT JOIN chat_messages cm ON cm.session_id = cs.id
+       WHERE cs.company_id = $1
+         AND cs.patient_id  = $2
+       GROUP BY cs.id, cs.status, cs.phone, cs.current_state, cs.created_at, cs.last_message_at
+       ORDER BY cs.created_at DESC
+       LIMIT 20`,
+      [companyId, patientId],
+    );
+
+    res.json({
+      success: true,
+      data: {
+        patient: { id: patient.id, fullName: patient.fullName },
+        sessions: result.rows.map((row: any) => ({
+          sessionId: row.session_id,
+          status: row.status,
+          phone: row.phone,
+          currentState: row.current_state,
+          sessionStart: row.session_start,
+          lastMessageAt: row.last_message_at,
+          messages: row.messages ?? [],
+          messageCount: (row.messages ?? []).length,
+        })),
+      },
+    });
+  }),
+);
+
 export default router;
+

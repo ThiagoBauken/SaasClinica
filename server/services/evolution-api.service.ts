@@ -7,6 +7,7 @@ import { db } from '../db';
 import { clinicSettings } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
+import { logger } from '../logger';
 export interface EvolutionConfig {
   baseUrl: string;
   instanceName: string;
@@ -121,7 +122,7 @@ export class EvolutionApiService {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error('[EvolutionAPI] Send failed:', error);
+        logger.error({ err: error }, '[EvolutionAPI] Send failed:');
         return { success: false, error: `HTTP ${response.status}: ${error}` };
       }
 
@@ -131,7 +132,7 @@ export class EvolutionApiService {
         messageId: data.key?.id || data.messageId,
       };
     } catch (error: any) {
-      console.error('[EvolutionAPI] Send error:', error);
+      logger.error({ err: error }, '[EvolutionAPI] Send error:');
       return {
         success: false,
         error: error.message || 'Failed to send message',
@@ -216,7 +217,7 @@ export async function createEvolutionService(companyId: number): Promise<Evoluti
       .limit(1);
 
     if (!settings?.evolutionApiBaseUrl || !settings?.evolutionInstanceName || !settings?.evolutionApiKey) {
-      console.warn(`[EvolutionAPI] Company ${companyId} not configured`);
+      logger.warn({ companyId: companyId }, '[EvolutionAPI] Company {companyId} not configured')
       return null;
     }
 
@@ -226,7 +227,7 @@ export async function createEvolutionService(companyId: number): Promise<Evoluti
       apiKey: settings.evolutionApiKey,
     });
   } catch (error) {
-    console.error('[EvolutionAPI] Failed to create service:', error);
+    logger.error({ err: error }, '[EvolutionAPI] Failed to create service:');
     return null;
   }
 }

@@ -194,7 +194,7 @@ async function main() {
       { name: "clinic", displayName: "Gestão Clínica", description: "Agendamentos e pacientes" },
       { name: "financial", displayName: "Financeiro", description: "Controle financeiro" },
       { name: "inventory", displayName: "Estoque", description: "Controle de estoque" },
-      { name: "automation", displayName: "Automações", description: "N8N e WhatsApp" },
+      { name: "automation", displayName: "Automações", description: "AI Agent e WhatsApp" },
       { name: "crm", displayName: "CRM", description: "Funil de vendas" },
     ];
 

@@ -12,7 +12,7 @@ const router = Router();
  * Middleware: somente superadmin tem acesso
  */
 const superadminOnly = (req: Request, res: Response, next: any) => {
-  const user = req.user as any;
+  const user = req.user!;
   if (!user || user.role !== 'superadmin') {
     return res.status(403).json({ error: 'Acesso negado. Apenas superadmin.' });
   }
@@ -366,8 +366,11 @@ router.post('/users/:id/reset-password', asyncHandler(async (req: Request, res: 
   const userId = parseInt(req.params.id);
   const { newPassword } = req.body;
 
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'Senha deve ter ao menos 6 caracteres' });
+  if (!newPassword || newPassword.length < 12) {
+    return res.status(400).json({ error: 'Senha deve ter ao menos 12 caracteres' });
+  }
+  if (!/\d/.test(newPassword) || !/[^a-zA-Z0-9]/.test(newPassword)) {
+    return res.status(400).json({ error: 'Senha deve conter ao menos 1 numero e 1 caractere especial' });
   }
 
   const hashedPassword = await hashPassword(newPassword);

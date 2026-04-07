@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { auditLogs } from '@shared/schema';
 
+import { logger } from '../logger';
 /**
  * Middleware para audit logging de acordo com LGPD
  * Registra todas as operações em dados sensíveis
@@ -137,7 +138,7 @@ export const auditLogMiddleware = async (
 
       // Skip audit log if no valid companyId (security: never fallback to 0)
       if (!companyId) {
-        console.warn('Audit log skipped: no valid companyId for', method, url);
+        logger.warn({ data: method, url }, 'Audit log skipped: no valid companyId for')
         return;
       }
 
@@ -198,7 +199,7 @@ export const auditLogMiddleware = async (
       });
     } catch (error) {
       // Não falhar a requisição se o audit log falhar
-      console.error('Erro ao registrar audit log:', error);
+      logger.error({ err: error }, 'Erro ao registrar audit log:');
     }
   });
 
@@ -232,7 +233,7 @@ export const auditDataExport = async (
 
       // Skip if no valid companyId (security: never fallback to 0)
       if (!companyId) {
-        console.warn('Audit data export log skipped: no valid companyId');
+        logger.warn('Audit data export log skipped: no valid companyId');
         return;
       }
 
@@ -264,7 +265,7 @@ export const auditDataExport = async (
         }
       });
     } catch (error) {
-      console.error('Erro ao registrar exportação de dados:', error);
+      logger.error({ err: error }, 'Erro ao registrar exportação de dados:');
     }
   });
 
@@ -305,6 +306,6 @@ export const auditDataAnonymization = async (
       }
     });
   } catch (error) {
-    console.error('Erro ao registrar anonimização:', error);
+    logger.error({ err: error }, 'Erro ao registrar anonimização:');
   }
 };

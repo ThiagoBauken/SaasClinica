@@ -3,6 +3,7 @@ import { checkDatabaseHealth } from '../db';
 import { isRedisAvailable } from '../redis';
 import { register } from '../lib/metrics';
 
+import { logger } from '../logger';
 const router = Router();
 
 /**
@@ -47,7 +48,7 @@ router.get('/', async (req, res) => {
     const statusCode = dbHealthy ? 200 : 503;
     res.status(statusCode).json(health);
   } catch (error) {
-    console.error('Health check failed:', error);
+    logger.error({ err: error }, 'Health check failed:');
     res.status(503).json({
       status: 'unhealthy',
       error: 'Health check failed',
