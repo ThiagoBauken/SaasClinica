@@ -1,0 +1,146 @@
+# Prometheus alert rules for the dental SaaS.
+#
+# Load this file in your Prometheus config:
+#   rule_files:
+#     - /etc/prometheus/alerts.yml
+#
+# Metrics scraped from <app>/health/metrics (registered in
+# server/lib/metrics.ts).
+
+groups:
+  - name: dental-saas-critical
+    interval: 30s
+    rules:
+
+      # ----------------------------------------------------------------
+      # Dead Letter Queue — any job ending up here means manual triage
+      # ----------------------------------------------------------------
+      - alert: DeadLetterJobsAppearing
+        expr: increase(dental_dlq_jobs_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Job(s) moved to Dead Letter Queue ({{ $labels.queue }})"
+          description: |
+            Pelo menos um job foi movido para a DLQ na fila {{ $labels.queue }}
+            nos últimos 5 minutos. Investigar via:
+              GET /api/v1/admin/dlq
+            Replay (após corrigir a causa raiz):
+              POST /api/v1/admin/dlq/<jobId>/replay
+
+      # ----------------------------------------------------------------
+      # HTTP error rate > 1% por 5 min
+      # ----------------------------------------------------------------
+      - alert: HighHttpErrorRate
+        expr: |
+          (
+            sum(rate(dental_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(dental_http_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Error rate > 1% (5xx responses)"
+          description: "Taxa de erro 5xx acima de 1% por mais de 5 min."
+
+      # ----------------------------------------------------------------
+      # Latência p95 alta
+      # ----------------------------------------------------------------
+      - alert: HighRequestLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(dental_http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "p95 latency > 1.5s na rota {{ $labels.route }}"
+          description: "Investigar lentidão recente em {{ $labels.route }}."
+
+      # ----------------------------------------------------------------
+      # Pool de conexões do banco esgotando
+      # ----------------------------------------------------------------
+      - alert: DbPoolWaitingHigh
+        expr: dental_db_pool_waiting > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Há requisições aguardando conexão no pool"
+          description: |
+            {{ $value }} requests aguardando uma conexão livre. Considerar
+            aumentar DB_POOL_MAX (ou PGBOUNCER_POOL_SIZE se estiver
+            atrás do PgBouncer).
+
+      - alert: DbPoolExhausted
+        expr: |
+          (dental_db_pool_total - dental_db_pool_idle) / dental_db_pool_total > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Pool do banco > 90% utilizado"
+          description: "Risco iminente de connection starvation."
+
+      # ----------------------------------------------------------------
+      # Aplicação parou de responder
+      # ----------------------------------------------------------------
+      - alert: AppDown
+        expr: up{job="dental-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Instância dental-app fora do ar"
+          description: "{{ $labels.instance }} não responde ao scrape há 1 min."
+
+  - name: dental-saas-business
+    interval: 60s
+    rules:
+
+      # ----------------------------------------------------------------
+      # Falha brusca de criação de agendamentos pode indicar regressão
+      # ----------------------------------------------------------------
+      - alert: AppointmentsCreationDropped
+        expr: |
+          rate(dental_appointments_created_total[15m]) == 0
+          and
+          rate(dental_appointments_created_total[1h] offset 1h) > 0.01
+        for: 30m
+        labels:
+          severity: warning
+          team: product
+        annotations:
+          summary: "Nenhum agendamento criado nos últimos 15 min (queda anômala)"
+          description: |
+            Sem novos agendamentos por 15 min, mas houve atividade na hora
+            anterior. Possível regressão no fluxo de criação ou downtime.
+
+      # ----------------------------------------------------------------
+      # Falhas de envio de WhatsApp
+      # ----------------------------------------------------------------
+      - alert: WhatsappSendFailures
+        expr: |
+          (
+            sum(rate(dental_whatsapp_messages_sent_total{status="failed"}[10m]))
+            /
+            sum(rate(dental_whatsapp_messages_sent_total[10m]))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "Mais de 10% das mensagens WhatsApp falhando"
+          description: "Verificar provider, credenciais e rate limit do WhatsApp."

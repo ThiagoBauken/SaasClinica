@@ -107,7 +107,7 @@ processed/*
 # ===========================================
 *.sql
 *.sh
-!server/migrations/*.sql
+!migrations/*.sql
 dentistav1/
 *.jpg
 *.png

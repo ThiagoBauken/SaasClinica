@@ -47,6 +47,7 @@ import officeChatRoutes from './office-chat.routes';
 import insuranceRoutes from './insurance.routes';
 import checkinRoutes from './checkin.routes';
 import adminSeedRoutes from './admin-seed.routes';
+import dlqAdminRoutes from './dlq-admin.routes';
 import scheduleBlocksRoutes from './schedule-blocks.routes';
 import accountsPayableRoutes from './accounts-payable.routes';
 import accountsReceivableRoutes from './accounts-receivable.routes';
@@ -141,6 +142,7 @@ export function registerModularRoutes(app: Express) {
   apiV1Router.use('/insurance', insuranceRoutes); // Insurance/Convenios management (TISS)
   apiV1Router.use('/checkin', checkinRoutes); // QR Code check-in
   apiV1Router.use('/admin', adminSeedRoutes); // Admin seed data
+  apiV1Router.use('/admin', dlqAdminRoutes);  // DLQ list/replay/discard (BullMQ)
   apiV1Router.use('/schedule-blocks', scheduleBlocksRoutes); // Schedule blocks (vacations, holidays, maintenance)
   apiV1Router.use('/accounts-payable', accountsPayableRoutes); // Accounts payable (clinic expenses)
   apiV1Router.use('/accounts-receivable', accountsReceivableRoutes); // Accounts receivable (patient receivables)

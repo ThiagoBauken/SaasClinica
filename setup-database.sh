@@ -79,7 +79,7 @@ case $choice in
             exit 1
         fi
 
-        psql "$DATABASE_URL" -f server/migrations/add_google_calendar_tokens.sql
+        psql "$DATABASE_URL" -f migrations/add_google_calendar_tokens.sql
 
         if [ $? -eq 0 ]; then
             echo ""

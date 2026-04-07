@@ -97,7 +97,7 @@ switch ($choice) {
         }
 
         try {
-            & psql $DATABASE_URL -f server/migrations/add_google_calendar_tokens.sql
+            & psql $DATABASE_URL -f migrations/add_google_calendar_tokens.sql
 
             Write-Host ""
             Write-Host "✅ Campos adicionados com sucesso!" -ForegroundColor Green

@@ -42,6 +42,7 @@ COPY server ./server
 COPY shared ./shared
 COPY modules ./modules
 COPY config ./config
+COPY migrations ./migrations
 
 # Build do projeto (frontend + backend)
 RUN npm run build
@@ -58,7 +59,10 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodejs
 
 # Instalar dependências de runtime
-RUN apk add --no-cache curl libc6-compat
+# - curl: healthchecks
+# - libc6-compat: módulos nativos
+# - postgresql-client: pg_dump usado pelo backup-cron (server/jobs/backup-cron.ts)
+RUN apk add --no-cache curl libc6-compat postgresql15-client
 
 # Copiar package files
 COPY package*.json ./
@@ -73,7 +77,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 # Copiar arquivos necessários em runtime
 COPY --from=builder --chown=nodejs:nodejs /app/shared ./shared
 COPY --from=builder --chown=nodejs:nodejs /app/modules ./modules
-COPY --from=builder --chown=nodejs:nodejs /app/server/migrations ./server/migrations
+COPY --from=builder --chown=nodejs:nodejs /app/migrations ./migrations
 COPY --from=builder --chown=nodejs:nodejs /app/config ./config
 
 # Copiar healthcheck
