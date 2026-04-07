@@ -1,16 +1,11 @@
 /**
- * Automation Engine - Substitui N8N com lógica nativa
+ * Automation Engine - Motor de automações nativo
  *
- * Este serviço implementa todas as automações que antes eram feitas no N8N:
+ * Este serviço implementa todas as automações da clínica:
  * - Envio de WhatsApp (Wuzapi)
  * - Criação de eventos Google Calendar
  * - Disparos agendados (confirmação, lembrete, aniversário)
  * - Processamento de mensagens recebidas
- *
- * Vantagens sobre N8N:
- * - Sem dependência externa
- * - Menor latência
- * - Melhor error handling
  * - Logs unificados no banco
  * - Transações atômicas
  */
@@ -127,7 +122,7 @@ export class AutomationEngine {
         createdAt: new Date(),
       });
     } catch (error) {
-      console.error('Erro ao salvar log de automação:', error);
+      logger.error({ err: error }, 'Erro ao salvar log de automação:');
     }
   }
 
@@ -389,7 +384,7 @@ Responda *SIM* para confirmar ou *NÃO* para cancelar.
           startTime: new Date(appointment.startTime!),
         });
       } catch (queueErr) {
-        console.warn('Queue triggers failed (non-critical):', queueErr);
+        logger.warn({ queueErr }, 'Queue triggers failed (non-critical):');
       }
 
       return {
@@ -495,7 +490,7 @@ Para reagendar, entre em contato:
           companyId: this.companyId,
         });
       } catch (queueErr) {
-        console.warn('Queue cancel trigger failed (non-critical):', queueErr);
+        logger.warn({ queueErr }, 'Queue cancel trigger failed (non-critical):');
       }
 
       return {
@@ -633,13 +628,19 @@ Nos vemos no novo horário! 😊
     let sent = 0;
     let failed = 0;
 
+    // Batch load all patients for tomorrow's appointments to avoid N+1
+    const patientIds = tomorrowAppointments
+      .map((a: any) => a.patientId)
+      .filter((id: any): id is number => id != null);
+
+    const patientList: any[] = patientIds.length > 0
+      ? await db.select().from(patients).where(inArray(patients.id, patientIds))
+      : [];
+    const patientMap = new Map<number, any>(patientList.map((p: any) => [p.id, p]));
+
     for (const appointment of tomorrowAppointments) {
       try {
-        const [patient] = await db
-          .select()
-          .from(patients)
-          .where(eq(patients.id, appointment.patientId!))
-          .limit(1);
+        const patient = appointment.patientId ? patientMap.get(appointment.patientId) : undefined;
 
         const message = this.interpolateTemplate(
           `📅 *Lembrete de Consulta*
@@ -871,7 +872,7 @@ ${appointmentsList}
         sent++;
       } else {
         failed++;
-        console.error(`Erro ao enviar resumo para Dr(a). ${professional.fullName}:`, result.error);
+        logger.error({ err: result.error, professionalName: professional.fullName }, 'Error sending summary to professional')
       }
     }
 
@@ -1230,6 +1231,7 @@ export function createAutomationEngine(companyId: number): AutomationEngine {
 
 import * as cron from 'node-cron';
 
+import { logger } from '../logger';
 const scheduledJobs: Map<string, cron.ScheduledTask> = new Map();
 
 /**
@@ -1240,57 +1242,57 @@ export async function startScheduledJobs(companyId: number): Promise<void> {
 
   // Confirmações diárias - 18:00
   const confirmationJob = cron.schedule('0 18 * * *', async () => {
-    console.log(`[${companyId}] Executando job de confirmações...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de confirmações...')
     await engine.sendDailyConfirmations();
   });
   scheduledJobs.set(`${companyId}-confirmations`, confirmationJob);
 
   // Resumo diário geral - 07:30
   const summaryJob = cron.schedule('30 7 * * *', async () => {
-    console.log(`[${companyId}] Executando job de resumo diário...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de resumo diário...')
     await engine.sendDailySummary();
   });
   scheduledJobs.set(`${companyId}-summary`, summaryJob);
 
   // Resumo diário individual para cada dentista - 07:00
   const professionalSummaryJob = cron.schedule('0 7 * * *', async () => {
-    console.log(`[${companyId}] Executando job de resumo individual dos dentistas...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de resumo individual dos dentistas...')
     const result = await engine.sendProfessionalDailySummaries();
-    console.log(`[${companyId}] Resumos enviados: ${result.sent} sucesso, ${result.failed} falhas`);
+    logger.info({ companyId, sent: result.sent, failed: result.failed }, 'Dentist summaries sent')
   });
   scheduledJobs.set(`${companyId}-professional-summaries`, professionalSummaryJob);
 
   // Finalizar atendimentos - 23:00
   const finalizeJob = cron.schedule('0 23 * * *', async () => {
-    console.log(`[${companyId}] Executando job de finalização...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de finalização...')
     await engine.finalizeCompletedAppointments();
   });
   scheduledJobs.set(`${companyId}-finalize`, finalizeJob);
 
   // Aniversários - 09:00
   const birthdayJob = cron.schedule('0 9 * * *', async () => {
-    console.log(`[${companyId}] Executando job de aniversários...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de aniversários...')
     await engine.sendBirthdayMessages();
   });
   scheduledJobs.set(`${companyId}-birthday`, birthdayJob);
 
   // Reativação de pacientes inativos - 10:00 (diário)
   const reactivationJob = cron.schedule('0 10 * * *', async () => {
-    console.log(`[${companyId}] Executando job de reativação de pacientes...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de reativação de pacientes...')
     const result = await engine.sendReactivationMessages();
-    console.log(`[${companyId}] Reativação: ${result.sent} mensagens enviadas`, result.byPeriod);
+    logger.info({ companyId: companyId, result_sent: result.sent, data: result.byPeriod }, '[{companyId}] Reativação: {result_sent} mensagens enviadas')
   });
   scheduledJobs.set(`${companyId}-reactivation`, reactivationJob);
 
   // Pedidos de avaliação Google - 14:00 (após consultas da manhã)
   const reviewJob = cron.schedule('0 14 * * *', async () => {
-    console.log(`[${companyId}] Executando job de pedidos de avaliação...`);
+    logger.info({ companyId: companyId }, '[{companyId}] Executando job de pedidos de avaliação...')
     const result = await engine.sendReviewRequests();
-    console.log(`[${companyId}] Avaliações: ${result.sent} mensagens enviadas`);
+    logger.info({ companyId, sent: result.sent }, 'Review request messages sent')
   });
   scheduledJobs.set(`${companyId}-reviews`, reviewJob);
 
-  console.log(`✅ Jobs agendados iniciados para empresa ${companyId}`);
+  logger.info({ companyId: companyId }, 'Jobs agendados iniciados para empresa {companyId}')
 }
 
 /**
@@ -1315,7 +1317,7 @@ export function stopScheduledJobs(companyId: number): void {
     }
   }
 
-  console.log(`🛑 Jobs agendados parados para empresa ${companyId}`);
+  logger.info({ companyId: companyId }, 'Jobs agendados parados para empresa {companyId}')
 }
 
 /**
@@ -1331,5 +1333,5 @@ export async function startAllScheduledJobs(): Promise<void> {
     await startScheduledJobs(company.id);
   }
 
-  console.log(`✅ Jobs iniciados para ${activeCompanies.length} empresas`);
+  logger.info({ companyCount: activeCompanies.length }, 'Jobs started for companies')
 }

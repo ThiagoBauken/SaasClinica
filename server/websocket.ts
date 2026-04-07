@@ -13,7 +13,7 @@ interface AuthenticatedSocket extends WebSocket {
 }
 
 interface WebSocketMessage {
-  type: 'appointment_created' | 'appointment_updated' | 'appointment_deleted' | 'conflict_warning' | 'reminder';
+  type: 'appointment_created' | 'appointment_updated' | 'appointment_deleted' | 'conflict_warning' | 'reminder' | 'appointment_confirmed' | 'patient_arrived';
   data: any;
   timestamp: string;
 }
@@ -171,6 +171,53 @@ export function notifyAppointmentUpdated(companyId: number, appointment: any) {
       startTime: appointment.startTime,
       endTime: appointment.endTime,
       status: appointment.status,
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * Notifica a recepção sobre confirmação de consulta pelo paciente (ex: via WhatsApp)
+ */
+export function notifyAppointmentConfirmed(
+  companyId: number,
+  appointmentId: number,
+  patientName: string,
+  confirmationMethod: string
+) {
+  broadcastToCompany(companyId, {
+    type: 'appointment_confirmed',
+    data: {
+      id: appointmentId,
+      patientName,
+      confirmationMethod,
+      confirmedAt: new Date().toISOString(),
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * Notifica que paciente chegou na clinica (check-in)
+ * Dentista vê badge/som quando seu paciente está na sala de espera
+ */
+export function notifyPatientArrived(
+  companyId: number,
+  appointment: {
+    id: number;
+    patientName: string;
+    professionalId: number | null;
+    startTime: string | Date;
+  }
+) {
+  broadcastToCompany(companyId, {
+    type: 'patient_arrived',
+    data: {
+      id: appointment.id,
+      patientName: appointment.patientName,
+      professionalId: appointment.professionalId,
+      startTime: appointment.startTime,
+      arrivedAt: new Date().toISOString(),
     },
     timestamp: new Date().toISOString(),
   });

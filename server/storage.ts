@@ -2,6 +2,7 @@ import { companies, users, type User, type InsertUser, patients, appointments, p
 import { db, pool } from "./db";
 import { eq, and, gte, lte, lt, count, sql, desc, inArray } from "drizzle-orm";
 import { notDeleted } from "./lib/soft-delete";
+import { logger } from './logger';
 import {
   encryptField, decryptField, hmacIndex,
   PATIENT_ENCRYPTED_FIELDS,
@@ -179,8 +180,10 @@ export interface IStorage {
   // Digital Patient Record - tenant-aware
   getPatientAnamnesis(patientId: number, companyId: number): Promise<any | undefined>;
   createPatientAnamnesis(data: any): Promise<any>;
-  updatePatientAnamnesis(id: number, data: any, companyId: number): Promise<any>;
-  
+  updatePatientAnamnesis(id: number, data: any, companyId: number, options?: { changedBy?: number; changeReason?: string; ipAddress?: string }): Promise<any>;
+  getAnamnesisVersionHistory(anamnesisId: number, companyId: number): Promise<any[]>;
+  getAnamnesisVersion(anamnesisId: number, versionNumber: number, companyId: number): Promise<any | undefined>;
+
   getPatientExams(patientId: number, companyId: number): Promise<any[]>;
   createPatientExam(data: any): Promise<any>;
   updatePatientExam(id: number, data: any, companyId: number): Promise<any>;
@@ -375,7 +378,11 @@ export class MemStorage implements IStorage {
       totpEnabled: false,
       totpBackupCodes: null,
       deletedAt: null,
-    };
+      croNumber: null,
+      croState: null,
+      specialties: null,
+      professionalCouncil: null,
+    } as User;
     this.users.set(id, user);
     return user;
   }
@@ -391,9 +398,18 @@ export class MemStorage implements IStorage {
       ...data,
       updatedAt: new Date()
     };
-    
+
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  // Anamnesis versioning stubs (in-memory storage does not track versions)
+  async getAnamnesisVersionHistory(_anamnesisId: number, _companyId: number): Promise<any[]> {
+    return [];
+  }
+
+  async getAnamnesisVersion(_anamnesisId: number, _versionNumber: number, _companyId: number): Promise<any | undefined> {
+    return undefined;
   }
 
   // Patient methods
@@ -1802,1911 +1818,223 @@ export class MemStorage implements IStorage {
   }
 }
 
+// =============================================================================
+// DatabaseStorage — thin facade that delegates to domain repositories.
+// All routes import `storage` from this file; nothing changes for consumers.
+// =============================================================================
+
+import {
+  getPatients, getPatient, createPatient, updatePatient,
+} from './repositories/PatientRepository';
+
+import {
+  getAppointments as _getAppointments,
+  getAppointment as _getAppointment,
+  createAppointment as _createAppointment,
+  updateAppointment as _updateAppointment,
+  deleteAppointment as _deleteAppointment,
+  checkAppointmentConflicts as _checkAppointmentConflicts,
+} from './repositories/AppointmentRepository';
+
+import {
+  getPatientRecords, createPatientRecord,
+  getOdontogramEntries, createOdontogramEntry,
+  getPatientAnamnesis, createPatientAnamnesis, updatePatientAnamnesis,
+  getAnamnesisVersionHistory, getAnamnesisVersion,
+  getPatientExams, createPatientExam, updatePatientExam,
+  getPatientTreatmentPlans, createPatientTreatmentPlan, updatePatientTreatmentPlan,
+  getPatientEvolution, createPatientEvolution,
+  getPatientPrescriptions, createPatientPrescription, updatePatientPrescription,
+} from './repositories/ClinicalRepository';
+
+import {
+  getTransactions as _getTransactions,
+  createTransaction as _createTransaction,
+} from './repositories/FinancialRepository';
+
+import {
+  getInventoryCategories, createInventoryCategory, updateInventoryCategory,
+  getInventoryItems, createInventoryItem, updateInventoryItem, deleteInventoryItem,
+  getInventoryTransactions, createInventoryTransaction,
+  getStandardDentalProducts, importStandardProducts,
+  getInventorySeedData, seedInventoryDefaults,
+} from './repositories/InventoryRepository';
+
+import {
+  getUser as _getUser,
+  getUserByUsername as _getUserByUsername,
+  getUserByEmail as _getUserByEmail,
+  getUserByGoogleId as _getUserByGoogleId,
+  createUser as _createUser,
+  updateUser as _updateUser,
+  getProfessionals as _getProfessionals,
+  getRooms as _getRooms, getRoom as _getRoom,
+  createRoom as _createRoom, updateRoom as _updateRoom, deleteRoom as _deleteRoom,
+  getProcedures as _getProcedures, getProcedure as _getProcedure,
+  createProcedure as _createProcedure, updateProcedure as _updateProcedure,
+  deleteProcedure as _deleteProcedure,
+  getAutomations as _getAutomations, createAutomation as _createAutomation,
+  updateAutomation as _updateAutomation, deleteAutomation as _deleteAutomation,
+  getClinicSettings as _getClinicSettings,
+  createClinicSettings as _createClinicSettings,
+  updateClinicSettings as _updateClinicSettings,
+  createAutomationLog as _createAutomationLog,
+  seedInitialData as _seedInitialData,
+} from './repositories/ClinicRepository';
+
+import {
+  getProsthesis as _getProsthesis, getProsthesisById as _getProsthesisById,
+  createProsthesis as _createProsthesis, updateProsthesis as _updateProsthesis,
+  deleteProsthesis as _deleteProsthesis,
+  getProsthesisLabels as _getProsthesisLabels, createProsthesisLabel as _createProsthesisLabel,
+  updateProsthesisLabel as _updateProsthesisLabel, deleteProsthesisLabel as _deleteProsthesisLabel,
+  getLaboratories as _getLaboratories, getLaboratory as _getLaboratory,
+  createLaboratory as _createLaboratory, updateLaboratory as _updateLaboratory,
+  deleteLaboratory as _deleteLaboratory,
+} from './repositories/ProsthesisRepository';
+
+
 export class DatabaseStorage implements IStorage {
   constructor() {
-    // Removido sessionStore problemático
+    // Session store is handled via Redis in app.ts
   }
 
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(and(eq(users.id, id), notDeleted(users.deletedAt)));
-    return user || undefined;
-  }
+  sessionStore: any = null;
 
-  // Prosthesis methods
-  async getProsthesis(companyId: number): Promise<any[]> {
-    const results = await db
-      .select({
-        id: prosthesis.id,
-        patientId: prosthesis.patientId,
-        patientName: patients.fullName,
-        professionalId: prosthesis.professionalId,
-        professionalName: users.fullName,
-        type: prosthesis.type,
-        description: prosthesis.description,
-        laboratory: prosthesis.laboratory,
-        status: prosthesis.status,
-        sentDate: prosthesis.sentDate,
-        expectedReturnDate: prosthesis.expectedReturnDate,
-        returnDate: prosthesis.returnDate,
-        observations: prosthesis.observations,
-        labels: prosthesis.labels,
-        price: prosthesis.price,
-        sortOrder: prosthesis.sortOrder,
-        createdAt: prosthesis.createdAt,
-        updatedAt: prosthesis.updatedAt,
-      })
-      .from(prosthesis)
-      .leftJoin(patients, eq(prosthesis.patientId, patients.id))
-      .leftJoin(users, eq(prosthesis.professionalId, users.id))
-      .where(and(eq(prosthesis.companyId, companyId), notDeleted(prosthesis.deletedAt)))
-      .orderBy(prosthesis.sortOrder, desc(prosthesis.createdAt));
+  // ---- Users ---------------------------------------------------------------
+  async getUser(id: number, companyId?: number): Promise<User | undefined> { return _getUser(id, companyId); }
+  async getUserByUsername(username: string): Promise<User | undefined> { return _getUserByUsername(username); }
+  async getUserByEmail(email: string): Promise<User | undefined> { return _getUserByEmail(email); }
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> { return _getUserByGoogleId(googleId); }
+  async createUser(insertUser: InsertUser): Promise<User> { return _createUser(insertUser); }
+  async updateUser(id: number, data: Partial<User>, companyId?: number): Promise<User> { return _updateUser(id, data, companyId); }
 
-    return results;
-  }
+  // ---- Professionals -------------------------------------------------------
+  async getProfessionals(companyId: number): Promise<User[]> { return _getProfessionals(companyId); }
 
-  async getProsthesisById(id: number, companyId: number): Promise<any | undefined> {
-    const [result] = await db
-      .select({
-        id: prosthesis.id,
-        patientId: prosthesis.patientId,
-        patientName: patients.fullName,
-        professionalId: prosthesis.professionalId,
-        professionalName: users.fullName,
-        type: prosthesis.type,
-        description: prosthesis.description,
-        laboratory: prosthesis.laboratory,
-        status: prosthesis.status,
-        sentDate: prosthesis.sentDate,
-        expectedReturnDate: prosthesis.expectedReturnDate,
-        returnDate: prosthesis.returnDate,
-        observations: prosthesis.observations,
-        labels: prosthesis.labels,
-        price: prosthesis.price,
-        cost: prosthesis.cost,
-        sortOrder: prosthesis.sortOrder,
-        createdAt: prosthesis.createdAt,
-        updatedAt: prosthesis.updatedAt,
-      })
-      .from(prosthesis)
-      .leftJoin(patients, eq(prosthesis.patientId, patients.id))
-      .leftJoin(users, eq(prosthesis.professionalId, users.id))
-      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId), notDeleted(prosthesis.deletedAt)));
+  // ---- Patients ------------------------------------------------------------
+  async getPatients(companyId: number): Promise<Patient[]> { return getPatients(companyId); }
+  async getPatient(id: number, companyId: number): Promise<Patient | undefined> { return getPatient(id, companyId); }
+  async createPatient(patientData: any, companyId: number): Promise<Patient> { return createPatient(patientData, companyId); }
+  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> { return updatePatient(id, data, companyId); }
 
-    return result;
-  }
-
-  async createProsthesis(data: any): Promise<any> {
-    try {
-      // Limpar dados que não devem ser inseridos
-      const cleanData = { ...data };
-      delete cleanData.patientName;
-      delete cleanData.professionalName;
-      delete cleanData.id;
-      
-      const [result] = await db
-        .insert(prosthesis)
-        .values({
-          ...cleanData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar prótese:', error);
-      throw new Error(`Falha ao criar prótese: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-    }
-  }
-
-  async updateProsthesis(id: number, data: any, companyId: number): Promise<any> {
-    const [result] = await db
-      .update(prosthesis)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)))
-      .returning();
-    
-    return result;
-  }
-
-  async deleteProsthesis(id: number, companyId: number): Promise<void> {
-    await db
-      .delete(prosthesis)
-      .where(and(eq(prosthesis.id, id), eq(prosthesis.companyId, companyId)));
-  }
-
-  // Laboratory methods
-  async getLaboratories(companyId: number): Promise<Laboratory[]> {
-    return db
-      .select()
-      .from(laboratories)
-      .where(and(eq(laboratories.companyId, companyId), eq(laboratories.active, true)))
-      .orderBy(laboratories.name);
-  }
-
-  async getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined> {
-    const [result] = await db
-      .select()
-      .from(laboratories)
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
-    return result;
-  }
-
-  async createLaboratory(data: any): Promise<Laboratory> {
-    const cleanData = { ...data };
-    delete cleanData.id;
-    delete cleanData.createdAt;
-    delete cleanData.updatedAt;
-    
-    const [result] = await db
-      .insert(laboratories)
-      .values({
-        ...cleanData,
-        active: cleanData.active ?? true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    
-    return result;
-  }
-
-  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory> {
-    const cleanData = { ...data };
-    delete cleanData.id;
-    delete cleanData.companyId;
-    delete cleanData.createdAt;
-    cleanData.updatedAt = new Date();
-    
-    const [result] = await db
-      .update(laboratories)
-      .set(cleanData)
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)))
-      .returning();
-    
-    if (!result) {
-      throw new Error("Laboratory not found");
-    }
-    
-    return result;
-  }
-
-  async deleteLaboratory(id: number, companyId: number): Promise<boolean> {
-    const result = await db
-      .update(laboratories)
-      .set({ active: false, updatedAt: new Date() })
-      .where(and(eq(laboratories.id, id), eq(laboratories.companyId, companyId)));
-    
-    return (result.rowCount || 0) > 0;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(and(eq(users.username, username), notDeleted(users.deletedAt)));
-    return user || undefined;
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(and(eq(users.email, email), notDeleted(users.deletedAt)));
-    return user || undefined;
-  }
-
-  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
-    if (!googleId) return undefined;
-    const [user] = await db.select().from(users).where(and(eq(users.googleId, googleId), notDeleted(users.deletedAt)));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...insertUser,
-        active: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })
-      .returning();
-    return user;
-  }
-  
-  async updateUser(id: number, data: Partial<User>): Promise<User> {
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        ...data,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, id))
-      .returning();
-    
-    if (!updatedUser) {
-      throw new Error("User not found");
-    }
-    
-    return updatedUser;
-  }
-
-  // Database Patient methods
-  async getPatients(companyId: number): Promise<Patient[]> {
-    const rows = await db.select().from(patients).where(and(eq(patients.companyId, companyId), notDeleted(patients.deletedAt)));
-    return decryptPatientList(rows);
-  }
-
-  async getPatient(id: number, companyId: number): Promise<Patient | undefined> {
-    const [patient] = await db.select({
-      id: patients.id,
-      companyId: patients.companyId,
-      fullName: patients.fullName,
-      email: patients.email,
-      phone: patients.phone,
-      whatsappPhone: patients.whatsappPhone,
-      cpf: patients.cpf,
-      birthDate: patients.birthDate,
-      gender: patients.gender,
-      address: patients.address,
-      neighborhood: patients.neighborhood,
-      city: patients.city,
-      state: patients.state,
-      cep: patients.cep,
-      rg: patients.rg,
-      profession: patients.profession,
-      cellphone: patients.cellphone,
-      emergencyContactName: patients.emergencyContactName,
-      emergencyContactPhone: patients.emergencyContactPhone,
-      emergencyContactRelation: patients.emergencyContactRelation,
-      healthInsurance: patients.healthInsurance,
-      healthInsuranceNumber: patients.healthInsuranceNumber,
-      bloodType: patients.bloodType,
-      allergies: patients.allergies,
-      medications: patients.medications,
-      chronicDiseases: patients.chronicDiseases,
-      patientNumber: patients.patientNumber,
-      status: patients.status,
-      lastVisit: patients.lastVisit,
-      active: patients.active,
-      notes: patients.notes,
-      insuranceInfo: patients.insuranceInfo,
-      createdAt: patients.createdAt,
-      updatedAt: patients.updatedAt,
-      nationality: patients.nationality,
-      maritalStatus: patients.maritalStatus,
-      profilePhoto: patients.profilePhoto
-    }).from(patients).where(
-      and(eq(patients.id, id), eq(patients.companyId, companyId), notDeleted(patients.deletedAt))
-    );
-    return patient ? decryptPatientData(patient) : undefined;
-  }
-
-  async createPatient(patientData: any, companyId: number): Promise<Patient> {
-    // LGPD: Encrypt sensitive fields before persisting
-    const encryptedData = encryptPatientData(patientData);
-
-    const [patient] = await db
-      .insert(patients)
-      .values({
-        ...encryptedData,
-        companyId,
-        createdAt: new Date(),
-      })
-      .returning();
-    return decryptPatientData(patient);
-  }
-
-  async updatePatient(id: number, data: any, companyId: number): Promise<Patient> {
-    // LGPD: Encrypt sensitive fields before persisting
-    const encryptedData = encryptPatientData(data);
-
-    const [updatedPatient] = await db
-      .update(patients)
-      .set(encryptedData)
-      .where(and(eq(patients.id, id), eq(patients.companyId, companyId)))
-      .returning();
-
-    if (!updatedPatient) {
-      throw new Error("Patient not found");
-    }
-
-    return decryptPatientData(updatedPatient);
-  }
-
-  // Appointment methods
-  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> {
-    try {
-      // PERFORMANCE: Single JOIN query instead of N+1 (was 400+ queries for 100 appointments)
-      // Step 1: Build WHERE conditions
-      const conditions: any[] = [eq(appointments.companyId, companyId), notDeleted(appointments.deletedAt)];
-      if (filters?.startDate) conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
-      if (filters?.endDate) conditions.push(lt(appointments.startTime, new Date(filters.endDate)));
-      if (filters?.professionalId !== undefined) conditions.push(eq(appointments.professionalId, filters.professionalId));
-      if (filters?.patientId !== undefined) conditions.push(eq(appointments.patientId, filters.patientId));
-      if (filters?.status) conditions.push(eq(appointments.status, filters.status));
-
-      // Step 2: Single query with LEFT JOINs for patient, professional, room
-      const rows = await db
-        .select({
-          // Appointment fields
-          appointment: appointments,
-          // Patient fields (nullable)
-          patientId: patients.id,
-          patientFullName: patients.fullName,
-          patientPhone: patients.phone,
-          // Professional fields (nullable)
-          professionalId: users.id,
-          professionalFullName: users.fullName,
-          professionalSpeciality: users.speciality,
-          // Room fields (nullable)
-          roomId: rooms.id,
-          roomName: rooms.name,
-        })
-        .from(appointments)
-        .leftJoin(patients, eq(appointments.patientId, patients.id))
-        .leftJoin(users, eq(appointments.professionalId, users.id))
-        .leftJoin(rooms, eq(appointments.roomId, rooms.id))
-        .where(and(...conditions))
-        .orderBy(appointments.startTime);
-
-      // Step 3: Batch-load procedures for all appointments in 2 queries (instead of N*2)
-      const appointmentIds = rows.map((r: any) => r.appointment.id);
-      const proceduresByAppointment = new Map<number, any[]>();
-
-      if (appointmentIds.length > 0) {
-        const apRows = await db
-          .select({
-            appointmentId: appointmentProcedures.appointmentId,
-            procedureId: appointmentProcedures.procedureId,
-            quantity: appointmentProcedures.quantity,
-            price: appointmentProcedures.price,
-            notes: appointmentProcedures.notes,
-            // Procedure details via JOIN
-            procedureName: procedures.name,
-            procedureDuration: procedures.duration,
-            procedurePrice: procedures.price,
-            procedureDescription: procedures.description,
-            procedureColor: procedures.color,
-            procedureCategory: procedures.category,
-          })
-          .from(appointmentProcedures)
-          .leftJoin(procedures, eq(appointmentProcedures.procedureId, procedures.id))
-          .where(inArray(appointmentProcedures.appointmentId, appointmentIds));
-
-        for (const row of apRows) {
-          const list = proceduresByAppointment.get(row.appointmentId) || [];
-          list.push({
-            id: row.procedureId,
-            name: row.procedureName,
-            duration: row.procedureDuration,
-            price: row.procedurePrice,
-            description: row.procedureDescription,
-            color: row.procedureColor,
-            category: row.procedureCategory,
-            quantity: row.quantity,
-            appointmentPrice: row.price,
-            notes: row.notes,
-          });
-          proceduresByAppointment.set(row.appointmentId, list);
-        }
-      }
-
-      // Step 4: Assemble enriched results
-      return rows.map((row: any) => ({
-        ...row.appointment,
-        patient: row.patientId ? {
-          id: row.patientId,
-          fullName: row.patientFullName,
-          phone: row.patientPhone,
-        } : undefined,
-        professional: row.professionalId ? {
-          id: row.professionalId,
-          fullName: row.professionalFullName,
-          speciality: row.professionalSpeciality,
-        } : undefined,
-        room: row.roomId ? {
-          id: row.roomId,
-          name: row.roomName,
-        } : undefined,
-        procedures: proceduresByAppointment.get(row.appointment.id) || [],
-      }));
-    } catch (error) {
-      console.error('Database error in getAppointments:', error);
-      return [];
-    }
-  }
-
-  async getAppointment(id: number, companyId?: number): Promise<any | undefined> {
-    // PERFORMANCE: Single JOIN query instead of 5+ separate queries
-    const conditions: any[] = [eq(appointments.id, id), notDeleted(appointments.deletedAt)];
-    if (companyId !== undefined) {
-      conditions.push(eq(appointments.companyId, companyId));
-    }
-
-    const [row] = await db
-      .select({
-        appointment: appointments,
-        patientId: patients.id,
-        patientFullName: patients.fullName,
-        patientPhone: patients.phone,
-        professionalId: users.id,
-        professionalFullName: users.fullName,
-        professionalSpeciality: users.speciality,
-        roomId: rooms.id,
-        roomName: rooms.name,
-      })
-      .from(appointments)
-      .leftJoin(patients, eq(appointments.patientId, patients.id))
-      .leftJoin(users, eq(appointments.professionalId, users.id))
-      .leftJoin(rooms, eq(appointments.roomId, rooms.id))
-      .where(and(...conditions));
-
-    if (!row) return undefined;
-
-    // Single query for procedures (instead of N queries)
-    const procedureRows = await db
-      .select({
-        procedureId: appointmentProcedures.procedureId,
-        quantity: appointmentProcedures.quantity,
-        price: appointmentProcedures.price,
-        notes: appointmentProcedures.notes,
-        procedureName: procedures.name,
-        procedureDuration: procedures.duration,
-        procedurePrice: procedures.price,
-        procedureDescription: procedures.description,
-        procedureColor: procedures.color,
-        procedureCategory: procedures.category,
-      })
-      .from(appointmentProcedures)
-      .leftJoin(procedures, eq(appointmentProcedures.procedureId, procedures.id))
-      .where(eq(appointmentProcedures.appointmentId, id));
-
-    return {
-      ...row.appointment,
-      patient: row.patientId ? {
-        id: row.patientId,
-        fullName: row.patientFullName,
-        phone: row.patientPhone,
-      } : undefined,
-      professional: row.professionalId ? {
-        id: row.professionalId,
-        fullName: row.professionalFullName,
-        speciality: row.professionalSpeciality,
-      } : undefined,
-      room: row.roomId ? {
-        id: row.roomId,
-        name: row.roomName,
-      } : undefined,
-      procedures: procedureRows.map((p: any) => ({
-        id: p.procedureId,
-        name: p.procedureName,
-        duration: p.procedureDuration,
-        price: p.procedurePrice,
-        description: p.procedureDescription,
-        color: p.procedureColor,
-        category: p.procedureCategory,
-        quantity: p.quantity,
-        appointmentPrice: p.price,
-        notes: p.notes,
-      })),
-    };
-  }
-
-  async createAppointment(appointmentData: any, companyId: number): Promise<any> {
-    // Extract procedures to create appointment procedures
-    const procedures = appointmentData.procedures || [];
-    delete appointmentData.procedures;
-    
-    // Insert appointment
-    const [appointment] = await db
-      .insert(appointments)
-      .values({
-        ...appointmentData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    
-    // Create appointment procedures
-    for (const proc of procedures) {
-      await db
-        .insert(appointmentProcedures)
-        .values({
-          appointmentId: appointment.id,
-          procedureId: proc.id,
-          quantity: 1,
-          price: proc.price,
-          notes: "",
-        });
-    }
-    
-    return this.getAppointment(appointment.id);
-  }
-
-  async updateAppointment(id: number, data: any, companyId?: number): Promise<any> {
-    // Extract procedures to update appointment procedures
-    const procedures = data.procedures;
-    delete data.procedures;
-    
-    // Update appointment
-    const [updatedAppointment] = await db
-      .update(appointments)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(appointments.id, id))
-      .returning();
-    
-    if (!updatedAppointment) {
-      throw new Error("Appointment not found");
-    }
-    
-    // Update appointment procedures if provided
-    if (procedures) {
-      // Remove existing procedures
-      await db
-        .delete(appointmentProcedures)
-        .where(eq(appointmentProcedures.appointmentId, id));
-      
-      // Add new procedures
-      for (const proc of procedures) {
-        await db
-          .insert(appointmentProcedures)
-          .values({
-            appointmentId: id,
-            procedureId: proc.id,
-            quantity: 1,
-            price: proc.price,
-            notes: "",
-          });
-      }
-    }
-    
-    return this.getAppointment(id);
-  }
-
-  async deleteAppointment(id: number, companyId: number): Promise<boolean> {
-    // Verify appointment belongs to company
-    const appointment = await this.getAppointment(id, companyId);
-
-    if (!appointment) {
-      throw new Error("Appointment not found or does not belong to this company");
-    }
-
-    // Delete appointment procedures first (foreign key constraint)
-    await db
-      .delete(appointmentProcedures)
-      .where(eq(appointmentProcedures.appointmentId, id));
-
-    // Delete appointment
-    const result = await db
-      .delete(appointments)
-      .where(and(
-        eq(appointments.id, id),
-        eq(appointments.companyId, companyId)
-      ))
-      .returning();
-
-    return result.length > 0;
-  }
-
+  // ---- Appointments --------------------------------------------------------
+  async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> { return _getAppointments(companyId, filters); }
+  async getAppointment(id: number, companyId?: number): Promise<any | undefined> { return _getAppointment(id, companyId); }
+  async createAppointment(appointmentData: any, companyId: number): Promise<any> { return _createAppointment(appointmentData, companyId); }
+  async updateAppointment(id: number, data: any, companyId?: number): Promise<any> { return _updateAppointment(id, data, companyId); }
+  async deleteAppointment(id: number, companyId: number): Promise<boolean> { return _deleteAppointment(id, companyId); }
   async checkAppointmentConflicts(
     companyId: number,
     startTime: Date,
     endTime: Date,
-    options: {
-      professionalId?: number;
-      roomId?: number;
-      excludeAppointmentId?: number;
-    } = {}
-  ): Promise<any[]> {
-    const { professionalId, roomId, excludeAppointmentId } = options;
-
-    // Build the where clause
-    const conditions = [
-      eq(appointments.companyId, companyId),
-      notDeleted(appointments.deletedAt),
-      // Check for time overlap: (start < end AND end > start)
-      and(
-        lte(appointments.startTime, endTime),
-        gte(appointments.endTime, startTime)
-      )
-    ];
-
-    // Add professional or room filter
-    if (professionalId) {
-      conditions.push(eq(appointments.professionalId, professionalId));
-    }
-    if (roomId) {
-      conditions.push(eq(appointments.roomId, roomId));
-    }
-
-    // Exclude specific appointment (useful for updates)
-    if (excludeAppointmentId) {
-      conditions.push(sql`${appointments.id} != ${excludeAppointmentId}`);
-    }
-
-    const conflicts = await db
-      .select({
-        id: appointments.id,
-        startTime: appointments.startTime,
-        endTime: appointments.endTime,
-        professionalId: appointments.professionalId,
-        roomId: appointments.roomId,
-        patientId: appointments.patientId,
-      })
-      .from(appointments)
-      .where(and(...conditions));
-
-    // Enrich with patient, professional, and room names
-    type ConflictRow = typeof conflicts[0];
-    const enrichedConflicts = await Promise.all(
-      conflicts.map(async (conflict: ConflictRow) => {
-        const patient = conflict.patientId
-          ? await db
-              .select({ fullName: patients.fullName })
-              .from(patients)
-              .where(and(eq(patients.id, conflict.patientId), notDeleted(patients.deletedAt)))
-              .limit(1)
-          : [];
-
-        const professional = conflict.professionalId
-          ? await db
-              .select({ fullName: users.fullName })
-              .from(users)
-              .where(and(eq(users.id, conflict.professionalId), notDeleted(users.deletedAt)))
-              .limit(1)
-          : [];
-
-        const room = conflict.roomId
-          ? await db
-              .select({ name: rooms.name })
-              .from(rooms)
-              .where(eq(rooms.id, conflict.roomId))
-              .limit(1)
-          : [];
-
-        return {
-          ...conflict,
-          patientName: patient[0]?.fullName || 'Unknown',
-          professionalName: professional[0]?.fullName || null,
-          roomName: room[0]?.name || null,
-          conflictType: professionalId ? 'professional' : 'room',
-        };
-      })
-    );
-
-    return enrichedConflicts;
-  }
-
-  // Professional methods
-  async getProfessionals(companyId: number): Promise<User[]> {
-    return db
-      .select()
-      .from(users)
-      .where(and(
-        eq(users.companyId, companyId),
-        eq(users.role, "dentist"),
-        notDeleted(users.deletedAt)
-      ));
-  }
-
-  // Room methods
-  async getRooms(companyId: number): Promise<Room[]> {
-    return db.select().from(rooms)
-      .where(and(
-        eq(rooms.companyId, companyId),
-        eq(rooms.active, true)
-      ))
-      .orderBy(rooms.name);
-  }
-
-  async getRoom(id: number, companyId: number): Promise<Room | undefined> {
-    const [room] = await db.select().from(rooms)
-      .where(and(
-        eq(rooms.id, id),
-        eq(rooms.companyId, companyId)
-      ));
-    return room || undefined;
-  }
-
-  async createRoom(data: any, companyId: number): Promise<Room> {
-    const [room] = await db.insert(rooms)
-      .values({
-        ...data,
-        companyId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return room;
-  }
-
-  async updateRoom(id: number, data: any, companyId: number): Promise<Room> {
-    const [room] = await db.update(rooms)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(rooms.id, id),
-        eq(rooms.companyId, companyId)
-      ))
-      .returning();
-
-    if (!room) {
-      throw new Error('Room not found or access denied');
-    }
-    return room;
-  }
-
-  async deleteRoom(id: number, companyId: number): Promise<boolean> {
-    // Soft delete - marca como inativo
-    const [room] = await db.update(rooms)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(rooms.id, id),
-        eq(rooms.companyId, companyId)
-      ))
-      .returning();
-
-    return !!room;
-  }
-
-  // Procedure methods
-  async getProcedures(companyId: number): Promise<Procedure[]> {
-    return db.select().from(procedures)
-      .where(and(
-        eq(procedures.companyId, companyId),
-        eq(procedures.active, true)
-      ))
-      .orderBy(procedures.name);
-  }
-
-  async getProcedure(id: number, companyId: number): Promise<Procedure | undefined> {
-    const [procedure] = await db.select().from(procedures)
-      .where(and(
-        eq(procedures.id, id),
-        eq(procedures.companyId, companyId)
-      ));
-    return procedure || undefined;
-  }
-
-  async createProcedure(data: any, companyId: number): Promise<Procedure> {
-    const [procedure] = await db.insert(procedures)
-      .values({
-        ...data,
-        companyId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return procedure;
-  }
-
-  async updateProcedure(id: number, data: any, companyId: number): Promise<Procedure> {
-    const [procedure] = await db.update(procedures)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(procedures.id, id),
-        eq(procedures.companyId, companyId)
-      ))
-      .returning();
-
-    if (!procedure) {
-      throw new Error('Procedure not found or access denied');
-    }
-    return procedure;
-  }
-
-  async deleteProcedure(id: number, companyId: number): Promise<boolean> {
-    // Soft delete - marca como inativo
-    const [procedure] = await db.update(procedures)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(procedures.id, id),
-        eq(procedures.companyId, companyId)
-      ))
-      .returning();
-
-    return !!procedure;
-  }
-
-  // Patient records
-  async getPatientRecords(patientId: number): Promise<PatientRecord[]> {
-    return db
-      .select()
-      .from(patientRecords)
-      .where(and(eq(patientRecords.patientId, patientId), notDeleted(patientRecords.deletedAt)));
-  }
-
-  async createPatientRecord(data: any): Promise<PatientRecord> {
-    const [record] = await db
-      .insert(patientRecords)
-      .values({
-        ...data,
-        createdAt: new Date(),
-      })
-      .returning();
-    return record;
-  }
-
-  // Odontogram
-  async getOdontogramEntries(patientId: number): Promise<OdontogramEntry[]> {
-    return db
-      .select()
-      .from(odontogramEntries)
-      .where(and(eq(odontogramEntries.patientId, patientId), notDeleted(odontogramEntries.deletedAt)));
-  }
-
-  async createOdontogramEntry(data: any): Promise<OdontogramEntry> {
-    const [entry] = await db
-      .insert(odontogramEntries)
-      .values({
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return entry;
-  }
-
-  // Automations
-  async getAutomations(companyId: number): Promise<Automation[]> {
-    return db.select().from(automations).where(eq(automations.companyId, companyId));
-  }
-
-  async createAutomation(data: any, companyId: number): Promise<Automation> {
-    const [automation] = await db
-      .insert(automations)
-      .values({
-        ...data,
-        companyId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return automation;
-  }
-
-  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> {
-    try {
-      // Verificar se a automação existe antes de tentar atualizar
-      const [existingAutomation] = await db
-        .select()
-        .from(automations)
-        .where(eq(automations.id, id));
-        
-      if (!existingAutomation) {
-        throw new Error("Automation not found");
-      }
-      
-      // Preparar dados de atualização garantindo formato correto da data
-      const updateData = { ...data };
-      if (data.updatedAt === undefined) {
-        updateData.updatedAt = new Date();
-      }
-      
-      const [updatedAutomation] = await db
-        .update(automations)
-        .set(updateData)
-        .where(eq(automations.id, id))
-        .returning();
-      
-      return updatedAutomation;
-    } catch (error) {
-      console.error("Error updating automation:", error);
-      throw error;
-    }
-  }
-
-  async deleteAutomation(id: number, companyId: number): Promise<void> {
-    await db
-      .delete(automations)
-      .where(eq(automations.id, id));
-  }
-
-  // Financial transactions
-  async getTransactions(): Promise<Transaction[]> {
-    // Note: Transactions are currently handled in-memory
-    // This will need to be implemented when we add a transactions table to the schema
-    return [];
-  }
-
-  async createTransaction(transaction: any): Promise<Transaction> {
-    // Note: Transactions are currently handled in-memory
-    // This will need to be implemented when we add a transactions table to the schema
-    throw new Error("Method not implemented with database storage");
-  }
-
-  // Laboratory operations (remove duplicates)
-
-  // Helper methods to seed initial data
-  async seedInitialData() {
-    // Check if we have any users
-    const userCount = await db.select({ count: count() }).from(users);
-
-    if (userCount[0].count === 0) {
-      // First, create a default company if it doesn't exist
-      const existingCompanies = await db.select({ count: count() }).from(companies);
-
-      if (existingCompanies[0].count === 0) {
-        await db.insert(companies).values({
-          id: 1,
-          name: "Clínica Odontológica Demo",
-          cnpj: "00.000.000/0000-00",
-          phone: "(00) 0000-0000",
-          email: "contato@clinicademo.com",
-          address: "Rua Demo, 123",
-          city: "São Paulo",
-          state: "SP",
-          zipCode: "00000-000",
-          active: true,
-        });
-        console.log('✅ Empresa padrão criada com ID 1');
-      }
-
-      // Create admin user
-      await this.createUser({
-        username: "admin",
-        password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: admin123
-        fullName: "Administrador",
-        email: "admin@dentalclinic.com",
-        role: "admin",
-        speciality: "Administração",
-        companyId: 1,
-      });
-      
-      // Create dentist user
-      await this.createUser({
-        username: "dentista",
-        password: "$2b$10$I9HhVdTaRHpxPR3ykU5XvuxO1rDZw8yU4VOVUZ0KdJkD9TaFYWjwq.salt", // password: dentista123
-        fullName: "Dr. Ana Silva",
-        email: "ana.silva@dentalclinic.com",
-        role: "dentist",
-        speciality: "Clínico Geral",
-        companyId: 1,
-      });
-      
-      // Create rooms
-      const room1 = await db
-        .insert(rooms)
-        .values({ name: "Sala 01", description: "Consultório principal", active: true, companyId: 1 })
-        .returning();
-
-      const room2 = await db
-        .insert(rooms)
-        .values({ name: "Sala 02", description: "Consultório secundário", active: true, companyId: 1 })
-        .returning();
-
-      const room3 = await db
-        .insert(rooms)
-        .values({ name: "Sala 03", description: "Sala de procedimentos", active: true, companyId: 1 })
-        .returning();
-      
-      // Create procedures
-      await db
-        .insert(procedures)
-        .values({ name: "Consulta inicial", duration: 30, price: 12000, description: "Avaliação inicial", color: "#1976d2", companyId: 1 });
-
-      await db
-        .insert(procedures)
-        .values({ name: "Limpeza dental", duration: 60, price: 15000, description: "Profilaxia completa", color: "#43a047", companyId: 1 });
-
-      await db
-        .insert(procedures)
-        .values({ name: "Tratamento de canal", duration: 90, price: 30000, description: "Endodontia", color: "#ff5722", companyId: 1 });
-
-      await db
-        .insert(procedures)
-        .values({ name: "Restauração", duration: 60, price: 18000, description: "Restauração em resina", color: "#9c27b0", companyId: 1 });
-
-      await db
-        .insert(procedures)
-        .values({ name: "Extração", duration: 60, price: 20000, description: "Extração simples", color: "#f44336", companyId: 1 });
-    }
-  }
-  // Prosthesis Labels Methods
-  async getProsthesisLabels(companyId: number): Promise<ProsthesisLabel[]> {
-    try {
-      const result = await db
-        .select()
-        .from(prosthesisLabels)
-        .where(and(
-          eq(prosthesisLabels.companyId, companyId),
-          eq(prosthesisLabels.active, true)
-        ))
-        .orderBy(prosthesisLabels.name);
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar etiquetas:', error);
-      return [];
-    }
-  }
-
-  async createProsthesisLabel(data: any): Promise<ProsthesisLabel> {
-    try {
-      const [result] = await db
-        .insert(prosthesisLabels)
-        .values({
-          companyId: data.companyId,
-          name: data.name,
-          color: data.color,
-          description: data.description,
-          active: data.active ?? true
-        })
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar etiqueta:', error);
-      throw error;
-    }
-  }
-
-  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<ProsthesisLabel> {
-    try {
-      const [result] = await db
-        .update(prosthesisLabels)
-        .set({
-          name: data.name,
-          color: data.color,
-          description: data.description,
-          active: data.active,
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(prosthesisLabels.id, id),
-          eq(prosthesisLabels.companyId, companyId)
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar etiqueta:', error);
-      throw error;
-    }
-  }
-
-  async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> {
-    try {
-      const result = await db
-        .update(prosthesisLabels)
-        .set({
-          active: false,
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(prosthesisLabels.id, id),
-          eq(prosthesisLabels.companyId, companyId)
-        ));
-      
-      return true;
-    } catch (error) {
-      console.error('Erro ao deletar etiqueta:', error);
-      throw error;
-    }
-  }
-
-  // Inventory Methods
-  async getInventoryCategories(companyId: number): Promise<any[]> {
-    try {
-      const result = await db
-        .select()
-        .from(inventoryCategories)
-        .where(eq(inventoryCategories.companyId, companyId))
-        .orderBy(inventoryCategories.name);
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar categorias de estoque:', error);
-      return [];
-    }
-  }
-
-  async createInventoryCategory(data: any): Promise<any> {
-    try {
-      const [result] = await db
-        .insert(inventoryCategories)
-        .values({
-          companyId: data.companyId,
-          name: data.name,
-          description: data.description,
-          color: data.color
-        })
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar categoria de estoque:', error);
-      throw error;
-    }
-  }
-
-  async updateInventoryCategory(id: number, data: any, companyId: number): Promise<any> {
-    try {
-      const [result] = await db
-        .update(inventoryCategories)
-        .set({
-          name: data.name,
-          description: data.description,
-          color: data.color
-        })
-        .where(and(
-          eq(inventoryCategories.id, id),
-          eq(inventoryCategories.companyId, companyId)
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar categoria de estoque:', error);
-      throw error;
-    }
-  }
-
-  async getInventoryItems(companyId: number): Promise<any[]> {
-    try {
-      const result = await db
-        .select({
-          id: inventoryItems.id,
-          name: inventoryItems.name,
-          description: inventoryItems.description,
-          categoryId: inventoryItems.categoryId,
-          categoryName: inventoryCategories.name,
-          categoryColor: inventoryCategories.color,
-          sku: inventoryItems.sku,
-          barcode: inventoryItems.barcode,
-          brand: inventoryItems.brand,
-          supplier: inventoryItems.supplier,
-          minimumStock: inventoryItems.minimumStock,
-          currentStock: inventoryItems.currentStock,
-          price: inventoryItems.price,
-          unitOfMeasure: inventoryItems.unitOfMeasure,
-          expirationDate: inventoryItems.expirationDate,
-          location: inventoryItems.location,
-          lastPurchaseDate: inventoryItems.lastPurchaseDate,
-          active: inventoryItems.active,
-          createdAt: inventoryItems.createdAt,
-          updatedAt: inventoryItems.updatedAt
-        })
-        .from(inventoryItems)
-        .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
-        .where(and(
-          eq(inventoryItems.companyId, companyId),
-          eq(inventoryItems.active, true),
-          notDeleted(inventoryItems.deletedAt)
-        ))
-        .orderBy(inventoryItems.name);
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar itens de estoque:', error);
-      return [];
-    }
-  }
-
-  async createInventoryItem(data: any): Promise<any> {
-    try {
-      const [result] = await db
-        .insert(inventoryItems)
-        .values({
-          companyId: data.companyId,
-          name: data.name,
-          description: data.description,
-          categoryId: data.categoryId,
-          sku: data.sku,
-          barcode: data.barcode,
-          brand: data.brand,
-          supplier: data.supplier,
-          minimumStock: data.minimumStock || 0,
-          currentStock: data.currentStock || 0,
-          price: data.price,
-          unitOfMeasure: data.unitOfMeasure,
-          expirationDate: data.expirationDate,
-          location: data.location,
-          lastPurchaseDate: data.lastPurchaseDate,
-          active: data.active ?? true
-        })
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar item de estoque:', error);
-      throw error;
-    }
-  }
-
-  async updateInventoryItem(id: number, data: any, companyId: number): Promise<any> {
-    try {
-      const [result] = await db
-        .update(inventoryItems)
-        .set({
-          name: data.name,
-          description: data.description,
-          categoryId: data.categoryId,
-          sku: data.sku,
-          barcode: data.barcode,
-          brand: data.brand,
-          supplier: data.supplier,
-          minimumStock: data.minimumStock,
-          currentStock: data.currentStock,
-          price: data.price,
-          unitOfMeasure: data.unitOfMeasure,
-          expirationDate: data.expirationDate,
-          location: data.location,
-          lastPurchaseDate: data.lastPurchaseDate,
-          active: data.active,
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(inventoryItems.id, id),
-          eq(inventoryItems.companyId, companyId)
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar item de estoque:', error);
-      throw error;
-    }
-  }
-
-  async deleteInventoryItem(id: number, companyId: number): Promise<boolean> {
-    try {
-      await db
-        .update(inventoryItems)
-        .set({
-          active: false,
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(inventoryItems.id, id),
-          eq(inventoryItems.companyId, companyId)
-        ));
-      
-      return true;
-    } catch (error) {
-      console.error('Erro ao deletar item de estoque:', error);
-      throw error;
-    }
-  }
-
-  async getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]> {
-    try {
-      let whereConditions = [eq(inventoryItems.companyId, companyId)];
-      
-      if (itemId) {
-        whereConditions.push(eq(inventoryTransactions.itemId, itemId));
-      }
-
-      const result = await db
-        .select({
-          id: inventoryTransactions.id,
-          itemId: inventoryTransactions.itemId,
-          itemName: inventoryItems.name,
-          userId: inventoryTransactions.userId,
-          userName: users.fullName,
-          type: inventoryTransactions.type,
-          quantity: inventoryTransactions.quantity,
-          reason: inventoryTransactions.reason,
-          notes: inventoryTransactions.notes,
-          previousStock: inventoryTransactions.previousStock,
-          newStock: inventoryTransactions.newStock,
-          appointmentId: inventoryTransactions.appointmentId,
-          patientId: inventoryTransactions.patientId,
-          createdAt: inventoryTransactions.createdAt
-        })
-        .from(inventoryTransactions)
-        .leftJoin(inventoryItems, eq(inventoryTransactions.itemId, inventoryItems.id))
-        .leftJoin(users, eq(inventoryTransactions.userId, users.id))
-        .where(and(...whereConditions))
-        .orderBy(desc(inventoryTransactions.createdAt));
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar transações de estoque:', error);
-      return [];
-    }
-  }
-
-  async createInventoryTransaction(data: any): Promise<any> {
-    try {
-      const [result] = await db
-        .insert(inventoryTransactions)
-        .values({
-          itemId: data.itemId,
-          userId: data.userId,
-          type: data.type,
-          quantity: data.quantity,
-          reason: data.reason,
-          notes: data.notes,
-          previousStock: data.previousStock,
-          newStock: data.newStock,
-          appointmentId: data.appointmentId,
-          patientId: data.patientId
-        })
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar transação de estoque:', error);
-      throw error;
-    }
-  }
-
-  async getStandardDentalProducts(): Promise<StandardDentalProduct[]> {
-    try {
-      const result = await db
-        .select()
-        .from(standardDentalProducts)
-        .where(eq(standardDentalProducts.active, true))
-        .orderBy(desc(standardDentalProducts.isPopular), standardDentalProducts.category, standardDentalProducts.name);
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar produtos odontológicos padrão:', error);
-      return [];
-    }
-  }
-
-  async importStandardProducts(productIds: number[], companyId: number): Promise<any[]> {
-    try {
-      const standardProducts = await db
-        .select()
-        .from(standardDentalProducts)
-        .where(and(
-          inArray(standardDentalProducts.id, productIds),
-          eq(standardDentalProducts.active, true)
-        ));
-
-      const importedItems = [];
-      
-      for (const product of standardProducts) {
-        // Buscar categoria correspondente ou criar se não existir
-        let category = await db
-          .select()
-          .from(inventoryCategories)
-          .where(and(
-            eq(inventoryCategories.companyId, companyId),
-            eq(inventoryCategories.name, product.category)
-          ))
-          .limit(1);
-
-        if (category.length === 0) {
-          // Criar categoria se não existir
-          const [newCategory] = await db
-            .insert(inventoryCategories)
-            .values({
-              companyId,
-              name: product.category,
-              description: `Categoria ${product.category}`,
-              color: '#6B7280'
-            })
-            .returning();
-          category = [newCategory];
-        }
-
-        // Criar item no estoque da empresa
-        const [item] = await db
-          .insert(inventoryItems)
-          .values({
-            companyId,
-            name: product.name,
-            description: product.description,
-            categoryId: category[0].id,
-            brand: product.brand,
-            unitOfMeasure: product.unitOfMeasure,
-            price: product.estimatedPrice,
-            minimumStock: 5,
-            currentStock: 0,
-            active: true
-          })
-          .returning();
-
-        importedItems.push(item);
-      }
-      
-      return importedItems;
-    } catch (error) {
-      console.error('Erro ao importar produtos padrão:', error);
-      throw error;
-    }
-  }
-
-  // Dados padrão de estoque para clínica odontológica - compartilhado com MemStorage
-  private getDefaultInventoryDataDB() {
-    const defaultCategories = [
-      { name: 'Descartáveis e Consumo', description: 'Luvas, máscaras, algodão, gaze, sugadores, babadores', color: '#3B82F6' },
-      { name: 'Anestésicos e Agulhas', description: 'Anestésicos locais, tubetes, agulhas gengivais', color: '#EF4444' },
-      { name: 'Medicamentos', description: 'Anti-inflamatórios, antibióticos, analgésicos', color: '#DC2626' },
-      { name: 'Materiais de Restauração', description: 'Resinas, adesivos, ionômeros, condicionadores', color: '#10B981' },
-      { name: 'Cimentos Odontológicos', description: 'Cimentos resinosos, provisórios, ionômeros', color: '#059669' },
-      { name: 'Materiais de Endodontia', description: 'Limas, cones, cimentos endodônticos, irrigantes', color: '#F59E0B' },
-      { name: 'Materiais de Moldagem', description: 'Alginato, silicone, gesso, moldeiras', color: '#8B5CF6' },
-      { name: 'Instrumentais Rotatórios', description: 'Brocas, pontas diamantadas, discos, polidores', color: '#EC4899' },
-      { name: 'EPI e Biossegurança', description: 'Equipamentos de proteção, desinfetantes, esterilização', color: '#06B6D4' },
-      { name: 'Material de Prótese', description: 'Ceras, resinas acrílicas, dentes, cimentos', color: '#84CC16' },
-      { name: 'Cirurgia e Periodontia', description: 'Fios de sutura, lâminas, hemostáticos', color: '#7C3AED' },
-      { name: 'Ortodontia', description: 'Bráquetes, fios, elásticos, ligaduras', color: '#F97316' },
-      { name: 'Radiologia', description: 'Filmes, posicionadores, capas para sensor', color: '#64748B' },
-      { name: 'Profilaxia e Prevenção', description: 'Pastas profiláticas, flúor, escovas', color: '#0EA5E9' },
-    ];
-
-    const defaultItemsByCategory: Record<string, Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }>> = {
-      'Descartáveis e Consumo': [
-        { name: 'Luva de Procedimento Látex P', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
-        { name: 'Luva de Procedimento Látex M', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
-        { name: 'Luva de Procedimento Látex G', minimumStock: 100, unitOfMeasure: 'unidade', brand: 'Supermax' },
-        { name: 'Máscara Descartável Tripla', minimumStock: 100, unitOfMeasure: 'unidade' },
-        { name: 'Algodão Rolete', minimumStock: 10, unitOfMeasure: 'pacote' },
-        { name: 'Gaze Estéril 7,5x7,5', minimumStock: 20, unitOfMeasure: 'pacote' },
-        { name: 'Sugador Descartável', minimumStock: 200, unitOfMeasure: 'unidade' },
-        { name: 'Babador Descartável Impermeável', minimumStock: 100, unitOfMeasure: 'unidade' },
-      ],
-      'Anestésicos e Agulhas': [
-        { name: 'Lidocaína 2% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
-        { name: 'Articaína 4% c/ Epinefrina 1:100.000', minimumStock: 50, unitOfMeasure: 'tubete', brand: 'DFL' },
-        { name: 'Agulha Gengival Curta 30G', minimumStock: 100, unitOfMeasure: 'unidade' },
-        { name: 'Agulha Gengival Longa 27G', minimumStock: 100, unitOfMeasure: 'unidade' },
-      ],
-      'Medicamentos': [
-        { name: 'Ibuprofeno 600mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
-        { name: 'Amoxicilina 500mg', minimumStock: 30, unitOfMeasure: 'cápsula' },
-        { name: 'Paracetamol 750mg', minimumStock: 50, unitOfMeasure: 'comprimido' },
-      ],
-      'Materiais de Restauração': [
-        { name: 'Resina Composta A2', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
-        { name: 'Resina Composta A3', minimumStock: 5, unitOfMeasure: 'seringa', brand: '3M Filtek' },
-        { name: 'Adesivo Single Bond Universal', minimumStock: 2, unitOfMeasure: 'frasco', brand: '3M' },
-        { name: 'Ácido Fosfórico 37%', minimumStock: 10, unitOfMeasure: 'seringa' },
-      ],
-      'Cimentos Odontológicos': [
-        { name: 'Cimento Resinoso Dual', minimumStock: 2, unitOfMeasure: 'kit' },
-        { name: 'Cimento Provisório', minimumStock: 3, unitOfMeasure: 'pote' },
-      ],
-      'Materiais de Endodontia': [
-        { name: 'Lima K #15', minimumStock: 10, unitOfMeasure: 'unidade' },
-        { name: 'Lima K #20', minimumStock: 10, unitOfMeasure: 'unidade' },
-        { name: 'Hipoclorito de Sódio 2,5%', minimumStock: 5, unitOfMeasure: 'litro' },
-        { name: 'Cone de Guta-percha Principal', minimumStock: 20, unitOfMeasure: 'unidade' },
-      ],
-      'Materiais de Moldagem': [
-        { name: 'Alginato', minimumStock: 5, unitOfMeasure: 'kg' },
-        { name: 'Silicone de Adição Pesado', minimumStock: 2, unitOfMeasure: 'kit' },
-        { name: 'Gesso Pedra Tipo III', minimumStock: 5, unitOfMeasure: 'kg' },
-      ],
-      'Instrumentais Rotatórios': [
-        { name: 'Broca Carbide Esférica FG', minimumStock: 10, unitOfMeasure: 'unidade' },
-        { name: 'Ponta Diamantada 1012', minimumStock: 10, unitOfMeasure: 'unidade', brand: 'KG Sorensen' },
-        { name: 'Disco de Lixa', minimumStock: 20, unitOfMeasure: 'unidade' },
-      ],
-      'EPI e Biossegurança': [
-        { name: 'Óculos de Proteção', minimumStock: 5, unitOfMeasure: 'unidade' },
-        { name: 'Gorro Descartável', minimumStock: 100, unitOfMeasure: 'unidade' },
-        { name: 'Álcool 70%', minimumStock: 10, unitOfMeasure: 'litro' },
-      ],
-      'Material de Prótese': [
-        { name: 'Resina Acrílica', minimumStock: 2, unitOfMeasure: 'kit' },
-        { name: 'Dentes de Estoque', minimumStock: 10, unitOfMeasure: 'cartela' },
-      ],
-      'Cirurgia e Periodontia': [
-        { name: 'Fio de Sutura Seda 3-0', minimumStock: 20, unitOfMeasure: 'unidade' },
-        { name: 'Lâmina de Bisturi #15', minimumStock: 20, unitOfMeasure: 'unidade' },
-      ],
-      'Ortodontia': [
-        { name: 'Bráquete Metálico', minimumStock: 50, unitOfMeasure: 'unidade' },
-        { name: 'Fio Ortodôntico NiTi', minimumStock: 10, unitOfMeasure: 'unidade' },
-        { name: 'Elástico Ligadura', minimumStock: 100, unitOfMeasure: 'unidade' },
-      ],
-      'Radiologia': [
-        { name: 'Filme Radiográfico Periapical', minimumStock: 50, unitOfMeasure: 'unidade' },
-        { name: 'Capa Plástica para Sensor', minimumStock: 100, unitOfMeasure: 'unidade' },
-      ],
-      'Profilaxia e Prevenção': [
-        { name: 'Flúor Gel Acidulado', minimumStock: 5, unitOfMeasure: 'frasco' },
-        { name: 'Pasta Profilática', minimumStock: 5, unitOfMeasure: 'pote' },
-        { name: 'Escova Robinson', minimumStock: 20, unitOfMeasure: 'unidade' },
-      ],
-    };
-
-    return { defaultCategories, defaultItemsByCategory };
-  }
-
-  getInventorySeedData(): {
-    categories: Array<{ name: string; description: string; color: string; items: Array<{ name: string; minimumStock: number; unitOfMeasure: string; brand?: string }> }>;
-  } {
-    const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryDataDB();
-
-    return {
-      categories: defaultCategories.map(cat => ({
-        ...cat,
-        items: defaultItemsByCategory[cat.name] || []
-      }))
-    };
-  }
-
+    options?: { professionalId?: number; roomId?: number; excludeAppointmentId?: number }
+  ): Promise<any[]> { return _checkAppointmentConflicts(companyId, startTime, endTime, options); }
+
+  // ---- Rooms ---------------------------------------------------------------
+  async getRooms(companyId: number): Promise<Room[]> { return _getRooms(companyId); }
+  async getRoom(id: number, companyId: number): Promise<Room | undefined> { return _getRoom(id, companyId); }
+  async createRoom(data: any, companyId: number): Promise<Room> { return _createRoom(data, companyId); }
+  async updateRoom(id: number, data: any, companyId: number): Promise<Room> { return _updateRoom(id, data, companyId); }
+  async deleteRoom(id: number, companyId: number): Promise<boolean> { return _deleteRoom(id, companyId); }
+
+  // ---- Procedures ----------------------------------------------------------
+  async getProcedures(companyId: number): Promise<Procedure[]> { return _getProcedures(companyId); }
+  async getProcedure(id: number, companyId: number): Promise<Procedure | undefined> { return _getProcedure(id, companyId); }
+  async createProcedure(data: any, companyId: number): Promise<Procedure> { return _createProcedure(data, companyId); }
+  async updateProcedure(id: number, data: any, companyId: number): Promise<Procedure> { return _updateProcedure(id, data, companyId); }
+  async deleteProcedure(id: number, companyId: number): Promise<boolean> { return _deleteProcedure(id, companyId); }
+
+  // ---- Automations ---------------------------------------------------------
+  async getAutomations(companyId: number): Promise<Automation[]> { return _getAutomations(companyId); }
+  async createAutomation(data: any, companyId: number): Promise<Automation> { return _createAutomation(data, companyId); }
+  async updateAutomation(id: number, data: any, companyId: number): Promise<Automation> { return _updateAutomation(id, data, companyId); }
+  async deleteAutomation(id: number, companyId: number): Promise<void> { return _deleteAutomation(id, companyId); }
+
+  // ---- Clinic Settings -----------------------------------------------------
+  async getClinicSettings(companyId: number): Promise<any | undefined> { return _getClinicSettings(companyId); }
+  async createClinicSettings(data: any): Promise<any> { return _createClinicSettings(data); }
+  async updateClinicSettings(companyId: number, data: any): Promise<any> { return _updateClinicSettings(companyId, data); }
+  async createAutomationLog(data: any): Promise<any> { return _createAutomationLog(data); }
+
+  // ---- Patient Records & Odontogram ----------------------------------------
+  async getPatientRecords(patientId: number, companyId?: number): Promise<PatientRecord[]> { return getPatientRecords(patientId); }
+  async createPatientRecord(data: any, companyId?: number): Promise<PatientRecord> { return createPatientRecord(data); }
+  async getOdontogramEntries(patientId: number, companyId?: number): Promise<OdontogramEntry[]> { return getOdontogramEntries(patientId); }
+  async createOdontogramEntry(entry: any, companyId?: number): Promise<OdontogramEntry> { return createOdontogramEntry(entry); }
+
+  // ---- Clinical: Anamnesis -------------------------------------------------
+  async getPatientAnamnesis(patientId: number, companyId: number): Promise<any | undefined> { return getPatientAnamnesis(patientId, companyId); }
+  async createPatientAnamnesis(data: any): Promise<any> { return createPatientAnamnesis(data); }
+  async updatePatientAnamnesis(id: number, data: any, companyId: number, options?: { changedBy?: number; changeReason?: string; ipAddress?: string }): Promise<any> { return updatePatientAnamnesis(id, data, companyId, options); }
+  async getAnamnesisVersionHistory(anamnesisId: number, companyId: number): Promise<any[]> { return getAnamnesisVersionHistory(anamnesisId, companyId); }
+  async getAnamnesisVersion(anamnesisId: number, versionNumber: number, companyId: number): Promise<any | undefined> { return getAnamnesisVersion(anamnesisId, versionNumber, companyId); }
+
+  // ---- Clinical: Exams -----------------------------------------------------
+  async getPatientExams(patientId: number, companyId: number): Promise<any[]> { return getPatientExams(patientId, companyId); }
+  async createPatientExam(data: any): Promise<any> { return createPatientExam(data); }
+  async updatePatientExam(id: number, data: any, companyId: number): Promise<any> { return updatePatientExam(id, data, companyId); }
+
+  // ---- Clinical: Treatment Plans -------------------------------------------
+  async getPatientTreatmentPlans(patientId: number, companyId: number): Promise<any[]> { return getPatientTreatmentPlans(patientId, companyId); }
+  async createPatientTreatmentPlan(data: any): Promise<any> { return createPatientTreatmentPlan(data); }
+  async updatePatientTreatmentPlan(id: number, data: any, companyId: number): Promise<any> { return updatePatientTreatmentPlan(id, data, companyId); }
+
+  // ---- Clinical: Evolution -------------------------------------------------
+  async getPatientEvolution(patientId: number, companyId: number): Promise<any[]> { return getPatientEvolution(patientId, companyId); }
+  async createPatientEvolution(data: any): Promise<any> { return createPatientEvolution(data); }
+
+  // ---- Clinical: Prescriptions ---------------------------------------------
+  async getPatientPrescriptions(patientId: number, companyId: number): Promise<any[]> { return getPatientPrescriptions(patientId, companyId); }
+  async createPatientPrescription(data: any): Promise<any> { return createPatientPrescription(data); }
+  async updatePatientPrescription(id: number, data: any, companyId: number): Promise<any> { return updatePatientPrescription(id, data, companyId); }
+
+  // ---- Financial (stubs — no DB table yet) ---------------------------------
+  async getTransactions(companyId?: number): Promise<Transaction[]> { return _getTransactions(companyId); }
+  async createTransaction(transaction: any, companyId?: number): Promise<Transaction> { return _createTransaction(transaction, companyId); }
+
+  // ---- Inventory -----------------------------------------------------------
+  async getInventoryCategories(companyId: number): Promise<any[]> { return getInventoryCategories(companyId); }
+  async createInventoryCategory(data: any): Promise<any> { return createInventoryCategory(data); }
+  async updateInventoryCategory(id: number, data: any, companyId: number): Promise<any> { return updateInventoryCategory(id, data, companyId); }
+  async getInventoryItems(companyId: number): Promise<any[]> { return getInventoryItems(companyId); }
+  async createInventoryItem(data: any): Promise<any> { return createInventoryItem(data); }
+  async updateInventoryItem(id: number, data: any, companyId: number): Promise<any> { return updateInventoryItem(id, data, companyId); }
+  async deleteInventoryItem(id: number, companyId: number): Promise<boolean> { return deleteInventoryItem(id, companyId); }
+  async getInventoryTransactions(companyId: number, itemId?: number): Promise<any[]> { return getInventoryTransactions(companyId, itemId); }
+  async createInventoryTransaction(data: any): Promise<any> { return createInventoryTransaction(data); }
+  async getStandardDentalProducts(): Promise<StandardDentalProduct[]> { return getStandardDentalProducts(); }
+  async importStandardProducts(productIds: number[], companyId: number): Promise<any[]> { return importStandardProducts(productIds, companyId); }
+  getInventorySeedData() { return getInventorySeedData(); }
   async seedInventoryDefaults(
     companyId: number,
     selection?: { categoryNames: string[]; itemsByCategory?: Record<string, string[]> }
-  ): Promise<{ categories: any[], items: any[] }> {
-    try {
-      // Verifica se já existem categorias
-      const existingCategories = await this.getInventoryCategories(companyId);
-      if (existingCategories.length > 0) {
-        throw new Error('Esta empresa já possui categorias de estoque cadastradas');
-      }
-
-      const { defaultCategories, defaultItemsByCategory } = this.getDefaultInventoryDataDB();
-
-      // Filtrar categorias baseado na seleção
-      let categoriesToCreate = defaultCategories;
-      if (selection?.categoryNames && selection.categoryNames.length > 0) {
-        categoriesToCreate = defaultCategories.filter(cat =>
-          selection.categoryNames.includes(cat.name)
-        );
-      }
-
-      const createdCategories: any[] = [];
-      const createdItems: any[] = [];
-
-      for (const categoryData of categoriesToCreate) {
-        // Criar categoria
-        const [category] = await db
-          .insert(inventoryCategories)
-          .values({
-            ...categoryData,
-            companyId,
-          })
-          .returning();
-        createdCategories.push(category);
-
-        // Obter itens para esta categoria
-        let itemsForCategory = defaultItemsByCategory[categoryData.name] || [];
-
-        // Filtrar itens se houver seleção específica
-        if (selection?.itemsByCategory && selection.itemsByCategory[categoryData.name]) {
-          const selectedItemNames = selection.itemsByCategory[categoryData.name];
-          itemsForCategory = itemsForCategory.filter(item =>
-            selectedItemNames.includes(item.name)
-          );
-        }
-
-        // Criar itens
-        for (const itemData of itemsForCategory) {
-          const [item] = await db
-            .insert(inventoryItems)
-            .values({
-              ...itemData,
-              categoryId: category.id,
-              companyId,
-              currentStock: 0,
-              price: 0,
-              active: true,
-            })
-            .returning();
-          createdItems.push(item);
-        }
-      }
-
-      return { categories: createdCategories, items: createdItems };
-    } catch (error: any) {
-      console.error('Erro ao popular estoque:', error);
-      throw error;
-    }
+  ): Promise<{ categories: any[]; items: any[] }> {
+    return seedInventoryDefaults(companyId, selection);
   }
 
-  // Digital Patient Record Methods
-  async getPatientAnamnesis(patientId: number, companyId: number): Promise<Anamnesis | undefined> {
-    try {
-      const [result] = await db
-        .select()
-        .from(anamnesis)
-        .innerJoin(patients, eq(anamnesis.patientId, patients.id))
-        .where(and(
-          eq(anamnesis.patientId, patientId),
-          eq(patients.companyId, companyId),
-          notDeleted(anamnesis.deletedAt),
-          notDeleted(patients.deletedAt)
-        ))
-        .limit(1);
-      
-      return result?.anamnesis;
-    } catch (error) {
-      console.error('Erro ao buscar anamnese:', error);
-      return undefined;
-    }
-  }
+  // ---- Prosthesis ----------------------------------------------------------
+  async getProsthesis(companyId: number): Promise<any[]> { return _getProsthesis(companyId); }
+  async getProsthesisById(id: number, companyId: number): Promise<any | undefined> { return _getProsthesisById(id, companyId); }
+  async createProsthesis(data: any): Promise<any> { return _createProsthesis(data); }
+  async updateProsthesis(id: number, data: any, companyId: number): Promise<any> { return _updateProsthesis(id, data, companyId); }
+  async deleteProsthesis(id: number, companyId: number): Promise<void> { return _deleteProsthesis(id, companyId); }
 
-  async createPatientAnamnesis(data: any): Promise<Anamnesis> {
-    try {
-      const [result] = await db
-        .insert(anamnesis)
-        .values(data)
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar anamnese:', error);
-      throw error;
-    }
-  }
+  // ---- Prosthesis Labels ---------------------------------------------------
+  async getProsthesisLabels(companyId: number): Promise<any[]> { return _getProsthesisLabels(companyId); }
+  async createProsthesisLabel(data: any): Promise<any> { return _createProsthesisLabel(data); }
+  async updateProsthesisLabel(id: number, companyId: number, data: any): Promise<any> { return _updateProsthesisLabel(id, companyId, data); }
+  async deleteProsthesisLabel(id: number, companyId: number): Promise<boolean> { return _deleteProsthesisLabel(id, companyId); }
 
-  async updatePatientAnamnesis(id: number, data: any, companyId: number): Promise<Anamnesis> {
-    try {
-      const [result] = await db
-        .update(anamnesis)
-        .set({ ...data, updatedAt: new Date() })
-        .where(and(
-          eq(anamnesis.id, id),
-          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${anamnesis.patientId} AND ${patients.companyId} = ${companyId})`
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar anamnese:', error);
-      throw error;
-    }
-  }
+  // ---- Laboratories --------------------------------------------------------
+  async getLaboratories(companyId: number): Promise<Laboratory[]> { return _getLaboratories(companyId); }
+  async getLaboratory(id: number, companyId: number): Promise<Laboratory | undefined> { return _getLaboratory(id, companyId); }
+  async createLaboratory(data: any): Promise<Laboratory> { return _createLaboratory(data); }
+  async updateLaboratory(id: number, data: any, companyId: number): Promise<Laboratory> { return _updateLaboratory(id, data, companyId); }
+  async deleteLaboratory(id: number, companyId: number): Promise<boolean> { return _deleteLaboratory(id, companyId); }
 
-  async getPatientExams(patientId: number, companyId: number): Promise<PatientExam[]> {
-    try {
-      const result = await db
-        .select()
-        .from(patientExams)
-        .innerJoin(patients, eq(patientExams.patientId, patients.id))
-        .where(and(
-          eq(patientExams.patientId, patientId),
-          eq(patients.companyId, companyId),
-          notDeleted(patientExams.deletedAt),
-          notDeleted(patients.deletedAt)
-        ))
-        .orderBy(desc(patientExams.examDate));
-      
-      return result.map((r: typeof result[0]) => r.patient_exams);
-    } catch (error) {
-      console.error('Erro ao buscar exames:', error);
-      return [];
-    }
-  }
-
-  async createPatientExam(data: any): Promise<PatientExam> {
-    try {
-      const [result] = await db
-        .insert(patientExams)
-        .values(data)
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar exame:', error);
-      throw error;
-    }
-  }
-
-  async updatePatientExam(id: number, data: any, companyId: number): Promise<PatientExam> {
-    try {
-      const [result] = await db
-        .update(patientExams)
-        .set(data)
-        .where(and(
-          eq(patientExams.id, id),
-          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${patientExams.patientId} AND ${patients.companyId} = ${companyId})`
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar exame:', error);
-      throw error;
-    }
-  }
-
-  async getPatientTreatmentPlans(patientId: number, companyId: number): Promise<DetailedTreatmentPlan[]> {
-    try {
-      const result = await db
-        .select()
-        .from(detailedTreatmentPlans)
-        .innerJoin(patients, eq(detailedTreatmentPlans.patientId, patients.id))
-        .where(and(
-          eq(detailedTreatmentPlans.patientId, patientId),
-          eq(patients.companyId, companyId),
-          notDeleted(detailedTreatmentPlans.deletedAt),
-          notDeleted(patients.deletedAt)
-        ))
-        .orderBy(desc(detailedTreatmentPlans.createdAt));
-      
-      return result.map((r: typeof result[0]) => r.detailed_treatment_plans);
-    } catch (error) {
-      console.error('Erro ao buscar planos de tratamento:', error);
-      return [];
-    }
-  }
-
-  async createPatientTreatmentPlan(data: any): Promise<DetailedTreatmentPlan> {
-    try {
-      const [result] = await db
-        .insert(detailedTreatmentPlans)
-        .values(data)
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar plano de tratamento:', error);
-      throw error;
-    }
-  }
-
-  async updatePatientTreatmentPlan(id: number, data: any, companyId: number): Promise<DetailedTreatmentPlan> {
-    try {
-      const [result] = await db
-        .update(detailedTreatmentPlans)
-        .set({ ...data, updatedAt: new Date() })
-        .where(and(
-          eq(detailedTreatmentPlans.id, id),
-          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${detailedTreatmentPlans.patientId} AND ${patients.companyId} = ${companyId})`
-        ))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar plano de tratamento:', error);
-      throw error;
-    }
-  }
-
-  async getPatientEvolution(patientId: number, companyId: number): Promise<TreatmentEvolution[]> {
-    try {
-      const result = await db
-        .select()
-        .from(treatmentEvolution)
-        .innerJoin(patients, eq(treatmentEvolution.patientId, patients.id))
-        .where(and(
-          eq(treatmentEvolution.patientId, patientId),
-          eq(patients.companyId, companyId),
-          notDeleted(treatmentEvolution.deletedAt),
-          notDeleted(patients.deletedAt)
-        ))
-        .orderBy(desc(treatmentEvolution.sessionDate));
-      
-      type EvolutionRow = { treatment_evolution: TreatmentEvolution; patients: typeof patients.$inferSelect };
-      return result.map((r: EvolutionRow) => r.treatment_evolution);
-    } catch (error) {
-      console.error('Erro ao buscar evolução:', error);
-      return [];
-    }
-  }
-
-  async createPatientEvolution(data: any): Promise<TreatmentEvolution> {
-    try {
-      const [result] = await db
-        .insert(treatmentEvolution)
-        .values(data)
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar evolução:', error);
-      throw error;
-    }
-  }
-
-  async getPatientPrescriptions(patientId: number, companyId: number): Promise<Prescription[]> {
-    try {
-      const result = await db
-        .select()
-        .from(prescriptions)
-        .innerJoin(patients, eq(prescriptions.patientId, patients.id))
-        .where(and(
-          eq(prescriptions.patientId, patientId),
-          eq(patients.companyId, companyId),
-          notDeleted(prescriptions.deletedAt),
-          notDeleted(patients.deletedAt)
-        ))
-        .orderBy(desc(prescriptions.createdAt));
-      
-      type PrescriptionRow = { prescriptions: Prescription; patients: typeof patients.$inferSelect };
-      return result.map((r: PrescriptionRow) => r.prescriptions);
-    } catch (error) {
-      console.error('Erro ao buscar receitas:', error);
-      return [];
-    }
-  }
-
-  async createPatientPrescription(data: any): Promise<Prescription> {
-    try {
-      const [result] = await db
-        .insert(prescriptions)
-        .values(data)
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Erro ao criar receita:', error);
-      throw error;
-    }
-  }
-
-  async updatePatientPrescription(id: number, data: any, companyId: number): Promise<Prescription> {
-    try {
-      const [result] = await db
-        .update(prescriptions)
-        .set(data)
-        .where(and(
-          eq(prescriptions.id, id),
-          sql`EXISTS (SELECT 1 FROM ${patients} WHERE ${patients.id} = ${prescriptions.patientId} AND ${patients.companyId} = ${companyId})`
-        ))
-        .returning();
-
-      return result;
-    } catch (error) {
-      console.error('Erro ao atualizar receita:', error);
-      throw error;
-    }
-  }
-
-  // Clinic Settings - tenant-aware
-  async getClinicSettings(companyId: number): Promise<any | undefined> {
-    const { clinicSettings } = await import('@shared/schema');
-    const [settings] = await db
-      .select()
-      .from(clinicSettings)
-      .where(eq(clinicSettings.companyId, companyId));
-    return settings || undefined;
-  }
-
-  async createClinicSettings(data: any): Promise<any> {
-    const { clinicSettings } = await import('@shared/schema');
-    const [settings] = await db
-      .insert(clinicSettings)
-      .values({
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return settings;
-  }
-
-  async updateClinicSettings(companyId: number, data: any): Promise<any> {
-    const { clinicSettings } = await import('@shared/schema');
-    const [settings] = await db
-      .update(clinicSettings)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(clinicSettings.companyId, companyId))
-      .returning();
-
-    if (!settings) throw new Error('Clinic settings not found');
-    return settings;
-  }
-
-  // Automation Logs - tenant-aware
-  async createAutomationLog(data: any): Promise<any> {
-    const { automationLogs } = await import('@shared/schema');
-    const [log] = await db
-      .insert(automationLogs)
-      .values({
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return log;
-  }
-
-  sessionStore: any = null;
+  // ---- Bootstrap -----------------------------------------------------------
+  async seedInitialData(): Promise<void> { return _seedInitialData(); }
 }
 
 // Use DatabaseStorage with PostgreSQL

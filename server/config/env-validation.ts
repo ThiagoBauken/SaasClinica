@@ -3,6 +3,8 @@
  * Validates required environment variables on startup
  */
 
+import { logger } from '../logger';
+
 interface EnvConfig {
   name: string;
   required: boolean;
@@ -144,17 +146,17 @@ export function validateEnv(): ValidationResult {
 
 export function logValidationResult(result: ValidationResult): void {
   if (result.warnings.length > 0) {
-    console.log('\n⚠️  Environment Warnings:');
-    result.warnings.forEach(w => console.log(`   - ${w}`));
+    logger.info('\n Environment Warnings:');
+    result.warnings.forEach(w => logger.warn({ warning: w }, 'Env warning'));
   }
 
   if (result.errors.length > 0) {
-    console.log('\n❌ Environment Errors:');
-    result.errors.forEach(e => console.log(`   - ${e}`));
+    logger.info('\n Environment Errors:');
+    result.errors.forEach(e => logger.error({ error: e }, 'Env error'));
   }
 
   if (result.valid && result.warnings.length === 0) {
-    console.log('✅ Environment configuration validated successfully');
+    logger.info('Environment configuration validated successfully');
   }
 }
 
@@ -163,7 +165,7 @@ export function validateEnvOrExit(): void {
   logValidationResult(result);
 
   if (!result.valid && process.env.NODE_ENV === 'production') {
-    console.error('\n💥 Cannot start in production with invalid configuration. Exiting...\n');
+    logger.error('\n Cannot start in production with invalid configuration. Exiting...\n');
     process.exit(1);
   }
 }

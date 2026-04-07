@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { subscriptions, companies, users, plans } from '@shared/schema';
-import { eq, and, lt, gte } from 'drizzle-orm';
+import { eq, and, lt, gte, inArray } from 'drizzle-orm';
 import { sendEmail, getTrialEndingSoonTemplate, getPaymentFailedTemplate } from './email-service';
 import { logger } from '../logger';
 
@@ -21,9 +21,16 @@ export async function sendTrialExpiringReminders() {
     fourDaysFromNow.setDate(fourDaysFromNow.getDate() + 4);
     fourDaysFromNow.setHours(0, 0, 0, 0);
 
+    // Batch load all expiring trials with their company, plan and admin in one query
     const expiringTrials = await db
-      .select()
+      .select({
+        subscription: subscriptions,
+        company: companies,
+        plan: plans,
+      })
       .from(subscriptions)
+      .innerJoin(companies, eq(companies.id, subscriptions.companyId))
+      .innerJoin(plans, eq(plans.id, subscriptions.planId))
       .where(
         and(
           eq(subscriptions.status, 'trial'),
@@ -34,24 +41,23 @@ export async function sendTrialExpiringReminders() {
 
     dunningLogger.info({ count: expiringTrials.length }, 'Expiring trials found');
 
-    for (const subscription of expiringTrials) {
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, subscription.companyId))
-        .limit(1);
+    // Batch load admin users for all companies at once
+    const companyIds = expiringTrials.map((t: any) => t.subscription.companyId);
+    const admins: any[] = companyIds.length > 0
+      ? await db
+          .select()
+          .from(users)
+          .where(and(
+            eq(users.role, 'admin'),
+            // inArray requires at least one element
+            ...companyIds.length > 0 ? [inArray(users.companyId, companyIds)] : []
+          ))
+      : [];
 
-      const [plan] = await db
-        .select()
-        .from(plans)
-        .where(eq(plans.id, subscription.planId))
-        .limit(1);
+    const adminByCompany = new Map<number, any>(admins.map((a: any) => [a.companyId, a]));
 
-      const [admin] = await db
-        .select()
-        .from(users)
-        .where(eq(users.companyId, subscription.companyId))
-        .limit(1);
+    for (const { subscription, company, plan } of expiringTrials) {
+      const admin = adminByCompany.get(subscription.companyId);
 
       if (!company || !plan || !admin || !admin.email) {
         dunningLogger.warn({ subscriptionId: subscription.id }, 'Incomplete data for subscription, skipping');

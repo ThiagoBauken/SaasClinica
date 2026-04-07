@@ -8,6 +8,8 @@
  * - Gerenciar templates de mensagem
  */
 
+import { logger } from '../logger';
+
 interface WuzapiConfig {
   instanceId: string;
   apiKey: string;
@@ -70,7 +72,7 @@ export class WhatsAppService {
         messageId: data.message_id || data.id,
       };
     } catch (error: any) {
-      console.error('Wuzapi send message error:', error);
+      logger.error({ err: error }, 'Wuzapi send message error:');
       return {
         success: false,
         error: error.message,

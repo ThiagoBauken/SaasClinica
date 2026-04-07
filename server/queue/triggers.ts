@@ -5,6 +5,7 @@ import {
   addEmailJob,
   scheduleAppointmentReminder,
 } from './queues';
+import { logger } from '../logger';
 
 /**
  * Sistema de Triggers de Automações
@@ -26,7 +27,7 @@ export async function onAppointmentCreated(appointment: {
   companyId: number;
   startTime: Date;
 }) {
-  console.log(`🔔 Trigger: Agendamento criado (ID: ${appointment.id})`);
+  logger.info({ appointmentId: appointment.id }, 'Trigger: Appointment created')
 
   try {
     // 1. Enviar confirmação imediata
@@ -37,7 +38,16 @@ export async function onAppointmentCreated(appointment: {
       companyId: appointment.companyId,
     });
 
-    // 2. Agendar lembrete 24h antes
+    // 2. Agendar lembrete 48h antes
+    await scheduleAppointmentReminder(appointment.startTime, {
+      type: 'appointment-reminder',
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      companyId: appointment.companyId,
+      reminderType: '48h',
+    });
+
+    // 3. Agendar lembrete 24h antes
     await scheduleAppointmentReminder(appointment.startTime, {
       type: 'appointment-reminder',
       appointmentId: appointment.id,
@@ -46,7 +56,16 @@ export async function onAppointmentCreated(appointment: {
       reminderType: '24h',
     });
 
-    // 3. Agendar lembrete 1h antes
+    // 4. Agendar lembrete 2h antes
+    await scheduleAppointmentReminder(appointment.startTime, {
+      type: 'appointment-reminder',
+      appointmentId: appointment.id,
+      patientId: appointment.patientId,
+      companyId: appointment.companyId,
+      reminderType: '2h',
+    });
+
+    // 5. Agendar lembrete 1h antes
     await scheduleAppointmentReminder(appointment.startTime, {
       type: 'appointment-reminder',
       appointmentId: appointment.id,
@@ -55,9 +74,9 @@ export async function onAppointmentCreated(appointment: {
       reminderType: '1h',
     });
 
-    console.log(`✅ Triggers de agendamento criado disparados`);
+    logger.info('Triggers de agendamento criado disparados')
   } catch (error) {
-    console.error('❌ Erro ao disparar triggers de agendamento:', error);
+    logger.error({ err: error }, 'Erro ao disparar triggers de agendamento:');
   }
 }
 
@@ -72,7 +91,7 @@ export async function onAppointmentConfirmed(appointment: {
   patientId: number;
   companyId: number;
 }) {
-  console.log(`🔔 Trigger: Agendamento confirmado (ID: ${appointment.id})`);
+  logger.info({ appointmentId: appointment.id }, 'Trigger: Appointment confirmed')
 
   // Pode adicionar lógica adicional aqui se necessário
 }
@@ -89,7 +108,7 @@ export async function onAppointmentCancelled(appointment: {
   patientId: number;
   companyId: number;
 }) {
-  console.log(`🔔 Trigger: Agendamento cancelado (ID: ${appointment.id})`);
+  logger.info({ appointmentId: appointment.id }, 'Trigger: Appointment cancelled')
 
   try {
     // Cancel any scheduled reminder jobs for this appointment
@@ -104,9 +123,9 @@ export async function onAppointmentCancelled(appointment: {
         }
       }
     }
-    console.log(`✅ Reminders cancelados para agendamento ${appointment.id}`);
+    logger.info({ appointmentId: appointment.id }, 'Reminders cancelled for appointment')
   } catch (error) {
-    console.error('❌ Erro ao cancelar reminders:', error);
+    logger.error({ err: error }, 'Erro ao cancelar reminders:');
   }
 }
 
@@ -123,7 +142,7 @@ export async function onPaymentConfirmed(payment: {
   companyId: number;
   amount: number;
 }) {
-  console.log(`🔔 Trigger: Pagamento confirmado (ID: ${payment.id})`);
+  logger.info({ paymentId: payment.id }, 'Trigger: Payment confirmed')
 
   try {
     // Enviar recibo por email
@@ -134,9 +153,9 @@ export async function onPaymentConfirmed(payment: {
       companyId: payment.companyId,
     });
 
-    console.log(`✅ Trigger de pagamento confirmado disparado`);
+    logger.info('Trigger de pagamento confirmado disparado')
   } catch (error) {
-    console.error('❌ Erro ao disparar trigger de pagamento:', error);
+    logger.error({ err: error }, 'Erro ao disparar trigger de pagamento:');
   }
 }
 
@@ -154,7 +173,7 @@ export async function onPatientCreated(patient: {
   phone: string;
   companyId: number;
 }) {
-  console.log(`🔔 Trigger: Novo paciente cadastrado (ID: ${patient.id})`);
+  logger.info({ patientId: patient.id }, 'Trigger: New patient registered')
 
   if (patient.email) {
     try {
@@ -164,9 +183,9 @@ export async function onPatientCreated(patient: {
         body: `Olá ${patient.name},\n\nSeja bem-vindo(a) à nossa clínica! Estamos felizes em tê-lo(a) como paciente.\n\nQualquer dúvida, entre em contato conosco.\n\nAtenciosamente,\nEquipe da Clínica`,
         companyId: patient.companyId,
       });
-      console.log(`✅ Email de boas-vindas enviado para ${patient.email}`);
+      logger.info({ patientEmail: patient.email }, 'Welcome email sent')
     } catch (error) {
-      console.error('❌ Erro ao enviar email de boas-vindas:', error);
+      logger.error({ err: error }, 'Erro ao enviar email de boas-vindas:');
     }
   }
 }
@@ -185,7 +204,7 @@ export async function onLowStock(item: {
   minQuantity: number;
   companyId: number;
 }) {
-  console.log(`🔔 Trigger: Estoque baixo (Item: ${item.name}, Qtd: ${item.quantity})`);
+  logger.info({ itemName: item.name, quantity: item.quantity }, 'Trigger: Low stock')
 
   try {
     // Get admin users for this company and notify them
@@ -204,9 +223,9 @@ export async function onLowStock(item: {
       });
     }
 
-    console.log(`✅ Notificação de estoque baixo enviada para ${admins.rows.length} admins`);
+    logger.info({ adminCount: admins.rows.length }, 'Low stock notification sent to admins')
   } catch (error) {
-    console.error('❌ Erro ao notificar estoque baixo:', error);
+    logger.error({ err: error }, 'Erro ao notificar estoque baixo:');
   }
 }
 

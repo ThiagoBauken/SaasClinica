@@ -6,6 +6,7 @@ import { ChevronRight, Home } from "lucide-react";
 import { Link } from "wouter";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { TrialGuard } from "@/components/TrialGuard";
+import { TourProvider } from "@/components/onboarding/TourProvider";
 
 // Mapeamento de paths para nomes amigáveis
 const pathLabels: Record<string, string> = {
@@ -36,11 +37,11 @@ const pathLabels: Record<string, string> = {
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  title: string;
-  currentPath: string;
+  title?: string;
+  currentPath?: string;
 }
 
-export default function DashboardLayout({ children, title, currentPath }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, title = "", currentPath = "" }: DashboardLayoutProps) {
   const { user } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -74,6 +75,7 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
 
   return (
     <TrialGuard>
+      <TourProvider>
       <div className="min-h-screen flex flex-col">
         {/* Onboarding Wizard - Aparece para novos usuarios */}
         <OnboardingWizard />
@@ -116,6 +118,7 @@ export default function DashboardLayout({ children, title, currentPath }: Dashbo
           </main>
         </div>
       </div>
+      </TourProvider>
     </TrialGuard>
   );
 }
