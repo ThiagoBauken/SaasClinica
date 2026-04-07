@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,29 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  BarChart3, TrendingUp, Users, Calendar, DollarSign, Package,
-  AlertTriangle, FileText, Download, Loader2, PieChart, Activity,
+  BarChart3, TrendingUp, TrendingDown, Users, Calendar, DollarSign, Package,
+  AlertTriangle, FileText, Download, FileDown, Loader2, PieChart, Activity,
 } from 'lucide-react';
+import { getCsrfHeaders } from '@/lib/csrf';
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts';
+
+const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 type ReportKey = string;
 
@@ -86,6 +106,7 @@ function formatCurrency(value: number | string): string {
 export default function RelatoriosPage() {
   const [activeCategory, setActiveCategory] = useState('financial');
   const [selectedReport, setSelectedReport] = useState<ReportDef | null>(null);
+  const [isPdfExporting, setIsPdfExporting] = useState(false);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -124,6 +145,59 @@ export default function RelatoriosPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleExportPdf = useCallback(async () => {
+    if (!selectedReport || !reportData?.data) return;
+
+    const data = Array.isArray(reportData.data) ? reportData.data : [reportData.data];
+    if (data.length === 0) return;
+
+    // Build column descriptors from the first row's keys so the server can
+    // apply heuristic formatting (currency / percent inference).
+    const columns = Object.keys(data[0]).map((key) => ({
+      key,
+      label: key.replace(/_/g, ' '),
+    }));
+
+    setIsPdfExporting(true);
+    try {
+      const response = await fetch('/api/v1/reports/export-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: selectedReport.name,
+          subtitle: selectedReport.description,
+          dateRange: `${startDate} a ${endDate}`,
+          columns,
+          data,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Servidor retornou ${response.status}`);
+      }
+
+      const html = await response.text();
+      // Open in a new tab so the user can trigger the browser's Print dialog
+      // and choose "Save as PDF". Using a Blob URL avoids pop-up blockers that
+      // would fire on window.open() calls without a direct user gesture.
+      const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const tab = window.open(url, '_blank');
+      // Revoke the object URL after the new tab has had time to load it
+      if (tab) {
+        tab.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      }
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setIsPdfExporting(false);
+    }
+  }, [selectedReport, reportData, startDate, endDate]);
 
   const currentCategory = REPORT_CATEGORIES.find((c) => c.id === activeCategory);
 
@@ -172,9 +246,23 @@ export default function RelatoriosPage() {
               ))}
             </div>
             {selectedReport && reportData?.data && (
-              <Button variant="outline" size="sm" onClick={exportCSV} className="ml-auto gap-1">
-                <Download className="h-4 w-4" /> Exportar CSV
-              </Button>
+              <div className="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1">
+                  <Download className="h-4 w-4" /> Exportar CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPdf}
+                  disabled={isPdfExporting}
+                  className="gap-1"
+                >
+                  {isPdfExporting
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <FileDown className="h-4 w-4" />}
+                  Exportar PDF
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
@@ -266,8 +354,41 @@ export default function RelatoriosPage() {
 function ReportDataView({ data, reportKey }: { data: any; reportKey: string }) {
   if (!data) return <p className="text-muted-foreground">Sem dados para o periodo selecionado</p>;
 
-  // Single-object reports (summary cards)
+  // Single-object reports (summary cards) — pass to chart-aware renderer too
   if (!Array.isArray(data)) {
+    // no-show-rate: show summary card with trend arrow
+    if (reportKey === 'no-show') {
+      const rate = typeof data.rate === 'number' ? data.rate : parseFloat(data.rate ?? '0');
+      const prev = typeof data.previousRate === 'number' ? data.previousRate : parseFloat(data.previousRate ?? '0');
+      const improved = rate <= prev;
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <p className="text-5xl font-bold text-blue-600">{isNaN(rate) ? '—' : `${rate.toFixed(1)}%`}</p>
+              <p className="text-sm text-muted-foreground mt-1">Taxa de Faltas atual</p>
+            </div>
+            {!isNaN(prev) && prev > 0 && (
+              <div className={`flex items-center gap-1 text-sm font-medium ${improved ? 'text-green-600' : 'text-red-500'}`}>
+                {improved ? <TrendingDown className="h-5 w-5" /> : <TrendingUp className="h-5 w-5" />}
+                {Math.abs(rate - prev).toFixed(1)}% vs periodo anterior
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Object.entries(data).filter(([k]) => k !== 'rate' && k !== 'previousRate').map(([key, value]) => (
+              <Card key={key}>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>
+                  <p className="text-xl font-bold mt-1">{String(value ?? 0)}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {Object.entries(data).map(([key, value]) => (
@@ -291,9 +412,151 @@ function ReportDataView({ data, reportKey }: { data: any; reportKey: string }) {
     return <p className="text-muted-foreground text-center py-8">Nenhum dado encontrado para o periodo</p>;
   }
 
-  // Table view for arrays
-  const columns = Object.keys(data[0]);
+  // --------------------------------------------------------
+  // Chart views for specific report keys
+  // --------------------------------------------------------
 
+  if (reportKey === 'revenue-period') {
+    // AreaChart: X = period label, Y = total revenue
+    const chartData = data.map((row: any) => ({
+      period: row.period ?? row.date ?? row.month ?? row.week ?? String(row[Object.keys(row)[0]]),
+      total: typeof row.total === 'number' ? row.total / 100 : parseFloat(row.total ?? '0') / 100,
+    }));
+    return (
+      <div className="space-y-6">
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
+              <Tooltip formatter={(v: number) => [`R$ ${v.toFixed(2)}`, 'Receita']} />
+              <Area type="monotone" dataKey="total" stroke={CHART_COLORS[0]} fill="url(#colorRevenue)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <ReportTable data={data} />
+      </div>
+    );
+  }
+
+  if (reportKey === 'revenue-prof') {
+    // Horizontal BarChart: professional names
+    const chartData = data.map((row: any) => ({
+      name: row.professional ?? row.name ?? row.dentist ?? String(row[Object.keys(row)[0]]),
+      total: typeof row.total === 'number' ? row.total / 100 : parseFloat(row.total ?? '0') / 100,
+    }));
+    return (
+      <div className="space-y-6">
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
+              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number) => [`R$ ${v.toFixed(2)}`, 'Receita']} />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                {chartData.map((_: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <ReportTable data={data} />
+      </div>
+    );
+  }
+
+  if (reportKey === 'top-proc') {
+    // PieChart: procedure distribution
+    const chartData = data.map((row: any) => ({
+      name: row.procedure ?? row.name ?? String(row[Object.keys(row)[0]]),
+      value: typeof row.count === 'number' ? row.count : parseInt(row.count ?? '0', 10),
+    }));
+    const total = chartData.reduce((s: number, d: any) => s + d.value, 0);
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="h-64 w-64 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={96}
+                  dataKey="value"
+                  labelLine={false}
+                >
+                  {chartData.map((_: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => [`${v} realizacoes`, '']} />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-2 w-full">
+            {chartData.map((item: any, index: number) => (
+              <div key={index} className="flex items-center gap-2 text-sm">
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                <span className="flex-1 truncate">{item.name}</span>
+                <span className="font-medium">{item.value}</span>
+                <span className="text-muted-foreground text-xs">({total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <ReportTable data={data} />
+      </div>
+    );
+  }
+
+  if (reportKey === 'cashflow' || reportKey === 'dashboard') {
+    // BarChart: income vs expense per month/period
+    const chartData = data.map((row: any) => ({
+      period: row.period ?? row.month ?? row.date ?? String(row[Object.keys(row)[0]]),
+      receita: typeof row.revenue === 'number' ? row.revenue / 100 : typeof row.income === 'number' ? row.income / 100 : parseFloat(row.revenue ?? row.income ?? '0') / 100,
+      despesa: typeof row.expense === 'number' ? row.expense / 100 : typeof row.expenses === 'number' ? row.expenses / 100 : parseFloat(row.expense ?? row.expenses ?? '0') / 100,
+    }));
+    return (
+      <div className="space-y-6">
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
+              <Tooltip formatter={(v: number, name: string) => [`R$ ${v.toFixed(2)}`, name]} />
+              <Legend />
+              <Bar dataKey="receita" name="Receita" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="despesa" name="Despesa" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <ReportTable data={data} />
+      </div>
+    );
+  }
+
+  // Default: plain table
+  return <ReportTable data={data} />;
+}
+
+// ============================================================
+// Reusable table component used below charts as detail view
+// ============================================================
+
+function ReportTable({ data }: { data: any[] }) {
+  if (!data || data.length === 0) return null;
+  const columns = Object.keys(data[0]);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">

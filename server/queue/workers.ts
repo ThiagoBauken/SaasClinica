@@ -8,6 +8,8 @@ import { ptBR } from 'date-fns/locale';
 import { createEvolutionService, interpolateMessage } from '../services/evolution-api.service';
 import { getWhatsAppProvider } from '../services/whatsapp-provider';
 import { sendEmail } from '../services/email-service';
+import { sendSms } from '../services/sms-provider';
+import { storage } from '../storage';
 import { logger } from '../logger';
 
 /**
@@ -22,11 +24,32 @@ import { logger } from '../logger';
  * Verifica se o horário atual está dentro da janela de envio permitida (8h-21h).
  * Mensagens proativas (lembretes, confirmações) devem respeitar o horário.
  * Respostas diretas do chatbot e emergências NÃO são restritas.
+ * @param timezone IANA timezone string — defaults to 'America/Sao_Paulo'
  */
-function isWithinSendingHours(): boolean {
+function isWithinSendingHours(timezone: string = 'America/Sao_Paulo'): boolean {
   const now = new Date();
-  const hour = now.getHours();
-  return hour >= 8 && hour < 21;
+  // Use Intl API to get the current hour in the clinic's timezone
+  const localHour = parseInt(
+    now.toLocaleString('en-US', { timeZone: timezone, hour: 'numeric', hour12: false })
+  );
+  return localHour >= 8 && localHour < 21;
+}
+
+/**
+ * Busca o timezone configurado para uma empresa.
+ * Retorna 'America/Sao_Paulo' como fallback se não configurado.
+ */
+async function getClinicTimezone(companyId: number): Promise<string> {
+  try {
+    const [settings] = await db
+      .select({ timeZone: clinicSettings.timeZone })
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, companyId))
+      .limit(1);
+    return settings?.timeZone || 'America/Sao_Paulo';
+  } catch {
+    return 'America/Sao_Paulo';
+  }
 }
 
 /**
@@ -52,8 +75,9 @@ export const whatsappWorker = createWorker(
 
     // Restrição de horário para mensagens proativas (lembretes, confirmações)
     // Mensagens genéricas (respostas do chatbot) e emergências não são restritas
+    const clinicTz = await getClinicTimezone(companyId);
     const isProactiveMessage = type === 'appointment-reminder' || type === 'appointment-confirmation';
-    if (isProactiveMessage && !isWithinSendingHours()) {
+    if (isProactiveMessage && !isWithinSendingHours(clinicTz)) {
       const delay = getDelayUntilNextSendingWindow();
       logger.info({ type, delayMs: delay }, 'Proactive message outside sending hours — rescheduling for next window');
       // Re-add the job with delay to the next 8am window
@@ -83,6 +107,95 @@ export const whatsappWorker = createWorker(
           }
           logger.warn({ phone }, 'No WhatsApp provider configured');
           return { success: false, message: 'No WhatsApp provider configured' };
+        }
+
+        case 'payment-receipt-whatsapp': {
+          // Recibo de pagamento por WhatsApp
+          const { companyId: receiptCompanyId, patientId: receiptPatientId, amount: receiptAmount, paymentMethod: receiptMethod } = job.data;
+          const receiptPatient = await storage.getPatient(receiptPatientId, receiptCompanyId);
+          const receiptPhone = receiptPatient?.whatsappPhone || receiptPatient?.phone || receiptPatient?.cellphone;
+          if (!receiptPhone) {
+            logger.warn({ patientId: receiptPatientId }, 'No phone for payment receipt');
+            return { success: false };
+          }
+          const receiptSettings = await storage.getClinicSettings(receiptCompanyId);
+          const clinicName = receiptSettings?.name || 'Clinica';
+          const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receiptAmount);
+          const methodLabel: Record<string, string> = { cash: 'Dinheiro', pix: 'PIX', credit_card: 'Cartao de Credito', debit_card: 'Cartao de Debito', bank_transfer: 'Transferencia', boleto: 'Boleto' };
+          const receiptMessage =
+            `*Recibo de Pagamento*\n\n` +
+            `Clinica: ${clinicName}\n` +
+            `Paciente: ${receiptPatient?.fullName || ''}\n` +
+            `Valor: ${formattedAmount}\n` +
+            `Forma: ${methodLabel[receiptMethod] || receiptMethod}\n` +
+            `Data: ${new Date().toLocaleDateString('pt-BR')}\n\n` +
+            `Obrigado pela preferencia!`;
+
+          const receiptProvider = await getWhatsAppProvider(receiptCompanyId);
+          if (receiptProvider) {
+            const result = await receiptProvider.sendTextMessage({ phone: receiptPhone, message: receiptMessage });
+            logger.info({ phone: receiptPhone, success: result.success }, 'Payment receipt WhatsApp sent');
+            return { success: result.success };
+          }
+          return { success: false, message: 'No WhatsApp provider' };
+        }
+
+        case 'recall-reminder': {
+          // Return/recall reminder — sent 6 months after last visit
+          const {
+            companyId: recallCompanyId,
+            patientName,
+            patientPhone,
+            companyName,
+          } = job.data;
+
+          const recallMessage =
+            `Ola ${patientName}! Faz tempo que voce nao nos visita. ` +
+            `Que tal agendar uma consulta de revisao? ` +
+            `Sua saude bucal e muito importante! ` +
+            `Ligue ou responda esta mensagem para agendar. - ${companyName}`;
+
+          let success = false;
+
+          const recallProvider = await getWhatsAppProvider(recallCompanyId);
+          if (recallProvider) {
+            const result = await recallProvider.sendTextMessage({
+              phone: patientPhone,
+              message: recallMessage,
+            });
+            success = result.success;
+            logger.info(
+              { patientPhone, provider: recallProvider.providerType, success },
+              'Recall reminder sent via WhatsApp',
+            );
+          } else {
+            logger.warn({ recallCompanyId, patientPhone }, 'No WhatsApp provider for recall reminder');
+          }
+
+          // SMS fallback — activated when WhatsApp delivery fails and an SMS
+          // provider is configured via the SMS_PROVIDER env var.
+          if (!success) {
+            const smsProviderConfigured = (process.env.SMS_PROVIDER || 'disabled') !== 'disabled';
+            if (smsProviderConfigured) {
+              try {
+                // Truncate to 155 chars to stay within a single SMS segment (160-char limit)
+                const smsBody = recallMessage.substring(0, 155);
+                const smsResult = await sendSms({ to: patientPhone, body: smsBody });
+                if (smsResult.success) {
+                  logger.info({ patientPhone, smsMessageId: smsResult.messageId, provider: smsResult.provider }, 'Recall reminder sent via SMS fallback');
+                  success = true;
+                } else {
+                  logger.error({ patientPhone, smsError: smsResult.error, provider: smsResult.provider }, 'SMS fallback for recall reminder failed');
+                }
+              } catch (smsErr) {
+                logger.error({ err: smsErr, patientPhone }, 'SMS fallback for recall reminder threw unexpectedly');
+              }
+            } else {
+              logger.warn({ patientPhone }, 'WhatsApp recall failed and no SMS provider is configured');
+            }
+          }
+
+          return { success, type: 'recall-reminder', patientPhone };
         }
 
         default:
@@ -371,9 +484,38 @@ async function sendAppointmentReminder(appointmentId: number, patientId: number,
     .where(eq(companies.id, companyId))
     .limit(1);
 
-  // Montar mensagem
+  // Buscar configurações da clínica para templates customizados
+  const [settings] = await db
+    .select()
+    .from(clinicSettings)
+    .where(eq(clinicSettings.companyId, companyId))
+    .limit(1);
+
+  // Montar mensagem — usar template customizado se disponível
   const appointmentDate = format(new Date(appointment.startTime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-  const message = `
+  const appointmentDateOnly = format(new Date(appointment.startTime), 'dd/MM/yyyy', { locale: ptBR });
+  const appointmentTimeOnly = format(new Date(appointment.startTime), 'HH:mm', { locale: ptBR });
+
+  // Variáveis disponíveis no template
+  const templateVars: Record<string, string> = {
+    '{nome}': patient.fullName || '',
+    '{data}': appointmentDateOnly,
+    '{hora}': appointmentTimeOnly,
+    '{dentista}': dentist?.fullName || 'Dentista',
+    '{clinica}': company?.name || 'Clínica',
+    '{endereco}': company?.address || '',
+  };
+
+  // Selecionar template: preferir customizado, cair no padrão
+  const customTemplate = settings?.reminderMessageTemplate;
+  let message: string;
+  if (customTemplate) {
+    message = Object.entries(templateVars).reduce(
+      (tpl, [key, val]) => tpl.replaceAll(key, val),
+      customTemplate
+    );
+  } else {
+    message = `
 🦷 *${company?.name || 'Clínica'}*
 
 Olá *${patient.fullName}*!
@@ -385,11 +527,14 @@ Olá *${patient.fullName}*!
 ${company?.address ? `📍 Endereço: ${company.address}` : ''}
 
 Aguardamos você! Em caso de imprevistos, entre em contato conosco.
-  `.trim();
+    `.trim();
+  }
 
   // Enviar via provider unificado
   const whatsappProvider = await getWhatsAppProvider(companyId);
   const targetPhone = patient.whatsappPhone || patient.cellphone || patient.phone || '';
+
+  let whatsappSuccess = false;
 
   if (whatsappProvider && targetPhone) {
     const result = await whatsappProvider.sendTextMessage({
@@ -397,18 +542,43 @@ Aguardamos você! Em caso de imprevistos, entre em contato conosco.
       message,
     });
 
+    whatsappSuccess = result.success;
+
     if (result.success) {
       logger.info({ provider: result.provider, appointmentId, messageId: result.messageId }, 'Appointment reminder sent via WhatsApp');
-      return {
-        success: true,
-        message: `Lembrete enviado via ${result.provider}`,
-        to: targetPhone,
-        appointmentId,
-        messageId: result.messageId,
-      };
     } else {
       logger.error({ error: result.error, appointmentId }, 'Failed to send WhatsApp reminder');
     }
+  }
+
+  // SMS — send as an additional reminder channel when the clinic has smsReminders
+  // enabled in their notificationSettings, regardless of WhatsApp outcome.
+  const smsEnabled = (settings as any)?.smsReminders === true ||
+    (settings?.notificationSettings as any)?.smsReminders === true;
+
+  if (smsEnabled && targetPhone) {
+    const clinicName = company?.name || 'Clínica';
+    // Plain-text body suitable for SMS (no markdown, no emoji, ≤160 chars per segment)
+    const smsBody = `${clinicName}: Lembrete de consulta em ${appointmentDateOnly} as ${appointmentTimeOnly}. Em caso de imprevisto, entre em contato conosco.`;
+    try {
+      const smsResult = await sendSms({ to: targetPhone, body: smsBody });
+      if (smsResult.success) {
+        logger.info({ appointmentId, smsMessageId: smsResult.messageId, provider: smsResult.provider }, 'SMS appointment reminder sent');
+      } else {
+        logger.warn({ appointmentId, smsError: smsResult.error, provider: smsResult.provider }, 'SMS reminder not sent');
+      }
+    } catch (smsErr) {
+      logger.error({ err: smsErr, appointmentId }, 'SMS reminder threw unexpectedly');
+    }
+  }
+
+  if (whatsappSuccess) {
+    return {
+      success: true,
+      message: 'Lembrete enviado via WhatsApp',
+      to: targetPhone,
+      appointmentId,
+    };
   }
 
   // Fallback: log apenas (nenhum provider configurado)

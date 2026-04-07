@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { storage } from '../storage';
-import { authCheck, asyncHandler } from '../middleware/auth';
+import { authCheck, tenantAwareAuth, asyncHandler } from '../middleware/auth';
 import { db } from '../db';
 import {
   financialTransactions,
@@ -17,6 +17,7 @@ import { notDeleted } from '../lib/soft-delete';
 import { progressOpportunityByPhone } from '../services/crm-auto-progression';
 import { z } from 'zod';
 
+import { logger } from '../logger';
 const router = Router();
 
 // ==========================================
@@ -31,14 +32,20 @@ router.get(
   '/transactions',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
     const { startDate, endDate, type, category } = req.query as any;
+
+    // Pagination bounds: default limit 100, hard cap 1000
+    const rawLimit = parseInt((req.query.limit as string) || '100', 10);
+    const rawOffset = parseInt((req.query.offset as string) || '0', 10);
+    const limit = Math.min(isNaN(rawLimit) || rawLimit < 1 ? 100 : rawLimit, 1000);
+    const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
     // Build where conditions
     const conditions = [
@@ -66,9 +73,11 @@ router.get(
       .select()
       .from(financialTransactions)
       .where(and(...conditions))
-      .orderBy(desc(financialTransactions.date));
+      .orderBy(desc(financialTransactions.date))
+      .limit(limit)
+      .offset(offset);
 
-    res.json(transactions);
+    res.json({ data: transactions, pagination: { limit, offset } });
   })
 );
 
@@ -80,8 +89,8 @@ router.post(
   '/transactions',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -122,8 +131,8 @@ router.patch(
   '/transactions/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -165,8 +174,8 @@ router.delete(
   '/transactions/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -202,8 +211,8 @@ router.get(
   '/patients/:patientId/payments',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -232,8 +241,8 @@ router.post(
   '/patients/:patientId/payments',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -246,19 +255,22 @@ router.post(
       return res.status(400).json({ error: 'Amount is required' });
     }
 
-    const [payment] = await db
-      .insert(payments)
-      .values({
-        companyId,
-        patientId: parseInt(patientId),
-        appointmentId: appointmentId || null,
-        amount: amount.toFixed(2), // decimal precisa ser string
-        paymentMethod: paymentMethod || 'cash',
-        paymentDate: new Date(),
-        status: 'completed',
-        description,
-      })
-      .returning();
+    const payment = await db.transaction(async (tx: any) => {
+      const [newPayment] = await tx
+        .insert(payments)
+        .values({
+          companyId,
+          patientId: parseInt(patientId),
+          appointmentId: appointmentId || null,
+          amount: amount.toFixed(2), // decimal precisa ser string
+          paymentMethod: paymentMethod || 'cash',
+          paymentDate: new Date(),
+          status: 'completed',
+          description,
+        })
+        .returning();
+      return newPayment;
+    });
 
     // CRM: Progride pipeline para payment_done quando pagamento é registrado
     const patient = await storage.getPatient(parseInt(patientId), companyId);
@@ -268,7 +280,71 @@ router.post(
         paymentId: payment.id,
         appointmentId: appointmentId || null,
         amount,
-      }).catch(err => console.error('CRM progression error (payment_done):', err));
+      }).catch(err => logger.error({ err: err }, 'CRM progression error (payment_done):'));
+    }
+
+    // Enviar recibo por WhatsApp (async, nao bloqueia resposta)
+    if (patientPhone) {
+      try {
+        const { addWhatsAppJob } = await import('../queue/queues');
+        await addWhatsAppJob({
+          type: 'payment-receipt-whatsapp',
+          patientId: parseInt(patientId),
+          companyId,
+          paymentId: payment.id,
+          amount,
+          paymentMethod: paymentMethod || 'cash',
+        });
+      } catch (receiptErr) {
+        logger.error({ err: receiptErr }, 'Erro ao agendar recibo WhatsApp:');
+      }
+    }
+
+    // Auto-emitir NFS-e se configurado (async, nao bloqueia resposta)
+    try {
+      const fiscalResult = await db.$client.query(
+        `SELECT nfse_provider, nfse_token, auto_emit_nfse, default_service_code
+         FROM fiscal_settings
+         WHERE company_id = $1
+         LIMIT 1`,
+        [companyId]
+      );
+
+      if (fiscalResult.rows.length > 0) {
+        const fiscalConfig = fiscalResult.rows[0];
+        if (fiscalConfig.auto_emit_nfse && fiscalConfig.nfse_provider && fiscalConfig.nfse_token) {
+          const { NfseEmissionService } = await import('../services/nfse-emission.service');
+          const nfseService = new NfseEmissionService();
+
+          const patientRecord = patient || await storage.getPatient(parseInt(patientId), companyId);
+          const patientCpf = (patientRecord as any)?.cpf || '';
+          const patientFullName = (patientRecord as any)?.fullName || (patientRecord as any)?.name || 'Paciente';
+
+          logger.info({ paymentId: payment.id }, 'Auto-emitting NFS-e for confirmed payment');
+
+          nfseService.emit({
+            companyId,
+            patientName: patientFullName,
+            patientCpf,
+            serviceDescription: description || 'Serviço odontológico',
+            serviceCode: fiscalConfig.default_service_code || '14.01',
+            amount: Math.round(amount * 100), // em centavos
+            paymentId: payment.id,
+            issDate: new Date(),
+          }).then(result => {
+            if (result.success) {
+              logger.info({ paymentId: payment.id, nfseNumber: result.nfseNumber }, 'NFS-e emitida com sucesso');
+            } else {
+              logger.warn({ paymentId: payment.id, error: result.error }, 'NFS-e auto-emission returned failure');
+            }
+          }).catch(nfseErr => {
+            logger.error({ err: nfseErr, paymentId: payment.id }, 'Failed to auto-emit NFS-e');
+          });
+        }
+      }
+    } catch (nfseError) {
+      // Nao falha o pagamento se a emissao de NFS-e falhar
+      logger.error({ err: nfseError, paymentId: payment.id }, 'Failed to check fiscal settings for NFS-e auto-emission');
     }
 
     res.status(201).json(payment);
@@ -287,8 +363,8 @@ router.get(
   '/reports/daily',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -361,8 +437,8 @@ router.get(
   '/reports/monthly',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -435,8 +511,8 @@ router.get(
   '/reports/summary',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -508,8 +584,8 @@ router.get(
   '/dre/professional',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -708,21 +784,25 @@ router.get(
 
 /**
  * GET /api/v1/financial/dre/professional/:id
- * DRE detalhado de um profissional específico
+ * DRE detalhado de um profissional específico.
+ * Extras versus the list endpoint:
+ *   - monthlyTarget / targetProgress: from query param or professional_targets table
+ *   - previousPeriod: same metrics for the immediately preceding same-length period
+ *     (for Month-over-Month comparison)
  */
 router.get(
   '/dre/professional/:id',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
     }
 
     const { id } = req.params;
-    const { startDate, endDate } = req.query as any;
+    const { startDate, endDate, monthlyTarget: monthlyTargetParam } = req.query as any;
 
     // Período padrão: mês atual
     const now = new Date();
@@ -806,6 +886,75 @@ router.get(
     const professionalShare = netRevenue * commissionRate;
     const clinicShare = netRevenue - professionalShare;
 
+    // ─── Monthly target / progress ────────────────────────────────────────────
+    // Resolve target: query param > professional_targets table > null
+    let monthlyTarget: number | null = null;
+
+    if (monthlyTargetParam) {
+      monthlyTarget = parseFloat(monthlyTargetParam);
+    } else {
+      // Attempt to load from an optional professional_targets table (may not exist)
+      try {
+        const targetResult = await db.$client.query(
+          `SELECT monthly_target FROM professional_targets
+           WHERE company_id = $1 AND professional_id = $2 LIMIT 1`,
+          [companyId, parseInt(id)]
+        );
+        if (targetResult.rows[0]?.monthly_target) {
+          monthlyTarget = parseFloat(targetResult.rows[0].monthly_target);
+        }
+      } catch {
+        // Table may not exist yet — silently ignore
+      }
+    }
+
+    const targetProgress =
+      monthlyTarget && monthlyTarget > 0
+        ? Math.round((grossRevenue / monthlyTarget) * 10000) / 100 // percentage, 2 dp
+        : null;
+
+    // ─── Previous period (MoM comparison) ────────────────────────────────────
+    // Compute a window of the same length immediately before periodStart
+    const periodLengthMs = periodEnd.getTime() - periodStart.getTime();
+    const prevPeriodEnd = new Date(periodStart.getTime() - 1); // 1 ms before start
+    const prevPeriodStart = new Date(prevPeriodEnd.getTime() - periodLengthMs);
+
+    const prevTransactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(
+        eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
+        eq(financialTransactions.professionalId, parseInt(id)),
+        gte(financialTransactions.date, prevPeriodStart),
+        lte(financialTransactions.date, prevPeriodEnd),
+        sql`${financialTransactions.status} != 'cancelled'`
+      ));
+
+    type PrevTransaction = typeof prevTransactions[0];
+    const prevRevenues = prevTransactions.filter(
+      (t: PrevTransaction) => t.type === 'revenue' || t.type === 'income'
+    );
+    const prevExpenses = prevTransactions.filter(
+      (t: PrevTransaction) => t.type === 'expense'
+    );
+
+    const prevGrossRevenue =
+      prevRevenues.reduce((s: number, t: PrevTransaction) => s + (t.amount || 0), 0) / 100;
+    const prevNetRevenue =
+      prevRevenues.reduce(
+        (s: number, t: PrevTransaction) => s + (t.netAmount || t.amount || 0),
+        0
+      ) / 100;
+    const prevTotalExpenses =
+      prevExpenses.reduce((s: number, t: PrevTransaction) => s + (t.amount || 0), 0) / 100;
+    const prevProfessionalShare = prevNetRevenue * commissionRate;
+
+    const momChange =
+      prevGrossRevenue > 0
+        ? Math.round(((grossRevenue - prevGrossRevenue) / prevGrossRevenue) * 10000) / 100
+        : null;
+
     res.json({
       professional,
       period: {
@@ -821,6 +970,21 @@ router.get(
         professionalShare,
         clinicShare,
         professionalNet: professionalShare - totalExpenses,
+      },
+      target: {
+        monthlyTarget,
+        targetProgress,
+        onTrack: targetProgress !== null ? targetProgress >= 100 : null,
+      },
+      previousPeriod: {
+        start: prevPeriodStart.toISOString().split('T')[0],
+        end: prevPeriodEnd.toISOString().split('T')[0],
+        grossRevenue: prevGrossRevenue,
+        netRevenue: prevNetRevenue,
+        expenses: prevTotalExpenses,
+        professionalShare: prevProfessionalShare,
+        professionalNet: prevProfessionalShare - prevTotalExpenses,
+        momChangePercent: momChange,
       },
       transactions: allTransactions.map((t: Transaction) => ({
         id: t.id,
@@ -844,6 +1008,218 @@ router.get(
 );
 
 /**
+ * GET /api/v1/financial/dre/professional/:id/payslip
+ * Gera um holerite (payslip) PDF para o profissional no período solicitado.
+ * Inclui: receita bruta, deduções (ISS + materiais), comissão líquida e lista
+ * de atendimentos realizados.
+ */
+router.get(
+  '/dre/professional/:id/payslip',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const { id } = req.params;
+    const { startDate, endDate } = req.query as any;
+
+    const now = new Date();
+    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const periodStart = startDate ? new Date(startDate) : defaultStart;
+    const periodEnd = endDate ? new Date(endDate) : defaultEnd;
+
+    // Fetch professional
+    const [professional] = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        speciality: users.speciality,
+        email: users.email,
+      })
+      .from(users)
+      .where(and(
+        eq(users.id, parseInt(id)),
+        eq(users.companyId, companyId),
+        notDeleted(users.deletedAt)
+      ));
+
+    if (!professional) {
+      return res.status(404).json({ error: 'Professional not found' });
+    }
+
+    // Fetch company info
+    const [company] = await db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+
+    // Revenue transactions
+    const revTransactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(
+        eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
+        eq(financialTransactions.professionalId, parseInt(id)),
+        sql`${financialTransactions.type} IN ('revenue', 'income')`,
+        gte(financialTransactions.date, periodStart),
+        lte(financialTransactions.date, periodEnd),
+        sql`${financialTransactions.status} != 'cancelled'`
+      ))
+      .orderBy(desc(financialTransactions.date));
+
+    // Expense transactions (materials attributed to this professional)
+    const expTransactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(
+        eq(financialTransactions.companyId, companyId),
+        notDeleted(financialTransactions.deletedAt),
+        eq(financialTransactions.professionalId, parseInt(id)),
+        eq(financialTransactions.type, 'expense'),
+        gte(financialTransactions.date, periodStart),
+        lte(financialTransactions.date, periodEnd),
+        sql`${financialTransactions.status} != 'cancelled'`
+      ));
+
+    // Completed appointments
+    const completedApts = await db
+      .select({
+        id: appointments.id,
+        startTime: appointments.startTime,
+        status: appointments.status,
+      })
+      .from(appointments)
+      .where(and(
+        eq(appointments.companyId, companyId),
+        notDeleted(appointments.deletedAt),
+        eq(appointments.professionalId, parseInt(id)),
+        eq(appointments.status, 'completed'),
+        gte(appointments.startTime, periodStart),
+        lte(appointments.startTime, periodEnd)
+      ))
+      .orderBy(desc(appointments.startTime));
+
+    type RevTx = typeof revTransactions[0];
+    type ExpTx = typeof expTransactions[0];
+
+    const grossRevenue =
+      revTransactions.reduce((s: number, t: RevTx) => s + (t.amount || 0), 0) / 100;
+    const netRevenue =
+      revTransactions.reduce(
+        (s: number, t: RevTx) => s + (t.netAmount || t.amount || 0),
+        0
+      ) / 100;
+    const processingFees = grossRevenue - netRevenue;
+    const materialExpenses =
+      expTransactions.reduce((s: number, t: ExpTx) => s + (t.amount || 0), 0) / 100;
+
+    // ISS 5% on gross (configurable — using fixed rate here)
+    const issRate = 0.05;
+    const issDeduction = grossRevenue * issRate;
+
+    const commissionRate = 0.5;
+    const grossCommission = netRevenue * commissionRate;
+    const netCommission = grossCommission - materialExpenses;
+
+    // Generate PDF
+    const PDFDocument = (await import('pdfkit')).default;
+    const chunks: Buffer[] = [];
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+    await new Promise<void>((resolve) => {
+      doc.on('end', resolve);
+
+      // Header
+      doc.fontSize(18).font('Helvetica-Bold')
+        .text('HOLERITE / DEMONSTRATIVO DE PAGAMENTO', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(9).font('Helvetica')
+        .text(company?.name ?? 'Clínica', { align: 'center' });
+      doc.moveDown(1);
+
+      // Professional & period
+      doc.fontSize(11).font('Helvetica-Bold').text('Profissional');
+      doc.fontSize(10).font('Helvetica')
+        .text(`${professional.fullName}${professional.speciality ? ' — ' + professional.speciality : ''}`);
+      doc.moveDown(0.3);
+      doc.text(
+        `Período: ${periodStart.toLocaleDateString('pt-BR')} a ${periodEnd.toLocaleDateString('pt-BR')}`
+      );
+      doc.moveDown(1);
+
+      // Separator
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#333').lineWidth(0.5).stroke();
+      doc.moveDown(0.8);
+
+      const fmt = (v: number) =>
+        v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+      // Revenue section
+      doc.fontSize(11).font('Helvetica-Bold').text('RECEITAS');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Receita Bruta:                          ${fmt(grossRevenue)}`, { continued: false });
+      doc.text(`(-) Taxas de Processamento:             ${fmt(processingFees)}`);
+      doc.text(`(-) ISS (${(issRate * 100).toFixed(0)}%):                            ${fmt(issDeduction)}`);
+      doc.font('Helvetica-Bold')
+        .text(`Receita Líquida:                        ${fmt(netRevenue - issDeduction)}`);
+      doc.moveDown(1);
+
+      // Split section
+      doc.fontSize(11).font('Helvetica-Bold').text('COMISSÃO');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Taxa do Profissional:                   ${(commissionRate * 100).toFixed(0)}%`);
+      doc.text(`Comissão Bruta:                         ${fmt(grossCommission)}`);
+      doc.text(`(-) Materiais / Despesas Atribuídas:    ${fmt(materialExpenses)}`);
+      doc.font('Helvetica-Bold')
+        .text(`Comissão Líquida a Receber:             ${fmt(netCommission)}`);
+      doc.moveDown(1);
+
+      // Appointments list
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#333').lineWidth(0.5).stroke();
+      doc.moveDown(0.5);
+      doc.fontSize(11).font('Helvetica-Bold')
+        .text(`ATENDIMENTOS REALIZADOS (${completedApts.length})`);
+      doc.fontSize(9).font('Helvetica');
+      type AptRow = typeof completedApts[0];
+      completedApts.slice(0, 50).forEach((apt: AptRow) => {
+        doc.text(`• ${new Date(apt.startTime!).toLocaleDateString('pt-BR')} — ID #${apt.id}`);
+      });
+      if (completedApts.length > 50) {
+        doc.text(`... e mais ${completedApts.length - 50} atendimentos`);
+      }
+
+      doc.moveDown(1);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#333').lineWidth(0.5).stroke();
+      doc.moveDown(0.5);
+      doc.fontSize(7).fillColor('#888')
+        .text(
+          `Documento gerado em ${new Date().toLocaleString('pt-BR')} por ${user.fullName || 'Sistema'}`,
+          { align: 'center' }
+        );
+
+      doc.end();
+    });
+
+    const pdfBuffer = Buffer.concat(chunks);
+    const filename = `holerite_${professional.id}_${periodStart.toISOString().slice(0, 7)}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  })
+);
+
+/**
  * GET /api/v1/financial/dre/ranking
  * Ranking de profissionais por faturamento
  */
@@ -851,8 +1227,8 @@ router.get(
   '/dre/ranking',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -935,4 +1311,96 @@ router.get(
   })
 );
 
+// ==========================================
+// NFS-e (NOTA FISCAL DE SERVICO ELETRONICA)
+// ==========================================
+
+/**
+ * POST /api/v1/financial/nfse/emit
+ * Emite NFS-e para um pagamento/servico prestado
+ */
+router.post(
+  '/nfse/emit',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const { nfseService } = await import('../services/nfse-emission.service');
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const result = await nfseService.emit({ ...req.body, companyId });
+
+    if (result.success) {
+      await db.$client.query(
+        `INSERT INTO audit_logs (company_id, user_id, action, resource_type, details)
+         VALUES ($1, $2, 'create', 'nfse', $3)`,
+        [companyId, user.id, JSON.stringify(result)]
+      );
+    }
+
+    res.json(result);
+  })
+);
+
+/**
+ * POST /api/v1/financial/nfse/cancel
+ * Cancela uma NFS-e emitida
+ */
+router.post(
+  '/nfse/cancel',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const { nfseService } = await import('../services/nfse-emission.service');
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const { nfseNumber, reason } = req.body;
+
+    if (!nfseNumber) {
+      return res.status(400).json({ error: 'nfseNumber is required' });
+    }
+
+    const result = await nfseService.cancel(companyId, nfseNumber, reason || 'Cancelamento solicitado pelo usuario');
+
+    if (result.success) {
+      await db.$client.query(
+        `INSERT INTO audit_logs (company_id, user_id, action, resource_type, details)
+         VALUES ($1, $2, 'delete', 'nfse', $3)`,
+        [companyId, user.id, JSON.stringify({ nfseNumber, reason })]
+      );
+    }
+
+    res.json(result);
+  })
+);
+
+/**
+ * GET /api/v1/financial/nfse/query/:nfseNumber
+ * Consulta o status de uma NFS-e emitida
+ */
+router.get(
+  '/nfse/query/:nfseNumber',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const { nfseService } = await import('../services/nfse-emission.service');
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const result = await nfseService.query(companyId, req.params.nfseNumber);
+    res.json(result);
+  })
+);
+
 export default router;
+

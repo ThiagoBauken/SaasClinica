@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, decimal, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, decimal, date, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -13,12 +13,11 @@ export const companies = pgTable("companies", {
   active: boolean("active").notNull().default(true),
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
   // Configurações de Automação/Integrações
-  openaiApiKey: text("openai_api_key"), // Chave da OpenAI para automações N8N
+  openaiApiKey: text("openai_api_key"), // Chave da OpenAI para AI Agent
   anthropicApiKey: text("anthropic_api_key"), // Chave do Claude/Anthropic para AI Agent
-  n8nWebhookUrl: text("n8n_webhook_url"), // URL do webhook N8N (opcional)
-  // API Key para autenticação de integrações externas (N8N, webhooks, etc.)
-  n8nApiKey: text("n8n_api_key").unique(), // Chave única para autenticação via header X-API-Key
-  n8nApiKeyCreatedAt: timestamp("n8n_api_key_created_at", { withTimezone: true }), // Data de criação da API Key
+  // API Key para autenticação de integrações externas (webhooks, automações)
+  apiKey: text("api_key").unique(), // Chave única para autenticação via header X-API-Key
+  apiKeyCreatedAt: timestamp("api_key_created_at", { withTimezone: true }), // Data de criação da API Key
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -66,10 +65,15 @@ export const users = pgTable("users", {
   googleRefreshToken: text("google_refresh_token"), // Token de refresh do Google Calendar
   googleTokenExpiry: timestamp("google_token_expiry", { withTimezone: true }), // Data de expiração do access token
   wuzapiPhone: text("wuzapi_phone"), // Telefone WhatsApp para notificações
-  // Dados CFO para assinatura digital
+  // Dados CFO para assinatura digital (legado — use cro_number/cro_state para novos registros)
   cfoRegistrationNumber: text("cfo_registration_number"), // Número do CRO (ex: "12345")
   cfoState: text("cfo_state"), // Estado do CRO (ex: "SP", "RJ")
   digitalCertificatePath: text("digital_certificate_path"), // Caminho do certificado digital (opcional)
+  // Dados profissionais gerais (CRO, CRM, CRN, etc.)
+  croNumber: varchar("cro_number", { length: 20 }), // Número de registro no conselho profissional
+  croState: varchar("cro_state", { length: 2 }), // UF do conselho (ex: "SP", "RJ")
+  specialties: jsonb("specialties").$type<string[]>().default([]), // Lista de especialidades
+  professionalCouncil: varchar("professional_council", { length: 50 }), // CRO, CRM, CRN, CFO, etc.
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
   // Password reset with secure tokens (replaces temp password approach)
   passwordResetToken: text("password_reset_token"),
@@ -163,6 +167,7 @@ export const patients = pgTable("patients", {
   healthInsuranceNumber: text("health_insurance_number"),
   bloodType: varchar("blood_type", { length: 5 }), // A+, A-, B+, B-, AB+, AB-, O+, O-
   allergies: text("allergies"),
+  allergiesStructured: jsonb("allergies_structured").$type<Array<{name: string, severity: string, notes?: string}>>(),
   medications: text("medications"),
   chronicDiseases: text("chronic_diseases"),
   
@@ -212,9 +217,12 @@ export const patients = pgTable("patients", {
 
   // Marketing
   referralSource: text("referral_source"), // google, indicacao, instagram, facebook, etc
+  referredByPatientId: integer("referred_by_patient_id").references((): any => patients.id, { onDelete: "set null" }),
 
   // Dentista preferido
   preferredDentistId: integer("preferred_dentist_id").references(() => users.id),
+  referenceDoctorName: text("reference_doctor_name"),
+  referenceDoctorPhone: varchar("reference_doctor_phone", { length: 20 }),
 
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -237,7 +245,7 @@ export const appointments = pgTable("appointments", {
   roomId: integer("room_id").references(() => rooms.id, { onDelete: "set null" }),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
-  status: text("status").notNull().default("scheduled"), // scheduled, confirmed, in_progress, completed, cancelled, no_show
+  status: text("status").notNull().default("scheduled"), // scheduled, confirmed, arrived, in_progress, completed, cancelled, no_show
   type: text("type").notNull().default("appointment"), // appointment, block, reminder
   notes: text("notes"),
   color: text("color"),
@@ -257,6 +265,8 @@ export const appointments = pgTable("appointments", {
   confirmationDate: timestamp("confirmation_date", { withTimezone: true }),
   confirmationMessageId: text("confirmation_message_id"), // ID da mensagem de confirmação
   patientResponse: text("patient_response"), // Resposta do paciente
+  cancellationReason: text("cancellation_reason"),
+  cancelledBy: integer("cancelled_by").references(() => users.id),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -278,7 +288,38 @@ export const insertAppointmentSchema = createInsertSchema(appointments).pick({
   recurrencePattern: true,
   automationEnabled: true,
   automationParams: true,
+  cancellationReason: true,
+  cancelledBy: true,
 });
+
+// Waitlist (Lista de Espera)
+export const waitlist = pgTable("waitlist", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  procedureId: integer("procedure_id"),   // FK to procedures — added after that table is defined
+  preferredDate: date("preferred_date"),
+  preferredTimeStart: varchar("preferred_time_start", { length: 5 }), // HH:MM
+  preferredTimeEnd: varchar("preferred_time_end", { length: 5 }),     // HH:MM
+  preferredDaysOfWeek: jsonb("preferred_days_of_week").$type<number[]>(), // 0=Sun … 6=Sat
+  notes: text("notes"),
+  status: varchar("status", { length: 20 }).notNull().default("waiting"), // waiting, notified, scheduled, cancelled, expired
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  scheduledAppointmentId: integer("scheduled_appointment_id"), // FK to appointments
+  priority: integer("priority").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertWaitlistSchema = createInsertSchema(waitlist).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Waitlist = typeof waitlist.$inferSelect;
+export type InsertWaitlist = typeof waitlist.$inferInsert;
 
 // Procedures
 export const procedures = pgTable("procedures", {
@@ -304,6 +345,7 @@ export const procedures = pgTable("procedures", {
   autoScheduleNext: boolean("auto_schedule_next").default(false), // Agendar próxima automaticamente?
   sendReminder: boolean("send_reminder").default(true), // Enviar lembrete?
   reminderHoursBefore: integer("reminder_hours_before").default(24), // Horas antes para lembrete
+  tussCode: varchar("tuss_code", { length: 20 }),
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -325,6 +367,7 @@ export const insertProcedureSchema = createInsertSchema(procedures).pick({
   autoScheduleNext: true,
   sendReminder: true,
   reminderHoursBefore: true,
+  tussCode: true,
 });
 
 // AppointmentProcedures - many-to-many relationship
@@ -475,6 +518,8 @@ export const workingHours = pgTable("working_hours", {
   startTime: text("start_time").notNull(), // HH:MM format
   endTime: text("end_time").notNull(), // HH:MM format
   isWorking: boolean("is_working").notNull().default(true),
+  breakStart: text("break_start"), // HH:MM format
+  breakEnd: text("break_end"), // HH:MM format
 });
 
 export const insertWorkingHoursSchema = createInsertSchema(workingHours).pick({
@@ -483,6 +528,8 @@ export const insertWorkingHoursSchema = createInsertSchema(workingHours).pick({
   startTime: true,
   endTime: true,
   isWorking: true,
+  breakStart: true,
+  breakEnd: true,
 });
 
 // Holidays
@@ -539,7 +586,7 @@ export const payments = pgTable("payments", {
 export const insertMercadoPagoSubscriptionSchema = createInsertSchema(mercadoPagoSubscriptions);
 export const insertPaymentSchema = createInsertSchema(payments);
 
-// N8N Automations
+// Automations
 export const automations = pgTable("automations", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
@@ -562,7 +609,6 @@ export const automations = pgTable("automations", {
   responseActions: jsonb("response_actions"),
   logLevel: text("log_level").default("complete"),
   active: boolean("active").default(true),
-  n8nWorkflowId: text("n8n_workflow_id"), // ID do workflow no n8n
   lastExecution: timestamp("last_execution", { withTimezone: true }),
   executionCount: integer("execution_count").default(0),
   errorCount: integer("error_count").default(0),
@@ -699,9 +745,15 @@ export const anamnesis = pgTable("anamnesis", {
   lastDentalVisit: timestamp("last_dental_visit", { withTimezone: true }),
 
   createdBy: integer("created_by").references(() => users.id).notNull(),
+  nextReviewDate: timestamp("next_review_date", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+
+  // Version tracking — populated by migration 028
+  currentVersion: integer("current_version").default(1),
+  lastModifiedBy: integer("last_modified_by").references(() => users.id),
+  lastModifiedReason: text("last_modified_reason"),
 });
 
 export const insertAnamnesisSchema = createInsertSchema(anamnesis).pick({
@@ -756,6 +808,27 @@ export const insertAnamnesisSchema = createInsertSchema(anamnesis).pick({
   createdBy: true,
 });
 
+// Anamnesis Version History
+// Stores a full snapshot of each anamnesis record before every update,
+// providing a complete audit trail of clinical data changes.
+export const anamnesisVersions = pgTable("anamnesis_versions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  anamnesisId: integer("anamnesis_id").references(() => anamnesis.id, { onDelete: "cascade" }).notNull(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  snapshot: jsonb("snapshot").notNull(),       // Full row snapshot before this update
+  changedFields: text("changed_fields").array(), // Column names that differed
+  changeSummary: text("change_summary"),        // Human-readable summary
+  changedBy: integer("changed_by").references(() => users.id),
+  changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow(),
+  changeReason: text("change_reason"),          // Optional reason from caller
+  ipAddress: text("ip_address"),
+});
+
+export type AnamnesisVersion = typeof anamnesisVersions.$inferSelect;
+export type InsertAnamnesisVersion = typeof anamnesisVersions.$inferInsert;
+
 // Exames do Paciente
 export const patientExams = pgTable("patient_exams", {
   id: serial("id").primaryKey(),
@@ -771,6 +844,10 @@ export const patientExams = pgTable("patient_exams", {
   observations: text("observations"),
   requestedBy: integer("requested_by").references(() => users.id).notNull(),
   performedAt: text("performed_at"), // Local do exame
+  status: text("exam_status").default("requested"), // requested, collected, completed, cancelled
+  requestedDate: timestamp("requested_date", { withTimezone: true }).defaultNow(),
+  completedDate: timestamp("completed_date", { withTimezone: true }),
+  resultNotes: text("result_notes"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -789,6 +866,85 @@ export const insertPatientExamSchema = createInsertSchema(patientExams).pick({
   observations: true,
   requestedBy: true,
   performedAt: true,
+});
+
+// Fotos Antes/Depois (Estética)
+export const beforeAfterPhotos = pgTable("before_after_photos", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  patientId: integer("patient_id").references(() => patients.id).notNull(),
+  treatmentPlanId: integer("treatment_plan_id"),
+  procedureType: text("procedure_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  beforePhotoUrl: text("before_photo_url").notNull(),
+  afterPhotoUrl: text("after_photo_url"),
+  beforeDate: timestamp("before_date", { withTimezone: true }).notNull(),
+  afterDate: timestamp("after_date", { withTimezone: true }),
+  toothNumbers: text("tooth_numbers"),
+  notes: text("notes"),
+  isPublic: boolean("is_public").default(false),
+  patientConsent: boolean("patient_consent").default(false),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertBeforeAfterPhotoSchema = createInsertSchema(beforeAfterPhotos).pick({
+  companyId: true,
+  patientId: true,
+  treatmentPlanId: true,
+  procedureType: true,
+  title: true,
+  description: true,
+  beforePhotoUrl: true,
+  afterPhotoUrl: true,
+  beforeDate: true,
+  afterDate: true,
+  toothNumbers: true,
+  notes: true,
+  isPublic: true,
+  patientConsent: true,
+  createdBy: true,
+});
+
+// Pacotes Estéticos (Templates)
+export const aestheticPackages = pgTable("aesthetic_packages", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  procedures: jsonb("procedures").notNull().$type<{
+    procedureId?: number;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+  }[]>(),
+  totalPrice: numeric("total_price", { precision: 10, scale: 2 }).notNull(),
+  discountPercent: numeric("discount_percent", { precision: 5, scale: 2 }).default("0"),
+  estimatedSessions: integer("estimated_sessions"),
+  estimatedDurationDays: integer("estimated_duration_days"),
+  includedItems: text("included_items"),
+  active: boolean("active").default(true),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertAestheticPackageSchema = createInsertSchema(aestheticPackages).pick({
+  companyId: true,
+  name: true,
+  description: true,
+  category: true,
+  procedures: true,
+  totalPrice: true,
+  discountPercent: true,
+  estimatedSessions: true,
+  estimatedDurationDays: true,
+  includedItems: true,
+  active: true,
 });
 
 // Planos de Tratamento Detalhados
@@ -825,6 +981,13 @@ export const detailedTreatmentPlans = pgTable("detailed_treatment_plans", {
   notes: text("notes"),
   patientConsent: boolean("patient_consent").default(false),
   consentDate: timestamp("consent_date", { withTimezone: true }),
+
+  // Aprovação e validade
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  approvalSignatureId: integer("approval_signature_id"),
+  approvalMethod: text("approval_method"), // digital, manual, presencial
+  approvedByPatient: boolean("approved_by_patient").default(false),
+  approvalIpAddress: text("approval_ip_address"),
 
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -880,6 +1043,7 @@ export const treatmentEvolution = pgTable("treatment_evolution", {
 
   // Profissional
   performedBy: integer("performed_by").references(() => users.id).notNull(),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
 
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -1334,9 +1498,6 @@ export const clinicSettings = pgTable("clinic_settings", {
   // Integrações Google
   defaultGoogleCalendarId: text("default_google_calendar_id"),
 
-  // Integrações N8N/Automação
-  n8nWebhookBaseUrl: text("n8n_webhook_base_url"),
-
   // Integrações Flowise/AI
   flowiseBaseUrl: text("flowise_base_url"), // URL do Flowise
   flowiseChatflowId: text("flowise_chatflow_id"), // ID do chatflow
@@ -1387,7 +1548,7 @@ export const clinicSettings = pgTable("clinic_settings", {
   clinicContextForBot: text("clinic_context_for_bot"), // Contexto geral da clínica para o bot
 
   // ===== AI AGENT (Claude) =====
-  aiAgentEnabled: boolean("ai_agent_enabled").default(false), // Usar AI Agent direto (true) ou N8N (false)
+  aiAgentEnabled: boolean("ai_agent_enabled").default(false), // Habilitar AI Agent nativo para WhatsApp
   aiAgentModel: text("ai_agent_model").default("claude-haiku-4-5-20251001"), // Modelo padrão do agente
   aiAgentMaxTokens: integer("ai_agent_max_tokens").default(1024), // Max tokens por resposta
   aiProvider: text("ai_provider").default("anthropic"), // Provider ativo: 'anthropic' | 'openai' | 'ollama'
@@ -1444,7 +1605,6 @@ export const insertClinicSettingsSchema = createInsertSchema(clinicSettings).pic
   evolutionApiKey: true,
   adminWhatsappPhone: true,
   defaultGoogleCalendarId: true,
-  n8nWebhookBaseUrl: true,
   flowiseBaseUrl: true,
   flowiseChatflowId: true,
   baserowApiKey: true,
@@ -1804,6 +1964,7 @@ export const fiscalSettings = pgTable("fiscal_settings", {
   defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 }),
   defaultServiceCode: text("default_service_code"),
   termsAndConditions: text("terms_and_conditions"),
+  autoEmitNfse: boolean("auto_emit_nfse").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -2340,6 +2501,12 @@ export type InsertAnamnesis = z.infer<typeof insertAnamnesisSchema>;
 
 export type PatientExam = typeof patientExams.$inferSelect;
 export type InsertPatientExam = z.infer<typeof insertPatientExamSchema>;
+
+export type BeforeAfterPhoto = typeof beforeAfterPhotos.$inferSelect;
+export type InsertBeforeAfterPhoto = z.infer<typeof insertBeforeAfterPhotoSchema>;
+
+export type AestheticPackage = typeof aestheticPackages.$inferSelect;
+export type InsertAestheticPackage = z.infer<typeof insertAestheticPackageSchema>;
 
 export type DetailedTreatmentPlan = typeof detailedTreatmentPlans.$inferSelect;
 export type InsertDetailedTreatmentPlan = z.infer<typeof insertDetailedTreatmentPlanSchema>;
@@ -2910,7 +3077,7 @@ export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
-  companyId: integer("company_id").references(() => companies.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   role: varchar("role", { length: 20 }), // 'user', 'assistant', 'system' (deprecated, use direction)
   direction: varchar("direction", { length: 20 }).default("incoming"), // 'incoming', 'outgoing'
   content: text("content").notNull(),
@@ -2943,7 +3110,7 @@ export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export const aiToolCalls = pgTable("ai_tool_calls", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
-  companyId: integer("company_id").references(() => companies.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
   toolName: varchar("tool_name", { length: 50 }).notNull(), // 'lookup_patient', 'schedule_appointment', etc.
   toolInput: jsonb("tool_input").$type<Record<string, any>>(), // Input enviado para a ferramenta
   toolResult: jsonb("tool_result").$type<Record<string, any>>(), // Resultado retornado
@@ -3336,7 +3503,300 @@ export const insertWebsiteSchema = createInsertSchema(websites).omit({
 export type Website = typeof websites.$inferSelect;
 
 // =============================================
+// SCHEDULE BLOCKS
+// =============================================
+
+export const scheduleBlocks = pgTable("schedule_blocks", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  professionalId: integer("professional_id").references(() => users.id),
+  roomId: integer("room_id").references(() => rooms.id),
+  title: text("title").notNull(),
+  reason: text("reason"), // ferias, folga, compromisso, manutencao, feriado
+  startTime: timestamp("start_time", { withTimezone: true }).notNull(),
+  endTime: timestamp("end_time", { withTimezone: true }).notNull(),
+  allDay: boolean("all_day").default(false),
+  recurring: boolean("recurring").default(false),
+  recurrencePattern: text("recurrence_pattern"), // weekly, monthly, yearly
+  createdBy: integer("created_by").references(() => users.id),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertScheduleBlockSchema = createInsertSchema(scheduleBlocks).omit({
+  id: true, deletedAt: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// ANESTHESIA LOGS
+// =============================================
+
+export const anesthesiaLogs = pgTable("anesthesia_logs", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  evolutionId: integer("evolution_id").references(() => treatmentEvolution.id),
+  anestheticType: text("anesthetic_type").notNull(), // local, regional, geral, sedacao
+  anestheticName: text("anesthetic_name").notNull(), // lidocaina, mepivacaina, articaina, prilocaina
+  concentration: text("concentration"), // 2%, 3%
+  vasoconstrictor: text("vasoconstrictor"), // epinefrina, felipressina, sem_vasoconstritor
+  quantityMl: decimal("quantity_ml", { precision: 5, scale: 2 }),
+  lotNumber: text("lot_number"),
+  expirationDate: date("expiration_date"),
+  administeredBy: integer("administered_by").notNull().references(() => users.id),
+  technique: text("technique"), // infiltrativa, bloqueio, topica
+  toothRegion: text("tooth_region"),
+  adverseReaction: text("adverse_reaction"),
+  notes: text("notes"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertAnesthesiaLogSchema = createInsertSchema(anesthesiaLogs).omit({
+  id: true, deletedAt: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// ACCOUNTS PAYABLE
+// =============================================
+
+export const accountsPayable = pgTable("accounts_payable", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  description: text("description").notNull(),
+  supplierName: text("supplier_name"),
+  category: text("category"), // aluguel, materiais, salarios, laboratorio, equipamentos, marketing, impostos, outros
+  amount: integer("amount").notNull(), // in cents
+  dueDate: date("due_date").notNull(),
+  paymentDate: date("payment_date"),
+  status: text("status").notNull().default("pending"), // pending, paid, overdue, cancelled
+  paymentMethod: text("payment_method"), // pix, boleto, transferencia, dinheiro, cartao
+  documentNumber: text("document_number"),
+  recurring: boolean("recurring").default(false),
+  recurrencePattern: text("recurrence_pattern"), // monthly, quarterly, yearly
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertAccountsPayableSchema = createInsertSchema(accountsPayable).omit({
+  id: true, deletedAt: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// ACCOUNTS RECEIVABLE
+// =============================================
+
+export const accountsReceivable = pgTable("accounts_receivable", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  treatmentPlanId: integer("treatment_plan_id").references(() => detailedTreatmentPlans.id),
+  description: text("description").notNull(),
+  amount: integer("amount").notNull(), // in cents
+  dueDate: date("due_date").notNull(),
+  paymentDate: date("payment_date"),
+  status: text("status").notNull().default("pending"), // pending, paid, overdue, partial, cancelled
+  installmentNumber: integer("installment_number"),
+  totalInstallments: integer("total_installments"),
+  paymentMethod: text("payment_method"),
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertAccountsReceivableSchema = createInsertSchema(accountsReceivable).omit({
+  id: true, deletedAt: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// DISCOUNT LIMITS
+// =============================================
+
+export const discountLimits = pgTable("discount_limits", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  role: text("role").notNull(), // admin, dentist, staff
+  maxDiscountPercent: decimal("max_discount_percent", { precision: 5, scale: 2 }).notNull().default("0"),
+  requiresApproval: boolean("requires_approval").default(false),
+  approvalRole: text("approval_role"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertDiscountLimitSchema = createInsertSchema(discountLimits).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// CLINIC UNITS
+// =============================================
+
+export const clinicUnits = pgTable("clinic_units", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(),
+  address: text("address"),
+  phone: varchar("phone", { length: 20 }),
+  cnpj: varchar("cnpj", { length: 18 }),
+  cro: text("cro"),
+  isMain: boolean("is_main").default(false),
+  active: boolean("active").notNull().default(true),
+  settings: jsonb("settings").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertClinicUnitSchema = createInsertSchema(clinicUnits).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+// =============================================
+// BANK TRANSACTIONS
+// =============================================
+
+export const bankTransactions = pgTable("bank_transactions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  transactionDate: date("transaction_date").notNull(),
+  description: text("description").notNull(),
+  amount: integer("amount").notNull(), // in cents, negative for debits
+  balance: integer("balance"), // running balance in cents
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  importSource: text("import_source"), // ofx, csv, manual
+  externalId: text("external_id"), // bank's transaction ID
+  reconciled: boolean("reconciled").default(false),
+  reconciledTransactionId: integer("reconciled_transaction_id"), // FK to financialTransactions
+  reconciledAt: timestamp("reconciled_at", { withTimezone: true }),
+  reconciledBy: integer("reconciled_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertBankTransactionSchema = createInsertSchema(bankTransactions).omit({
+  id: true, createdAt: true,
+});
+
+// =============================================
+// QUOTES (Orcamentos)
+// =============================================
+
+export interface QuoteItem {
+  procedureName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  procedureId?: number;
+}
+
+export const quotes = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  treatmentPlanId: integer("treatment_plan_id").references(() => treatmentPlans.id, { onDelete: "set null" }),
+  patientId: integer("patient_id").notNull().references(() => patients.id, { onDelete: "restrict" }),
+  professionalId: integer("professional_id").references(() => users.id, { onDelete: "set null" }),
+  items: jsonb("items").$type<QuoteItem[]>().notNull(),
+  subtotal: integer("subtotal").notNull(),
+  discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).default("0"),
+  discountAmount: integer("discount_amount").default(0),
+  totalAmount: integer("total_amount").notNull(),
+  installments: integer("installments").default(1),
+  installmentValue: integer("installment_value"),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).default("0"),
+  totalWithInterest: integer("total_with_interest"),
+  token: text("token").unique().notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, viewed, approved, rejected, expired
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  approvalIpAddress: text("approval_ip_address"),
+  approvalMethod: text("approval_method"),
+  rejectionReason: text("rejection_reason"),
+  pdfUrl: text("pdf_url"),
+  sentVia: text("sent_via"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// =============================================
+// TEAM INVITES (Convites de Equipe)
+// =============================================
+
+export const teamInvites = pgTable("team_invites", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("staff"),
+  token: text("token").unique().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  invitedBy: integer("invited_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// =============================================
+// NPS SURVEYS
+// =============================================
+
+export const npsSurveys = pgTable("nps_surveys", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  patientId: integer("patient_id").references(() => patients.id),
+  appointmentId: integer("appointment_id").references(() => appointments.id),
+  score: integer("score"), // 0-10
+  feedback: text("feedback"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
+  status: text("status").notNull().default("pending"), // pending, sent, responded, expired
+  channel: text("channel").default("whatsapp"), // whatsapp, email, sms
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertNpsSurveySchema = createInsertSchema(npsSurveys).pick({
+  companyId: true,
+  patientId: true,
+  appointmentId: true,
+  score: true,
+  feedback: true,
+  sentAt: true,
+  respondedAt: true,
+  status: true,
+  channel: true,
+});
+
+// =============================================
 // EXPORT TYPES
 // =============================================
 
 export type InsertDigitalizationInvoice = z.infer<typeof insertDigitalizationInvoiceSchema>;
+
+export type ScheduleBlock = typeof scheduleBlocks.$inferSelect;
+export type InsertScheduleBlock = typeof scheduleBlocks.$inferInsert;
+export type AnesthesiaLog = typeof anesthesiaLogs.$inferSelect;
+export type InsertAnesthesiaLog = typeof anesthesiaLogs.$inferInsert;
+export type AccountPayable = typeof accountsPayable.$inferSelect;
+export type InsertAccountPayable = typeof accountsPayable.$inferInsert;
+export type AccountReceivable = typeof accountsReceivable.$inferSelect;
+export type InsertAccountReceivable = typeof accountsReceivable.$inferInsert;
+export type DiscountLimit = typeof discountLimits.$inferSelect;
+export type InsertDiscountLimit = typeof discountLimits.$inferInsert;
+export type ClinicUnit = typeof clinicUnits.$inferSelect;
+export type InsertClinicUnit = typeof clinicUnits.$inferInsert;
+export type BankTransaction = typeof bankTransactions.$inferSelect;
+export type InsertBankTransaction = typeof bankTransactions.$inferInsert;
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = typeof quotes.$inferInsert;
+export type TeamInvite = typeof teamInvites.$inferSelect;
+export type InsertTeamInvite = typeof teamInvites.$inferInsert;
+export type NpsSurvey = typeof npsSurveys.$inferSelect;
+export type InsertNpsSurvey = z.infer<typeof insertNpsSurveySchema>;

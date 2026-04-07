@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,67 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Camera,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ============================================================
+// CPF validation — modulo-11 algorithm
+// ============================================================
+
+function isValidCPF(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+  let rem = (sum * 10) % 11;
+  if (rem === 10) rem = 0;
+  if (rem !== parseInt(digits[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+  rem = (sum * 10) % 11;
+  if (rem === 10) rem = 0;
+  return rem === parseInt(digits[10]);
+}
+
+// ============================================================
+// Input masks
+// ============================================================
+
+function maskPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits.length ? `(${digits}` : '';
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function maskCPF(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function maskCEP(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function createMaskedHandler(
+  maskFn: (value: string) => string,
+  setValue: (field: any, value: any, options?: any) => void,
+  field: string
+) {
+  return (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = maskFn(e.target.value);
+    setValue(field as any, masked, { shouldValidate: false });
+  };
+}
 
 // ============================================================
 // Schema - Minimal required + optional extras
@@ -35,7 +94,10 @@ const patientFormSchema = z.object({
   phone: z.string().min(8, "Telefone deve ter pelo menos 8 digitos"),
   // Quick optional
   email: optionalEmail,
-  cpf: z.union([z.string().min(11, "CPF invalido").max(14, "CPF invalido"), z.literal(""), z.null()]).optional(),
+  cpf: z.union([
+    z.string().refine(val => val === '' || isValidCPF(val), { message: "CPF invalido (digito verificador incorreto)" }),
+    z.literal(""), z.null()
+  ]).optional(),
   birthDate: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), { message: "Data invalida" }),
   gender: z.string().optional(),
   // Extended fields (shown when expanded)
@@ -72,6 +134,22 @@ const patientFormSchema = z.object({
   whatsappConsent: z.boolean().optional(),
   emailConsent: z.boolean().optional(),
   smsConsent: z.boolean().optional(),
+  referredByPatientId: z.number().optional().nullable(),
+  referenceDoctorName: optionalString,
+  referenceDoctorPhone: optionalPhone,
+  profilePhoto: optionalString,
+}).superRefine((data, ctx) => {
+  if (data.birthDate) {
+    const age = Math.floor((Date.now() - new Date(data.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (age < 18) {
+      if (!data.responsibleName || data.responsibleName.trim() === '') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Nome do responsavel obrigatorio para menores de 18 anos", path: ["responsibleName"] });
+      }
+      if (!data.responsibleCpf || data.responsibleCpf.trim() === '') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "CPF do responsavel obrigatorio para menores de 18 anos", path: ["responsibleCpf"] });
+      }
+    }
+  }
 });
 
 type PatientFormData = z.infer<typeof patientFormSchema>;
@@ -92,6 +170,8 @@ export default function PatientForm({
   isEditing = false,
 }: PatientFormProps) {
   const [showExtended, setShowExtended] = useState(!!isEditing);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.profilePhoto || null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const defaultValues: any = initialData
     ? {
@@ -133,6 +213,9 @@ export default function PatientForm({
         whatsappConsent: initialData.whatsappConsent || false,
         emailConsent: initialData.emailConsent || false,
         smsConsent: initialData.smsConsent || false,
+        referenceDoctorName: initialData.referenceDoctorName || "",
+        referenceDoctorPhone: initialData.referenceDoctorPhone || "",
+        profilePhoto: initialData.profilePhoto || "",
         birthDate: initialData.birthDate
           ? new Date(initialData.birthDate).toISOString().split("T")[0]
           : "",
@@ -177,6 +260,9 @@ export default function PatientForm({
         whatsappConsent: false,
         emailConsent: false,
         smsConsent: false,
+        referenceDoctorName: "",
+        referenceDoctorPhone: "",
+        profilePhoto: "",
       };
 
   const {
@@ -191,9 +277,38 @@ export default function PatientForm({
     mode: "onSubmit",
   });
 
+  const [cepLoading, setCepLoading] = useState(false);
+
+  const cepValue = watch("cep");
+  const birthDateValue = watch("birthDate");
+
+  const isMinor = birthDateValue
+    ? Math.floor((Date.now() - new Date(birthDateValue).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) < 18
+    : false;
+
+  useEffect(() => {
+    const cep = cepValue?.replace(/\D/g, '');
+    if (cep && cep.length === 8) {
+      setCepLoading(true);
+      fetch(`https://viacep.com.br/ws/${cep}/json/`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.erro) {
+            setValue("address", data.logradouro || "", { shouldValidate: false });
+            setValue("neighborhood", data.bairro || "", { shouldValidate: false });
+            setValue("city", data.localidade || "", { shouldValidate: false });
+            setValue("state", data.uf || "", { shouldValidate: false });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setCepLoading(false));
+    }
+  }, [cepValue, setValue]);
+
   const processSubmit = (data: PatientFormData) => {
     const formattedData = {
       ...data,
+      profilePhoto: data.profilePhoto || undefined,
       birthDate: data.birthDate ? new Date(data.birthDate).toISOString() : undefined,
       consentDate: data.dataProcessingConsent ? new Date().toISOString() : undefined,
       consentMethod: "online",
@@ -211,8 +326,91 @@ export default function PatientForm({
     return <p className="text-red-500 text-sm mt-1">{error.message as string}</p>;
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Arquivo muito grande. Maximo: 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPhotoPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/storage/upload/avatars", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setValue("profilePhoto", data.url || data.key || data.path || "", { shouldValidate: false });
+      }
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handlePhoneChange = createMaskedHandler(maskPhone, setValue, 'phone');
+  const handleCellphoneChange = createMaskedHandler(maskPhone, setValue, 'cellphone');
+  const handleWhatsappChange = createMaskedHandler(maskPhone, setValue, 'whatsappPhone');
+  const handleEmergencyPhoneChange = createMaskedHandler(maskPhone, setValue, 'emergencyContactPhone');
+  const handleRefDoctorPhoneChange = createMaskedHandler(maskPhone, setValue, 'referenceDoctorPhone');
+  const handleCpfChange = createMaskedHandler(maskCPF, setValue, 'cpf');
+  const handleResponsibleCpfChange = createMaskedHandler(maskCPF, setValue, 'responsibleCpf');
+  const handleCepChange = createMaskedHandler(maskCEP, setValue, 'cep');
+
   return (
     <form onSubmit={handleSubmit(processSubmit)} className="space-y-4">
+      {/* ============================== */}
+      {/* Profile Photo Upload           */}
+      {/* ============================== */}
+      <div className="flex flex-col items-center gap-3 pb-4 border-b">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full overflow-hidden bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+            {photoPreview ? (
+              <img src={photoPreview} alt="Foto do paciente" className="w-full h-full object-cover" />
+            ) : (
+              <Camera className="h-8 w-8 text-muted-foreground/50" />
+            )}
+          </div>
+          {photoPreview && (
+            <button
+              type="button"
+              onClick={() => { setPhotoPreview(null); setValue("profilePhoto", ""); }}
+              className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+              aria-label="Remover foto"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <label className="cursor-pointer">
+          <span className="text-sm text-primary hover:underline">
+            {photoUploading ? "Enviando..." : "Adicionar foto"}
+          </span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handlePhotoUpload}
+            disabled={photoUploading}
+          />
+        </label>
+      </div>
+
       {/* ============================== */}
       {/* Essential fields - always shown */}
       {/* ============================== */}
@@ -225,7 +423,7 @@ export default function PatientForm({
 
         <div>
           <Label htmlFor="phone" className="required">Telefone / Celular</Label>
-          <Input id="phone" placeholder="(00) 00000-0000" {...register("phone")} className={errors.phone ? "border-red-500" : ""} />
+          <Input id="phone" placeholder="(00) 00000-0000" value={watch("phone") || ""} onChange={handlePhoneChange} className={errors.phone ? "border-red-500" : ""} />
           {renderError("phone")}
         </div>
 
@@ -237,7 +435,7 @@ export default function PatientForm({
           </div>
           <div>
             <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" placeholder="000.000.000-00" {...register("cpf")} className={errors.cpf ? "border-red-500" : ""} />
+            <Input id="cpf" placeholder="000.000.000-00" value={watch("cpf") || ""} onChange={handleCpfChange} className={errors.cpf ? "border-red-500" : ""} />
             {renderError("cpf")}
           </div>
         </div>
@@ -316,11 +514,11 @@ export default function PatientForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="cellphone">Celular (se diferente)</Label>
-                <Input id="cellphone" placeholder="(00) 00000-0000" {...register("cellphone")} />
+                <Input id="cellphone" placeholder="(00) 00000-0000" value={watch("cellphone") || ""} onChange={handleCellphoneChange} />
               </div>
               <div>
                 <Label htmlFor="whatsappPhone">WhatsApp (se diferente)</Label>
-                <Input id="whatsappPhone" placeholder="(00) 00000-0000" {...register("whatsappPhone")} />
+                <Input id="whatsappPhone" placeholder="(00) 00000-0000" value={watch("whatsappPhone") || ""} onChange={handleWhatsappChange} />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -330,7 +528,7 @@ export default function PatientForm({
               </div>
               <div>
                 <Label htmlFor="emergencyContactPhone">Tel. Emergencia</Label>
-                <Input id="emergencyContactPhone" placeholder="(00) 00000-0000" {...register("emergencyContactPhone")} />
+                <Input id="emergencyContactPhone" placeholder="(00) 00000-0000" value={watch("emergencyContactPhone") || ""} onChange={handleEmergencyPhoneChange} />
               </div>
               <div>
                 <Label htmlFor="emergencyContactRelation">Parentesco</Label>
@@ -353,9 +551,10 @@ export default function PatientForm({
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1">Endereco</h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+              <div className="relative">
                 <Label htmlFor="cep">CEP</Label>
-                <Input id="cep" placeholder="00000-000" {...register("cep")} />
+                <Input id="cep" placeholder="00000-000" value={watch("cep") || ""} onChange={handleCepChange} />
+                {cepLoading && <Loader2 className="absolute right-2 top-8 h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="address">Endereco</Label>
@@ -388,7 +587,7 @@ export default function PatientForm({
           {/* Saude */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1">Saude</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="healthInsurance">Convenio</Label>
                 <Input id="healthInsurance" placeholder="Nome do convenio" {...register("healthInsurance")} />
@@ -396,6 +595,17 @@ export default function PatientForm({
               <div>
                 <Label htmlFor="healthInsuranceNumber">N. Carteirinha</Label>
                 <Input id="healthInsuranceNumber" placeholder="Numero" {...register("healthInsuranceNumber")} />
+              </div>
+              <div>
+                <Label htmlFor="bloodType">Tipo Sanguineo</Label>
+                <Select defaultValue={defaultValues.bloodType || ""} onValueChange={(v) => handleSelectChange("bloodType", v)}>
+                  <SelectTrigger id="bloodType"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(bt => (
+                      <SelectItem key={bt} value={bt}>{bt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div>
@@ -412,12 +622,106 @@ export default function PatientForm({
             </div>
           </div>
 
+          {/* Medico de Referencia */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1">Medico de Referencia</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="referenceDoctorName">Nome do Medico</Label>
+                <Input id="referenceDoctorName" placeholder="Dr. Nome" {...register("referenceDoctorName")} />
+              </div>
+              <div>
+                <Label htmlFor="referenceDoctorPhone">Telefone do Medico</Label>
+                <Input id="referenceDoctorPhone" placeholder="(00) 0000-0000" value={watch("referenceDoctorPhone") || ""} onChange={handleRefDoctorPhoneChange} />
+              </div>
+            </div>
+          </div>
+
+          {/* Como conheceu a clinica */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1">Origem do Paciente</h4>
+            <div>
+              <Label htmlFor="referralSource">Como conheceu a clinica?</Label>
+              <Select value={watch("referralSource") || ""} onValueChange={(val) => handleSelectChange("referralSource", val)}>
+                <SelectTrigger id="referralSource">
+                  <SelectValue placeholder="Selecione a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google">Google / Busca Online</SelectItem>
+                  <SelectItem value="indicacao">Indicacao de Paciente</SelectItem>
+                  <SelectItem value="instagram">Instagram</SelectItem>
+                  <SelectItem value="facebook">Facebook</SelectItem>
+                  <SelectItem value="tiktok">TikTok</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="placa">Placa / Fachada</SelectItem>
+                  <SelectItem value="convenio">Convenio</SelectItem>
+                  <SelectItem value="panfleto">Panfleto / Folder</SelectItem>
+                  <SelectItem value="tv_radio">TV / Radio</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {watch("referralSource") === "indicacao" && (
+              <div>
+                <Label htmlFor="referredBySearch">Indicado por qual paciente?</Label>
+                <Input
+                  id="referredBySearch"
+                  placeholder="Digite o nome do paciente que indicou..."
+                  value={watch("referredByPatientId") ? String(watch("referredByPatientId")) : ""}
+                  onChange={(e) => setValue("referredByPatientId", null, { shouldValidate: false })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  O vinculo de indicacao sera registrado no cadastro
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Observacoes */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1">Observacoes</h4>
             <div>
               <Label htmlFor="notes">Observacoes Gerais</Label>
               <Textarea id="notes" placeholder="Observacoes adicionais sobre o paciente" {...register("notes")} rows={2} />
+            </div>
+          </div>
+
+          {/* Responsavel Legal */}
+          <div className="space-y-3">
+            <h4 className={cn("text-sm font-semibold border-b pb-1", isMinor ? "text-orange-600" : "text-muted-foreground")}>
+              Responsavel Legal {isMinor && "(Obrigatorio - paciente menor de 18 anos)"}
+            </h4>
+            {isMinor && (
+              <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                Paciente menor de idade. O preenchimento do responsavel financeiro e obrigatorio.
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="responsibleName" className={isMinor ? "required" : ""}>Nome do Responsavel</Label>
+                <Input id="responsibleName" placeholder="Nome completo" {...register("responsibleName")}
+                  className={isMinor && !watch("responsibleName") ? "border-orange-400" : ""} />
+                {renderError("responsibleName")}
+              </div>
+              <div>
+                <Label htmlFor="responsibleCpf" className={isMinor ? "required" : ""}>CPF do Responsavel</Label>
+                <Input id="responsibleCpf" placeholder="000.000.000-00" value={watch("responsibleCpf") || ""} onChange={handleResponsibleCpfChange}
+                  className={isMinor && !watch("responsibleCpf") ? "border-orange-400" : ""} />
+                {renderError("responsibleCpf")}
+              </div>
+              <div>
+                <Label htmlFor="responsibleRelationship">Parentesco</Label>
+                <Select defaultValue={defaultValues.responsibleRelationship || ""} onValueChange={(v) => handleSelectChange("responsibleRelationship", v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mae">Mae</SelectItem>
+                    <SelectItem value="pai">Pai</SelectItem>
+                    <SelectItem value="tutor">Tutor Legal</SelectItem>
+                    <SelectItem value="avo">Avo(a)</SelectItem>
+                    <SelectItem value="outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

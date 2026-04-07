@@ -5,6 +5,7 @@ import { authCheck, tenantAwareAuth, asyncHandler } from '../middleware/auth';
 import { cacheMiddleware } from '../simpleCache';
 import { invalidateClusterCache } from '../clusterCache';
 import { validate, paginationSchema, idParamSchema, createPaginatedResponse, getOffset } from '../middleware/validation';
+import { logger } from '../logger';
 import {
   createPatientSchema,
   updatePatientSchema,
@@ -25,8 +26,8 @@ router.get(
   validate({ query: paginationSchema.merge(searchPatientsSchema) }),
   cacheMiddleware(300),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -82,8 +83,8 @@ router.get(
   validate({ params: idParamSchema }),
   cacheMiddleware(300),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -109,8 +110,8 @@ router.post(
   authCheck,
   validate({ body: createPatientSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -137,8 +138,8 @@ router.patch(
     body: updatePatientSchema
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -164,8 +165,8 @@ router.delete(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -199,8 +200,8 @@ router.post(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -302,8 +303,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -328,8 +329,8 @@ router.post(
     body: createAnamnesisSchema.omit({ patientId: true })
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -339,10 +340,164 @@ router.post(
     const anamnesis = await storage.createPatientAnamnesis({
       ...req.body,
       patientId: parseInt(id),
-      companyId
+      companyId,
+      createdBy: user.id,
     });
 
     res.status(201).json(anamnesis);
+  })
+);
+
+/**
+ * PATCH /api/v1/patients/:id/anamnesis/:anamnesisId
+ * Atualiza anamnese existente e cria snapshot de versão antes da alteração.
+ * Aceita o campo opcional `changeReason` no body para registrar o motivo.
+ */
+router.patch(
+  '/:id/anamnesis/:anamnesisId',
+  authCheck,
+  validate({ body: updateAnamnesisSchema }),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const anamnesisId = parseInt(req.params.anamnesisId, 10);
+    if (isNaN(anamnesisId) || anamnesisId < 1) {
+      return res.status(400).json({ error: 'ID de anamnese inválido' });
+    }
+
+    const { changeReason, ...updateData } = req.body;
+
+    const updated = await storage.updatePatientAnamnesis(
+      anamnesisId,
+      updateData,
+      companyId,
+      {
+        changedBy: user.id,
+        changeReason: changeReason ?? undefined,
+        ipAddress: req.ip,
+      }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Anamnese não encontrada' });
+    }
+
+    res.json(updated);
+  })
+);
+
+/**
+ * GET /api/v1/patients/:id/anamnesis/:anamnesisId/history
+ * Retorna o histórico completo de versões da anamnese (mais recente primeiro).
+ */
+router.get(
+  '/:id/anamnesis/:anamnesisId/history',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const anamnesisId = parseInt(req.params.anamnesisId, 10);
+    if (isNaN(anamnesisId)) {
+      return res.status(400).json({ error: 'ID de anamnese inválido' });
+    }
+
+    const history = await storage.getAnamnesisVersionHistory(anamnesisId, companyId);
+    res.json({ data: history });
+  })
+);
+
+/**
+ * GET /api/v1/patients/:id/anamnesis/:anamnesisId/version/:versionNumber
+ * Retorna o snapshot de uma versão específica da anamnese.
+ */
+router.get(
+  '/:id/anamnesis/:anamnesisId/version/:versionNumber',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const anamnesisId = parseInt(req.params.anamnesisId, 10);
+    const versionNumber = parseInt(req.params.versionNumber, 10);
+
+    if (isNaN(anamnesisId) || isNaN(versionNumber)) {
+      return res.status(400).json({ error: 'Parâmetros inválidos' });
+    }
+
+    const version = await storage.getAnamnesisVersion(anamnesisId, versionNumber, companyId);
+
+    if (!version) {
+      return res.status(404).json({ error: 'Versão não encontrada' });
+    }
+
+    res.json(version);
+  })
+);
+
+/**
+ * GET /api/v1/patients/:id/anamnesis/:anamnesisId/diff/:v1/:v2
+ * Compara dois snapshots de versões da anamnese.
+ * Retorna a lista de campos que mudaram com os valores antes e depois.
+ */
+router.get(
+  '/:id/anamnesis/:anamnesisId/diff/:v1/:v2',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const anamnesisId = parseInt(req.params.anamnesisId, 10);
+    const v1 = parseInt(req.params.v1, 10);
+    const v2 = parseInt(req.params.v2, 10);
+
+    if (isNaN(anamnesisId) || isNaN(v1) || isNaN(v2)) {
+      return res.status(400).json({ error: 'Parâmetros inválidos' });
+    }
+
+    const [version1, version2] = await Promise.all([
+      storage.getAnamnesisVersion(anamnesisId, v1, companyId),
+      storage.getAnamnesisVersion(anamnesisId, v2, companyId),
+    ]);
+
+    if (!version1 || !version2) {
+      return res.status(404).json({ error: 'Uma ou ambas as versões não encontradas' });
+    }
+
+    const snap1: Record<string, unknown> = version1.snapshot as Record<string, unknown>;
+    const snap2: Record<string, unknown> = version2.snapshot as Record<string, unknown>;
+
+    const allKeys = new Set([...Object.keys(snap1), ...Object.keys(snap2)]);
+    const changes: { field: string; old: unknown; new: unknown }[] = [];
+    for (const key of allKeys) {
+      if (JSON.stringify(snap1[key]) !== JSON.stringify(snap2[key])) {
+        changes.push({ field: key, old: snap1[key], new: snap2[key] });
+      }
+    }
+
+    res.json({
+      anamnesisId,
+      version1: v1,
+      version2: v2,
+      changes,
+    });
   })
 );
 
@@ -357,8 +512,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -380,8 +535,8 @@ router.post(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -409,8 +564,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -432,8 +587,8 @@ router.post(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -450,6 +605,110 @@ router.post(
   })
 );
 
+/**
+ * PATCH /api/v1/patients/:id/treatment-plans/:planId
+ * Atualiza plano de tratamento. Quando o status muda para 'approved',
+ * gera automaticamente entradas em contas a receber (accounts_receivable).
+ */
+router.patch(
+  '/:id/treatment-plans/:planId',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const patientId = parseInt(req.params.id, 10);
+    const planId = parseInt(req.params.planId, 10);
+
+    if (isNaN(patientId) || isNaN(planId)) {
+      return res.status(400).json({ error: 'Invalid patient or plan ID' });
+    }
+
+    // Fetch current plan to capture previousStatus before update
+    const existing = await db.$client.query(
+      `SELECT id, status, estimated_cost, approved_cost, patient_id
+       FROM detailed_treatment_plans
+       WHERE id = $1
+         AND company_id = $2
+         AND deleted_at IS NULL`,
+      [planId, companyId]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Treatment plan not found' });
+    }
+
+    const previousStatus: string = existing.rows[0].status;
+
+    const updatedPlan = await storage.updatePatientTreatmentPlan(planId, req.body, companyId);
+
+    if (!updatedPlan) {
+      return res.status(404).json({ error: 'Treatment plan not found or update failed' });
+    }
+
+    // Auto-generate accounts_receivable when status transitions to 'approved'
+    if (updatedPlan.status === 'approved' && previousStatus !== 'approved') {
+      try {
+        // Use approvedCost if set, otherwise estimatedCost; both stored in cents
+        const totalCents: number =
+          (updatedPlan.approvedCost ?? updatedPlan.estimatedCost) || 0;
+
+        if (totalCents > 0) {
+          // Default to a single installment; the caller may pass installments via body
+          const installments: number = Math.max(1, parseInt(req.body.installments ?? '1', 10));
+          const installmentValue = Math.floor(totalCents / installments);
+          const remainder = totalCents - installmentValue * installments;
+
+          const baseDate = new Date();
+
+          const insertValues: string[] = [];
+          const insertParams: unknown[] = [];
+          let paramIdx = 1;
+
+          for (let i = 0; i < installments; i++) {
+            const dueDate = new Date(baseDate);
+            dueDate.setMonth(dueDate.getMonth() + i);
+            const amount = i === 0 ? installmentValue + remainder : installmentValue;
+
+            insertValues.push(
+              `($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8})`
+            );
+            insertParams.push(
+              companyId,
+              updatedPlan.patientId,
+              planId,
+              `Plano de tratamento — parcela ${i + 1}/${installments}`,
+              amount,
+              dueDate.toISOString().split('T')[0],
+              'pending',
+              i + 1,
+              installments
+            );
+            paramIdx += 9;
+          }
+
+          await db.$client.query(
+            `INSERT INTO accounts_receivable
+               (company_id, patient_id, treatment_plan_id, description, amount,
+                due_date, status, installment_number, total_installments)
+             VALUES ${insertValues.join(', ')}`,
+            insertParams
+          );
+        }
+      } catch (err) {
+        logger.error({ err: err }, 'Auto-generate receivables error:');
+        // Do not block the response — receivables generation is a side-effect
+      }
+    }
+
+    res.json(updatedPlan);
+  })
+);
+
 // =============== PRESCRIPTIONS ROUTES ===============
 
 /**
@@ -461,8 +720,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -472,6 +731,98 @@ router.get(
     const prescriptions = await storage.getPatientPrescriptions(parseInt(id), companyId);
 
     res.json(prescriptions);
+  })
+);
+
+// =============== LGPD ROUTES ===============
+
+/**
+ * GET /api/v1/patients/:id/lgpd-export
+ * Exporta TODOS os dados pessoais e de saúde do paciente em formato JSON.
+ * Atende ao Art. 18, V da LGPD (portabilidade dos dados).
+ *
+ * A resposta é entregue como arquivo para download
+ * (Content-Disposition: attachment).
+ */
+router.get(
+  '/:id/lgpd-export',
+  tenantAwareAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const patientId = parseInt(req.params.id, 10);
+    if (isNaN(patientId)) {
+      return res.status(400).json({ error: 'Invalid patient ID' });
+    }
+
+    // Fetch all data in parallel — each query is tenant-scoped via company_id
+    const [
+      patientResult,
+      appointmentsResult,
+      anamnesisResult,
+      prescriptionsResult,
+      evolutionResult,
+      paymentsResult,
+    ] = await Promise.all([
+      db.$client.query(
+        `SELECT * FROM patients WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL`,
+        [patientId, companyId]
+      ),
+      db.$client.query(
+        `SELECT * FROM appointments WHERE patient_id = $1 AND company_id = $2`,
+        [patientId, companyId]
+      ),
+      db.$client.query(
+        `SELECT * FROM anamnesis WHERE patient_id = $1 AND company_id = $2`,
+        [patientId, companyId]
+      ),
+      db.$client.query(
+        `SELECT * FROM prescriptions WHERE patient_id = $1 AND company_id = $2`,
+        [patientId, companyId]
+      ),
+      db.$client.query(
+        `SELECT * FROM treatment_evolution WHERE patient_id = $1 AND company_id = $2`,
+        [patientId, companyId]
+      ),
+      // financial_transactions uses customer_id for patient reference
+      db.$client.query(
+        `SELECT * FROM financial_transactions WHERE customer_id = $1 AND company_id = $2`,
+        [patientId, companyId]
+      ),
+    ]);
+
+    if (!patientResult.rows.length) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      legalBasis: 'LGPD Art. 18, V — Portabilidade dos dados',
+      requestedBy: {
+        userId: user.id,
+        userName: user.fullName || user.email,
+      },
+      patient: patientResult.rows[0],
+      appointments: appointmentsResult.rows,
+      healthRecords: {
+        anamnesis: anamnesisResult.rows,
+        evolution: evolutionResult.rows,
+      },
+      prescriptions: prescriptionsResult.rows,
+      financialHistory: paymentsResult.rows,
+    };
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="dados_paciente_${patientId}_lgpd.json"`
+    );
+    res.json(exportData);
   })
 );
 
@@ -486,8 +837,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });

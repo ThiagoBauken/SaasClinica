@@ -3,8 +3,15 @@ import { format, addDays, subDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, Phone, Stethoscope, User } from "lucide-react";
 import PaymentStatusBadge, { PaymentStatus } from "@/components/PaymentStatusBadge";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import { cn } from "@/lib/utils";
 
 // Tipo para um compromisso/agendamento
 interface Appointment {
@@ -13,8 +20,10 @@ interface Appointment {
   startTime: string;
   endTime: string;
   patientName: string;
+  patientPhone?: string;
   professionalName: string;
   procedure: string;
+  procedureColor?: string;
   status: string;
   color?: string;
   paymentStatus?: PaymentStatus;
@@ -22,9 +31,22 @@ interface Appointment {
   paidAmount?: number;
 }
 
+// Tipo para um bloqueio de agenda (férias, feriado, manutenção, etc.)
+interface ScheduleBlock {
+  id: number;
+  title: string;
+  reason: string;
+  startTime: string;
+  endTime: string;
+  allDay: boolean;
+  professionalId?: number;
+  roomId?: number;
+}
+
 // Propriedades do componente
 interface CalendarDayViewProps {
   appointments?: Appointment[];
+  scheduleBlocks?: ScheduleBlock[];
   onDateSelect?: (date: Date, startTime: string, endTime?: string) => void;
   onAppointmentClick?: (appointment: Appointment) => void;
   onAppointmentDrop?: (appointmentId: number, newDate: Date, newStartTime: string, newEndTime: string) => void;
@@ -40,6 +62,7 @@ export interface CalendarDayViewRef {
 
 const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
   appointments = [],
+  scheduleBlocks = [],
   onDateSelect,
   onAppointmentClick,
   onAppointmentDrop,
@@ -52,6 +75,9 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
   const [selectionStart, setSelectionStart] = useState<string | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Color mode: 'status' | 'procedure'
+  const [colorMode, setColorMode] = useState<'status' | 'procedure'>('status');
 
   // Estados para Drag & Drop de agendamentos
   const [draggingAppointment, setDraggingAppointment] = useState<Appointment | null>(null);
@@ -158,6 +184,27 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
     const maxIndex = Math.max(startIndex, endIndex);
 
     return timeIndex >= minIndex && timeIndex <= maxIndex;
+  };
+
+  // ===== Schedule Block Helpers =====
+
+  const isSlotBlocked = (time: string) => {
+    return scheduleBlocks.some(block => time >= block.startTime && time < block.endTime);
+  };
+
+  const getBlockForSlot = (time: string) => {
+    return scheduleBlocks.find(block => time >= block.startTime && time < block.endTime);
+  };
+
+  const getReasonLabel = (reason: string) => {
+    switch (reason) {
+      case 'ferias': return 'Férias';
+      case 'folga': return 'Folga';
+      case 'compromisso': return 'Compromisso';
+      case 'manutencao': return 'Manutenção';
+      case 'feriado': return 'Feriado';
+      default: return reason;
+    }
   };
 
   // ===== Drag & Drop Handlers =====
@@ -282,7 +329,7 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
   };
 
   // Obter cor baseada no status
-  const getStatusColor = (status: string) => {
+  const getStatusColorClass = (status: string) => {
     switch (status) {
       case 'confirmado':
         return 'bg-green-500/20 border-green-500 text-green-700 dark:text-green-300';
@@ -290,10 +337,34 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
         return 'bg-blue-500/20 border-blue-500 text-blue-700 dark:text-blue-300';
       case 'cancelado':
         return 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300';
+      case 'arrived':
+        return 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300';
       default:
         return 'bg-muted border-muted-foreground text-muted-foreground';
     }
   };
+
+  // Retorna classes de cor de acordo com o modo selecionado
+  const getAppointmentColor = (appointment: Appointment) => {
+    if (colorMode === 'procedure' && appointment.procedureColor) {
+      // Use inline style for custom procedure colors — return a sentinel class
+      return '__procedure_color__';
+    }
+    return getStatusColorClass(appointment.status);
+  };
+
+  // Calcular ocupação do dia (minutos agendados / total de minutos disponíveis)
+  const occupancy = useMemo(() => {
+    const totalAvailableMinutes = timeSlots.length * timeInterval;
+    const bookedMinutes = dayAppointments.reduce((acc, appt) => {
+      const startIdx = timeSlots.indexOf(appt.startTime);
+      const endIdx = timeSlots.indexOf(appt.endTime);
+      if (startIdx === -1) return acc;
+      const slots = endIdx > startIdx ? endIdx - startIdx : 1;
+      return acc + slots * timeInterval;
+    }, 0);
+    return totalAvailableMinutes > 0 ? (bookedMinutes / totalAvailableMinutes) * 100 : 0;
+  }, [dayAppointments, timeSlots, timeInterval]);
 
   return (
     <Card
@@ -308,66 +379,130 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
       }}
     >
       {/* Header com navegação */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold">
             {format(currentDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </h2>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={prevDay}>
-            <ChevronLeft className="h-4 w-4" />
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Color mode toggle */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground border rounded-md overflow-hidden">
+            <button
+              className={cn(
+                'px-2 py-1 transition-colors',
+                colorMode === 'status' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              )}
+              onClick={() => setColorMode('status')}
+            >
+              Por Status
+            </button>
+            <button
+              className={cn(
+                'px-2 py-1 transition-colors',
+                colorMode === 'procedure' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              )}
+              onClick={() => setColorMode('procedure')}
+            >
+              Por Procedimento
+            </button>
+          </div>
+
+          <Button variant="outline" size="icon" onClick={prevDay} aria-label="Dia anterior">
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="outline" size="icon" onClick={nextDay}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={nextDay} aria-label="Próximo dia">
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
+      {/* Occupancy indicator */}
+      <div className="mb-4">
+        <div className="h-2 rounded-full bg-muted overflow-hidden mb-1">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all duration-300',
+              occupancy > 80 ? 'bg-red-500' : occupancy > 60 ? 'bg-yellow-500' : 'bg-green-500'
+            )}
+            style={{ width: `${Math.min(occupancy, 100)}%` }}
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          {occupancy.toFixed(0)}% ocupado — {dayAppointments.length} agendamento{dayAppointments.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* Grade de horários */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[80px_1fr] bg-muted/50 border-b">
-          <div className="p-2 font-medium text-sm border-r">Horário</div>
-          <div className="p-2 font-medium text-sm">Agendamentos</div>
+        <div className="grid grid-cols-[80px_1fr] bg-muted/50 border-b" role="row">
+          <div className="p-2 font-medium text-sm border-r" role="columnheader">Horário</div>
+          <div className="p-2 font-medium text-sm" role="columnheader">Agendamentos</div>
         </div>
 
         <div
           ref={gridRef}
+          role="grid"
+          aria-label={`Grade de horários — ${format(currentDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}`}
           className="relative"
           onMouseLeave={handleMouseLeave}
           onMouseUp={handleMouseUp}
         >
-          {timeSlots.map((time) => (
-            <div
-              key={time}
-              className="grid grid-cols-[80px_1fr] border-b hover:bg-muted/50 transition-colors"
-              style={{ height: '50px' }}
-              onMouseDown={() => handleMouseDown(time)}
-              onMouseMove={() => handleMouseMove(time)}
-            >
-              <div className="p-2 text-sm text-muted-foreground border-r flex items-center">
-                {time}
-              </div>
+          {timeSlots.map((time) => {
+            const blocked = isSlotBlocked(time);
+            const block = blocked ? getBlockForSlot(time) : undefined;
+            return (
               <div
-                className={`p-2 cursor-pointer transition-colors ${
-                  isSlotSelected(time) ? 'bg-blue-500/20 border-l-4 border-blue-500' : ''
-                } ${
-                  dragOverSlot === time ? 'bg-green-500/20 border-l-4 border-green-500' : ''
-                }`}
-                onDragOver={(e) => handleDragOver(e, time)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, time)}
+                key={time}
+                role="row"
+                className="grid grid-cols-[80px_1fr] border-b hover:bg-muted/50 transition-colors"
+                style={{ height: '50px' }}
+                onMouseDown={() => !blocked && handleMouseDown(time)}
+                onMouseMove={() => handleMouseMove(time)}
               >
-                {/* Espaço para agendamentos */}
-                {dragOverSlot === time && (
-                  <div className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    Soltar aqui
-                  </div>
-                )}
+                <div
+                  role="rowheader"
+                  className="p-2 text-sm text-muted-foreground border-r flex items-center"
+                >
+                  {time}
+                </div>
+                <div
+                  role="gridcell"
+                  aria-label={blocked ? `Horário ${time} — bloqueado: ${block ? getReasonLabel(block.reason) : ''}` : `Horário ${time}`}
+                  aria-disabled={blocked}
+                  className={`p-2 transition-colors ${
+                    blocked
+                      ? 'bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed'
+                      : isSlotSelected(time)
+                        ? 'bg-blue-500/20 border-l-4 border-blue-500 cursor-pointer'
+                        : 'cursor-pointer'
+                  } ${
+                    dragOverSlot === time && !blocked ? 'bg-green-500/20 border-l-4 border-green-500' : ''
+                  }`}
+                  onDragOver={(e) => !blocked && handleDragOver(e, time)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => !blocked && handleDrop(e, time)}
+                >
+                  {blocked && block && (
+                    <div className="flex items-center gap-1.5 h-full">
+                      <div className="w-1 self-stretch bg-gray-400 dark:bg-gray-600 rounded-full shrink-0" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
+                        {getReasonLabel(block.reason)}
+                        {block.title && block.title !== block.reason ? ` — ${block.title}` : ''}
+                      </span>
+                    </div>
+                  )}
+                  {/* Espaço para agendamentos */}
+                  {dragOverSlot === time && !blocked && (
+                    <div className="text-xs text-green-600 dark:text-green-400 font-medium">
+                      Soltar aqui
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Renderizar compromissos sobre a grade */}
           <div className="absolute top-0 left-[80px] right-0 pointer-events-none">
@@ -375,37 +510,117 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
               const style = getAppointmentStyle(appointment);
               if (!style) return null;
 
+              const colorClass = getAppointmentColor(appointment);
+              const isProcedureColor = colorClass === '__procedure_color__';
+              const procedureHex = appointment.procedureColor || '#6366F1';
+
+              const blockClasses = cn(
+                'absolute left-1 right-1 border-l-4 rounded p-2 cursor-move pointer-events-auto transition-opacity',
+                !isProcedureColor && colorClass,
+                draggingAppointment?.id === appointment.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'
+              );
+
+              const blockStyle: React.CSSProperties = {
+                top: `${style.top}px`,
+                height: `${style.height}px`,
+                ...(isProcedureColor
+                  ? {
+                      backgroundColor: `${procedureHex}33`,
+                      borderLeftColor: procedureHex,
+                      color: procedureHex,
+                    }
+                  : {}),
+              };
+
+              const getStatusLabel = (status: string) => {
+                switch (status) {
+                  case 'confirmado': return 'Confirmado';
+                  case 'agendado': return 'Agendado';
+                  case 'cancelado': return 'Cancelado';
+                  case 'arrived': return 'Chegou';
+                  default: return status;
+                }
+              };
+
               return (
-                <div
-                  key={appointment.id}
-                  draggable={!!onAppointmentDrop}
-                  className={`absolute left-1 right-1 border-l-4 rounded p-2 cursor-move pointer-events-auto transition-opacity ${getStatusColor(
-                    appointment.status
-                  )} ${draggingAppointment?.id === appointment.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`}
-                  style={{ top: `${style.top}px`, height: `${style.height}px` }}
-                  onClick={() => onAppointmentClick?.(appointment)}
-                  onDragStart={(e) => handleDragStart(e, appointment)}
-                  onDragEnd={handleDragEnd}
-                  title="Arraste para reagendar"
-                >
-                  <div className="text-xs font-semibold truncate">
-                    {appointment.patientName}
-                  </div>
-                  <div className="text-xs truncate">{appointment.procedure}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {appointment.professionalName}
-                  </div>
-                  {appointment.paymentStatus && appointment.paymentStatus !== 'not_required' && (
-                    <div className="mt-1">
-                      <PaymentStatusBadge
-                        status={appointment.paymentStatus}
-                        amount={appointment.paymentAmount}
-                        paidAmount={appointment.paidAmount}
-                        compact={true}
-                      />
+                <HoverCard key={appointment.id} openDelay={400} closeDelay={150}>
+                  <HoverCardTrigger asChild>
+                    <div
+                      draggable={!!onAppointmentDrop}
+                      className={blockClasses}
+                      style={blockStyle}
+                      onClick={() => onAppointmentClick?.(appointment)}
+                      onDragStart={(e) => handleDragStart(e, appointment)}
+                      onDragEnd={handleDragEnd}
+                      title="Arraste para reagendar"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Agendamento: ${appointment.patientName}, ${appointment.startTime} às ${appointment.endTime}, ${appointment.procedure}, ${getStatusLabel(appointment.status)}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAppointmentClick?.(appointment);
+                        }
+                      }}
+                    >
+                      <div className="text-xs font-semibold truncate">
+                        {appointment.patientName}
+                      </div>
+                      <div className="text-xs truncate">{appointment.procedure}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {appointment.professionalName}
+                      </div>
+                      {appointment.paymentStatus && appointment.paymentStatus !== 'not_required' && (
+                        <div className="mt-1">
+                          <PaymentStatusBadge
+                            status={appointment.paymentStatus}
+                            amount={appointment.paymentAmount}
+                            paidAmount={appointment.paidAmount}
+                            compact={true}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent side="right" className="w-64 p-3 text-xs pointer-events-none" align="start">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="font-semibold">{appointment.patientName}</span>
+                      </div>
+                      {appointment.patientPhone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{appointment.patientPhone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span>{appointment.procedure}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="shrink-0">Prof.:</span>
+                        <span>{appointment.professionalName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">Status:</span>
+                        <Badge variant="outline" className="text-[10px] h-4 px-1">
+                          {getStatusLabel(appointment.status)}
+                        </Badge>
+                      </div>
+                      {appointment.paymentStatus && appointment.paymentStatus !== 'not_required' && (
+                        <div className="pt-1 border-t">
+                          <PaymentStatusBadge
+                            status={appointment.paymentStatus}
+                            amount={appointment.paymentAmount}
+                            paidAmount={appointment.paidAmount}
+                            compact={true}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
               );
             })}
           </div>
@@ -413,7 +628,7 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
       </div>
 
       {/* Legenda de status */}
-      <div className="flex gap-4 mt-4 text-xs">
+      <div className="flex gap-4 mt-4 text-xs flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 bg-green-500/20 border border-green-500 rounded"></div>
           <span>Confirmado</span>
@@ -423,9 +638,22 @@ const CalendarDayView = forwardRef<CalendarDayViewRef, CalendarDayViewProps>(({
           <span>Agendado</span>
         </div>
         <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-orange-500/20 border border-orange-500 rounded"></div>
+          <span>Chegou</span>
+        </div>
+        <div className="flex items-center gap-1">
           <div className="w-3 h-3 bg-red-500/20 border border-red-500 rounded"></div>
           <span>Cancelado</span>
         </div>
+        {scheduleBlocks.length > 0 && (
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 border border-gray-400 dark:border-gray-600 rounded"></div>
+            <span>Bloqueado</span>
+          </div>
+        )}
+        {colorMode === 'procedure' && (
+          <span className="text-muted-foreground italic">* Cor por procedimento ativa</span>
+        )}
       </div>
     </Card>
   );

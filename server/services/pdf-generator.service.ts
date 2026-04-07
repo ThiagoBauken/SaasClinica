@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { logger } from '../logger';
 export interface PrescriptionData {
   id: number;
   patientName: string;
@@ -191,7 +192,7 @@ export class PdfGeneratorService {
           align: 'center'
         });
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      logger.error({ err: error }, 'Error generating QR code:');
     }
   }
 
@@ -247,3 +248,221 @@ export class PdfGeneratorService {
 
 // Export singleton
 export const pdfGenerator = new PdfGeneratorService();
+
+// ---------------------------------------------------------------------------
+// Report HTML Generator
+//
+// Generates a self-contained, print-ready HTML page from tabular report data.
+// The client opens the response in a new browser tab; the user invokes the
+// browser's native Print dialog (Ctrl/Cmd + P) and chooses "Save as PDF".
+//
+// Trade-off vs. PDFKit: layout is controlled by the browser's print engine
+// rather than pixel-perfect coordinates. For tabular clinic reports this is
+// acceptable and produces cleaner pagination than manual PDFKit arithmetic.
+// ---------------------------------------------------------------------------
+
+export interface PdfReportColumn {
+  key: string;
+  label: string;
+  align?: 'left' | 'right' | 'center';
+  format?: 'currency' | 'percent' | 'date' | 'number' | 'text';
+}
+
+export interface PdfSummaryItem {
+  label: string;
+  value: string;
+}
+
+export interface PdfReportOptions {
+  title: string;
+  subtitle?: string;
+  clinicName?: string;
+  dateRange?: string;
+  columns: PdfReportColumn[];
+  data: Record<string, unknown>[];
+  summary?: PdfSummaryItem[];
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatReportCell(value: unknown, col: PdfReportColumn): string {
+  if (value === null || value === undefined) return '-';
+
+  if (col.format === 'currency') {
+    const num = typeof value === 'number' ? value : parseFloat(String(value));
+    if (isNaN(num)) return '-';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num / 100);
+  }
+
+  if (col.format === 'percent') {
+    const num = typeof value === 'number' ? value : parseFloat(String(value));
+    if (isNaN(num)) return '-';
+    return `${num.toFixed(1)}%`;
+  }
+
+  if (col.format === 'date') {
+    try {
+      return new Date(String(value)).toLocaleDateString('pt-BR');
+    } catch {
+      return String(value);
+    }
+  }
+
+  if (col.format === 'number') {
+    const num = typeof value === 'number' ? value : parseFloat(String(value));
+    if (isNaN(num)) return '-';
+    return num.toLocaleString('pt-BR');
+  }
+
+  // Heuristic inference from key name when no explicit format is provided
+  if (typeof value === 'number') {
+    const key = col.key.toLowerCase();
+    if (/amount|value|total|receita|valor|custo|preco|price|faturamento|revenue|commission|balance/.test(key)) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100);
+    }
+    if (/percent|taxa|rate/.test(key)) {
+      return `${value.toFixed(1)}%`;
+    }
+    return value.toLocaleString('pt-BR');
+  }
+
+  return escapeHtml(String(value));
+}
+
+export function generateReportHtml(options: PdfReportOptions): string {
+  const { title, subtitle, clinicName, dateRange, columns, data, summary } = options;
+
+  const now = new Date();
+  const generatedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+  const headerCells = columns
+    .map((col) => `<th class="th" style="text-align:${col.align ?? 'left'};">${escapeHtml(col.label)}</th>`)
+    .join('');
+
+  const tableRows =
+    data.length === 0
+      ? `<tr><td colspan="${columns.length}" class="empty-cell">Nenhum dado encontrado para o periodo selecionado</td></tr>`
+      : data
+          .map(
+            (row) =>
+              `<tr>${columns
+                .map(
+                  (col) =>
+                    `<td class="cell" style="text-align:${col.align ?? 'left'};">${formatReportCell(row[col.key], col)}</td>`,
+                )
+                .join('')}</tr>`,
+          )
+          .join('\n');
+
+  const summaryHtml =
+    summary && summary.length > 0
+      ? `<div class="summary">${summary
+          .map(
+            (s) =>
+              `<div class="summary-row"><span class="summary-label">${escapeHtml(s.label)}</span><strong class="summary-value">${escapeHtml(s.value)}</strong></div>`,
+          )
+          .join('\n')}</div>`
+      : '';
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 13px;
+      color: #111827;
+      background: #fff;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 28px;
+    }
+    .btn-bar { display: flex; justify-content: flex-end; margin-bottom: 20px; gap: 8px; }
+    .btn-print {
+      padding: 8px 20px; background: #2563eb; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;
+    }
+    .btn-print:hover { background: #1d4ed8; }
+    .btn-close {
+      padding: 8px 16px; background: #f3f4f6; color: #374151;
+      border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .btn-close:hover { background: #e5e7eb; }
+    .report-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid #e5e7eb;
+    }
+    .report-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .report-subtitle { color: #6b7280; font-size: 13px; margin-top: 2px; }
+    .report-date { color: #6b7280; font-size: 12px; margin-top: 4px; }
+    .clinic-info { text-align: right; }
+    .clinic-name { font-size: 14px; font-weight: 600; }
+    .generated-at { color: #9ca3af; font-size: 11px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    .th {
+      background: #f3f4f6; padding: 8px 10px; font-size: 11px;
+      font-weight: 600; color: #374151; border-bottom: 2px solid #d1d5db; white-space: nowrap;
+    }
+    .cell { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+    tr:hover .cell { background: #f9fafb; }
+    .empty-cell { text-align: center; padding: 20px; color: #9ca3af; }
+    .summary {
+      margin-top: 20px; padding: 14px 16px;
+      background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+    }
+    .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+    .summary-label { color: #6b7280; }
+    .summary-value { font-weight: 600; }
+    .report-footer {
+      margin-top: 28px; padding-top: 10px;
+      border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 10px;
+    }
+    @media print {
+      .btn-bar { display: none !important; }
+      body { padding: 0; max-width: 100%; }
+      tr:hover .cell { background: transparent; }
+      @page { margin: 15mm; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+  <div class="btn-bar">
+    <button class="btn-close" onclick="window.close()">Fechar</button>
+    <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
+
+  <div class="report-header">
+    <div>
+      <h1 class="report-title">${escapeHtml(title)}</h1>
+      ${subtitle ? `<p class="report-subtitle">${escapeHtml(subtitle)}</p>` : ''}
+      ${dateRange ? `<p class="report-date">Periodo: ${escapeHtml(dateRange)}</p>` : ''}
+    </div>
+    ${clinicName
+      ? `<div class="clinic-info"><div class="clinic-name">${escapeHtml(clinicName)}</div><div class="generated-at">Gerado em ${generatedAt}</div></div>`
+      : `<div class="generated-at">${generatedAt}</div>`}
+  </div>
+
+  <table>
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+
+  ${summaryHtml}
+
+  <div class="report-footer">
+    Documento gerado automaticamente pelo sistema &mdash; ${generatedAt}
+  </div>
+</body>
+</html>`;
+}

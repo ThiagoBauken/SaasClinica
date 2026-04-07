@@ -34,7 +34,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { PlusIcon, BarChart, Calendar, Clock, Settings, Filter, ChevronDown, X } from "lucide-react";
+import { PlusIcon, BarChart, Calendar, Clock, Settings, Filter, ChevronDown, X, UserPlus, Phone, Bell } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -45,9 +45,16 @@ import AppointmentQuickActions from "@/components/AppointmentQuickActions";
 import ConflictSuggestionsDialog from "@/components/ConflictSuggestionsDialog";
 import PaymentStatusBadge, { PaymentStatus } from "@/components/PaymentStatusBadge";
 import AppointmentDetailsDrawer from "@/components/AppointmentDetailsDrawer";
+import CalendarMultiProfessionalView from "@/components/CalendarMultiProfessionalView";
 import FloatingActionButton from "@/components/FloatingActionButton";
 import { useLocation } from "wouter";
 import { getCsrfHeaders } from "@/lib/csrf";
+import PatientForm from "@/components/patients/PatientForm";
+import PatientRecordTab from "@/components/patients/PatientRecordTab";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import WaitingRoom from "@/components/WaitingRoom";
 
 // REMOVED: mockProcedureStats - now fetched from backend via useQuery
 
@@ -113,17 +120,104 @@ interface LocalAppointment {
   paidAmount: number;
 }
 
+// ─── AgendaListView ──────────────────────────────────────────────────────────
+// Mobile-first list view: scrollable cards sorted by start time.
+
+interface AgendaListViewProps {
+  appointments: LocalAppointment[];
+  onAppointmentClick: (appointment: any) => void;
+  getStatusColor: (status: string) => string;
+  getStatusLabel: (status: string) => string;
+  selectedDate: Date;
+}
+
+function AgendaListView({
+  appointments,
+  onAppointmentClick,
+  getStatusColor,
+  getStatusLabel,
+  selectedDate,
+}: AgendaListViewProps) {
+  const sorted = [...appointments].sort((a, b) =>
+    a.startTime.localeCompare(b.startTime)
+  );
+
+  if (sorted.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Calendar className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+        <p className="text-muted-foreground text-sm">
+          Nenhum agendamento para {format(selectedDate, "dd/MM/yyyy")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="list"
+      aria-label={`Agendamentos do dia ${format(selectedDate, "dd/MM/yyyy")}`}
+      className="space-y-3"
+    >
+      {sorted.map((appt) => (
+        <div
+          key={appt.id}
+          role="listitem"
+          className="p-4 border rounded-lg bg-card hover:bg-accent/50 cursor-pointer transition-colors active:scale-[0.99]"
+          onClick={() => onAppointmentClick(appt)}
+          tabIndex={0}
+          aria-label={`${appt.startTime} — ${appt.patientName}, ${appt.procedure}, ${getStatusLabel(appt.status)}`}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onAppointmentClick(appt);
+            }
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-bold tabular-nums text-primary shrink-0">
+                  {appt.startTime}
+                </span>
+                <span className="text-xs text-muted-foreground shrink-0">—</span>
+                <span className="text-xs text-muted-foreground shrink-0">{appt.endTime}</span>
+              </div>
+              <p className="font-semibold text-sm truncate">{appt.patientName}</p>
+              <p className="text-xs text-muted-foreground truncate">{appt.professionalName}</p>
+              <p className="text-xs text-primary/80 truncate mt-0.5">{appt.procedure}</p>
+            </div>
+            <Badge
+              variant="outline"
+              className={`text-xs shrink-0 mt-0.5 ${getStatusColor(appt.status)}`}
+            >
+              {getStatusLabel(appt.status)}
+            </Badge>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AgendaPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [showInlinePatientForm, setShowInlinePatientForm] = useState(false);
+  const [recordSheetOpen, setRecordSheetOpen] = useState(false);
+  const [recordSheetPatientId, setRecordSheetPatientId] = useState<number | null>(null);
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [editingAppointmentId, setEditingAppointmentId] = useState<number | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<number | null>(null);
   const [showStats, setShowStats] = useState(false);
-  const [activeView, setActiveView] = useState("month");
+  const [activeView, setActiveView] = useState(() => {
+    return window.innerWidth < 768 ? "day" : "month";
+  });
 
   // Novos estados para as funcionalidades adicionadas
   const [timeInterval, setTimeInterval] = useState<15 | 20 | 30 | 60>(30);
@@ -235,6 +329,35 @@ export default function AgendaPage() {
       name: room.name,
     }));
   }, [roomsData]);
+
+  // Fetch schedule blocks for the current visible day
+  const { data: scheduleBlocksData } = useQuery({
+    queryKey: ["/api/v1/schedule-blocks", { startDate: format(selectedDate, "yyyy-MM-dd"), endDate: format(selectedDate, "yyyy-MM-dd") }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0).toISOString(),
+        endDate: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59).toISOString(),
+      });
+      const res = await fetch(`/api/v1/schedule-blocks?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Transform blocks into CalendarDayView-compatible format
+  const scheduleBlocks = useMemo(() => {
+    if (!scheduleBlocksData || !Array.isArray(scheduleBlocksData)) return [];
+    return scheduleBlocksData.map((block: any) => ({
+      id: block.id,
+      title: block.title || block.reason,
+      reason: block.reason,
+      startTime: block.all_day ? "07:00" : format(new Date(block.start_time || block.startTime), "HH:mm"),
+      endTime: block.all_day ? "19:30" : format(new Date(block.end_time || block.endTime), "HH:mm"),
+      allDay: block.all_day || block.allDay,
+      professionalId: block.professional_id || block.professionalId,
+      roomId: block.room_id || block.roomId,
+    }));
+  }, [scheduleBlocksData]);
 
   // Query para buscar pacientes reais
   const { data: patientsData } = useQuery<ApiResponse<ApiPatient>>({
@@ -493,6 +616,7 @@ export default function AgendaPage() {
     const counts = {
       scheduled: 0,
       confirmed: 0,
+      arrived: 0,
       in_progress: 0,
       completed: 0,
       cancelled: 0,
@@ -722,7 +846,9 @@ export default function AgendaPage() {
   const handleViewRecord = (appointmentId: number) => {
     const appointment = appointments.find((a: any) => a.id === appointmentId);
     if (appointment) {
-      navigate(`/prontuario/${appointment.patientId}`);
+      // Open patient record as Sheet overlay (1 click, stays on agenda)
+      setRecordSheetPatientId(appointment.patientId);
+      setRecordSheetOpen(true);
     }
   };
 
@@ -794,6 +920,8 @@ export default function AgendaPage() {
         return 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30';
       case 'confirmed': // confirmado
         return 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30';
+      case 'arrived': // paciente chegou
+        return 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30';
       case 'in_progress': // em andamento
         return 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30';
       case 'completed': // concluído
@@ -812,6 +940,7 @@ export default function AgendaPage() {
     switch(status) {
       case 'scheduled': return 'Agendado';
       case 'confirmed': return 'Confirmado';
+      case 'arrived': return 'Paciente Chegou';
       case 'in_progress': return 'Em Andamento';
       case 'completed': return 'Concluído';
       case 'cancelled': return 'Cancelado';
@@ -834,8 +963,9 @@ export default function AgendaPage() {
                 size="sm"
                 onClick={handleGoToToday}
                 className="flex items-center gap-2"
+                aria-label="Ir para hoje"
               >
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4" aria-hidden="true" />
                 Hoje
               </Button>
               <span className="text-sm text-muted-foreground hidden sm:inline">
@@ -853,8 +983,8 @@ export default function AgendaPage() {
                   setTimeInterval(interval);
                 }}
               >
-                <SelectTrigger className="w-[110px] h-9">
-                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                <SelectTrigger className="w-[110px] h-9" aria-label="Intervalo de tempo dos horários">
+                  <Clock className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -871,8 +1001,10 @@ export default function AgendaPage() {
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center gap-2"
+                aria-label={showFilters ? "Ocultar filtros" : "Mostrar filtros"}
+                aria-expanded={showFilters}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-4 w-4" aria-hidden="true" />
                 Filtros
                 {activeFiltersCount > 0 && (
                   <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
@@ -887,10 +1019,75 @@ export default function AgendaPage() {
                 variant={showStats ? "secondary" : "outline"}
                 size="sm"
                 onClick={toggleStats}
+                aria-label={showStats ? "Ocultar estatísticas" : "Mostrar estatísticas"}
+                aria-expanded={showStats}
               >
-                <BarChart className="h-4 w-4 mr-1.5" />
+                <BarChart className="h-4 w-4 mr-1.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Estatísticas</span>
               </Button>
+
+              {/* Nao confirmados (proximas 48h) */}
+              {(() => {
+                const now = new Date();
+                const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+                const unconfirmed = appointments.filter(appt => {
+                  const apptDate = new Date(appt.date + 'T' + appt.startTime);
+                  return appt.status === 'scheduled'
+                    && apptDate >= now
+                    && apptDate <= in48h;
+                });
+                if (unconfirmed.length === 0) return null;
+                return (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="relative" aria-label={`Agendamentos pendentes de confirmação: ${unconfirmed.length}`}>
+                        <Bell className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                        <span className="hidden sm:inline">Pendentes</span>
+                        <Badge
+                          role="status"
+                          aria-label={`${unconfirmed.length} agendamentos não confirmados`}
+                          variant="destructive"
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                        >
+                          {unconfirmed.length}
+                        </Badge>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" align="end">
+                      <div className="p-3 border-b">
+                        <h4 className="font-semibold text-sm">Nao Confirmados (48h)</h4>
+                        <p className="text-xs text-muted-foreground">Pacientes que ainda nao confirmaram</p>
+                      </div>
+                      <ScrollArea className="max-h-60">
+                        {unconfirmed.map(appt => (
+                          <div key={appt.id} className="flex justify-between items-center p-2.5 border-b last:border-0 hover:bg-muted/50">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate">{appt.patientName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(appt.date), "dd/MM", { locale: ptBR })} {appt.startTime} — {appt.professionalName}
+                              </p>
+                            </div>
+                            <div className="flex gap-1 shrink-0 ml-2">
+                              {appt.patientPhone && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => window.open(`tel:${appt.patientPhone}`)}
+                                  aria-label={`Ligar para ${appt.patientName}`}
+                                  title="Ligar"
+                                >
+                                  <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                );
+              })()}
 
               {/* Encontrar horário */}
               <FindFreeTimeDialog
@@ -910,8 +1107,8 @@ export default function AgendaPage() {
 
               {/* Configurações */}
               <Link href="/settings/schedule">
-                <Button variant="outline" size="icon" className="h-9 w-9">
-                  <Settings className="h-4 w-4" />
+                <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Configurações da agenda">
+                  <Settings className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </Link>
 
@@ -985,22 +1182,75 @@ export default function AgendaPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="patient">Paciente</Label>
-                    <Select
-                      value={newAppointment.patientId}
-                      onValueChange={(value) => setNewAppointment({...newAppointment, patientId: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o paciente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {patientsList.map((patient) => (
-                          <SelectItem key={patient.id} value={patient.id.toString()}>
-                            {patient.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select
+                        value={newAppointment.patientId}
+                        onValueChange={(value) => setNewAppointment({...newAppointment, patientId: value})}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o paciente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {patientsList.map((patient) => (
+                            <SelectItem key={patient.id} value={patient.id.toString()}>
+                              {patient.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        type="button"
+                        onClick={() => setShowInlinePatientForm(true)}
+                        title="Cadastrar novo paciente"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Modal inline para cadastro rapido de paciente */}
+                  <Dialog open={showInlinePatientForm} onOpenChange={setShowInlinePatientForm}>
+                    <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Cadastro Rapido de Paciente</DialogTitle>
+                        <DialogDescription>
+                          Preencha os dados essenciais. Voce pode completar o cadastro depois.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <PatientForm
+                        onSubmit={async (data: any) => {
+                          try {
+                            const res = await fetch('/api/v1/patients', {
+                              method: 'POST',
+                              headers: { ...getCsrfHeaders(), 'Content-Type': 'application/json' },
+                              body: JSON.stringify(data),
+                              credentials: 'include',
+                            });
+                            if (!res.ok) {
+                              const err = await res.json();
+                              throw new Error(err.error || 'Erro ao cadastrar paciente');
+                            }
+                            const newPatient = await res.json();
+                            setNewAppointment(prev => ({ ...prev, patientId: String(newPatient.id) }));
+                            setShowInlinePatientForm(false);
+                            queryClient.invalidateQueries({ queryKey: ['/api/v1/patients'] });
+                            toast({
+                              title: 'Paciente cadastrado!',
+                              description: `${newPatient.fullName || data.fullName} foi adicionado com sucesso.`,
+                            });
+                          } catch (err: any) {
+                            toast({
+                              title: 'Erro ao cadastrar',
+                              description: err.message,
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
 
                   <div className="space-y-2">
                     <Label htmlFor="professional">Profissional</Label>
@@ -1296,16 +1546,29 @@ export default function AgendaPage() {
             {/* Tabs para mudar o tipo de visualização */}
             <Tabs value={activeView} onValueChange={setActiveView} className="mb-4">
               <TabsList>
+                <TabsTrigger value="list" className="sm:hidden">Lista</TabsTrigger>
                 <TabsTrigger value="day">Dia</TabsTrigger>
-                <TabsTrigger value="week">Semana</TabsTrigger>
+                <TabsTrigger value="week" className="hidden sm:inline-flex">Semana</TabsTrigger>
                 <TabsTrigger value="month">Mês</TabsTrigger>
                 <TabsTrigger value="rooms">Salas</TabsTrigger>
+                <TabsTrigger value="professionals" className="hidden sm:inline-flex">Profissionais</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="list" className="mt-4">
+                <AgendaListView
+                  appointments={filteredDailyAppointments}
+                  onAppointmentClick={handleAppointmentClick}
+                  getStatusColor={getStatusColor}
+                  getStatusLabel={getStatusLabel}
+                  selectedDate={selectedDate}
+                />
+              </TabsContent>
 
               <TabsContent value="day" className="mt-4">
                 <CalendarDayView
                   ref={calendarDayViewRef}
                   appointments={filteredAppointments}
+                  scheduleBlocks={scheduleBlocks}
                   onAppointmentClick={handleAppointmentClick}
                   onDateSelect={handleTimeRangeSelect}
                   onAppointmentDrop={handleAppointmentDrop}
@@ -1397,6 +1660,25 @@ export default function AgendaPage() {
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              <TabsContent value="professionals" className="mt-0">
+                <CalendarMultiProfessionalView
+                  appointments={filteredAppointments}
+                  professionals={professionals}
+                  selectedDate={selectedDate}
+                  timeInterval={timeInterval}
+                  onAppointmentClick={handleAppointmentClick}
+                  onSlotClick={(date, time, professionalId) => {
+                    setNewAppointment(prev => ({
+                      ...prev,
+                      date: format(date, "yyyy-MM-dd"),
+                      time,
+                      professionalId: professionalId.toString(),
+                    }));
+                    setIsNewAppointmentOpen(true);
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </div>
@@ -1707,6 +1989,20 @@ export default function AgendaPage() {
           showOnMobile={true}
         />
       </div>
+
+      {/* Patient Record Sheet — abre do lado direito ao clicar em prontuario */}
+      <Sheet open={recordSheetOpen} onOpenChange={setRecordSheetOpen}>
+        <SheetContent side="right" className="w-[650px] sm:max-w-[650px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Prontuario do Paciente</SheetTitle>
+          </SheetHeader>
+          {recordSheetPatientId && (
+            <div className="mt-4">
+              <PatientRecordTab patientId={recordSheetPatientId} />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </DashboardLayout>
   );
 }

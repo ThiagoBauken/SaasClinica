@@ -11,7 +11,7 @@ const appointmentBaseSchema = z.object({
   endTime: z.string().datetime('Data de fim inválida'),
   procedureId: z.number().int().positive().optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
-  status: z.enum(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'])
+  status: z.enum(['scheduled', 'confirmed', 'arrived', 'in_progress', 'completed', 'cancelled', 'no_show'])
     .optional()
     .default('scheduled'),
   reminderSent: z.boolean().optional().default(false),
@@ -31,7 +31,10 @@ export const createAppointmentSchema = appointmentBaseSchema.refine(
 /**
  * Schema para atualização de agendamento
  */
-export const updateAppointmentSchema = appointmentBaseSchema.partial();
+export const updateAppointmentSchema = appointmentBaseSchema.partial().extend({
+  // Método pelo qual o paciente confirmou o agendamento (ex: 'whatsapp', 'phone', 'app', 'manual')
+  confirmationMethod: z.string().max(50).optional(),
+});
 
 /**
  * Schema para filtros de busca de agendamentos
@@ -42,7 +45,7 @@ export const searchAppointmentsSchema = z.object({
   professionalId: z.string().transform(val => parseInt(val, 10)).optional(),
   patientId: z.string().transform(val => parseInt(val, 10)).optional(),
   roomId: z.string().transform(val => parseInt(val, 10)).optional(),
-  status: z.enum(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show', 'all'])
+  status: z.enum(['scheduled', 'confirmed', 'arrived', 'in_progress', 'completed', 'cancelled', 'no_show', 'all'])
     .optional()
     .default('all'),
 }).refine(

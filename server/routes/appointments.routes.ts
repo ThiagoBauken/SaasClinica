@@ -11,16 +11,105 @@ import {
 } from '../schemas/appointments.schema';
 import { formatISO, parse, addDays } from 'date-fns';
 import { z } from 'zod';
-import { N8NService } from '../services/n8n.service';
+import { db } from '../db';
+import { eq, and, lte, gte, ne, sql } from 'drizzle-orm';
+import { appointmentProcedures, procedures, clinicSettings, appointments } from '@shared/schema';
+import { notDeleted } from '../lib/soft-delete';
 import { syncAppointmentToGoogle, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from '../services/google-calendar.service';
-import { notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentDeleted } from '../websocket';
+import { notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentDeleted, notifyAppointmentConfirmed } from '../websocket';
 import { createAutomationEngine } from '../services/automation-engine';
 import { progressOpportunityByPhone } from '../services/crm-auto-progression';
 
+import { logger } from '../logger';
+
 const router = Router();
 
+// ── Holiday helpers ────────────────────────────────────────────────────────────
+
 /**
- * Encontra os próximos N horários disponíveis
+ * Returns the first holiday record that blocks a given date for a company, or
+ * null if the date is not a holiday.  Two conditions satisfy a match:
+ *  1. The holiday's stored date falls on the same calendar day (exact match).
+ *  2. The holiday is marked is_recurring_yearly and shares the same month + day
+ *     as the requested date (regardless of the stored year).
+ * Both company-specific (company_id = companyId) and national (company_id IS NULL)
+ * holidays are considered.
+ */
+async function getHolidayForDate(
+  companyId: number,
+  date: Date
+): Promise<{ id: number; name: string; isRecurringYearly: boolean } | null> {
+  const result = await db.$client.query(
+    `SELECT id, name, is_recurring_yearly
+     FROM holidays
+     WHERE (company_id = $1 OR company_id IS NULL)
+       AND (
+         DATE_TRUNC('day', date AT TIME ZONE 'UTC') = DATE_TRUNC('day', $2::timestamptz AT TIME ZONE 'UTC')
+         OR (
+           is_recurring_yearly = TRUE
+           AND EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM $2::timestamptz)
+           AND EXTRACT(DAY   FROM date) = EXTRACT(DAY   FROM $2::timestamptz)
+         )
+       )
+     LIMIT 1`,
+    [companyId, date]
+  );
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return { id: row.id, name: row.name, isRecurringYearly: row.is_recurring_yearly };
+}
+
+/**
+ * Batch-loads all existing appointments in a date range to check conflicts in-memory.
+ * Eliminates the N+1 pattern (was 1 query per slot, now 1 query total).
+ */
+async function batchLoadConflicts(
+  companyId: number,
+  rangeStart: Date,
+  rangeEnd: Date,
+  options?: { professionalId?: number; roomId?: number }
+) {
+  const conditions = [
+    eq(appointments.companyId, companyId),
+    notDeleted(appointments.deletedAt),
+    lte(appointments.startTime, rangeEnd),
+    gte(appointments.endTime, rangeStart),
+    ne(appointments.status, 'cancelled'),
+  ];
+  if (options?.professionalId) conditions.push(eq(appointments.professionalId, options.professionalId));
+  if (options?.roomId) conditions.push(eq(appointments.roomId, options.roomId));
+
+  return db
+    .select({
+      id: appointments.id,
+      startTime: appointments.startTime,
+      endTime: appointments.endTime,
+      professionalId: appointments.professionalId,
+      roomId: appointments.roomId,
+    })
+    .from(appointments)
+    .where(and(...conditions));
+}
+
+function hasConflict(
+  existing: Array<{ startTime: Date | null; endTime: Date | null; professionalId?: number | null; roomId?: number | null }>,
+  slotStart: Date,
+  slotEnd: Date,
+  filterOpts?: { professionalId?: number; roomId?: number }
+): boolean {
+  return existing.some((apt) => {
+    if (!apt.startTime || !apt.endTime) return false;
+    const overlaps = apt.startTime < slotEnd && apt.endTime > slotStart;
+    if (!overlaps) return false;
+    if (filterOpts?.professionalId && apt.professionalId !== filterOpts.professionalId) return false;
+    if (filterOpts?.roomId && apt.roomId !== filterOpts.roomId) return false;
+    return true;
+  });
+}
+
+/**
+ * Encontra os próximos N horários disponíveis (batch-optimized: 1 query instead of N)
  */
 async function findNextAvailableSlots(
   companyId: number,
@@ -31,56 +120,45 @@ async function findNextAvailableSlots(
   count: number = 3
 ): Promise<Array<{ startTime: string; endTime: string }>> {
   const slots: Array<{ startTime: string; endTime: string }> = [];
-  const workingHours = { start: 8, end: 18 }; // 8h às 18h
-  const slotInterval = 30; // Verificar a cada 30 minutos
+  const workingHours = { start: 8, end: 18 };
+  const slotInterval = 30;
+  const maxDaysAhead = 14;
+
+  // Pre-load all appointments in the search range (single query)
+  const rangeEnd = new Date(startFrom);
+  rangeEnd.setDate(rangeEnd.getDate() + maxDaysAhead);
+  const existing = await batchLoadConflicts(companyId, startFrom, rangeEnd, {
+    professionalId: professionalId ?? undefined,
+    roomId: roomId ?? undefined,
+  });
 
   let currentTime = new Date(startFrom);
   currentTime.setMinutes(Math.ceil(currentTime.getMinutes() / slotInterval) * slotInterval);
-
-  const maxIterations = 100; // Limite de segurança
+  const maxIterations = 100;
   let iterations = 0;
 
   while (slots.length < count && iterations < maxIterations) {
     iterations++;
-
-    // Verificar se está dentro do horário de trabalho
     const hour = currentTime.getHours();
     if (hour >= workingHours.start && hour < workingHours.end) {
       const proposedEnd = new Date(currentTime.getTime() + duration);
-
-      // Verificar se não ultrapassa horário de trabalho
       if (proposedEnd.getHours() < workingHours.end) {
-        const conflicts = await storage.checkAppointmentConflicts(
-          companyId,
-          currentTime,
-          proposedEnd,
-          { professionalId: professionalId ?? undefined, roomId: roomId ?? undefined }
-        );
-
-        if (conflicts.length === 0) {
-          slots.push({
-            startTime: currentTime.toISOString(),
-            endTime: proposedEnd.toISOString(),
-          });
+        if (!hasConflict(existing, currentTime, proposedEnd)) {
+          slots.push({ startTime: currentTime.toISOString(), endTime: proposedEnd.toISOString() });
         }
       }
     }
-
-    // Avançar para próximo slot
     currentTime = new Date(currentTime.getTime() + slotInterval * 60 * 1000);
-
-    // Se passou do horário de trabalho, pular para próximo dia
     if (currentTime.getHours() >= workingHours.end) {
       currentTime.setDate(currentTime.getDate() + 1);
       currentTime.setHours(workingHours.start, 0, 0, 0);
     }
   }
-
   return slots;
 }
 
 /**
- * Encontra salas alternativas disponíveis no mesmo horário
+ * Encontra salas alternativas disponíveis no mesmo horário (batch-optimized: 2 queries instead of N)
  */
 async function findAlternativeRooms(
   companyId: number,
@@ -88,33 +166,20 @@ async function findAlternativeRooms(
   startTime: Date,
   endTime: Date
 ): Promise<Array<{ roomId: number; roomName: string }>> {
-  // Buscar todas as salas da clínica (assumindo que existe essa função no storage)
-  const allRooms = await storage.getRooms(companyId);
-  const alternatives: Array<{ roomId: number; roomName: string }> = [];
+  // 1 query: all rooms; 1 query: all conflicts in the time range
+  const [allRooms, existing] = await Promise.all([
+    storage.getRooms(companyId),
+    batchLoadConflicts(companyId, startTime, endTime),
+  ]);
 
-  for (const room of allRooms) {
-    if (room.id === currentRoomId) continue; // Pular a sala atual
-
-    const conflicts = await storage.checkAppointmentConflicts(
-      companyId,
-      startTime,
-      endTime,
-      { roomId: room.id }
-    );
-
-    if (conflicts.length === 0) {
-      alternatives.push({
-        roomId: room.id,
-        roomName: room.name,
-      });
-    }
-  }
-
-  return alternatives;
+  return allRooms
+    .filter((room) => room.id !== currentRoomId)
+    .filter((room) => !hasConflict(existing, startTime, endTime, { roomId: room.id }))
+    .map((room) => ({ roomId: room.id, roomName: room.name }));
 }
 
 /**
- * Encontra todos os horários disponíveis em um dia específico
+ * Encontra todos os horários disponíveis em um dia específico (batch-optimized: 1 query instead of ~20)
  */
 async function findAvailableSlotsForDay(
   companyId: number,
@@ -125,37 +190,31 @@ async function findAvailableSlotsForDay(
 ): Promise<Array<{ startTime: string; endTime: string; available: boolean }>> {
   const slots: Array<{ startTime: string; endTime: string; available: boolean }> = [];
   const workingHours = { start: 8, end: 18 };
-  const slotInterval = 30; // Gerar slots a cada 30 minutos
+  const slotInterval = 30;
 
-  // Normalizar data para início do dia
   const dayStart = new Date(date);
   dayStart.setHours(workingHours.start, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(workingHours.end, 0, 0, 0);
+
+  // Single query: load all appointments for this day
+  const existing = await batchLoadConflicts(companyId, dayStart, dayEnd, {
+    professionalId: professionalId ?? undefined,
+    roomId: roomId ?? undefined,
+  });
 
   let currentTime = new Date(dayStart);
-
   while (currentTime.getHours() < workingHours.end) {
     const proposedEnd = new Date(currentTime.getTime() + duration);
-
-    // Verificar se o slot completo cabe no horário de trabalho
     if (proposedEnd.getHours() <= workingHours.end) {
-      const conflicts = await storage.checkAppointmentConflicts(
-        companyId,
-        currentTime,
-        proposedEnd,
-        { professionalId: professionalId ?? undefined, roomId: roomId ?? undefined }
-      );
-
       slots.push({
         startTime: currentTime.toISOString(),
         endTime: proposedEnd.toISOString(),
-        available: conflicts.length === 0,
+        available: !hasConflict(existing, currentTime, proposedEnd),
       });
     }
-
-    // Avançar para próximo intervalo
     currentTime = new Date(currentTime.getTime() + slotInterval * 60 * 1000);
   }
-
   return slots;
 }
 
@@ -186,8 +245,8 @@ router.get(
   authCheck,
   validate({ query: listAppointmentsQuerySchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -221,8 +280,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -250,8 +309,8 @@ router.post(
   authCheck,
   validate({ body: checkAvailabilitySchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -262,6 +321,39 @@ router.post(
     const requestedEnd = new Date(endTime);
     const duration = requestedEnd.getTime() - requestedStart.getTime();
 
+    // Check if the requested date falls on a holiday before checking booking conflicts
+    const holiday = await getHolidayForDate(companyId, requestedStart);
+    if (holiday) {
+      return res.status(200).json({
+        available: false,
+        holiday: {
+          id: holiday.id,
+          name: holiday.name,
+          isRecurringYearly: holiday.isRecurringYearly,
+        },
+        conflicts: [
+          {
+            type: 'holiday',
+            holidayId: holiday.id,
+            title: holiday.name,
+            startTime: requestedStart.toISOString(),
+            endTime: requestedEnd.toISOString(),
+          },
+        ],
+        suggestions: {
+          nextAvailableSlots: await findNextAvailableSlots(
+            companyId,
+            professionalId,
+            roomId,
+            requestedStart,
+            duration,
+            3
+          ),
+          alternativeRooms: [],
+        },
+      });
+    }
+
     const conflicts = await storage.checkAppointmentConflicts(
       companyId,
       requestedStart,
@@ -269,7 +361,42 @@ router.post(
       { professionalId, roomId, excludeAppointmentId }
     );
 
-    if (conflicts.length > 0) {
+    // Check schedule blocks (vacations, holidays, maintenance, etc.)
+    const blockReasonLabels: Record<string, string> = {
+      ferias: 'Férias',
+      folga: 'Folga',
+      compromisso: 'Compromisso pessoal',
+      manutencao: 'Manutenção',
+      feriado: 'Feriado',
+    };
+
+    const blockResult = await db.$client.query(
+      `SELECT id, title, reason, start_time, end_time, professional_id, room_id
+       FROM schedule_blocks
+       WHERE company_id = $1
+         AND deleted_at IS NULL
+         AND start_time < $3
+         AND end_time > $2
+         AND (
+           ($4::int IS NULL OR professional_id IS NULL OR professional_id = $4)
+           OR
+           ($5::int IS NULL OR room_id IS NULL OR room_id = $5)
+         )`,
+      [companyId, requestedStart.toISOString(), requestedEnd.toISOString(), professionalId ?? null, roomId ?? null]
+    );
+
+    const blockConflicts = blockResult.rows.map((b: any) => ({
+      conflictType: 'schedule_block',
+      id: b.id,
+      reason: blockReasonLabels[b.reason] || b.reason,
+      title: b.title,
+      startTime: b.start_time,
+      endTime: b.end_time,
+    }));
+
+    const allConflicts = [...conflicts, ...blockConflicts];
+
+    if (allConflicts.length > 0) {
       // Encontrar próximos horários disponíveis
       const suggestions = await findNextAvailableSlots(
         companyId,
@@ -290,12 +417,14 @@ router.post(
 
       return res.status(200).json({
         available: false,
-        conflicts: conflicts.map((conflict: any) => ({
-          type: conflict.conflictType, // 'professional' ou 'room'
+        conflicts: allConflicts.map((conflict: any) => ({
+          type: conflict.conflictType, // 'professional', 'room', or 'schedule_block'
           appointmentId: conflict.id,
           patientName: conflict.patientName,
           professionalName: conflict.professionalName,
           roomName: conflict.roomName,
+          reason: conflict.reason,
+          title: conflict.title,
           startTime: conflict.startTime,
           endTime: conflict.endTime,
         })),
@@ -325,8 +454,8 @@ router.post(
   '/suggest-times',
   authCheck,
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -365,8 +494,8 @@ router.post(
   authCheck,
   validate({ body: createAppointmentSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -374,11 +503,21 @@ router.post(
 
     const { professionalId, roomId, startTime, endTime } = req.body;
 
-    // Verificar conflitos de horário ANTES de criar
+    // Buscar buffer de agendamento configurado para a clínica
+    const [settingsRow] = await db
+      .select({ appointmentBufferMinutes: clinicSettings.appointmentBufferMinutes })
+      .from(clinicSettings)
+      .where(eq(clinicSettings.companyId, companyId))
+      .limit(1);
+    const bufferMs = ((settingsRow?.appointmentBufferMinutes) || 0) * 60 * 1000;
+
+    // Verificar conflitos de horário ANTES de criar (com buffer expandido)
+    const conflictStart = new Date(new Date(startTime).getTime() - bufferMs);
+    const conflictEnd = new Date(new Date(endTime).getTime() + bufferMs);
     const conflicts = await storage.checkAppointmentConflicts(
       companyId,
-      new Date(startTime),
-      new Date(endTime),
+      conflictStart,
+      conflictEnd,
       { professionalId, roomId }
     );
 
@@ -428,28 +567,61 @@ router.post(
       });
     }
 
-    // Se não há conflitos, criar o agendamento
-    const appointment = await storage.createAppointment(req.body, companyId);
+    // Criar agendamento com lock pessimista (previne double-booking)
+    const appointment = await db.transaction(async (tx: any) => {
+      // Re-verificar conflitos DENTRO da transaction com FOR UPDATE
+      // Isso garante que requests concorrentes sejam serializadas
+      const txConflicts = await tx.execute(sql`
+        SELECT id FROM appointments
+        WHERE company_id = ${companyId}
+          AND (
+            (professional_id = ${professionalId} AND professional_id IS NOT NULL)
+            OR (room_id = ${roomId} AND room_id IS NOT NULL)
+          )
+          AND start_time < ${endTime}::timestamptz
+          AND end_time > ${startTime}::timestamptz
+          AND status NOT IN ('cancelled', 'no_show')
+          AND deleted_at IS NULL
+        FOR UPDATE
+      `);
 
-    // Disparar automação nativa (substitui N8N gradualmente)
+      if (txConflicts.rows.length > 0) {
+        throw new Error('CONFLICT_DETECTED');
+      }
+
+      // Inserir dentro da transaction (garante atomicidade)
+      return await storage.createAppointment(req.body, companyId);
+    }).catch((err: any) => {
+      if (err.message === 'CONFLICT_DETECTED') {
+        return null; // Sinaliza conflito detectado dentro da TX
+      }
+      throw err; // Re-throw outros erros
+    });
+
+    if (!appointment) {
+      return res.status(409).json({
+        error: 'Conflito de agendamento detectado',
+        message: 'Outro agendamento foi criado neste horário enquanto sua requisição era processada. Tente novamente.',
+      });
+    }
+
+    // Operações assíncronas FORA da transaction (não bloqueiam o agendamento)
+
+    // Disparar automação nativa
     const automationEngine = createAutomationEngine(companyId);
     automationEngine.onAppointmentCreated(appointment.id)
       .then(result => {
-        console.log(`✅ Automação de criação executada: ${result.success ? 'sucesso' : 'falha'}`);
+        logger.info({ value: result.success ? 'sucesso' : 'falha' }, 'Automação de criação executada: {value}')
       })
       .catch(error => {
-        console.error('❌ Erro na automação de criação:', error);
+        logger.error({ err: error }, 'Erro na automação de criação:');
       });
-
-    // N8N removido - automação nativa (AutomationEngine) já cobre este fluxo
-    // Para reativar N8N como fallback, descomentar abaixo:
-    // N8NService.triggerAutomation(appointment.id, companyId, 'appointment_created').catch(() => {});
 
     // Sincronizar com Google Calendar (async)
     if (appointment.professionalId) {
       syncAppointmentToGoogle(appointment.id, appointment.professionalId, companyId)
         .catch(error => {
-          console.error('Error syncing to Google Calendar:', error);
+          logger.error({ err: error }, 'Error syncing to Google Calendar:');
         });
     }
 
@@ -472,8 +644,8 @@ router.patch(
     body: updateAppointmentSchema
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -489,7 +661,9 @@ router.patch(
     }
 
     // Se está atualizando horário, profissional ou sala, verificar conflitos
-    const { professionalId, roomId, startTime, endTime } = req.body;
+    // Extrair confirmationMethod antes de passar req.body para storage (nao é um campo do appointment)
+    const { confirmationMethod: _confirmationMethod, ...appointmentUpdateBody } = req.body;
+    const { professionalId, roomId, startTime, endTime } = appointmentUpdateBody;
 
     if (startTime || endTime || professionalId !== undefined || roomId !== undefined) {
       const checkStartTime = startTime ? new Date(startTime) : new Date(existingAppointment.startTime);
@@ -552,10 +726,10 @@ router.patch(
       }
     }
 
-    const updatedAppointment = await storage.updateAppointment(parseInt(id), req.body, companyId);
+    const updatedAppointment = await storage.updateAppointment(parseInt(id), appointmentUpdateBody, companyId);
 
     // CRM: Progride pipeline quando status muda para completed ou payment-related
-    const newStatus = req.body.status;
+    const newStatus = appointmentUpdateBody.status;
     if (newStatus && newStatus !== existingAppointment.status) {
       const patient = existingAppointment.patientId
         ? await storage.getPatient(existingAppointment.patientId, companyId)
@@ -567,9 +741,37 @@ router.patch(
           progressOpportunityByPhone(companyId, patientPhone, 'consultation_done', {
             appointmentId: parseInt(id),
             appointmentStatus: newStatus,
-          }).catch(err => console.error('CRM progression error (consultation_done):', err));
+          }).catch(err => logger.error({ err: err }, 'CRM progression error (consultation_done):'));
         }
       }
+    }
+
+    // Notificar recepção quando paciente confirma consulta
+    if (newStatus === 'confirmed' && newStatus !== existingAppointment.status) {
+      try {
+        const confirmationMethod = _confirmationMethod || 'manual';
+        const patientName = updatedAppointment.patientName || existingAppointment.patientName || 'Paciente';
+        notifyAppointmentConfirmed(companyId, parseInt(id), patientName, confirmationMethod);
+      } catch (wsErr) {
+        logger.error({ err: wsErr }, 'Failed to notify reception of appointment confirmation');
+      }
+    }
+
+    // Agendamento recorrente: ao completar, auto-criar próxima consulta se procedimento configurado
+    if (newStatus === 'completed' && newStatus !== existingAppointment.status) {
+      scheduleRecurringAppointment(parseInt(id), existingAppointment, companyId)
+        .catch(err => logger.error({ err: err }, 'Recurring appointment scheduling error:'));
+
+      // Auto-deduzir estoque de materiais usados nos procedimentos
+      import('../services/stock-auto-deduct').then(({ autoDeductStock }) => {
+        autoDeductStock(companyId, parseInt(id), user.id)
+          .then(result => {
+            if (result.alerts.length > 0) {
+              logger.info({ alerts: result.alerts }, 'Stock alerts')
+            }
+          })
+          .catch(err => logger.error({ err: err }, 'Stock auto-deduction error:'));
+      }).catch(() => {});
     }
 
     // Verificar se houve mudança de horário (reagendamento)
@@ -584,20 +786,18 @@ router.patch(
         new Date(startTime)
       )
         .then(result => {
-          console.log(`✅ Automação de reagendamento executada: ${result.success ? 'sucesso' : 'falha'}`);
+          logger.info({ value: result.success ? 'sucesso' : 'falha' }, 'Automação de reagendamento executada: {value}')
         })
         .catch(error => {
-          console.error('❌ Erro na automação de reagendamento:', error);
+          logger.error({ err: error }, 'Erro na automação de reagendamento:');
         });
     }
-
-    // N8N removido - automação nativa (AutomationEngine) já cobre reagendamento acima
 
     // Atualizar Google Calendar se houve mudança
     if ((startTime || endTime || professionalId !== undefined) && updatedAppointment.professionalId) {
       updateGoogleCalendarEvent(parseInt(id), updatedAppointment.professionalId, companyId)
         .catch(error => {
-          console.error('Error updating Google Calendar event:', error);
+          logger.error({ err: error }, 'Error updating Google Calendar event:');
         });
     }
 
@@ -620,8 +820,8 @@ router.post(
     body: cancelAppointmentSchema
   }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -640,13 +840,11 @@ router.post(
     const automationEngine = createAutomationEngine(companyId);
     automationEngine.onAppointmentCancelled(parseInt(id), reason)
       .then(result => {
-        console.log(`✅ Automação de cancelamento executada: ${result.success ? 'sucesso' : 'falha'}`);
+        logger.info({ value: result.success ? 'sucesso' : 'falha' }, 'Automação de cancelamento executada: {value}')
       })
       .catch(error => {
-        console.error('❌ Erro na automação de cancelamento:', error);
+        logger.error({ err: error }, 'Erro na automação de cancelamento:');
       });
-
-    // N8N removido - automação nativa (AutomationEngine) já cobre cancelamento acima
 
     // Notificar via WebSocket (atualização em tempo real)
     notifyAppointmentUpdated(companyId, updatedAppointment);
@@ -664,8 +862,8 @@ router.delete(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -686,7 +884,7 @@ router.delete(
     if (appointment?.googleCalendarEventId && appointment.professionalId) {
       deleteGoogleCalendarEvent(appointment.googleCalendarEventId, appointment.professionalId, companyId)
         .catch(error => {
-          console.error('Error deleting Google Calendar event:', error);
+          logger.error({ err: error }, 'Error deleting Google Calendar event:');
         });
     }
 
@@ -700,7 +898,7 @@ router.delete(
 /**
  * GET /api/v1/appointments/available-slots
  * Retorna horários disponíveis para os próximos N dias
- * Usado pelo N8N para oferecer reagendamento
+ * Usado pelo AI Agent para oferecer reagendamento
  */
 const availableSlotsQuerySchema = z.object({
   companyId: z.coerce.number().int().positive(),
@@ -801,5 +999,63 @@ router.get(
     });
   })
 );
+
+/**
+ * Auto-agenda a próxima consulta recorrente após um agendamento ser marcado como concluído.
+ * Para cada procedimento associado que tem autoScheduleNext=true, cria um novo agendamento.
+ */
+async function scheduleRecurringAppointment(
+  appointmentId: number,
+  existingAppointment: any,
+  companyId: number
+): Promise<void> {
+  // Buscar procedimentos associados ao agendamento
+  const apptProcedures = await db
+    .select({
+      procedureId: appointmentProcedures.procedureId,
+      procedureName: procedures.name,
+      procedureDuration: procedures.duration,
+      autoScheduleNext: procedures.autoScheduleNext,
+      defaultRecurrenceIntervalDays: procedures.defaultRecurrenceIntervalDays,
+    })
+    .from(appointmentProcedures)
+    .innerJoin(procedures, eq(appointmentProcedures.procedureId, procedures.id))
+    .where(eq(appointmentProcedures.appointmentId, appointmentId));
+
+  if (!apptProcedures.length) return;
+
+  const endTime = new Date(existingAppointment.endTime);
+
+  for (const proc of apptProcedures) {
+    if (!proc.autoScheduleNext || !proc.defaultRecurrenceIntervalDays) continue;
+
+    // Calcular próxima data: endTime + intervalo em dias
+    const nextStart = new Date(endTime);
+    nextStart.setDate(nextStart.getDate() + proc.defaultRecurrenceIntervalDays);
+
+    // Manter o mesmo horário do dia
+    const durationMs = (proc.procedureDuration || 30) * 60 * 1000;
+    const nextEnd = new Date(nextStart.getTime() + durationMs);
+
+    const newAppointment = await storage.createAppointment(
+      {
+        title: `Retorno: ${proc.procedureName}`,
+        patientId: existingAppointment.patientId,
+        professionalId: existingAppointment.professionalId,
+        roomId: existingAppointment.roomId,
+        startTime: nextStart,
+        endTime: nextEnd,
+        status: 'scheduled',
+        type: existingAppointment.type || 'consultation',
+        recurring: true,
+        notes: `Agendamento automático de retorno gerado de #${appointmentId}`,
+        companyId,
+      },
+      companyId
+    );
+
+    logger.info({ appointmentId: newAppointment.id, nextStart: nextStart.toISOString() }, 'Next recurring appointment created');
+  }
+}
 
 export default router;

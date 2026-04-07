@@ -16,6 +16,14 @@ const updateProfessionalIntegrationsSchema = z.object({
   wuzapiPhone: z.string().optional().nullable(),
 });
 
+// Schema para atualização de dados profissionais (CRO, especialidades, conselho)
+const updateProfessionalCredentialsSchema = z.object({
+  croNumber: z.string().max(20).optional().nullable(),
+  croState: z.string().length(2).toUpperCase().optional().nullable(),
+  specialties: z.array(z.string()).optional(),
+  professionalCouncil: z.string().max(50).optional().nullable(),
+});
+
 /**
  * GET /api/v1/professionals
  * Lista todos os profissionais da empresa
@@ -26,8 +34,8 @@ router.get(
   validate({ query: paginationSchema }),
   cacheMiddleware(60), // Cache por 1 minuto (profissionais podem mudar)
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -56,8 +64,8 @@ router.get(
   validate({ params: idParamSchema }),
   cacheMiddleware(60),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -72,7 +80,7 @@ router.get(
       return res.status(404).json({ error: 'Professional not found' });
     }
 
-    // Retornar todos os campos incluindo googleCalendarId e wuzapiPhone
+    // Retornar todos os campos incluindo googleCalendarId, wuzapiPhone e credenciais profissionais
     res.json({
       id: professional.id,
       fullName: professional.fullName,
@@ -84,6 +92,10 @@ router.get(
       profileImageUrl: professional.profileImageUrl,
       googleCalendarId: professional.googleCalendarId || null,
       wuzapiPhone: professional.wuzapiPhone || null,
+      croNumber: professional.croNumber || null,
+      croState: professional.croState || null,
+      specialties: professional.specialties || [],
+      professionalCouncil: professional.professionalCouncil || null,
     });
   })
 );
@@ -98,8 +110,8 @@ router.patch(
   authCheck,
   validate({ params: idParamSchema, body: updateProfessionalIntegrationsSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });
@@ -163,6 +175,81 @@ router.patch(
 );
 
 /**
+ * PATCH /api/v1/professionals/:id/credentials
+ * Atualiza credenciais profissionais (CRO, especialidades, conselho)
+ * Requer role: admin ou o próprio profissional
+ */
+router.patch(
+  '/:id/credentials',
+  authCheck,
+  validate({ params: idParamSchema, body: updateProfessionalCredentialsSchema }),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId = user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ error: 'User not associated with any company' });
+    }
+
+    const { id } = req.params as any;
+    const professionalId = parseInt(id);
+
+    // Apenas admin ou o próprio profissional podem atualizar credenciais
+    if (user.role !== 'admin' && user.role !== 'superadmin' && user.id !== professionalId) {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Apenas administradores ou o próprio profissional podem atualizar credenciais',
+      });
+    }
+
+    // Verificar se o profissional pertence à empresa
+    const [professional] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, professionalId), eq(users.companyId, companyId)))
+      .limit(1);
+
+    if (!professional) {
+      return res.status(404).json({ error: 'Professional not found' });
+    }
+
+    const { croNumber, croState, specialties, professionalCouncil } = req.body;
+
+    const updateData: any = { updatedAt: new Date() };
+    if (croNumber !== undefined) updateData.croNumber = croNumber;
+    if (croState !== undefined) updateData.croState = croState ? croState.toUpperCase() : null;
+    if (specialties !== undefined) updateData.specialties = specialties;
+    if (professionalCouncil !== undefined) updateData.professionalCouncil = professionalCouncil;
+
+    if (Object.keys(updateData).length === 1) {
+      return res.status(400).json({ error: 'No credential fields to update' });
+    }
+
+    const [updated] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, professionalId))
+      .returning();
+
+    // Invalidar cache
+    invalidateCache(`/api/v1/professionals`);
+    invalidateCache(`/api/v1/professionals/${id}`);
+
+    res.json({
+      message: 'Credenciais profissionais atualizadas com sucesso',
+      professional: {
+        id: updated.id,
+        fullName: updated.fullName,
+        croNumber: updated.croNumber,
+        croState: updated.croState,
+        specialties: updated.specialties,
+        professionalCouncil: updated.professionalCouncil,
+      },
+    });
+  })
+);
+
+/**
  * GET /api/v1/professionals/:id/calendar-info
  * Retorna informações do Google Calendar do profissional
  */
@@ -171,8 +258,8 @@ router.get(
   authCheck,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const user = req.user as any;
-    const companyId = user?.companyId;
+    const user = req.user!;
+    const companyId = user.companyId;
 
     if (!companyId) {
       return res.status(403).json({ error: 'User not associated with any company' });

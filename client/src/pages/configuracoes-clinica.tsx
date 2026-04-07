@@ -44,6 +44,9 @@ import {
   AlertCircle,
   CheckCircle2,
   ClipboardList,
+  MapPin,
+  Star,
+  X,
 } from "lucide-react";
 
 export default function ConfiguracoesClinicaPage() {
@@ -90,10 +93,9 @@ export default function ConfiguracoesClinicaPage() {
     receiptFooter: ""
   });
 
-  // Formulário de automação (OpenAI, N8N)
+  // Formulário de automação (OpenAI / AI Agent)
   const [automationForm, setAutomationForm] = useState({
     openaiApiKey: "",
-    n8nWebhookUrl: "",
   });
 
   // Estado para o criador de sites
@@ -269,7 +271,6 @@ export default function ConfiguracoesClinicaPage() {
     if (companySettings) {
       setAutomationForm({
         openaiApiKey: companySettings.openaiApiKey || "",
-        n8nWebhookUrl: companySettings.n8nWebhookUrl || "",
       });
     }
   }, [companySettings]);
@@ -453,7 +454,7 @@ export default function ConfiguracoesClinicaPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="clinic">
               <Building className="h-4 w-4 mr-2" />
               Dados da Clinica
@@ -469,6 +470,10 @@ export default function ConfiguracoesClinicaPage() {
             <TabsTrigger value="website">
               <Globe className="h-4 w-4 mr-2" />
               Site da Clinica
+            </TabsTrigger>
+            <TabsTrigger value="units">
+              <MapPin className="h-4 w-4 mr-2" />
+              Unidades
             </TabsTrigger>
           </TabsList>
 
@@ -571,7 +576,7 @@ export default function ConfiguracoesClinicaPage() {
                   Integrações e Automações
                 </CardTitle>
                 <CardDescription>
-                  Configure integrações com OpenAI e N8N para automatizar processos da clínica
+                  Configure integrações com OpenAI para automatizar processos da clínica
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -635,34 +640,8 @@ export default function ConfiguracoesClinicaPage() {
                       </div>
                     </div>
 
-                    {/* N8N Webhook Section */}
+                    {/* Automações Disponíveis */}
                     <div className="space-y-4">
-                      <div className="space-y-1">
-                        <Label htmlFor="n8nWebhookUrl" className="text-base font-semibold flex items-center gap-2">
-                          <Share2 className="h-4 w-4" />
-                          URL do Webhook N8N (Opcional)
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          URL do webhook N8N para receber eventos da sua clínica
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Input
-                          id="n8nWebhookUrl"
-                          type="url"
-                          placeholder="https://seu-n8n.com/webhook/..."
-                          value={automationForm.n8nWebhookUrl}
-                          onChange={(e) => setAutomationForm(prev => ({ ...prev, n8nWebhookUrl: e.target.value }))}
-                        />
-                        <p className="text-xs text-muted-foreground flex items-start gap-1">
-                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                          <span>
-                            Configure este campo apenas se você tiver um workflow N8N personalizado
-                          </span>
-                        </p>
-                      </div>
-
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-2">
                         <h4 className="font-medium text-purple-900 text-sm flex items-center gap-2">
                           <Zap className="h-4 w-4" />
@@ -1501,6 +1480,13 @@ export default function ConfiguracoesClinicaPage() {
           <TabsContent value="patient-form" className="space-y-4">
             <PatientFormConfigTab />
           </TabsContent>
+
+          {/* ============================== */}
+          {/* TAB: Unidades */}
+          {/* ============================== */}
+          <TabsContent value="units" className="space-y-4">
+            <ClinicUnitsTab />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
@@ -1714,6 +1700,446 @@ function PatientFormConfigTab() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// Clinic Units Tab (Inline Component)
+// ============================================================
+
+type ClinicUnit = {
+  id: number;
+  name: string;
+  cnpj?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  cep?: string;
+  manager_name?: string;
+  manager_phone?: string;
+  notes?: string;
+  is_main: boolean;
+  active: boolean;
+};
+
+const EMPTY_UNIT_FORM = {
+  name: '',
+  cnpj: '',
+  phone: '',
+  email: '',
+  address: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  cep: '',
+  managerName: '',
+  managerPhone: '',
+  notes: '',
+};
+
+function ClinicUnitsTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<ClinicUnit | null>(null);
+  const [unitForm, setUnitForm] = useState({ ...EMPTY_UNIT_FORM });
+
+  const { data: units = [], isLoading } = useQuery<ClinicUnit[]>({
+    queryKey: ['/api/v1/clinic-units'],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: typeof EMPTY_UNIT_FORM) =>
+      apiRequest('POST', '/api/v1/clinic-units', data),
+    onSuccess: () => {
+      toast({ title: 'Unidade criada com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/clinic-units'] });
+      setDialogOpen(false);
+      setUnitForm({ ...EMPTY_UNIT_FORM });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao criar unidade', variant: 'destructive' });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof EMPTY_UNIT_FORM }) =>
+      apiRequest('PATCH', `/api/v1/clinic-units/${id}`, data),
+    onSuccess: () => {
+      toast({ title: 'Unidade atualizada com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/clinic-units'] });
+      setDialogOpen(false);
+      setEditingUnit(null);
+      setUnitForm({ ...EMPTY_UNIT_FORM });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao atualizar unidade', variant: 'destructive' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest('DELETE', `/api/v1/clinic-units/${id}`),
+    onSuccess: () => {
+      toast({ title: 'Unidade removida.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/clinic-units'] });
+    },
+    onError: (err: any) => {
+      const msg = err?.message || 'Erro ao remover unidade';
+      toast({ title: msg, variant: 'destructive' });
+    },
+  });
+
+  const setMainMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest('POST', `/api/v1/clinic-units/${id}/set-main`, {}),
+    onSuccess: () => {
+      toast({ title: 'Unidade principal atualizada.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/clinic-units'] });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao definir unidade principal', variant: 'destructive' });
+    },
+  });
+
+  function openCreate() {
+    setEditingUnit(null);
+    setUnitForm({ ...EMPTY_UNIT_FORM });
+    setDialogOpen(true);
+  }
+
+  function openEdit(unit: ClinicUnit) {
+    setEditingUnit(unit);
+    setUnitForm({
+      name: unit.name,
+      cnpj: unit.cnpj ?? '',
+      phone: unit.phone ?? '',
+      email: unit.email ?? '',
+      address: unit.address ?? '',
+      neighborhood: unit.neighborhood ?? '',
+      city: unit.city ?? '',
+      state: unit.state ?? '',
+      cep: unit.cep ?? '',
+      managerName: unit.manager_name ?? '',
+      managerPhone: unit.manager_phone ?? '',
+      notes: unit.notes ?? '',
+    });
+    setDialogOpen(true);
+  }
+
+  function handleSubmit() {
+    if (!unitForm.name.trim()) {
+      toast({ title: 'O nome da unidade é obrigatório', variant: 'destructive' });
+      return;
+    }
+    if (editingUnit) {
+      updateMutation.mutate({ id: editingUnit.id, data: unitForm });
+    } else {
+      createMutation.mutate(unitForm);
+    }
+  }
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-600" />
+                Unidades da Clinica
+              </CardTitle>
+              <CardDescription>
+                Gerencie as filiais e unidades da sua rede odontologica
+              </CardDescription>
+            </div>
+            <Button onClick={openCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nova Unidade
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : units.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <MapPin className="h-12 w-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">
+                Nenhuma unidade cadastrada ainda.
+              </p>
+              <Button variant="outline" onClick={openCreate} className="mt-4 gap-2">
+                <Plus className="h-4 w-4" />
+                Adicionar primeira unidade
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {units.map((unit) => (
+                <div
+                  key={unit.id}
+                  className="flex items-start justify-between py-4 gap-4"
+                >
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold truncate">{unit.name}</span>
+                      {unit.is_main && (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 shrink-0">
+                          <Star className="h-3 w-3 mr-1 fill-yellow-500 text-yellow-500" />
+                          Principal
+                        </Badge>
+                      )}
+                      {!unit.active && (
+                        <Badge variant="secondary" className="shrink-0">Inativa</Badge>
+                      )}
+                    </div>
+                    {(unit.address || unit.city) && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {[unit.address, unit.neighborhood, unit.city, unit.state]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      {unit.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {unit.phone}
+                        </span>
+                      )}
+                      {unit.email && (
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3" />
+                          {unit.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!unit.is_main && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMainMutation.mutate(unit.id)}
+                        disabled={setMainMutation.isPending}
+                        title="Definir como principal"
+                      >
+                        <Star className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEdit(unit)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </Button>
+                    {!unit.is_main && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => deleteMutation.mutate(unit.id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingUnit ? 'Editar Unidade' : 'Nova Unidade'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingUnit
+                ? 'Atualize os dados da unidade abaixo.'
+                : 'Preencha os dados da nova unidade da clinica.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="unit-name">
+                Nome da Unidade <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="unit-name"
+                placeholder="Ex: Unidade Centro"
+                value={unitForm.name}
+                onChange={(e) => setUnitForm((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+
+            {/* CNPJ */}
+            <div className="space-y-2">
+              <Label htmlFor="unit-cnpj">CNPJ</Label>
+              <Input
+                id="unit-cnpj"
+                placeholder="00.000.000/0001-00"
+                value={unitForm.cnpj}
+                onChange={(e) => setUnitForm((p) => ({ ...p, cnpj: e.target.value }))}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Address row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="unit-address">Endereco</Label>
+                <Input
+                  id="unit-address"
+                  placeholder="Rua, numero"
+                  value={unitForm.address}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, address: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit-cep">CEP</Label>
+                <Input
+                  id="unit-cep"
+                  placeholder="00000-000"
+                  value={unitForm.cep}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, cep: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="unit-neighborhood">Bairro</Label>
+                <Input
+                  id="unit-neighborhood"
+                  placeholder="Bairro"
+                  value={unitForm.neighborhood}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, neighborhood: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit-city">Cidade</Label>
+                <Input
+                  id="unit-city"
+                  placeholder="Cidade"
+                  value={unitForm.city}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, city: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="unit-state">Estado</Label>
+              <Input
+                id="unit-state"
+                placeholder="SP"
+                maxLength={2}
+                className="uppercase w-20"
+                value={unitForm.state}
+                onChange={(e) =>
+                  setUnitForm((p) => ({ ...p, state: e.target.value.toUpperCase() }))
+                }
+              />
+            </div>
+
+            <Separator />
+
+            {/* Contact */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="unit-phone">Telefone</Label>
+                <Input
+                  id="unit-phone"
+                  placeholder="(11) 3000-0000"
+                  value={unitForm.phone}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit-email">E-mail</Label>
+                <Input
+                  id="unit-email"
+                  type="email"
+                  placeholder="unidade@clinica.com.br"
+                  value={unitForm.email}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Manager */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="unit-manager-name">Responsavel</Label>
+                <Input
+                  id="unit-manager-name"
+                  placeholder="Nome do responsavel"
+                  value={unitForm.managerName}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, managerName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit-manager-phone">Telefone do Responsavel</Label>
+                <Input
+                  id="unit-manager-phone"
+                  placeholder="(11) 99999-0000"
+                  value={unitForm.managerPhone}
+                  onChange={(e) => setUnitForm((p) => ({ ...p, managerPhone: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="unit-notes">Observacoes</Label>
+              <Textarea
+                id="unit-notes"
+                placeholder="Informacoes adicionais sobre esta unidade..."
+                rows={2}
+                value={unitForm.notes}
+                onChange={(e) => setUnitForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSaving} className="gap-2">
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {editingUnit ? 'Salvar Alteracoes' : 'Criar Unidade'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
