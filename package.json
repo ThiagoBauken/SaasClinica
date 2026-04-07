@@ -14,6 +14,8 @@
     "db:seed": "tsx server/scripts/seed.ts",
     "db:migrate": "tsx server/scripts/run-migrations.ts",
     "db:migrate-integrations": "tsx server/scripts/run-integrations-migrations.ts",
+    "preflight": "tsx server/scripts/preflight.ts",
+    "smoke-test": "tsx server/scripts/smoke-test.ts",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f app",

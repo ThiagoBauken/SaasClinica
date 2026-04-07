@@ -1,10 +1,16 @@
 import { Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { db } from "../db";
 import { modules, companyModules } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
+import { logger } from '../logger';
+
+// ESM-safe __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 export interface ModuleInfo {
   name: string;
   displayName: string;
@@ -57,7 +63,7 @@ class ModuleManager {
       try {
         await this.loadModule(moduleName);
       } catch (error) {
-        console.error(`Failed to load module ${moduleName}:`, error);
+        logger.error({ err: error, moduleName: moduleName }, 'Failed to load module {moduleName}:')
       }
     }
   }
@@ -66,13 +72,17 @@ class ModuleManager {
     const modulePath = path.join(__dirname, "../modules", moduleName, "index.ts");
     
     if (!fs.existsSync(modulePath)) {
-      console.warn(`Module ${moduleName} does not have an index.ts file`);
+      logger.warn({ moduleName: moduleName }, 'Module {moduleName} does not have an index.ts file')
       return;
     }
 
     try {
-      const moduleDefinition = require(modulePath).default as ModuleDefinition;
-      
+      // ESM dynamic import (file:// URL required on Windows)
+      const { pathToFileURL } = await import('url');
+      const moduleUrl = pathToFileURL(modulePath).href;
+      const imported = await import(moduleUrl);
+      const moduleDefinition = (imported.default ?? imported) as ModuleDefinition;
+
       // Validate module definition
       if (!moduleDefinition.info || !moduleDefinition.info.name) {
         throw new Error(`Invalid module definition for ${moduleName}`);
@@ -83,9 +93,9 @@ class ModuleManager {
       // Register module in database if not exists
       await this.registerModuleInDatabase(moduleDefinition.info);
       
-      console.log(`✅ Module ${moduleName} loaded successfully`);
+      logger.info({ moduleName: moduleName }, 'Module {moduleName} loaded successfully')
     } catch (error) {
-      console.error(`❌ Failed to load module ${moduleName}:`, error);
+      logger.error({ err: error, moduleName: moduleName }, 'Failed to load module {moduleName}:')
     }
   }
 
@@ -188,7 +198,7 @@ class ModuleManager {
 
         next();
       } catch (error) {
-        console.error('Module access middleware error:', error);
+        logger.error({ err: error }, 'Module access middleware error:');
         res.status(500).json({ message: "Internal server error" });
       }
     };

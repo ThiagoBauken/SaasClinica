@@ -9,6 +9,13 @@ validateEnvOrExit();
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+
+// Lazy-load Prometheus metrics module (ESM-safe, tolerates absence)
+let metricsModule: { httpRequestDuration: any; httpRequestsTotal: any } | null = null;
+import('./lib/metrics')
+  .then((mod) => { metricsModule = mod as any; })
+  .catch(() => { /* metrics module optional */ });
+
 import { registerRoutes } from "./routes";
 import { setupTestRoutes } from "./testRoutes";
 import { serveStatic } from "./vite";
@@ -25,6 +32,7 @@ import { globalErrorHandler, setupProcessErrorHandlers } from "./middleware/erro
 import { csrfProtection, csrfTokenEndpoint } from "./middleware/csrf";
 import { requestIdMiddleware } from "./middleware/requestId";
 import { initSentry, getSentryErrorHandler } from "./middleware/sentry";
+import { createDistributedRateLimiter } from "./middleware/distributed-rate-limit";
 
 // Architectural improvements
 import { initializeClusterCache } from './clusterCache';
@@ -111,7 +119,7 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
         return callback(null, true);
       }
 
-      console.warn(`⚠️  CORS: Blocked request from origin: ${origin}`);
+      logger.warn({ origin }, 'CORS: Blocked request from origin');
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true, // Permitir envio de cookies
@@ -124,8 +132,8 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   // SEGURANÇA: Proteção contra ataques comuns com CSP habilitado
   // Configuração CSP mais restritiva em produção
   const cspScriptSrc = isProduction
-    ? ["'self'", "'unsafe-inline'"] // Remover unsafe-eval em produção
-    : ["'self'", "'unsafe-inline'", "'unsafe-eval'"]; // Manter unsafe-eval apenas em dev (necessário para Vite HMR)
+    ? ["'self'"] // Produção: sem unsafe-inline/unsafe-eval (XSS protection)
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'"]; // Dev: necessário para Vite HMR
 
   app.use(helmet({
     contentSecurityPolicy: {
@@ -197,42 +205,55 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
         if (redisUrl && !redisUrl.startsWith('redis://') && !redisUrl.startsWith('rediss://')) {
           redisUrl = `redis://${redisUrl}`;
         }
-        console.log(`[Session Redis] Connecting to: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
+        logger.info({ redisUrl: redisUrl.replace(/\/\/.*@/, '//***@') }, 'Session Redis connecting');
         const sessionRedisClient = createClient({ url: redisUrl });
 
         sessionRedisClient.on('error', (err) => {
-          console.error('Session Redis error:', err);
+          logger.error({ err }, 'Session Redis error');
         });
 
         await sessionRedisClient.connect();
-        console.log('✓ Session Redis client connected');
+        logger.info('Session Redis client connected');
 
         sessionConfig.store = new RedisStore({
           client: sessionRedisClient,
           prefix: 'dental:sess:',
           ttl: 86400, // 24 horas em segundos
         });
-        console.log('✓ Using Redis for session storage');
+        logger.info('Using Redis for session storage');
       } else {
-        console.warn('⚠️  Using in-memory session storage (not recommended for production)');
+        if (process.env.NODE_ENV === 'production') {
+          logger.fatal(
+            'CRITICAL: Redis not available in production. ' +
+            'In-memory sessions break horizontal scaling and lose all sessions on restart. ' +
+            'Configure REDIS_URL/REDIS_HOST or set ALLOW_INSECURE_SESSIONS=true to override.'
+          );
+          if (process.env.ALLOW_INSECURE_SESSIONS !== 'true') {
+            process.exit(1);
+          }
+        }
+        logger.warn('Using in-memory session storage (DEV ONLY)');
       }
     } catch (err) {
-      console.error('Redis connection error:', err);
-      console.warn('⚠️  Falling back to in-memory session storage');
+      logger.error({ err }, 'Redis connection error');
+      if (process.env.NODE_ENV === 'production' && process.env.ALLOW_INSECURE_SESSIONS !== 'true') {
+        logger.fatal('Exiting: cannot run production without Redis sessions');
+        process.exit(1);
+      }
+      logger.warn('Falling back to in-memory session storage (DEV ONLY)');
     }
 
     app.use(session(sessionConfig));
   }
   
-  // Limitador de requisições para evitar abuso
-  const apiLimiter = rateLimit({
+  // Limitador de requisições DISTRIBUÍDO (Redis-backed) — consistente entre instâncias
+  const apiLimiter = createDistributedRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 500, // limite por IP
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Muitas requisições deste IP, tente novamente após 15 minutos"
+    max: parseInt(process.env.RATE_LIMIT_MAX || '500', 10),
+    prefix: 'rl:api:',
+    message: "Muitas requisições deste IP, tente novamente após 15 minutos",
   });
-  
+
   // Aplica limitador apenas nas rotas da API
   app.use("/api", apiLimiter);
   
@@ -282,12 +303,15 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
       if (path.startsWith("/api")) {
         const normalizedRoute = path.replace(/\/\d+/g, '/:id');
         try {
-          const { httpRequestDuration, httpRequestsTotal } = require('./lib/metrics');
-          httpRequestDuration.observe(
-            { method: req.method, route: normalizedRoute, status_code: res.statusCode },
-            duration / 1000
-          );
-          httpRequestsTotal.inc({ method: req.method, route: normalizedRoute, status_code: res.statusCode });
+          // metrics module is loaded lazily via top-level import above (if present)
+          // If not loaded, observe() calls are no-ops
+          if (metricsModule) {
+            metricsModule.httpRequestDuration.observe(
+              { method: req.method, route: normalizedRoute, status_code: res.statusCode },
+              duration / 1000
+            );
+            metricsModule.httpRequestsTotal.inc({ method: req.method, route: normalizedRoute, status_code: res.statusCode });
+          }
         } catch {
           // metrics module not loaded yet
         }
