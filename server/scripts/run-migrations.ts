@@ -18,13 +18,23 @@ console.log('🔍 DATABASE_URL:', process.env.DATABASE_URL);
  * Uso: npx tsx server/scripts/run-migrations.ts
  */
 
+// Drizzle Kit baseline files that recreate already-existing schema must be skipped.
+// They are added to schema_migrations as "already applied" so they never run.
+const SKIP_FILES = new Set<string>([
+  '0000_dark_jean_grey.sql', // Drizzle baseline — schema already in place
+]);
+
 async function runMigrations() {
   // Dynamic import to ensure env is loaded first
   const { pool } = await import('../db.js');
 
-  const migrationsDir = path.join(__dirname, '../migrations');
+  // Migrations live at the project root (../../migrations from server/scripts/).
+  // This is the same folder Drizzle Kit writes to (drizzle.config.ts → out: "./migrations").
+  const migrationsDir = path.join(__dirname, '../../migrations');
 
-  console.log('🔄 Starting database migrations...\n');
+  console.log('🔄 Starting database migrations...');
+  console.log('📁 Migrations dir:', migrationsDir);
+  console.log('');
 
   try {
     // Criar tabela de migrations se não existir
@@ -36,10 +46,18 @@ async function runMigrations() {
       );
     `);
 
-    // Ler todos os arquivos de migration
+    // Mark skipped files as applied so they never show up as pending
+    for (const f of SKIP_FILES) {
+      await pool.query(
+        `INSERT INTO schema_migrations (migration_name) VALUES ($1) ON CONFLICT DO NOTHING`,
+        [f]
+      );
+    }
+
+    // Ler todos os arquivos de migration (excluindo os skipped)
     const migrationFiles = fs
       .readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.sql'))
+      .filter(file => file.endsWith('.sql') && !SKIP_FILES.has(file))
       .sort(); // Executar em ordem alfabética
 
     if (migrationFiles.length === 0) {
