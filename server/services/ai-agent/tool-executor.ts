@@ -452,21 +452,92 @@ const TOOL_HANDLERS: Record<ToolName, (input: any, ctx: ToolContext) => Promise<
     };
   },
 
+  request_cancel_confirmation: async (input, ctx) => {
+    const [apt] = await db.select().from(appointments).where(eq(appointments.id, input.appointment_id)).limit(1);
+    if (!apt) return { success: false, error: 'Consulta não encontrada' };
+    if (apt.companyId !== ctx.companyId) return { success: false, error: 'Acesso negado' };
+
+    if (apt.status === 'cancelled') {
+      return { success: false, error: 'Esta consulta já está cancelada.' };
+    }
+
+    // Marca pendência de confirmação no Redis (TTL 10 min)
+    try {
+      const { redisCacheClient, isRedisAvailable } = await import('../../redis');
+      if (await isRedisAvailable()) {
+        const key = `ai:pending_cancel:${ctx.companyId}:${ctx.sessionId}`;
+        await redisCacheClient.set(key, String(input.appointment_id), 'EX', 600);
+      }
+    } catch (err) {
+      log.warn({ err }, 'Failed to set pending cancel state');
+    }
+
+    return {
+      success: true,
+      pending: true,
+      message: 'Cancelamento aguardando confirmação dupla. Pergunte ao paciente "Confirma cancelar a consulta de [data]?". Só chame cancel_appointment se ele responder SIM.',
+      appointment: {
+        id: apt.id,
+        title: apt.title,
+        dataFormatada: apt.startTime ? new Date(apt.startTime).toLocaleDateString('pt-BR') : '',
+        horaFormatada: apt.startTime ? new Date(apt.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+      },
+    };
+  },
+
   cancel_appointment: async (input, ctx) => {
     const [apt] = await db.select().from(appointments).where(eq(appointments.id, input.appointment_id)).limit(1);
     if (!apt) return { success: false, error: 'Consulta não encontrada' };
     if (apt.companyId !== ctx.companyId) return { success: false, error: 'Acesso negado' };
 
+    if (apt.status === 'cancelled') {
+      return { success: false, error: 'Esta consulta já está cancelada.' };
+    }
+
+    // PROTEÇÃO ANTI-CANCELAMENTO ACIDENTAL:
+    // Verifica que existe pendência ativa de confirmação para este appointment.
+    // Se não existir, força a IA a chamar request_cancel_confirmation primeiro.
+    try {
+      const { redisCacheClient, isRedisAvailable } = await import('../../redis');
+      if (await isRedisAvailable()) {
+        const key = `ai:pending_cancel:${ctx.companyId}:${ctx.sessionId}`;
+        const pendingId = await redisCacheClient.get(key);
+        if (!pendingId || parseInt(pendingId, 10) !== input.appointment_id) {
+          return {
+            success: false,
+            requires_confirmation: true,
+            error: 'Confirmação dupla obrigatória. Chame request_cancel_confirmation primeiro e aguarde o paciente responder SIM antes de chamar cancel_appointment.',
+          };
+        }
+        // Consume pending state — only allow once
+        await redisCacheClient.del(key);
+      }
+    } catch (err) {
+      log.warn({ err }, 'Failed to verify pending cancel state — refusing for safety');
+      return {
+        success: false,
+        requires_confirmation: true,
+        error: 'Não foi possível verificar a confirmação. Por segurança, peça ao paciente para confirmar novamente.',
+      };
+    }
+
     const [updated] = await db.update(appointments).set({
       status: 'cancelled',
-      notes: apt.notes ? `${apt.notes}\nCancelado: ${input.reason || 'Sem motivo informado'}` : `Cancelado: ${input.reason || 'Sem motivo informado'}`,
+      notes: apt.notes ? `${apt.notes}\nCancelado via IA: ${input.reason || 'Sem motivo informado'}` : `Cancelado via IA: ${input.reason || 'Sem motivo informado'}`,
       updatedAt: new Date(),
     }).where(eq(appointments.id, input.appointment_id)).returning();
 
     return {
       success: true,
-      message: 'Consulta cancelada',
-      appointment: { id: updated.id, title: updated.title, status: 'cancelled' },
+      message: 'Consulta cancelada com sucesso',
+      appointment: {
+        id: updated.id,
+        title: updated.title,
+        status: 'cancelled',
+        dataFormatada: apt.startTime ? new Date(apt.startTime).toLocaleDateString('pt-BR') : '',
+        horaFormatada: apt.startTime ? new Date(apt.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+      },
+      followup_suggestion: 'Ofereça reagendamento gentilmente: "Quando precisar voltar, é só me chamar 😊"',
     };
   },
 

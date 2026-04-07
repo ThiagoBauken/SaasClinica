@@ -13,6 +13,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { createHash } from 'crypto';
 import { redisCacheClient, isRedisAvailable } from '../../redis';
 import { db } from '../../db';
 import { eq, and, desc } from 'drizzle-orm';
@@ -43,6 +44,13 @@ export interface ConversationState {
   lastMessageAt: string;
   humanTakeover: boolean;
   humanTakeoverAt?: string;
+  /** Marca para a IA enviar saudação de retomada após takeover expirar */
+  botShouldResume?: boolean;
+  /** Timestamp da última mensagem do atendente humano (para reset de timeout) */
+  lastHumanMessageAt?: string;
+  /** Confirmação pendente de cancelamento de consulta (anti-cancelamento acidental) */
+  pendingCancelAppointmentId?: number;
+  pendingCancelExpiresAt?: string;
   messageCount: number;
 }
 
@@ -226,6 +234,10 @@ export async function addUserMessage(
 
 /**
  * Adds an assistant message to the conversation and persists to DB.
+ *
+ * `metadata.model === 'human-attendant'` marks the message as coming from
+ * a human attendant (not the AI). The message is still added to the
+ * conversation history so the AI has context when it eventually resumes.
  */
 export async function addAssistantMessage(
   companyId: number,
@@ -236,6 +248,8 @@ export async function addAssistantMessage(
 ): Promise<void> {
   state.messages.push({ role: 'assistant', content });
 
+  const isHumanAttendant = metadata?.model === 'human-attendant';
+
   // Persist to DB
   try {
     await db.insert(chatMessages).values({
@@ -244,7 +258,7 @@ export async function addAssistantMessage(
       role: 'assistant',
       direction: 'outgoing',
       content,
-      processedBy: 'ai',
+      processedBy: isHumanAttendant ? 'human' : 'ai',
       tokensUsed: metadata?.tokensUsed || 0,
       metadata: metadata ? { toolsUsed: metadata.toolsUsed, model: metadata.model } : undefined,
       status: 'sent',
@@ -270,13 +284,25 @@ export async function setHumanTakeover(
 }
 
 /**
- * Checks if human takeover is still active (30-minute window).
+ * Checks if human takeover is still active.
+ *
+ * Janela configurável por clínica (default 120 minutos). O timeout reseta a
+ * cada nova mensagem do atendente humano (humanTakeoverAt é atualizado em
+ * processMessage quando fromMe=true). Isso garante que enquanto o atendente
+ * estiver ativo, a IA NUNCA atropela a conversa.
+ *
+ * Se o atendente parar de responder e o paciente continuar enviando mensagens,
+ * após `timeoutMinutes` o controle volta para a IA — mas com uma "saudação de
+ * retomada" gentil em vez de continuar como se nada tivesse acontecido.
  */
-export function isHumanTakeoverActive(state: ConversationState): boolean {
+export function isHumanTakeoverActive(
+  state: ConversationState,
+  timeoutMinutes: number = 120
+): boolean {
   if (!state.humanTakeover || !state.humanTakeoverAt) return false;
   const elapsed = Date.now() - new Date(state.humanTakeoverAt).getTime();
-  const HUMAN_TAKEOVER_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-  return elapsed < HUMAN_TAKEOVER_TIMEOUT;
+  const timeoutMs = Math.max(1, timeoutMinutes) * 60 * 1000;
+  return elapsed < timeoutMs;
 }
 
 /**
@@ -384,4 +410,113 @@ export async function isDuplicateMessage(
 
   memoryDedupSet.set(key, now + DEDUP_TTL_MS);
   return false;
+}
+
+// ============================================================
+// ANTI-LOOP: Outbound message echo detection
+// ============================================================
+//
+// Quando o bot envia uma mensagem, alguns providers WhatsApp (e o app oficial
+// do operador humano) entregam de volta como webhook. Sem esta proteção, o
+// bot pode entrar em loop respondendo às próprias mensagens.
+//
+// Hash da mensagem outbound é guardado por 5 minutos. Se uma mensagem
+// inbound match com um hash recente do mesmo paciente, é descartada.
+
+const OUTBOUND_DEDUP_TTL_MS = 5 * 60 * 1000; // 5 min — janela de eco WhatsApp típica
+const memoryOutboundHashes = new Map<string, number>();
+
+function hashOutbound(content: string): string {
+  // Normaliza espaços/case para detectar matches mesmo com pequenas diferenças
+  const norm = content.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 500);
+  return createHash('sha256').update(norm).digest('hex').slice(0, 16);
+}
+
+/**
+ * Marca uma mensagem como recém-enviada pelo bot/clínica para um telefone.
+ * Chamado pelo message-handler ANTES de enviar via provider.
+ */
+export async function markOutboundSent(
+  companyId: number,
+  phone: string,
+  content: string
+): Promise<void> {
+  if (!content) return;
+  const h = hashOutbound(content);
+  const key = `ai:outbound:${companyId}:${phone}:${h}`;
+
+  try {
+    const redisAvailable = await isRedisAvailable();
+    if (redisAvailable) {
+      await redisCacheClient.set(key, '1', 'EX', Math.ceil(OUTBOUND_DEDUP_TTL_MS / 1000));
+      return;
+    }
+  } catch (err) {
+    log.debug({ err }, 'markOutboundSent Redis failed, using memory');
+  }
+
+  // Memory fallback
+  memoryOutboundHashes.set(key, Date.now() + OUTBOUND_DEDUP_TTL_MS);
+  if (memoryOutboundHashes.size > 5000) {
+    const now = Date.now();
+    for (const [k, exp] of memoryOutboundHashes.entries()) {
+      if (exp < now) memoryOutboundHashes.delete(k);
+    }
+  }
+}
+
+/**
+ * Retorna true se a mensagem inbound corresponde a algo que o bot/clínica
+ * acabou de enviar — ou seja, é um echo do próprio provider.
+ */
+export async function isOutboundEcho(
+  companyId: number,
+  phone: string,
+  content: string
+): Promise<boolean> {
+  if (!content) return false;
+  const h = hashOutbound(content);
+  const key = `ai:outbound:${companyId}:${phone}:${h}`;
+
+  try {
+    const redisAvailable = await isRedisAvailable();
+    if (redisAvailable) {
+      const exists = await redisCacheClient.get(key);
+      return !!exists;
+    }
+  } catch (err) {
+    log.debug({ err }, 'isOutboundEcho Redis failed, using memory');
+  }
+
+  const exp = memoryOutboundHashes.get(key);
+  return !!exp && exp > Date.now();
+}
+
+// ============================================================
+// ANTI-LOOP: Hard cap on responses per minute per session
+// ============================================================
+//
+// Defesa adicional contra loops imprevistos: nunca responder mais que N
+// vezes por minuto na mesma sessão. Se atingir o teto, transfere para humano.
+
+const MAX_RESPONSES_PER_MINUTE = 6;
+
+export async function shouldThrottleResponse(
+  companyId: number,
+  sessionId: number
+): Promise<{ throttle: boolean; count: number }> {
+  const key = `ai:resp_rate:${companyId}:${sessionId}`;
+  try {
+    const redisAvailable = await isRedisAvailable();
+    if (redisAvailable) {
+      const count = await redisCacheClient.incr(key);
+      if (count === 1) {
+        await redisCacheClient.expire(key, 60);
+      }
+      return { throttle: count > MAX_RESPONSES_PER_MINUTE, count };
+    }
+  } catch (err) {
+    log.debug({ err }, 'shouldThrottleResponse Redis failed');
+  }
+  return { throttle: false, count: 0 };
 }

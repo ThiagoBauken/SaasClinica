@@ -7,7 +7,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { db } from '../db';
 import { clinicSettings } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -20,15 +20,25 @@ const log = logger.child({ module: 'meta-webhook' });
 /**
  * SEGURANÇA: Valida assinatura HMAC-SHA256 dos webhooks Meta.
  * Meta envia o header X-Hub-Signature-256 com HMAC do body.
- * Sem esta validação, qualquer atacante pode forjar webhooks.
+ * Sem esta validação, qualquer atacante pode forjar webhooks e impersonar pacientes.
+ *
+ * Em produção a verificação é OBRIGATÓRIA — falha hard se META_APP_SECRET ausente.
+ * Em desenvolvimento (NODE_ENV !== 'production') logamos warning e seguimos,
+ * para permitir testes locais sem secret.
  */
 function verifyMetaSignature(req: Request, res: Response, next: NextFunction): void {
   const signature = req.headers['x-hub-signature-256'] as string;
   const appSecret = process.env.META_APP_SECRET;
+  const isProd = process.env.NODE_ENV === 'production';
 
-  // Em desenvolvimento sem app secret configurado, apenas logar warning
   if (!appSecret) {
-    log.warn('META_APP_SECRET not configured — webhook signature verification DISABLED');
+    if (isProd) {
+      // FAIL HARD em produção. Sem secret = qualquer um pode forjar webhooks.
+      log.error('META_APP_SECRET not configured in production — refusing webhook');
+      res.status(500).json({ error: 'Webhook signature verification not configured' });
+      return;
+    }
+    log.warn('META_APP_SECRET not configured — webhook signature verification DISABLED (dev only)');
     return next();
   }
 
@@ -38,16 +48,30 @@ function verifyMetaSignature(req: Request, res: Response, next: NextFunction): v
     return;
   }
 
-  // Body precisa estar como Buffer/string raw para HMAC funcionar
-  const rawBody = typeof req.body === 'string'
-    ? req.body
-    : JSON.stringify(req.body);
+  // Body precisa estar como Buffer/string raw para HMAC funcionar.
+  // IMPORTANTE: o express.raw() middleware deve estar configurado para esta rota,
+  // senão JSON.stringify pode reordenar campos e quebrar a assinatura.
+  const rawBody = (req as any).rawBody
+    ? (req as any).rawBody.toString('utf8')
+    : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
 
   const expectedSignature = 'sha256=' + createHmac('sha256', appSecret)
     .update(rawBody)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  // Comparação timing-safe para evitar timing attacks
+  let valid = false;
+  try {
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length === expBuf.length) {
+      valid = timingSafeEqual(sigBuf, expBuf);
+    }
+  } catch {
+    valid = false;
+  }
+
+  if (!valid) {
     log.warn({ ip: req.ip }, 'Meta webhook HMAC signature mismatch — potential forgery');
     res.status(403).json({ error: 'Invalid signature' });
     return;
@@ -125,6 +149,7 @@ router.post(
 
           const value = change.value;
           const phoneNumberId = value?.metadata?.phone_number_id;
+          const businessDisplayPhone = value?.metadata?.display_phone_number;
 
           if (!phoneNumberId) continue;
 
@@ -142,13 +167,23 @@ router.post(
 
           const companyId = settings.companyId;
 
-          // Process incoming messages
+          // Process incoming messages — route to AI Agent (not legacy chat-processor)
           for (const message of value.messages || []) {
-            const from = message.from; // Sender phone number
-            const msgType = message.type; // text, image, audio, etc.
-            const timestamp = message.timestamp;
+            const from: string = message.from; // Sender phone number
+            const msgType: string = message.type; // text, image, audio, etc.
+
+            // ANTI-LOOP: Meta normalmente NÃO entrega mensagens enviadas pela
+            // própria business account no array `messages` (elas vêm como
+            // `statuses`). Mas em multi-operador (atendentes humanos no app
+            // oficial), o `from` PODE ser o próprio número da clínica. Se
+            // detectarmos isso, marcamos como fromMe para acionar takeover.
+            const fromMe = !!businessDisplayPhone &&
+              from.replace(/\D/g, '').endsWith(businessDisplayPhone.replace(/\D/g, '').slice(-10));
 
             let content = '';
+            let mediaUrl: string | null = null;
+            let mimeType: string | null = null;
+
             if (msgType === 'text') {
               content = message.text?.body || '';
             } else if (msgType === 'interactive') {
@@ -156,27 +191,37 @@ router.post(
               content = message.interactive?.button_reply?.title
                 || message.interactive?.list_reply?.title
                 || '';
+            } else if (msgType === 'image' || msgType === 'audio' || msgType === 'voice') {
+              // Para mídia, content vem com caption/identificador
+              content = message[msgType]?.caption || `[${msgType}]`;
+              mimeType = message[msgType]?.mime_type || null;
+              // Note: download da mídia via Graph API não implementado aqui
+              // (requer chamada extra ao endpoint /media com o id)
             } else {
-              content = `[${msgType}]`;
+              // Tipos não suportados — apenas ignorar
+              continue;
             }
 
-            if (!content) continue;
+            if (!content && !mediaUrl) continue;
 
             log.info(
-              { companyId, from, msgType, contentLength: content.length },
+              { companyId, from, msgType, fromMe, contentLength: content.length },
               'Meta webhook: incoming message'
             );
 
-            // Route to chat processor (same as Wuzapi/Evolution)
+            // Route to AI Agent message handler (mesma rota que Wuzapi/Evolution)
             try {
-              const { createChatProcessor } = await import('../services/chat-processor');
-              const processor = createChatProcessor(companyId);
-              await processor.processMessage(
-                from,
-                content,
-                message.id,
-                false
-              );
+              const { handleIncomingMessage } = await import('../services/ai-agent/message-handler');
+              await handleIncomingMessage({
+                companyId,
+                phone: from,
+                message: content,
+                messageType: msgType === 'voice' ? 'voice' : msgType,
+                wuzapiMessageId: message.id,
+                fromMe,
+                mediaUrl,
+                mimeType,
+              });
             } catch (err: any) {
               log.error(
                 { companyId, from, error: err.message },
@@ -186,6 +231,7 @@ router.post(
           }
 
           // Process status updates (delivered, read, etc.)
+          // Importante: ack de outgoing messages NÃO devem disparar fluxo de takeover.
           for (const status of value.statuses || []) {
             log.debug(
               { companyId, messageId: status.id, status: status.status },

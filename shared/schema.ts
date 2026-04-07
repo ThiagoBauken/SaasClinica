@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, decimal, date, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, decimal, date, numeric, bigserial, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1552,6 +1552,13 @@ export const clinicSettings = pgTable("clinic_settings", {
   aiAgentModel: text("ai_agent_model").default("claude-haiku-4-5-20251001"), // Modelo padrão do agente
   aiAgentMaxTokens: integer("ai_agent_max_tokens").default(1024), // Max tokens por resposta
   aiProvider: text("ai_provider").default("anthropic"), // Provider ativo: 'anthropic' | 'openai' | 'ollama'
+  // Tempo (em minutos) que a IA fica silenciosa após atendente humano enviar mensagem.
+  // Resseta a cada nova mensagem do atendente. Default 120 min.
+  humanTakeoverTimeoutMinutes: integer("human_takeover_timeout_minutes").default(120),
+  // Janela de silêncio (sem mensagens proativas). NULL = sem restrição.
+  // Ex: quietHoursStart=22, quietHoursEnd=7 → não envia entre 22h e 7h.
+  quietHoursStart: integer("quiet_hours_start"),
+  quietHoursEnd: integer("quiet_hours_end"),
 
   // ===== REATIVAÇÃO DE PACIENTES =====
   reactivationEnabled: boolean("reactivation_enabled").default(true), // Habilitar reativação automática
@@ -2536,6 +2543,10 @@ export const plans = pgTable("plans", {
   maxAutomations: integer("max_automations").notNull().default(5),
   maxStorageGB: integer("max_storage_gb").notNull().default(5),
   features: jsonb("features").$type<string[]>(), // Lista de features incluídas
+  // Token-based AI limits (replace per-message limits which mispriced enterprise)
+  // NULL = ilimitado, 0 = AI desabilitado
+  aiInputTokensMonthly: integer("ai_input_tokens_monthly"),
+  aiOutputTokensMonthly: integer("ai_output_tokens_monthly"),
   isActive: boolean("is_active").notNull().default(true),
   isPopular: boolean("is_popular").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -3121,6 +3132,51 @@ export const aiToolCalls = pgTable("ai_tool_calls", {
 });
 
 export type AIToolCall = typeof aiToolCalls.$inferSelect;
+
+// ────────────────────────────────────────────────────────────
+// System Prompt Snapshots — versioned audit trail
+// ────────────────────────────────────────────────────────────
+// Cada combinação única (companyId, promptHash) é armazenada UMA vez.
+// Permite responder à pergunta regulatória: "qual prompt a IA usou
+// para a clínica X em 12/03?". Cada chamada AI registra qual snapshot
+// estava ativo via prompt_snapshot_id em ai_usage_logs.
+export const systemPromptSnapshots = pgTable("system_prompt_snapshots", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  promptHash: varchar("prompt_hash", { length: 64 }).notNull(),
+  promptText: text("prompt_text").notNull(),
+  promptLength: integer("prompt_length").notNull(),
+  clinicSettingsSnapshot: jsonb("clinic_settings_snapshot").$type<Record<string, any>>(),
+  firstUsedAt: timestamp("first_used_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+  useCount: bigint("use_count", { mode: "number" }).notNull().default(1),
+});
+
+export type SystemPromptSnapshot = typeof systemPromptSnapshots.$inferSelect;
+
+// ────────────────────────────────────────────────────────────
+// AI FAQ Cache — high-hit response cache for cost reduction
+// ────────────────────────────────────────────────────────────
+// Lookup ANTES de chamar Claude. Para perguntas frequentes
+// ("qual horário?", "vocês aceitam convênio X?", "preço de limpeza")
+// retorna resposta cacheada — 0 tokens, ~5ms latência.
+export const aiFaqCache = pgTable("ai_faq_cache", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  // SHA256 da query normalizada (lowercase, single-space, sem pontuação)
+  queryHash: varchar("query_hash", { length: 64 }).notNull(),
+  querySample: text("query_sample").notNull(),
+  responseText: text("response_text").notNull(),
+  // 'manual' (curado pelo admin) | 'auto' (aprendido) | 'system' (default)
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  enabled: boolean("enabled").notNull().default(true),
+  hitCount: bigint("hit_count", { mode: "number" }).notNull().default(0),
+  lastHitAt: timestamp("last_hit_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AiFaqCacheEntry = typeof aiFaqCache.$inferSelect;
 
 // Canned Responses - Respostas prontas por intenção
 export const cannedResponses = pgTable("canned_responses", {

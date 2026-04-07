@@ -26,7 +26,7 @@ export const PLAN_FEATURES: Record<string, string[]> = {
   'whatsapp.reminders': ['starter', 'professional', 'enterprise'],
 
   // Professional features
-  'automation.n8n': ['professional', 'enterprise'],
+  'automation.ai': ['professional', 'enterprise'],
   'whatsapp.chatbot': ['professional', 'enterprise'],
   'crm.pipeline': ['professional', 'enterprise'],
   'analytics.advanced': ['professional', 'enterprise'],
@@ -46,6 +46,23 @@ export const PLAN_FEATURES: Record<string, string[]> = {
   'audit.log': ['enterprise'],
   'data.export': ['enterprise'],
   'webhook.custom': ['enterprise'],
+};
+
+/**
+ * @deprecated since migration 030. Use the canonical token limits from
+ * `server/services/ai-agent/usage-limiter.ts` (DEFAULT_TOKEN_LIMITS), which
+ * splits input/output tokens (output costs ~5× input on Sonnet) and reads
+ * per-clinic overrides from `plans.ai_input_tokens_monthly` /
+ * `plans.ai_output_tokens_monthly`.
+ *
+ * Kept for backwards compatibility with any caller that imported the old
+ * single-number limit. Sums input + output of the new defaults.
+ */
+export const PLAN_AI_TOKEN_LIMITS: Record<string, number> = {
+  free: 0,
+  starter: 0,
+  professional: 650_000,  // 500k input + 150k output
+  enterprise: 3_250_000,  // 2.5M input + 750k output
 };
 
 // Cache for plan data (avoids DB lookup on every request)
@@ -104,8 +121,12 @@ async function getCompanyFeatures(companyId: number): Promise<{ planName: string
     return { planName: tierName, features };
   } catch (error) {
     logger.error({ err: error, companyId }, 'Error fetching company features');
-    // On error, allow all features to avoid blocking the user
-    return { planName: 'unknown', features: Object.keys(PLAN_FEATURES) };
+    // On error, fail closed: return only free-tier features to avoid granting
+    // paid capabilities when the subscription state cannot be verified.
+    const freeFeatures = Object.entries(PLAN_FEATURES)
+      .filter(([, tiers]) => tiers.includes('free'))
+      .map(([feature]) => feature);
+    return { planName: 'free', features: freeFeatures };
   }
 }
 
@@ -147,6 +168,15 @@ export function requireFeature(featureKey: string) {
       next();
     }
   };
+}
+
+/**
+ * Get the resolved plan name for a company.
+ * Useful when callers only need the tier string without the full feature list.
+ */
+export async function getCompanyPlanName(companyId: number): Promise<string> {
+  const { planName } = await getCompanyFeatures(companyId);
+  return planName;
 }
 
 /**

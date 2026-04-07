@@ -19,10 +19,111 @@ import { processMessage, type AgentResult } from './index';
 import { getWhatsAppProvider } from '../whatsapp-provider';
 import { broadcastToCompany } from '../../websocket-redis-adapter';
 import { isAgentReady } from './activation-check';
+import { markOutboundSent } from './conversation-memory';
 
 const log = logger.child({ module: 'message-handler' });
 
 const DEBOUNCE_MS = 5000; // 5 seconds to batch rapid messages
+
+// ============================================================
+// HUMANIZAÇÃO DE ENVIO
+// ============================================================
+const HUMANIZE_DELAY_MIN_MS = 800;   // delay mínimo entre chunks
+const HUMANIZE_DELAY_MAX_MS = 2200;  // delay máximo entre chunks
+const TYPING_PER_CHAR_MS = 35;       // simulação de digitação
+const MAX_CHUNK_LENGTH = 350;        // se uma mensagem passar disso, splitar
+const MIN_TYPING_DELAY_MS = 600;
+const MAX_TYPING_DELAY_MS = 4000;
+
+/**
+ * Quebra uma resposta longa em chunks naturais para envio humanizado.
+ * Tenta dividir por:
+ *   1. Parágrafos (\n\n)
+ *   2. Linhas únicas (\n)
+ *   3. Frases (. ! ?) — apenas se ainda estiver acima do limite
+ *
+ * Garante que nenhum chunk exceda MAX_CHUNK_LENGTH.
+ */
+function splitIntoChunks(text: string, maxLen = MAX_CHUNK_LENGTH): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  if (trimmed.length <= maxLen) return [trimmed];
+
+  // 1) Tenta por parágrafos
+  const paragraphs = trimmed.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  const chunks: string[] = [];
+
+  for (const p of paragraphs) {
+    if (p.length <= maxLen) {
+      chunks.push(p);
+      continue;
+    }
+    // 2) Tenta por linhas
+    const lines = p.split(/\n/).map(l => l.trim()).filter(Boolean);
+    let buf = '';
+    for (const line of lines) {
+      if ((buf + (buf ? '\n' : '') + line).length <= maxLen) {
+        buf = buf ? `${buf}\n${line}` : line;
+      } else {
+        if (buf) chunks.push(buf);
+        if (line.length <= maxLen) {
+          buf = line;
+        } else {
+          // 3) Frase a frase
+          const sentences = line.split(/(?<=[.!?])\s+/);
+          let sbuf = '';
+          for (const s of sentences) {
+            if ((sbuf + ' ' + s).trim().length <= maxLen) {
+              sbuf = (sbuf ? `${sbuf} ${s}` : s);
+            } else {
+              if (sbuf) chunks.push(sbuf);
+              sbuf = s.length <= maxLen ? s : s.slice(0, maxLen);
+            }
+          }
+          if (sbuf) chunks.push(sbuf);
+          buf = '';
+        }
+      }
+    }
+    if (buf) chunks.push(buf);
+  }
+
+  // Merge consecutivos curtos (< 80 chars) para não fragmentar demais
+  const merged: string[] = [];
+  for (const c of chunks) {
+    const last = merged[merged.length - 1];
+    if (last && (last.length + c.length + 2) <= maxLen && last.length < 80) {
+      merged[merged.length - 1] = `${last}\n${c}`;
+    } else {
+      merged.push(c);
+    }
+  }
+  return merged;
+}
+
+/** Delay aleatório entre min e max para variar e parecer humano */
+function humanDelay(min = HUMANIZE_DELAY_MIN_MS, max = HUMANIZE_DELAY_MAX_MS): number {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+/** Delay de "digitação" proporcional ao tamanho do próximo chunk */
+function typingDelayFor(text: string): number {
+  const ms = text.length * TYPING_PER_CHAR_MS;
+  return Math.max(MIN_TYPING_DELAY_MS, Math.min(MAX_TYPING_DELAY_MS, ms));
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Verifica se está em "horário de silêncio" (22h–7h horário local).
+ * Mensagens proativas (lembretes, marketing) não devem ser enviadas neste período.
+ * Mensagens de RESPOSTA a um paciente que acabou de escrever SÃO permitidas
+ * (se ele escreveu às 23h, ele claramente está acordado).
+ */
+function isQuietHours(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 22 || hour < 7;
+}
 
 /** Buffered messages waiting for debounce to complete */
 interface MessageBuffer {
@@ -293,11 +394,38 @@ async function processBuffer(bufferKey: string): Promise<void> {
       } : undefined,
     });
 
-    // If AI has a response to send
+    // If AI has a response to send — humanize com chunks + delays
     if (result.shouldRespond && result.response && !result.skipResponse) {
-      await sendWhatsAppResponse(companyId, phone, result.response);
+      const chunks = splitIntoChunks(result.response);
+      log.info({ companyId, phone, chunkCount: chunks.length }, 'Sending humanized response');
 
-      // Broadcast to dashboard (real-time chat UI)
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+
+        // Delay de digitação ANTES de enviar (simula "está digitando…")
+        // Para o primeiro chunk, delay menor; entre chunks, delay maior.
+        const delay = i === 0
+          ? Math.min(typingDelayFor(chunk), 2500)
+          : humanDelay() + Math.min(typingDelayFor(chunk), 1500);
+
+        await sleep(delay);
+
+        // ANTI-LOOP: marca o conteúdo como recém-enviado, para que se o
+        // provider devolva como echo no webhook, seja descartado.
+        try {
+          await markOutboundSent(companyId, phone, chunk);
+        } catch (err) {
+          log.debug({ err }, 'markOutboundSent failed (non-critical)');
+        }
+
+        const sent = await sendWhatsAppResponse(companyId, phone, chunk);
+        if (!sent) {
+          log.warn({ companyId, phone, chunkIndex: i }, 'Failed to send chunk, aborting remaining');
+          break;
+        }
+      }
+
+      // Broadcast to dashboard (real-time chat UI) — uma vez só, com texto completo
       try {
         broadcastToCompany(companyId, 'chat:new_message', {
           phone,
@@ -336,13 +464,11 @@ async function processBuffer(bufferKey: string): Promise<void> {
   } catch (err) {
     log.error({ err, companyId, phone }, 'Failed to process message through AI Agent');
 
-    // Send fallback message
+    // Send fallback message — também marca como outbound para anti-eco
     try {
-      await sendWhatsAppResponse(
-        companyId,
-        phone,
-        'Desculpe, estou com dificuldades técnicas. Por favor, tente novamente em alguns instantes.'
-      );
+      const fallback = 'Desculpe, estou com dificuldades técnicas no momento. Tente novamente em instantes ou ligue para a clínica 🙏';
+      await markOutboundSent(companyId, phone, fallback);
+      await sendWhatsAppResponse(companyId, phone, fallback);
     } catch (sendErr) {
       log.error({ sendErr }, 'Failed to send fallback message');
     }
@@ -352,27 +478,31 @@ async function processBuffer(bufferKey: string): Promise<void> {
 /**
  * Sends a WhatsApp response using the unified provider abstraction.
  * Respects the provider choice configured by the client (Wuzapi, Evolution, or Meta Cloud API).
+ * Returns true on success, false on failure.
  */
 async function sendWhatsAppResponse(
   companyId: number,
   phone: string,
   message: string
-): Promise<void> {
+): Promise<boolean> {
   const provider = await getWhatsAppProvider(companyId);
 
   if (!provider) {
     log.error({ companyId, phone }, 'No WhatsApp provider configured for this company');
-    return;
+    return false;
   }
 
   try {
     const result = await provider.sendTextMessage({ phone, message });
     if (result.success) {
       log.info({ companyId, phone, provider: result.provider, messageId: result.messageId }, 'Response sent');
+      return true;
     } else {
       log.error({ companyId, phone, provider: result.provider, error: result.error }, 'Failed to send response');
+      return false;
     }
   } catch (err) {
     log.error({ err, companyId, phone, provider: provider.providerType }, 'WhatsApp send threw error');
+    return false;
   }
 }

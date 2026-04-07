@@ -55,6 +55,7 @@ import clinicUnitsRoutes from './clinic-units.routes';
 import discountLimitsRoutes from './discount-limits.routes';
 import examRequestsRoutes from './exam-requests.routes';
 import faqRoutes from './faq.routes';
+import aiFaqCacheRoutes from './ai-faq-cache.routes';
 import installmentsRoutes from './installments.routes';
 import quotesRoutes from './quotes.routes';
 import cashRegisterRoutes from './cash-register.routes';
@@ -148,6 +149,7 @@ export function registerModularRoutes(app: Express) {
   apiV1Router.use('/discount-limits', discountLimitsRoutes); // Discount limits by role
   apiV1Router.use('/exam-requests', examRequestsRoutes); // Exam request workflow
   apiV1Router.use('/faq', faqRoutes);                   // FAQ / AI training knowledge base
+  apiV1Router.use('/ai-faq-cache', aiFaqCacheRoutes);    // AI FAQ cache (pre-LLM lookup)
   apiV1Router.use('/financial', installmentsRoutes);    // Installment calculation and simulation
   apiV1Router.use('/quotes', quotesRoutes);             // Quote / Budget generation (Orçamentos)
   apiV1Router.use('/cash-register', cashRegisterRoutes); // Cash register open/close workflow (Caixa)

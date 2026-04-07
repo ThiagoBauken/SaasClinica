@@ -16,6 +16,7 @@ export type ToolName =
   | 'check_availability'
   | 'schedule_appointment'
   | 'confirm_appointment'
+  | 'request_cancel_confirmation'
   | 'cancel_appointment'
   | 'reschedule_appointment'
   | 'get_clinic_info'
@@ -160,20 +161,42 @@ Após confirmar, mova o CRM para "confirmation" automaticamente.`,
     },
   },
   {
-    name: 'cancel_appointment',
-    description: `Cancela uma consulta existente.
-SEMPRE confirme com o paciente antes de chamar: "Tem certeza que deseja cancelar sua consulta do dia [data]?"
-Após cancelar, pergunte se deseja reagendar.`,
+    name: 'request_cancel_confirmation',
+    description: `Marca uma consulta como AGUARDANDO CONFIRMAÇÃO DUPLA de cancelamento.
+USE ESTA FERRAMENTA ANTES DE cancel_appointment, NUNCA pule este passo.
+Depois de chamar esta ferramenta:
+1. Pergunte ao paciente: "Só pra confirmar: você quer CANCELAR a consulta de [data] [hora]? Responda SIM para confirmar."
+2. Aguarde resposta explícita do paciente.
+3. Se "sim/confirmo" → chame cancel_appointment com este mesmo appointment_id.
+4. Se "não/mantém" → diga "Mantida então, te vejo na consulta!" e NÃO chame cancel_appointment.
+Esta ferramenta cria um estado de confirmação pendente válido por 10 minutos.`,
     input_schema: {
       type: 'object' as const,
       properties: {
         appointment_id: {
           type: 'number',
-          description: 'ID da consulta a cancelar',
+          description: 'ID da consulta que o paciente quer cancelar',
+        },
+      },
+      required: ['appointment_id'],
+    },
+  },
+  {
+    name: 'cancel_appointment',
+    description: `Cancela DEFINITIVAMENTE uma consulta existente.
+⚠️ PRÉ-REQUISITO: você DEVE ter chamado request_cancel_confirmation antes E o paciente DEVE ter respondido "sim/confirmo" explicitamente.
+Se o paciente apenas disse "cancelar" sem confirmação dupla, NÃO chame esta ferramenta — chame request_cancel_confirmation primeiro.
+Após cancelar com sucesso, OFEREÇA reagendamento: "Quando precisar voltar, é só me chamar 😊"`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        appointment_id: {
+          type: 'number',
+          description: 'ID da consulta a cancelar (deve ter pendência de confirmação ativa)',
         },
         reason: {
           type: 'string',
-          description: 'Motivo do cancelamento informado pelo paciente',
+          description: 'Motivo do cancelamento informado pelo paciente (opcional mas recomendado)',
         },
       },
       required: ['appointment_id'],

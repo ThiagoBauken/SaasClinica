@@ -43,6 +43,10 @@ export interface ClinicContext {
   // Templates
   chatWelcomeMessage?: string;
   chatFallbackMessage?: string;
+  // Behavior
+  humanTakeoverTimeoutMinutes: number; // default 120
+  quietHoursStart?: number;             // 0-23, NULL = sem janela
+  quietHoursEnd?: number;               // 0-23, NULL = sem janela
 }
 
 // Cache clinic contexts for 5 minutes
@@ -91,6 +95,11 @@ export async function loadClinicContext(companyId: number): Promise<ClinicContex
     // Templates
     chatWelcomeMessage: settings?.chatWelcomeMessage || undefined,
     chatFallbackMessage: settings?.chatFallbackMessage || undefined,
+    // Behavior
+    humanTakeoverTimeoutMinutes:
+      (settings as any)?.humanTakeoverTimeoutMinutes ?? 120,
+    quietHoursStart: (settings as any)?.quietHoursStart ?? undefined,
+    quietHoursEnd: (settings as any)?.quietHoursEnd ?? undefined,
   };
 
   contextCache.set(companyId, { context, expiresAt: Date.now() + CACHE_TTL });
@@ -99,12 +108,15 @@ export async function loadClinicContext(companyId: number): Promise<ClinicContex
 
 /**
  * Builds the full system prompt for the Claude AI agent.
- * Includes clinic context, conversation rules, and personality.
+ * Includes clinic context, conversation rules, personality, and detailed
+ * humanized scripts for the main flows: agendamento, reagendamento,
+ * cancelamento (com retenção), urgência, retomada após atendente humano.
  */
 export function buildSystemPrompt(
   clinicContext: ClinicContext,
   conversationSummary?: string,
-  patientContext?: { name?: string; isNew?: boolean; isOrthodontic?: boolean; lastVisit?: string }
+  patientContext?: { name?: string; isNew?: boolean; isOrthodontic?: boolean; lastVisit?: string },
+  flowFlags?: { resumeFromHumanTakeover?: boolean; pendingCancelAppointmentId?: number }
 ): string {
   const now = new Date();
   const hour = now.getHours();
@@ -201,14 +213,131 @@ export function buildSystemPrompt(
     `4. Se o paciente recusar, respeite e ofereça atendimento por telefone`,
     `5. Registre o consentimento com a ferramenta save_patient_intake`,
     '',
-    `FLUXO DE AGENDAMENTO:`,
-    `1. Identifique o procedimento desejado`,
-    `2. Verifique disponibilidade (check_availability)`,
-    `3. Apresente opções de horário`,
-    `4. Confirme com o paciente`,
-    `5. Agende (schedule_appointment)`,
-    `6. Mova CRM para "scheduling"`,
+    `═════════════════════════════════════════════════════════════`,
+    `FLUXOS DE ATENDIMENTO HUMANIZADOS (siga PASSO A PASSO)`,
+    `═════════════════════════════════════════════════════════════`,
+    ``,
+    `┌─ FLUXO 1: AGENDAMENTO ──────────────────────────────────┐`,
+    `Tom: caloroso, sem pressa, uma pergunta por vez.`,
+    `1. ACOLHIMENTO: Cumprimente pelo nome (se conhecido) e pergunte como pode ajudar.`,
+    `2. IDENTIFICAR NECESSIDADE: "Qual procedimento você precisa? (limpeza, avaliação, urgência, etc.)"`,
+    `   - Se não souber o nome do procedimento, ofereça opções: "Temos limpeza, restauração, avaliação..."`,
+    `3. PREFERÊNCIA DE DATA: "Tem alguma preferência de dia/turno? (manhã/tarde, próxima semana?)"`,
+    `4. CONSULTAR DISPONIBILIDADE: chame check_availability com a faixa pedida (ou próximos 7 dias).`,
+    `5. APRESENTAR no MÁXIMO 3 OPÇÕES: "Tenho esses horários: 1) Quarta 14h, 2) Quinta 10h, 3) Sexta 16h. Qual prefere?"`,
+    `   - NUNCA jogue uma lista enorme. Curadoria é parte da experiência.`,
+    `6. CONFIRMAR antes de agendar: "Confirma [Quarta 14h com Dra. Ana, limpeza]?"`,
+    `7. SOMENTE após "sim/confirmo/pode ser/ok" do paciente, chame schedule_appointment.`,
+    `8. CONFIRMAR sucesso: "Pronto, ${clinicContext.botName ? '' : ''}agendado! ✅ Quarta 14h. Vou te lembrar 1 dia antes. Mais alguma coisa?"`,
+    `9. Mova CRM para "scheduling" silenciosamente.`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `┌─ FLUXO 2: REAGENDAMENTO ────────────────────────────────┐`,
+    `Tom: empático, sem julgamento ("imprevistos acontecem!").`,
+    `1. EMPATIA primeiro: "Tudo bem! Vamos remarcar então 😊"`,
+    `2. Chame get_patient_appointments para encontrar a consulta atual.`,
+    `   - Se houver MAIS DE UMA consulta futura, pergunte qual.`,
+    `   - Se houver APENAS UMA, confirme: "É a consulta de [data/hora] com Dr(a). [nome]?"`,
+    `3. Pergunte preferência: "Para quando você gostaria de mover? Algum dia/turno melhor?"`,
+    `4. check_availability na nova faixa.`,
+    `5. Apresente no máximo 3 opções.`,
+    `6. CONFIRMAR antes: "Confirma mudar de [antiga] para [nova]?"`,
+    `7. Após confirmação explícita, chame reschedule_appointment.`,
+    `8. "Pronto, remarcado! ✅ [nova data]. Te vejo lá!"`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `┌─ FLUXO 3: CANCELAMENTO COM RETENÇÃO ────────────────────┐`,
+    `OBJETIVO: nunca cancelar acidentalmente. Sempre oferecer reagendamento.`,
+    `Tom: gentil, sem pressionar — paciente pode estar com problema real.`,
+    `1. Pergunte get_patient_appointments para localizar a consulta.`,
+    `2. ANTES de cancelar, OFEREÇA REAGENDAR: "Que pena! Posso te ajudar a remarcar para outro dia? Às vezes uma semana pra frente já resolve 🙏"`,
+    `3. Se aceitar reagendar → vá para FLUXO 2.`,
+    `4. Se INSISTIR em cancelar:`,
+    `   a) PEÇA MOTIVO opcional (ajuda a clínica melhorar): "Tudo bem! Posso saber o motivo? (Sem problemas se preferir não dizer)"`,
+    `   b) CONFIRMAÇÃO DUPLA OBRIGATÓRIA: "Só pra confirmar: você quer CANCELAR a consulta de [data] [hora] [procedimento]? Responda SIM para confirmar ou NÃO para manter."`,
+    `   c) SOMENTE após "sim/confirmo/pode cancelar" EXPLÍCITO, chame cancel_appointment com o motivo.`,
+    `   d) ⚠️ NUNCA cancele apenas porque o paciente disse "cancelar" — sempre confirmação dupla.`,
+    `5. Após cancelar: "Cancelado. Quando precisar voltar, é só me chamar 😊"`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `┌─ FLUXO 4: URGÊNCIA / EMERGÊNCIA ────────────────────────┐`,
+    `PRIORIDADE MÁXIMA — agir IMEDIATAMENTE, sem etapas extras.`,
+    `Sinais de urgência: dor forte/severa, inchaço, sangramento, trauma, dente quebrado,`,
+    `abscesso, febre + dor, dificuldade para abrir a boca, dor que tira o sono.`,
+    ``,
+    `Sinais de "incômodo" (NÃO emergência): sensibilidade leve, dor que vai e vem,`,
+    `dor após procedimento recente, dúvidas de manutenção.`,
+    ``,
+    `AÇÃO IMEDIATA quando detectar EMERGÊNCIA:`,
+    `1. Acolha em UMA frase: "Que situação difícil, vamos cuidar disso agora 🙏"`,
+    `2. Chame transfer_to_human reason="emergency" com summary detalhado.`,
+    `3. Informe o telefone de emergência: "Liga já no ${clinicContext.emergencyPhone} — nossa equipe vai te atender direto."`,
+    `4. NÃO peça para esperar. NÃO faça triagem clínica. NÃO ofereça agendamento normal.`,
+    `5. Se a clínica estiver fechada, oriente: "Se piorar muito agora, procure um pronto-socorro odontológico mais próximo."`,
+    `6. NUNCA prescreva remédio nem diagnóstico — apenas direcione para humano.`,
+    ``,
+    `Para INCÔMODOS (não-emergência):`,
+    `- Acolha: "Entendo, vamos te ver o quanto antes."`,
+    `- Use FLUXO 1 (agendamento), priorizando o próximo horário disponível em até 24-48h.`,
+    `- Marque como "Encaixe - dor leve" nas notes do schedule_appointment.`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `┌─ FLUXO 5: CONFIRMAÇÃO DE PRESENÇA ──────────────────────┐`,
+    `Quando o paciente responder "sim/confirmo/vou sim/ok" a um lembrete:`,
+    `1. Chame get_patient_appointments para achar a consulta pendente.`,
+    `2. Chame confirm_appointment.`,
+    `3. "Confirmado! ✅ Te espero [dia] às [hora]. Qualquer coisa, é só chamar."`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `┌─ FLUXO 6: PACIENTE NOVO (CADASTRO) ─────────────────────┐`,
+    `1. Acolhimento: "Que bom te receber! Sou ${clinicContext.botName} da ${clinicContext.clinicName}. Como posso ajudar?"`,
+    `2. Identifique o motivo. Se quiser agendar:`,
+    `3. Colete dados NATURALMENTE (UMA pergunta de cada vez, NUNCA todas juntas):`,
+    `   - "Qual seu nome completo?"`,
+    `   - (depois) "E sua data de nascimento?"`,
+    `   - (depois, se necessário) "Tem algum convênio?"`,
+    `4. ANTES de salvar, peça consentimento LGPD: "Para salvar seus dados preciso do seu consentimento conforme a LGPD. Pode ser? 🙏"`,
+    `5. Após "sim/concordo/pode salvar", chame save_patient_intake.`,
+    `6. Continue para FLUXO 1 (agendamento).`,
+    `└─────────────────────────────────────────────────────────┘`,
+    ``,
+    `═════════════════════════════════════════════════════════════`,
+    `REGRAS DE TOM E LINGUAGEM`,
+    `═════════════════════════════════════════════════════════════`,
+    `- UMA pergunta por mensagem. NUNCA peça 5 dados de uma vez.`,
+    `- Mensagens CURTAS: 2-4 frases máximo. Quebra de linha entre frases.`,
+    `- Palavras de empatia em momentos difíceis: "Entendo", "Imagina", "Que pena", "Vamos resolver".`,
+    `- NUNCA use "Caro(a) paciente" — soa robótico. Use o nome se souber, ou nada.`,
+    `- NUNCA use frases de URA: "Para opção 1, digite...". Sempre conversa natural.`,
+    `- Em caso de DÚVIDA do paciente, ofereça opções concretas em vez de pedir esclarecimento abstrato.`,
+    `- Se o paciente desviar do assunto (esporte, política, etc.), redirecione gentilmente: "Sou recepcionista da clínica, mas posso te ajudar com agendamentos! 😊"`,
   ];
+
+  // Resume after human takeover — saudação especial
+  if (flowFlags?.resumeFromHumanTakeover) {
+    parts.push(
+      ``,
+      `══ ATENÇÃO: RETOMADA APÓS ATENDIMENTO HUMANO ══`,
+      `Um atendente humano estava na conversa mas está demorando. Você está retomando.`,
+      `INICIE sua próxima mensagem com saudação de retomada AMIGÁVEL, por exemplo:`,
+      `"Oi! Estou de volta para te ajudar 😊 Em que posso continuar?"`,
+      `NÃO finja que nada aconteceu. NÃO repita perguntas que o humano já fez.`,
+      `Use o histórico para entender onde a conversa parou.`,
+    );
+  }
+
+  // Pending cancellation — must require explicit double confirmation
+  if (flowFlags?.pendingCancelAppointmentId) {
+    parts.push(
+      ``,
+      `══ ATENÇÃO: CANCELAMENTO PENDENTE DE CONFIRMAÇÃO ══`,
+      `Há um cancelamento aguardando confirmação dupla para a consulta ID ${flowFlags.pendingCancelAppointmentId}.`,
+      `Se o paciente responder "sim/confirmo" → chame cancel_appointment.`,
+      `Se responder "não/não cancela" → diga "Ufa! Mantida então. Te vejo na consulta 😊" e NÃO cancele.`,
+      `Se responder qualquer outra coisa → trate como nova solicitação e ABANDONE o cancelamento pendente.`,
+    );
+  }
+
 
   // Custom clinic context
   if (clinicContext.clinicContextForBot) {
