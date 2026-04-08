@@ -62,7 +62,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 # - curl: healthchecks
 # - libc6-compat: módulos nativos
 # - postgresql-client: pg_dump usado pelo backup-cron (server/jobs/backup-cron.ts)
-RUN apk add --no-cache curl libc6-compat postgresql15-client
+RUN apk add --no-cache curl libc6-compat postgresql-client
 
 # Copiar package files
 COPY package*.json ./
