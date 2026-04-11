@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { addMonths, isBefore, parseISO, differenceInMonths, format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,7 @@ interface Patient {
 
 export default function PatientsPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
@@ -117,13 +118,16 @@ export default function PatientsPage() {
       const res = await apiRequest("POST", "/api/patients", patientData);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newPatient: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
       toast({
         title: "Paciente adicionado",
-        description: "O paciente foi adicionado com sucesso!",
+        description: "Redirecionando para o prontuário...",
       });
       setIsAddPatientOpen(false);
+      if (newPatient?.id) {
+        setLocation(`/patients/${newPatient.id}/record`);
+      }
     },
     onError: (error: Error) => {
       toast({

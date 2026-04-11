@@ -197,7 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const result = await response.json();
       setUser(result.user || result);
-      setLocation('/saas-admin');
+      // Novo usuario vai para setup wizard; quem ja fez setup vai para dashboard
+      setLocation('/setup');
     } catch (error) {
       console.error('Erro no registro:', error);
       throw error;

@@ -120,19 +120,21 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
       <div className="flex justify-between items-center mb-2">
         <span className="font-medium">{format(currentDate, 'MMMM yyyy', { locale: ptBR })}</span>
         <div className="flex">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="p-1 text-neutral-medium hover:text-primary"
             onClick={prevMonth}
+            aria-label="Mês anterior"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="p-1 text-neutral-medium hover:text-primary"
             onClick={nextMonth}
+            aria-label="Próximo mês"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

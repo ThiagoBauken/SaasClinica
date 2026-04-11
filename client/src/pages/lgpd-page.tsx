@@ -120,7 +120,7 @@ export default function LGPDPage() {
               Para solicitações relacionadas à LGPD, contate nosso Encarregado de Proteção de Dados:
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mt-3">
-              <p><strong>E-mail:</strong> {/* TODO: Substituir pelo e-mail real do DPO (Art. 41 LGPD) */} dpo@suaclinica.com.br</p>
+              <p><strong>E-mail:</strong> {import.meta.env.VITE_DPO_EMAIL || "dpo@dentalsys.com.br"}</p>
               <p><strong>Prazo de resposta:</strong> até 15 dias úteis</p>
             </div>
           </section>

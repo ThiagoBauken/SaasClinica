@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -549,14 +551,17 @@ export default function ChatInboxPage() {
             {/* Lista */}
             <ScrollArea className="flex-1">
               {sessionsLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
+                <LoadingState variant="list" rows={5} label="Carregando conversas..." />
               ) : filteredSessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-                  <MessageCircle className="h-12 w-12 mb-2 opacity-50" />
-                  <p>Nenhuma conversa encontrada</p>
-                </div>
+                <EmptyState
+                  icon={MessageCircle}
+                  title="Nenhuma conversa encontrada"
+                  description={
+                    statusFilter === "all"
+                      ? "As conversas do WhatsApp aparecerão aqui quando pacientes entrarem em contato."
+                      : "Nenhuma conversa corresponde ao filtro selecionado."
+                  }
+                />
               ) : (
                 <div className="divide-y">
                   {filteredSessions.map((session) => {

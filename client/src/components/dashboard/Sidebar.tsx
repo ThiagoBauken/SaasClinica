@@ -22,7 +22,12 @@ import {
   MessageSquare,
   FlaskConical,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Activity,
+  CalendarX,
+  ClipboardList,
+  TrendingDown,
+  TrendingUp
 } from "lucide-react";
 
 interface SidebarProps {
@@ -64,6 +69,18 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           Agenda
         </Link>
 
+        {/* Lista de Espera */}
+        <Link href="/agenda/lista-espera" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/agenda/lista-espera" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <ClipboardList className="mr-3 h-5 w-5" />
+          Lista de Espera
+        </Link>
+
+        {/* Bloqueios de Agenda */}
+        <Link href="/agenda/bloqueios" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/agenda/bloqueios" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <CalendarX className="mr-3 h-5 w-5" />
+          Bloqueios
+        </Link>
+
         {/* Atendimento WhatsApp */}
         <Link href="/atendimento" data-tour="sidebar-atendimento" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/atendimento" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <MessageCircle className="mr-3 h-5 w-5" />
@@ -81,10 +98,28 @@ export default function Sidebar({ currentPath, isMobileOpen, onMobileClose }: Si
           Pacientes
         </Link>
 
+        {/* Odontograma */}
+        <Link href="/odontogram" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/odontogram" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <Activity className="mr-3 h-5 w-5" />
+          Odontograma
+        </Link>
+
         {/* Financeiro */}
         <Link href="/financial" data-tour="sidebar-financial" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/financial" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
           <DollarSign className="mr-3 h-5 w-5" />
           Financeiro
+        </Link>
+
+        {/* Contas a Receber */}
+        <Link href="/contas-a-receber" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/contas-a-receber" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <TrendingUp className="mr-3 h-5 w-5" />
+          Contas a Receber
+        </Link>
+
+        {/* Contas a Pagar */}
+        <Link href="/contas-a-pagar" className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg ${currentPath === "/contas-a-pagar" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`} onClick={onMobileClose}>
+          <TrendingDown className="mr-3 h-5 w-5" />
+          Contas a Pagar
         </Link>
 
         {/* CRM */}

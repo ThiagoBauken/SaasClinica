@@ -121,20 +121,22 @@ export default function MonthAgendaView({
         </h2>
         
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={prevMonth}
             size="icon"
             className={`h-8 w-8 ${isDarkMode ? 'text-white border-gray-700' : ''}`}
+            aria-label="Mês anterior"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={nextMonth}
             size="icon"
             className={`h-8 w-8 ${isDarkMode ? 'text-white border-gray-700' : ''}`}
+            aria-label="Próximo mês"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

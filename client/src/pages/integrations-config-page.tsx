@@ -545,7 +545,7 @@ export default function IntegrationsConfigPage() {
                   id="googleReviewLink"
                   value={formData.googleReviewLink || ""}
                   onChange={(e) => handleInputChange("googleReviewLink", e.target.value)}
-                  placeholder="https://g.co/kgs/XXXXXXX"
+                  placeholder="https://g.co/kgs/seuCodigo"
                 />
                 <p className="text-xs text-muted-foreground">
                   Link curto do Google para clientes deixarem avaliações

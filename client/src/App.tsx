@@ -1,5 +1,5 @@
 import { Route, Switch, Redirect } from "wouter";
-import { Suspense, useContext, useEffect } from "react";
+import { Suspense, lazy, useContext, useEffect } from "react";
 import { AuthProvider, AuthContext } from "@/core/AuthProvider";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -7,26 +7,35 @@ import { Toaster } from "@/components/ui/toaster";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { initCsrfToken } from "@/lib/csrf";
 
-// Import pages diretamente em vez de lazy loading para evitar erros no desenvolvimento
+// Heavy pages use React.lazy for code-splitting — reduces initial bundle size.
+const InventoryPage = lazy(() => import("@/pages/inventory-page"));
+const ConfiguracoesClinicaPage = lazy(() => import("@/pages/configuracoes-clinica"));
+const AgendaPage = lazy(() => import("@/pages/agenda-page"));
+const FinancialPage = lazy(() => import("@/pages/financial-page"));
+const AjudaPage = lazy(() => import("@/pages/ajuda-page"));
+const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
+const ConfiguracoesChatPage = lazy(() => import("@/pages/configuracoes-chat"));
+const ChatInboxPage = lazy(() => import("@/pages/chat-inbox-page"));
+const CRMPage = lazy(() => import("@/pages/crm-page"));
+const RelatoriosPage = lazy(() => import("@/pages/relatorios-page"));
+const PatientDigitizationPage = lazy(() => import("@/pages/patient-digitization-page"));
+const AnalyticsPage = lazy(() => import("@/pages/analytics-page"));
+
+// Smaller pages: direct imports (fast to bundle, not worth splitting)
 import DashboardPage from "@/pages/dashboard-page";
 import PatientsPage from "@/pages/patients-page";
-import AgendaPage from "@/pages/agenda-page";
-import FinancialPage from "@/pages/financial-page";
 import AutomationPage from "@/pages/automation-page";
 import ProsthesisControlPage from "@/pages/prosthesis-control-page";
-import InventoryPage from "@/pages/inventory-page";
 import OdontogramPage from "@/pages/odontogram-page";
 import CadastrosPage from "@/pages/cadastros-page";
 import ConfiguracoesPage from "@/pages/configuracoes-page";
-import ConfiguracoesClinicaPage from "@/pages/configuracoes-clinica";
 import ConfiguracoesIntegracoesPage from "@/pages/configuracoes-integracoes";
 import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
-import SuperAdminPage from "@/pages/SuperAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
 import PatientRecordPage from "@/pages/patient-record-page";
@@ -37,16 +46,11 @@ import BillingPage from "@/pages/billing-page";
 import CouponsAdminPage from "@/pages/coupons-admin-page";
 import CheckoutSuccessPage from "@/pages/checkout-success-page";
 import CheckoutCanceledPage from "@/pages/checkout-canceled-page";
-import PatientDigitizationPage from "@/pages/patient-digitization-page";
 import PatientImportPage from "@/pages/patient-import-page";
-import AnalyticsPage from "@/pages/analytics-page";
-import ChatInboxPage from "@/pages/chat-inbox-page";
-import CRMPage from "@/pages/crm-page";
 import PerfilPage from "@/pages/perfil-page";
 import PermissionsPage from "@/pages/permissions-page";
 import IntegrationsConfigPage from "@/pages/integrations-config-page";
 import ConfiguracoesHorariosPage from "@/pages/configuracoes-horarios";
-import ConfiguracoesChatPage from "@/pages/configuracoes-chat";
 import PublicConfirmationPage from "@/pages/public-confirmation-page";
 import ConfiguracoesUsuariosPage from "@/pages/configuracoes-usuarios";
 import ConfiguracoesProcedimentosPage from "@/pages/configuracoes-procedimentos";
@@ -58,18 +62,23 @@ import ConfiguracoesAparenciaPage from "@/pages/configuracoes-aparencia";
 import ConfiguracoesBackupPage from "@/pages/configuracoes-backup";
 import ConfiguracoesIAPage from "@/pages/configuracoes-ia";
 import LaboratoryManagementPage from "@/pages/laboratory-management";
-import RelatoriosPage from "@/pages/relatorios-page";
 import TeleconsultaPage from "@/pages/teleconsulta-page";
 import OfficeChatPage from "@/pages/office-chat-page";
 import PatientPaymentsPage from "@/pages/patient-payments-page";
 import TermosDeUsoPage from "@/pages/termos-de-uso";
 import PoliticaDePrivacidadePage from "@/pages/politica-de-privacidade";
 import LGPDPage from "@/pages/lgpd-page";
-import AjudaPage from "@/pages/ajuda-page";
 import PublicQuotePage from "@/pages/public-quote-page";
 import PublicBookingPage from "@/pages/public-booking-page";
 import PatientPortalPage from "@/pages/patient-portal-page";
 import PacotesEsteticosPage from "@/pages/pacotes-esteticos-page";
+import AccountsPayablePage from "@/pages/accounts-payable-page";
+import AccountsReceivablePage from "@/pages/accounts-receivable-page";
+import WaitlistPage from "@/pages/waitlist-page";
+import ScheduleBlocksPage from "@/pages/schedule-blocks-page";
+import AnamnesisBuilderPage from "@/pages/anamnesis-builder-page";
+import SetupPage from "@/pages/setup-page";
+import PublicAnamnesisPage from "@/pages/public-anamnesis-page";
 
 export default function App() {
   // Initialize CSRF token on app startup
@@ -117,8 +126,11 @@ export default function App() {
             <Route path="/orcamento/:token" component={PublicQuotePage} />
             <Route path="/agendar/:companyId" component={PublicBookingPage} />
             <Route path="/portal/:token" component={PatientPortalPage} />
+            <Route path="/anamnese/:token" component={PublicAnamnesisPage} />
 
-            {/* Rotas protegidas */}
+            {/* Rotas protegidas — PageErrorBoundary prevents one page crash
+                from tearing down the entire app shell. */}
+            <PageErrorBoundary>
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/patients" component={PatientsPage} />
             <ProtectedRoute path="/pacientes/digitalizar" component={PatientDigitizationPage} />
@@ -130,6 +142,12 @@ export default function App() {
             <ProtectedRoute path="/agenda/novo" component={NovoAgendamento} />
             <ProtectedRoute path="/agenda/:id/editar" component={EditarAgendamento} />
             <ProtectedRoute path="/financial" component={FinancialPage} />
+            <ProtectedRoute path="/contas-a-pagar" component={AccountsPayablePage} />
+            <ProtectedRoute path="/contas-a-receber" component={AccountsReceivablePage} />
+            <ProtectedRoute path="/agenda/lista-espera" component={WaitlistPage} />
+            <ProtectedRoute path="/agenda/bloqueios" component={ScheduleBlocksPage} />
+            <ProtectedRoute path="/configuracoes/anamnese-templates" component={AnamnesisBuilderPage} />
+            <ProtectedRoute path="/setup" component={SetupPage} />
             <ProtectedRoute path="/automation" component={AutomationPage} />
             <ProtectedRoute path="/prosthesis" component={ProsthesisControlPage} />
             <ProtectedRoute path="/inventory" component={InventoryPage} />
@@ -168,6 +186,7 @@ export default function App() {
             <ProtectedRoute path="/chat-interno" component={OfficeChatPage} />
             <ProtectedRoute path="/pagamentos-paciente" component={PatientPaymentsPage} />
             <ProtectedRoute path="/ajuda" component={AjudaPage} />
+            </PageErrorBoundary>
             </Switch>
           </Suspense>
           <Toaster />

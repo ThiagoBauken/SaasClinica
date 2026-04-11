@@ -231,6 +231,7 @@ export default function AppointmentQuickActions({
         className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950"
         onClick={handleOpenChatInbox}
         title="Abrir Atendimento (Chat)"
+        aria-label="Abrir Atendimento (Chat)"
         disabled={openChatMutation.isPending}
       >
         <MessageSquare className="h-3.5 w-3.5" />
@@ -243,6 +244,7 @@ export default function AppointmentQuickActions({
         className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
         onClick={handleWhatsApp}
         title="WhatsApp Externo"
+        aria-label="Abrir WhatsApp externo"
       >
         <MessageCircle className="h-3.5 w-3.5" />
       </Button>
@@ -254,6 +256,7 @@ export default function AppointmentQuickActions({
         className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
         onClick={handleCall}
         title="Ligar"
+        aria-label="Ligar para paciente"
       >
         <Phone className="h-3.5 w-3.5" />
       </Button>
@@ -265,6 +268,7 @@ export default function AppointmentQuickActions({
         className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
         onClick={handleViewRecord}
         title="Ver Prontuário"
+        aria-label="Ver prontuário do paciente"
       >
         <FileText className="h-3.5 w-3.5" />
       </Button>
@@ -280,6 +284,12 @@ export default function AppointmentQuickActions({
           currentStatus === "confirmed" ? "Iniciar Atendimento" :
           currentStatus === "in_progress" ? "Concluir" :
           "Sem ação"
+        }
+        aria-label={
+          currentStatus === "scheduled" ? "Confirmar agendamento" :
+          currentStatus === "confirmed" ? "Iniciar atendimento" :
+          currentStatus === "in_progress" ? "Concluir atendimento" :
+          "Sem ação disponível"
         }
         disabled={updateStatusMutation.isPending || isFinalized}
       >
@@ -297,6 +307,7 @@ export default function AppointmentQuickActions({
           className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
           onClick={() => onEdit(appointmentId)}
           title="Editar Agendamento"
+          aria-label="Editar agendamento"
         >
           <Edit className="h-3.5 w-3.5" />
         </Button>
@@ -310,6 +321,7 @@ export default function AppointmentQuickActions({
           className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
           onClick={() => onDelete(appointmentId)}
           title="Deletar Agendamento"
+          aria-label="Deletar agendamento"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -323,6 +335,7 @@ export default function AppointmentQuickActions({
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
             title="Mais opções"
+            aria-label="Mais opções do agendamento"
             disabled={updateStatusMutation.isPending}
           >
             <MoreVertical className="h-3.5 w-3.5" />
