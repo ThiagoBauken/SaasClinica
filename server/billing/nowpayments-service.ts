@@ -198,7 +198,16 @@ export class NOWPaymentsService {
     const hmac = crypto.createHmac('sha512', NOWPAYMENTS_IPN_SECRET);
     const calculatedSignature = hmac.update(payload).digest('hex');
 
-    return calculatedSignature === signature;
+    // Constant-time comparison to prevent timing attacks on HMAC verification.
+    if (calculatedSignature.length !== signature.length) return false;
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(calculatedSignature, 'hex'),
+        Buffer.from(signature, 'hex'),
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**

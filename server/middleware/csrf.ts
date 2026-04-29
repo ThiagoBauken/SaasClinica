@@ -52,10 +52,11 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     return next();
   }
 
-  // Skip CSRF for API key authenticated requests — ONLY if key is actually valid
-  // (Previously skipped for ANY request with the header present, regardless of key validity)
-  if (req.headers['x-api-key'] && process.env.SAAS_MASTER_API_KEY &&
-      req.headers['x-api-key'] === process.env.SAAS_MASTER_API_KEY) {
+  // Skip CSRF for API key authenticated requests — ONLY if key is actually valid.
+  // Uses constant-time comparison to prevent timing attacks on SAAS_MASTER_API_KEY.
+  const providedApiKey = req.headers['x-api-key'];
+  const masterApiKey = process.env.SAAS_MASTER_API_KEY;
+  if (typeof providedApiKey === 'string' && masterApiKey && constantTimeCompare(providedApiKey, masterApiKey)) {
     return next();
   }
 

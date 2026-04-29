@@ -9,7 +9,7 @@ export function ProtectedRoute({
   component: Component,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  component: React.ComponentType<any>;
 }) {
   // Try to get auth context safely
   const authContext = useContext(AuthContext);

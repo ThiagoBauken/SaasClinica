@@ -49,7 +49,7 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
       logoutMutation.mutate();
     } else {
       // Fallback logout - redirect to login page
-      window.location.href = '/login';
+      window.location.href = '/auth';
     }
   };
 

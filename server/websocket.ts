@@ -131,7 +131,10 @@ export function broadcastToCompany(companyId: number, message: WebSocketMessage)
 
   let successCount = 0;
   connections.forEach((ws) => {
-    if (ws.readyState === WebSocket.OPEN) {
+    // Defense-in-depth: verify socket is bound to the same company before
+    // sending. Prevents accidental cross-tenant data leaks if the map is
+    // corrupted or reused sockets retain stale companyId bindings.
+    if (ws.readyState === WebSocket.OPEN && ws.companyId === companyId) {
       ws.send(payload);
       successCount++;
     }

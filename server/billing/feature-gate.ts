@@ -164,8 +164,13 @@ export function requireFeature(featureKey: string) {
       next();
     } catch (error) {
       logger.error({ err: error }, 'Feature gate error');
-      // On error, allow access to avoid blocking users
-      next();
+      // Fail-closed: deny access on error to protect paid features.
+      return res.status(503).json({
+        error: {
+          code: 'FEATURE_GATE_UNAVAILABLE',
+          message: 'Unable to verify feature access at this time. Please try again.',
+        },
+      });
     }
   };
 }

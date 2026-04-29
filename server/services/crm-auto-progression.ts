@@ -22,6 +22,7 @@ import {
 } from '@shared/schema';
 import { logger } from '../logger';
 import { broadcastToCompany } from '../websocket-redis-adapter';
+import { acquireLock, releaseLock } from '../lib/distributed-lock';
 
 const log = logger.child({ module: 'crm-auto-progression' });
 
@@ -50,6 +51,26 @@ export const AI_STAGE_LABELS: Record<string, string> = {
  * Called when a new WhatsApp conversation starts or when we need to ensure
  * a session has an associated opportunity.
  */
+/**
+ * Look up an existing opportunity for a given company+session, if any.
+ */
+async function findOpportunityForSession(
+  companyId: number,
+  sessionId: number,
+): Promise<SalesOpportunity | undefined> {
+  const [existing] = await db
+    .select()
+    .from(salesOpportunities)
+    .where(
+      and(
+        eq(salesOpportunities.companyId, companyId),
+        eq(salesOpportunities.chatSessionId, sessionId),
+      ),
+    )
+    .limit(1);
+  return existing;
+}
+
 export async function ensureOpportunityForSession(
   companyId: number,
   sessionId: number,
@@ -60,112 +81,130 @@ export async function ensureOpportunityForSession(
     source?: string;
   }
 ): Promise<SalesOpportunity> {
-  // Check if opportunity already exists for this session
-  const [existing] = await db
-    .select()
-    .from(salesOpportunities)
-    .where(
-      and(
-        eq(salesOpportunities.companyId, companyId),
-        eq(salesOpportunities.chatSessionId, sessionId)
-      )
-    )
-    .limit(1);
-
+  // Fast path: opportunity already exists.
+  const existing = await findOpportunityForSession(companyId, sessionId);
   if (existing) {
     return existing;
   }
 
-  // Find the default (first_contact) stage for this company
-  let [defaultStage] = await db
-    .select()
-    .from(salesFunnelStages)
-    .where(
-      and(
-        eq(salesFunnelStages.companyId, companyId),
-        eq(salesFunnelStages.automationTrigger, 'first_contact'),
-        eq(salesFunnelStages.isActive, true)
-      )
-    )
-    .limit(1);
+  // Slow path: acquire a per-session distributed lock (with brief polling)
+  // to serialise concurrent creations across instances/workers. Without this,
+  // two simultaneous messages for the same session could both pass the
+  // SELECT above and INSERT duplicate opportunities.
+  const lockName = `crm:opportunity:${companyId}:${sessionId}`;
+  const lockTtlSeconds = 10;
+  const maxWaitMs = 5000;
+  const pollMs = 50;
+  const start = Date.now();
+  let lockAcquired = false;
 
-  // Fallback to default stage
-  if (!defaultStage) {
-    [defaultStage] = await db
-      .select()
-      .from(salesFunnelStages)
-      .where(
-        and(
-          eq(salesFunnelStages.companyId, companyId),
-          eq(salesFunnelStages.isDefault, true),
-          eq(salesFunnelStages.isActive, true)
-        )
-      )
-      .limit(1);
+  while (Date.now() - start < maxWaitMs) {
+    lockAcquired = await acquireLock(lockName, lockTtlSeconds);
+    if (lockAcquired) break;
+    await new Promise((r) => setTimeout(r, pollMs));
   }
 
-  // If still no stage, create default stages for this company
-  if (!defaultStage) {
-    await seedDefaultStages(companyId);
-    [defaultStage] = await db
+  try {
+    // Re-check after acquiring (or timing out) — another worker may have
+    // already created it while we were waiting.
+    const recheck = await findOpportunityForSession(companyId, sessionId);
+    if (recheck) return recheck;
+
+    // Find the default (first_contact) stage for this company
+    let [defaultStage] = await db
       .select()
       .from(salesFunnelStages)
       .where(
         and(
           eq(salesFunnelStages.companyId, companyId),
           eq(salesFunnelStages.automationTrigger, 'first_contact'),
-          eq(salesFunnelStages.isActive, true)
-        )
+          eq(salesFunnelStages.isActive, true),
+        ),
       )
       .limit(1);
+
+    // Fallback to default stage
+    if (!defaultStage) {
+      [defaultStage] = await db
+        .select()
+        .from(salesFunnelStages)
+        .where(
+          and(
+            eq(salesFunnelStages.companyId, companyId),
+            eq(salesFunnelStages.isDefault, true),
+            eq(salesFunnelStages.isActive, true),
+          ),
+        )
+        .limit(1);
+    }
+
+    // If still no stage, create default stages for this company
+    if (!defaultStage) {
+      await seedDefaultStages(companyId);
+      [defaultStage] = await db
+        .select()
+        .from(salesFunnelStages)
+        .where(
+          and(
+            eq(salesFunnelStages.companyId, companyId),
+            eq(salesFunnelStages.automationTrigger, 'first_contact'),
+            eq(salesFunnelStages.isActive, true),
+          ),
+        )
+        .limit(1);
+    }
+
+    if (!defaultStage) {
+      throw new Error(`No funnel stages configured for company ${companyId}`);
+    }
+
+    const title = data?.patientName
+      ? `WhatsApp - ${data.patientName}`
+      : `WhatsApp - ${data?.phone || 'Novo Contato'}`;
+
+    const [opportunity] = await db
+      .insert(salesOpportunities)
+      .values({
+        companyId,
+        chatSessionId: sessionId,
+        stageId: defaultStage.id,
+        aiStage: 'first_contact',
+        aiStageUpdatedAt: new Date(),
+        patientId: data?.patientId || null,
+        leadName: data?.patientName || null,
+        leadPhone: data?.phone || null,
+        leadSource: data?.source || 'whatsapp',
+        title,
+        stageEnteredAt: new Date(),
+      })
+      .returning();
+
+    // Record history
+    await db.insert(salesOpportunityHistory).values({
+      opportunityId: opportunity.id,
+      toStageId: defaultStage.id,
+      action: 'created',
+      description: 'Oportunidade criada automaticamente via WhatsApp',
+      metadata: { source: 'whatsapp_auto', sessionId },
+    });
+
+    log.info(
+      { opportunityId: opportunity.id, sessionId, companyId },
+      'Auto-created CRM opportunity from WhatsApp session',
+    );
+
+    // Notify frontend via WebSocket
+    broadcastToCompany(companyId, 'crm:opportunity_created', {
+      opportunity,
+      stage: defaultStage,
+    });
+
+    return opportunity;
+  } finally {
+    if (lockAcquired) {
+      await releaseLock(lockName);
+    }
   }
-
-  if (!defaultStage) {
-    throw new Error(`No funnel stages configured for company ${companyId}`);
-  }
-
-  const title = data?.patientName
-    ? `WhatsApp - ${data.patientName}`
-    : `WhatsApp - ${data?.phone || 'Novo Contato'}`;
-
-  const [opportunity] = await db
-    .insert(salesOpportunities)
-    .values({
-      companyId,
-      chatSessionId: sessionId,
-      stageId: defaultStage.id,
-      aiStage: 'first_contact',
-      aiStageUpdatedAt: new Date(),
-      patientId: data?.patientId || null,
-      leadName: data?.patientName || null,
-      leadPhone: data?.phone || null,
-      leadSource: data?.source || 'whatsapp',
-      title,
-      stageEnteredAt: new Date(),
-    })
-    .returning();
-
-  // Record history
-  await db.insert(salesOpportunityHistory).values({
-    opportunityId: opportunity.id,
-    toStageId: defaultStage.id,
-    action: 'created',
-    description: 'Oportunidade criada automaticamente via WhatsApp',
-    metadata: { source: 'whatsapp_auto', sessionId },
-  });
-
-  log.info(
-    { opportunityId: opportunity.id, sessionId, companyId },
-    'Auto-created CRM opportunity from WhatsApp session'
-  );
-
-  // Notify frontend via WebSocket
-  broadcastToCompany(companyId, 'crm:opportunity_created', {
-    opportunity,
-    stage: defaultStage,
-  });
-
-  return opportunity;
 }
 
 /**

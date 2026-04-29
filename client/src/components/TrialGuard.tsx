@@ -20,7 +20,6 @@ const ALLOWED_ROUTES_WHEN_EXPIRED = [
   "/configuracoes/assinatura",
   "/perfil",
   "/auth",
-  "/login",
 ];
 
 interface TrialGuardProps {

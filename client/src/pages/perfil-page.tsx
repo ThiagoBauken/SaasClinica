@@ -11,6 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getCsrfHeaders } from "@/lib/csrf";
 import { Loader2, User, Mail, Phone, Save, Camera, ShieldCheck, ShieldOff, Copy, KeyRound } from "lucide-react";
+import { AccountPrivacySection } from "@/components/auth/AccountPrivacySection";
 
 export default function PerfilPage() {
   const { user } = useAuth();
@@ -191,6 +192,9 @@ export default function PerfilPage() {
 
         {/* Seção MFA / Autenticação em duas etapas */}
         <MfaSection />
+
+        {/* LGPD: exportar dados / excluir conta */}
+        <AccountPrivacySection />
       </div>
     </DashboardLayout>
   );

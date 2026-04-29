@@ -21,6 +21,13 @@ interface BroadcastMessage {
   data: any;
   companyId?: number;
   excludeUserId?: number;
+  /**
+   * Explicit opt-in for cross-tenant broadcasts. MUST be set to true for
+   * system-wide messages (e.g. maintenance notices). If companyId is omitted
+   * AND allTenants is not true, the message is rejected to prevent
+   * accidental cross-tenant data leaks.
+   */
+  allTenants?: boolean;
   timestamp: string;
 }
 
@@ -135,11 +142,23 @@ export async function initializeScalableWebSocket(server: Server): Promise<void>
   });
 
   /**
-   * Broadcast to this instance's connections only
+   * Broadcast to this instance's connections only.
+   *
+   * SECURITY: Requires either msg.companyId (tenant-scoped) or
+   * msg.allTenants === true (explicit cross-tenant opt-in). Messages missing
+   * both are dropped with a warning to prevent accidental cross-tenant leaks.
    */
   function localBroadcast(msg: BroadcastMessage): void {
-    if (!msg.companyId) {
-      // Broadcast to ALL connections
+    if (!msg.companyId && msg.allTenants !== true) {
+      logger.warn(
+        { type: msg.type },
+        'WS broadcast rejected: missing companyId and allTenants flag',
+      );
+      return;
+    }
+
+    if (msg.allTenants === true) {
+      // Explicit cross-tenant broadcast (maintenance notices, etc).
       wss?.clients.forEach((ws: WebSocket) => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(msg));
@@ -148,12 +167,17 @@ export async function initializeScalableWebSocket(server: Server): Promise<void>
       return;
     }
 
-    // Broadcast to specific company's connections
-    const connections = companyConnections.get(msg.companyId);
+    // Broadcast to specific company's connections only.
+    const connections = companyConnections.get(msg.companyId!);
     if (!connections) return;
 
     connections.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN && ws.userId !== msg.excludeUserId) {
+      // Defensive: verify socket is bound to the same company before sending.
+      if (
+        ws.readyState === WebSocket.OPEN &&
+        ws.companyId === msg.companyId &&
+        ws.userId !== msg.excludeUserId
+      ) {
         ws.send(JSON.stringify(msg));
       }
     });
@@ -199,7 +223,10 @@ export function broadcastToCompany(
 }
 
 /**
- * Broadcast a message to all connected clients
+ * Broadcast a message to all connected clients across ALL tenants.
+ *
+ * Use only for true system-wide events (maintenance, platform-wide notices).
+ * For tenant-scoped events, use broadcastToCompany().
  */
 export function broadcastToAll(type: string, data: any): void {
   const broadcast = (globalThis as any).__wsBroadcast;
@@ -207,6 +234,7 @@ export function broadcastToAll(type: string, data: any): void {
     broadcast({
       type,
       data,
+      allTenants: true,
       timestamp: new Date().toISOString(),
     }).catch((err: any) => {
       logger.error({ err }, 'WebSocket broadcast error');

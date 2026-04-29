@@ -260,7 +260,11 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
   // Request ID for tracing
   app.use(requestIdMiddleware);
 
-  // Body parsers
+  // Stripe webhooks need the raw request body for HMAC signature verification.
+  // We capture it BEFORE the JSON parser so the original bytes are preserved.
+  app.use('/api/webhooks/stripe', express.raw({ type: 'application/json', limit: '1mb' }));
+
+  // Body parsers (everything except the Stripe webhook route handled above)
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: false, limit: "10mb" }));
   app.use(cookieParser());

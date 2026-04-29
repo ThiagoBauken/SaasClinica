@@ -258,7 +258,13 @@ export class MercadoPagoService {
     const hmac = crypto.createHmac('sha256', process.env.MERCADOPAGO_WEBHOOK_SECRET);
     const calculatedHash = hmac.update(manifest).digest('hex');
 
-    return calculatedHash === hash;
+    // Constant-time comparison to prevent timing attacks on HMAC verification.
+    if (calculatedHash.length !== hash.length) return false;
+    try {
+      return crypto.timingSafeEqual(Buffer.from(calculatedHash, 'hex'), Buffer.from(hash, 'hex'));
+    } catch {
+      return false;
+    }
   }
 
   /**

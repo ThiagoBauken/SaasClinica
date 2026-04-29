@@ -31,17 +31,20 @@ router.post(
   asyncHandler(async (req, res) => {
     const { type, data } = req.body;
 
-    // Verificar webhook secret para segurança
+    // Webhook secret is MANDATORY. Missing env var must fail closed to
+    // prevent spoofed WhatsApp messages being accepted in misconfigured envs.
     const webhookSecret = req.headers['x-webhook-secret'] as string;
     const expectedSecret = process.env.WUZAPI_WEBHOOK_SECRET;
 
-    if (expectedSecret) {
-      if (!webhookSecret ||
-          webhookSecret.length !== expectedSecret.length ||
-          !timingSafeEqual(Buffer.from(webhookSecret), Buffer.from(expectedSecret))) {
-        log.warn('Invalid Wuzapi webhook secret received');
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+    if (!expectedSecret) {
+      log.error('WUZAPI_WEBHOOK_SECRET is not configured — rejecting webhook');
+      return res.status(503).json({ error: 'Service misconfigured' });
+    }
+    if (!webhookSecret ||
+        webhookSecret.length !== expectedSecret.length ||
+        !timingSafeEqual(Buffer.from(webhookSecret), Buffer.from(expectedSecret))) {
+      log.warn('Invalid Wuzapi webhook secret received');
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (type === 'message') {
@@ -223,7 +226,10 @@ router.post('/mercadopago', dedup, async (req, res) => {
 router.post('/stripe', dedup, async (req, res) => {
   try {
     const signature = req.headers['stripe-signature'] as string;
-    const payload = Buffer.from(JSON.stringify(req.body));
+    // req.body is already a raw Buffer because server/index.ts registers
+    // express.raw() specifically for this path BEFORE express.json().
+    // This preserves the original bytes required for Stripe HMAC verification.
+    const payload = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
 
     await stripeService.handleWebhook(payload, signature);
 

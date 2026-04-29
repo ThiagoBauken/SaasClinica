@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { companies, clinicSettings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import { notDeleted } from '../lib/soft-delete';
 import { asyncHandler } from '../middleware/auth';
 import { apiKeyAuth, generateApiKey } from '../middleware/apiKeyAuth';
 
@@ -248,14 +249,13 @@ router.get(
   '/stats',
   masterApiKeyAuth,
   asyncHandler(async (req, res) => {
-    const allCompanies = await db.select().from(companies);
-    type CompanyStatsRow = typeof allCompanies[0];
-    const activeCount = allCompanies.filter((c: CompanyStatsRow) => c.active).length;
-
-    // Buscar empresas com configuração Wuzapi
-    const allSettings = await db.select().from(clinicSettings);
-    type ClinicSettingsStatsRow = typeof allSettings[0];
-    const withWuzapiConfig = allSettings.filter((s: ClinicSettingsStatsRow) => s.wuzapiApiKey && s.wuzapiApiKey.length > 0);
+    // Fetch all companies and settings in parallel (admin endpoint, volume is low).
+    const [allCompanies, allSettings] = await Promise.all([
+      db.select().from(companies),
+      db.select().from(clinicSettings),
+    ]);
+    const activeCount = allCompanies.filter((c: any) => c.active).length;
+    const withWuzapiConfig = allSettings.filter((s: any) => s.wuzapiApiKey && s.wuzapiApiKey.length > 0);
 
     res.json({
       success: true,

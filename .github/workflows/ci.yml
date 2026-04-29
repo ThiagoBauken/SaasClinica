@@ -33,8 +33,7 @@ jobs:
         run: npm run check
 
       - name: ESLint
-        run: npx eslint . --max-warnings 50
-        continue-on-error: true
+        run: npx eslint . --max-warnings 0
 
   # ==========================================
   # Unit & Integration Tests

@@ -19,9 +19,9 @@ async function markMigrationsDone() {
     const migrations = [
       '001_add_performance_indexes.sql',
       '002_n8n_integration.sql',
-      '003_fix_multitenant_isolation.sql',
-      '004_billing_system.sql',
-      '004_clinic_settings_and_automation_logs.sql',
+      '003b_fix_multitenant_isolation.sql',
+      '004a_billing_system.sql',
+      '004b_clinic_settings_and_automation_logs.sql',
       '005_add_openai_to_companies.sql',
       'add_google_calendar_tokens.sql'
     ];

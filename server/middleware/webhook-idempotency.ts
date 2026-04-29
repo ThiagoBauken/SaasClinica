@@ -71,15 +71,16 @@ function extractWebhookId(req: Request): string {
   }
 
   // --- Stripe ---
+  // Prefer the event id (body.id) because Stripe reuses the same event.id
+  // across retries but rotates the signature's timestamp, which would break
+  // dedup. The stripe-signature header is NOT a stable dedup key.
+  if (body.id && typeof body.id === 'string' && body.object) {
+    return `stripe:${body.id}`;
+  }
   const stripeSig = req.headers['stripe-signature'] as string | undefined;
   if (stripeSig) {
-    // stripe-signature contains a timestamp prefix (t=...) that makes it
-    // effectively unique per delivery attempt.
-    return `stripe:${stripeSig.substring(0, 64)}`;
-  }
-  if (body.id && typeof body.id === 'string' && body.object) {
-    // Stripe event object always has .id and .object fields
-    return `stripe:${body.id}`;
+    // Fallback only when body.id is missing (should not happen for real Stripe events).
+    return `stripe-sig:${createHash('sha256').update(stripeSig).digest('hex')}`;
   }
 
   // --- MercadoPago ---

@@ -67,6 +67,9 @@ interface AppointmentFilters {
   professionalId?: number;
   patientId?: number;
   status?: string;
+  /** SQL-level pagination */
+  limit?: number;
+  offset?: number;
 }
 
 export interface IStorage {
@@ -86,6 +89,7 @@ export interface IStorage {
   
   // Appointments - tenant-aware
   getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]>;
+  countAppointments(companyId: number, filters?: AppointmentFilters): Promise<number>;
   getAppointment(id: number, companyId?: number): Promise<any | undefined>;
   createAppointment(appointment: any, companyId: number): Promise<any>;
   updateAppointment(id: number, data: any, companyId: number): Promise<any>;
@@ -512,6 +516,11 @@ export class MemStorage implements IStorage {
     );
     
     return enrichedAppointments;
+  }
+
+  async countAppointments(companyId: number, filters?: AppointmentFilters): Promise<number> {
+    const all = await this.getAppointments(companyId, filters);
+    return all.length;
   }
 
   async getAppointment(id: number, companyId: number): Promise<any | undefined> {
@@ -1829,6 +1838,7 @@ import {
 
 import {
   getAppointments as _getAppointments,
+  countAppointments as _countAppointments,
   getAppointment as _getAppointment,
   createAppointment as _createAppointment,
   updateAppointment as _updateAppointment,
@@ -1920,6 +1930,7 @@ export class DatabaseStorage implements IStorage {
 
   // ---- Appointments --------------------------------------------------------
   async getAppointments(companyId: number, filters?: AppointmentFilters): Promise<any[]> { return _getAppointments(companyId, filters); }
+  async countAppointments(companyId: number, filters?: AppointmentFilters): Promise<number> { return _countAppointments(companyId, filters); }
   async getAppointment(id: number, companyId?: number): Promise<any | undefined> { return _getAppointment(id, companyId); }
   async createAppointment(appointmentData: any, companyId: number): Promise<any> { return _createAppointment(appointmentData, companyId); }
   async updateAppointment(id: number, data: any, companyId?: number): Promise<any> { return _updateAppointment(id, data, companyId); }

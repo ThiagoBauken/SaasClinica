@@ -9,7 +9,6 @@ import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { initCsrfToken } from "@/lib/csrf";
-
 // Heavy pages use React.lazy for code-splitting — reduces initial bundle size.
 const InventoryPage = lazy(() => import("@/pages/inventory-page"));
 const ConfiguracoesClinicaPage = lazy(() => import("@/pages/configuracoes-clinica"));
@@ -79,6 +78,8 @@ import ScheduleBlocksPage from "@/pages/schedule-blocks-page";
 import AnamnesisBuilderPage from "@/pages/anamnesis-builder-page";
 import SetupPage from "@/pages/setup-page";
 import PublicAnamnesisPage from "@/pages/public-anamnesis-page";
+import ResetPasswordPage from "@/pages/reset-password-page";
+import VerifyEmailPage from "@/pages/verify-email-page";
 
 export default function App() {
   // Initialize CSRF token on app startup
@@ -115,6 +116,8 @@ export default function App() {
             </Route>
 
             {/* Rotas públicas */}
+            <Route path="/auth/reset-password" component={ResetPasswordPage} />
+            <Route path="/auth/verify-email" component={VerifyEmailPage} />
             <Route path="/auth" component={AuthPage} />
             <Route path="/landing" component={LandingPage} />
             <Route path="/checkout-success" component={CheckoutSuccessPage} />

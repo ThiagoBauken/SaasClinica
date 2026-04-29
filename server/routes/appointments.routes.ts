@@ -254,18 +254,21 @@ router.get(
 
     const { page, limit, startDate, endDate, professionalId, patientId, roomId, status } = req.query as any;
 
-    const appointments = await storage.getAppointments(companyId, {
+    const filterOpts = {
       startDate,
       endDate,
       professionalId,
       patientId,
       status: status === 'all' ? undefined : status,
-    });
+    };
 
-    // Aplicar paginação
-    const total = appointments.length;
+    // SQL-level pagination — count + paginated fetch in parallel to avoid
+    // loading the entire appointments table into memory (previous .slice() OOM risk).
     const offset = getOffset(page, limit);
-    const paginatedData = appointments.slice(offset, offset + limit);
+    const [total, paginatedData] = await Promise.all([
+      storage.countAppointments(companyId, filterOpts),
+      storage.getAppointments(companyId, { ...filterOpts, limit, offset }),
+    ]);
 
     res.json(createPaginatedResponse(paginatedData, total, page, limit));
   })

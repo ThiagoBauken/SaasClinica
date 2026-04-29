@@ -17,7 +17,33 @@ export type AuditAction =
   | 'view'
   | 'export'
   | 'login'
-  | 'logout';
+  | 'logout'
+  // Auth security events
+  | 'login_success'
+  | 'login_failed'
+  | 'login_locked'
+  | 'account_unlocked'
+  | 'password_reset_requested'
+  | 'password_reset_completed'
+  | 'mfa_enabled'
+  | 'mfa_disabled'
+  | 'mfa_reset_by_admin'
+  | 'email_verified'
+  | 'email_marked_verified_by_admin'
+  | 'verification_resent'
+  // Account lifecycle
+  | 'account_deactivated_by_admin'
+  | 'account_activated_by_admin'
+  | 'account_deleted_by_user'
+  | 'account_deleted_by_admin'
+  // Admin tooling
+  | 'session_revoked'
+  | 'all_sessions_revoked'
+  | 'impersonation_started'
+  | 'impersonation_stopped'
+  | 'invite_sent'
+  | 'invite_revoked'
+  | 'bulk_action';
 
 export interface AuditLogEntry {
   /** Tenant scope — must be a real company ID, never 0 or undefined */

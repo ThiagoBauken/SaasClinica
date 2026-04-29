@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { TrialGuard } from "@/components/TrialGuard";
 import { TourProvider } from "@/components/onboarding/TourProvider";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
 
 // Mapeamento de paths para nomes amigáveis
 const pathLabels: Record<string, string> = {
@@ -112,6 +113,7 @@ export default function DashboardLayout({ children, title = "", currentPath = ""
                 </nav>
               )}
 
+              <EmailVerificationBanner />
               <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">{title}</h1>
               {children}
             </div>

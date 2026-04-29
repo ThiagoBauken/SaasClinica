@@ -18,6 +18,7 @@ interface User {
   googleId: string | null;
   companyId: number;
   totpEnabled: boolean;
+  emailVerified: boolean;
   trialEndsAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -192,7 +193,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('Registration failed');
+        const errorText = await response.text().catch(() => '');
+        let errorMsg = 'Falha no registro';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson?.error?.message || errorJson?.error || errorJson?.message || errorMsg;
+        } catch {
+          if (errorText) errorMsg = errorText;
+        }
+        throw new Error(errorMsg);
       }
 
       const result = await response.json();
@@ -303,38 +312,4 @@ export function useAuth() {
     throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
-}
-
-// ProtectedRoute component para uso no DynamicRouter
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requiredRole?: 'superadmin' | 'admin' | 'dentist' | 'receptionist' | 'assistant';
-}
-
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated } = useAuth();
-  const [, setLocation] = useLocation();
-
-  // Mostrar loading enquanto verifica autenticação
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // Redirecionar para login se não autenticado
-  if (!isAuthenticated) {
-    setLocation('/login');
-    return null;
-  }
-
-  // Verificar role se especificado
-  if (requiredRole && user?.role !== requiredRole && user?.role !== 'superadmin') {
-    setLocation('/unauthorized');
-    return null;
-  }
-
-  return <>{children}</>;
 }

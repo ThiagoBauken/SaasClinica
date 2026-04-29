@@ -1,8 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { insertUserSchema } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
@@ -36,20 +35,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/core/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Redirect } from "wouter";
+import { getCsrfHeaders } from "@/lib/csrf";
 
-const loginSchema = insertUserSchema.pick({
-  username: true,
-  password: true,
-}).extend({
+const loginSchema = z.object({
+  username: z.string().min(1, "Informe seu usuário"),
+  password: z.string().min(1, "Informe sua senha"),
   rememberMe: z.boolean().optional(),
 });
 
-const registerSchema = insertUserSchema.extend({
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não conferem",
-  path: ["confirmPassword"],
-});
+const registerSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Mínimo 3 caracteres")
+      .regex(/^[a-zA-Z0-9_.-]+$/, "Use apenas letras, números, _ . -"),
+    fullName: z.string().min(2, "Informe seu nome completo"),
+    email: z.string().email("E-mail inválido"),
+    password: z
+      .string()
+      .min(12, "A senha deve ter pelo menos 12 caracteres")
+      .regex(/[A-Z]/, "Inclua ao menos uma letra maiúscula")
+      .regex(/[a-z]/, "Inclua ao menos uma letra minúscula")
+      .regex(/[0-9]/, "Inclua ao menos um número")
+      .regex(/[^A-Za-z0-9]/, "Inclua ao menos um caractere especial"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"],
+  });
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation, mfaState, verifyTotp, cancelMfa } = useAuth();
@@ -66,11 +80,26 @@ export default function AuthPage() {
   const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
   const totpInputRef = useRef<HTMLInputElement>(null);
 
+  // Mostrar erro do callback do Google OAuth (?error=google_oauth_failed)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "google_oauth_failed") {
+      toast({
+        title: "Falha no login com Google",
+        description: "Não foi possível autenticar com o Google. Tente novamente ou use seu usuário e senha.",
+        variant: "destructive",
+      });
+      // Limpar query string sem reload
+      window.history.replaceState({}, "", "/auth");
+    }
+  }, [toast]);
+
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getCsrfHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({ email }),
       });
       if (!res.ok) throw new Error("Falha ao solicitar recuperação de senha");
@@ -108,10 +137,7 @@ export default function AuthPage() {
       password: "",
       confirmPassword: "",
       fullName: "",
-      role: "staff",
       email: "",
-      phone: "",
-      speciality: "",
     },
   });
 
@@ -167,13 +193,17 @@ export default function AuthPage() {
   // MFA: Mostrar tela de verificação TOTP
   if (mfaState?.required) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center justify-center p-4 relative">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Decorative gradient blobs */}
+        <div className="pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15"></div>
+        <div className="pointer-events-none absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl dark:bg-purple-500/15"></div>
+
         <div className="absolute top-4 right-4 z-10">
           <ThemeToggle />
         </div>
-        <Card className="w-full max-w-md">
+        <Card className="relative z-10 w-full max-w-md border-border/60 shadow-xl">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/15">
               <ShieldCheck className="h-7 w-7 text-blue-600 dark:text-blue-400" />
             </div>
             <CardTitle className="text-2xl">Verificação em duas etapas</CardTitle>
@@ -236,20 +266,22 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative">
-      {/* Decorative background pattern */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PHBhdGggZD0iTTM2IDM0djItMnptMCAwdjJoLTJ2LTJoMnptLTIgMmgtMnYtMmgydjJ6bTIgMGgydjJoLTJ2LTJ6bTAgMnYyaC0ydi0yaDJ6bS0yIDB2Mmg tMnYtMmgyem0yLTJoMnYyaC0ydi0yem0wLTJ2Mmgtdi0yaDJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40 dark:opacity-20"></div>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+      {/* Decorative gradient blobs (theme-aware) */}
+      <div className="pointer-events-none absolute -top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15"></div>
+      <div className="pointer-events-none absolute -bottom-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-purple-500/10 blur-3xl dark:bg-purple-500/15"></div>
+      <div className="pointer-events-none absolute top-1/2 left-1/2 h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/5 blur-3xl dark:bg-cyan-400/10"></div>
 
       {/* Theme Toggle - canto superior direito */}
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden relative z-10">
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl ring-1 ring-border/60 overflow-hidden relative z-10">
         {/* Left side - Auth forms */}
         <div className="w-full lg:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12">
           <div className="mb-8 md:mb-10">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-300 bg-clip-text text-transparent">
               DentCare
             </h1>
             <p className="text-muted-foreground mt-3 text-base md:text-lg">
@@ -258,7 +290,7 @@ export default function AuthPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/60">
               <TabsTrigger value="login">Entrar</TabsTrigger>
               <TabsTrigger value="register">Registrar</TabsTrigger>
             </TabsList>
@@ -275,8 +307,6 @@ export default function AuthPage() {
                   <Form {...loginForm}>
                     <form
                       onSubmit={loginForm.handleSubmit(onLoginSubmit)}
-                      action="/api/auth/login"
-                      method="POST"
                       className="space-y-4"
                     >
                       <FormField
@@ -415,7 +445,7 @@ export default function AuthPage() {
                       
                       <div className="relative my-4">
                         <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-neutral-light"></span>
+                          <span className="w-full border-t border-border"></span>
                         </div>
                         <div className="relative flex justify-center text-sm">
                           <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
@@ -441,10 +471,10 @@ export default function AuthPage() {
                   </Form>
                 </CardContent>
                 <CardFooter className="flex justify-center">
-                  <p className="text-sm text-neutral-medium">
+                  <p className="text-sm text-muted-foreground">
                     Não tem uma conta?{" "}
                     <button
-                      className="text-primary hover:underline"
+                      className="font-medium text-primary hover:underline"
                       onClick={() => setActiveTab("register")}
                     >
                       Registre-se
@@ -573,7 +603,7 @@ export default function AuthPage() {
                       
                       <div className="relative my-4">
                         <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-neutral-light"></span>
+                          <span className="w-full border-t border-border"></span>
                         </div>
                         <div className="relative flex justify-center text-sm">
                           <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
@@ -599,10 +629,10 @@ export default function AuthPage() {
                   </Form>
                 </CardContent>
                 <CardFooter className="flex justify-center">
-                  <p className="text-sm text-neutral-medium">
+                  <p className="text-sm text-muted-foreground">
                     Já tem uma conta?{" "}
                     <button
-                      className="text-primary hover:underline"
+                      className="font-medium text-primary hover:underline"
                       onClick={() => setActiveTab("login")}
                     >
                       Entrar
@@ -615,7 +645,7 @@ export default function AuthPage() {
         </div>
 
         {/* Right side - Image and info */}
-        <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-700 dark:to-purple-700 p-8 md:p-10 lg:p-12 text-white hidden lg:flex flex-col justify-center relative overflow-hidden">
+        <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-800 dark:via-indigo-900 dark:to-purple-900 p-8 md:p-10 lg:p-12 text-white hidden lg:flex flex-col justify-center relative overflow-hidden">
           {/* Decorative circles */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>

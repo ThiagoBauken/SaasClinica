@@ -143,10 +143,11 @@ const PER_USER_DAILY_LIMIT = 50;
 export async function checkAIUsageLimit(companyId: number, phone?: string): Promise<UsageLimitResult> {
   const { planName, inputLimit, outputLimit } = await getCompanyLimit(companyId);
 
-  // AI disabled for this plan tier
+  // AI disabled for this plan tier — deny access (fail-closed).
   if (inputLimit === 0) {
     return {
-      allowed: true,
+      allowed: false,
+      reason: `IA não incluída no plano ${planName}. Faça upgrade para usar este recurso.`,
       currentInputTokens: 0,
       currentOutputTokens: 0,
       inputLimit: 0,
@@ -194,7 +195,12 @@ export async function checkAIUsageLimit(companyId: number, phone?: string): Prom
     }
   } catch (err) {
     log.warn({ err }, 'Failed to check usage counter');
-    return { allowed: true };
+    // Fail-closed: deny access when we cannot verify usage, protecting revenue
+    // from infrastructure failures (Redis outage, DB hiccup, etc).
+    return {
+      allowed: false,
+      reason: 'Não foi possível verificar o limite de uso no momento. Tente novamente em instantes.',
+    };
   }
 
   // Check both limits — exceed EITHER and you're cut off

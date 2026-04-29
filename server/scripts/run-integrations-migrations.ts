@@ -3,7 +3,7 @@
  *
  * Executa:
  * - 002_n8n_integration.sql
- * - 004_clinic_settings_and_automation_logs.sql
+ * - 004b_clinic_settings_and_automation_logs.sql
  *
  * Uso:
  * npm run db:migrate-integrations
@@ -28,7 +28,7 @@ const MIGRATIONS_DIR = path.join(__dirname, '../migrations');
 
 const INTEGRATION_MIGRATIONS = [
   '002_n8n_integration.sql',
-  '004_clinic_settings_and_automation_logs.sql',
+  '004b_clinic_settings_and_automation_logs.sql',
 ];
 
 async function runMigration(filename: string): Promise<void> {

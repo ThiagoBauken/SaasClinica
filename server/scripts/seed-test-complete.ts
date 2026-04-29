@@ -41,7 +41,7 @@ async function main() {
     console.log("📦 Rodando migration 014 (tabelas faltantes)...");
     try {
       const migration014 = readFileSync(
-        join(__dirname, "..", "migrations", "014_missing_tables.sql"),
+        join(__dirname, "..", "migrations", "014b_missing_tables.sql"),
         "utf-8"
       );
       await client.query(migration014);
@@ -58,7 +58,7 @@ async function main() {
     console.log("📦 Rodando migration 015 (colunas faltantes em patients)...");
     try {
       const migration015 = readFileSync(
-        join(__dirname, "..", "migrations", "015_add_missing_patient_columns.sql"),
+        join(__dirname, "..", "migrations", "015a_add_missing_patient_columns.sql"),
         "utf-8"
       );
       await client.query(migration015);

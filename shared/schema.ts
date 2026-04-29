@@ -78,6 +78,16 @@ export const users = pgTable("users", {
   // Password reset with secure tokens (replaces temp password approach)
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires", { withTimezone: true }),
+  // Email verification (LGPD/GDPR — usuário precisa confirmar e-mail)
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: timestamp("email_verification_expires", { withTimezone: true }),
+  // Login tracking + lockout (painel admin / segurança)
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  lastLoginIp: text("last_login_ip"),
+  failedLoginCount: integer("failed_login_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  adminNotes: text("admin_notes"),
   // MFA / TOTP (Time-based One-Time Password)
   totpSecret: text("totp_secret"),
   totpEnabled: boolean("totp_enabled").notNull().default(false),
@@ -127,6 +137,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   digitalCertificatePath: true,
   trialEndsAt: true,
   active: true,
+  emailVerified: true,
 });
 
 // Patients - Ficha Digital Completa

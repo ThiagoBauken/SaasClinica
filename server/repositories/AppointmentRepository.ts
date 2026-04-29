@@ -27,6 +27,9 @@ export interface AppointmentFilters {
   professionalId?: number;
   patientId?: number;
   status?: string;
+  /** SQL-level pagination — when provided, the query adds LIMIT/OFFSET. */
+  limit?: number;
+  offset?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,7 +54,7 @@ export async function getAppointments(
       conditions.push(eq(appointments.patientId, filters.patientId));
     if (filters?.status) conditions.push(eq(appointments.status, filters.status));
 
-    const rows = await db
+    let query = db
       .select({
         appointment: appointments,
         patientId: patients.id,
@@ -68,7 +71,18 @@ export async function getAppointments(
       .leftJoin(users, eq(appointments.professionalId, users.id))
       .leftJoin(rooms, eq(appointments.roomId, rooms.id))
       .where(and(...conditions))
-      .orderBy(appointments.startTime);
+      .orderBy(appointments.startTime)
+      .$dynamic();
+
+    // SQL-level pagination — avoids loading entire table into memory.
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+      if (filters.offset) {
+        query = query.offset(filters.offset);
+      }
+    }
+
+    const rows = await query;
 
     // Batch-load procedures for all appointments in 2 queries
     const appointmentIds = rows.map((r: any) => r.appointment.id);
@@ -126,6 +140,33 @@ export async function getAppointments(
     logger.error({ err: error }, 'Database error in getAppointments:');
     return [];
   }
+}
+
+/**
+ * Count appointments matching the given filters (for paginated responses).
+ */
+export async function countAppointments(
+  companyId: number,
+  filters?: AppointmentFilters,
+): Promise<number> {
+  const conditions: any[] = [
+    eq(appointments.companyId, companyId),
+    notDeleted(appointments.deletedAt),
+  ];
+  if (filters?.startDate) conditions.push(gte(appointments.startTime, new Date(filters.startDate)));
+  if (filters?.endDate) conditions.push(lt(appointments.startTime, new Date(filters.endDate)));
+  if (filters?.professionalId !== undefined)
+    conditions.push(eq(appointments.professionalId, filters.professionalId));
+  if (filters?.patientId !== undefined)
+    conditions.push(eq(appointments.patientId, filters.patientId));
+  if (filters?.status) conditions.push(eq(appointments.status, filters.status));
+
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(appointments)
+    .where(and(...conditions));
+
+  return row?.count ?? 0;
 }
 
 export async function getAppointment(id: number, companyId?: number): Promise<any | undefined> {
@@ -199,24 +240,29 @@ export async function createAppointment(appointmentData: any, companyId: number)
   const procs = appointmentData.procedures || [];
   delete appointmentData.procedures;
 
-  const [appointment] = await db
-    .insert(appointments)
-    .values({
-      ...appointmentData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning();
+  // Wrap in transaction: appointment + procedures must be atomic.
+  const appointment = await db.transaction(async (tx: any) => {
+    const [appt] = await tx
+      .insert(appointments)
+      .values({
+        ...appointmentData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
 
-  for (const proc of procs) {
-    await db.insert(appointmentProcedures).values({
-      appointmentId: appointment.id,
-      procedureId: proc.id,
-      quantity: 1,
-      price: proc.price,
-      notes: "",
-    });
-  }
+    for (const proc of procs) {
+      await tx.insert(appointmentProcedures).values({
+        appointmentId: appt.id,
+        procedureId: proc.id,
+        quantity: 1,
+        price: proc.price,
+        notes: "",
+      });
+    }
+
+    return appt;
+  });
 
   return getAppointment(appointment.id);
 }
@@ -225,31 +271,34 @@ export async function updateAppointment(id: number, data: any, companyId?: numbe
   const procs = data.procedures;
   delete data.procedures;
 
-  const [updatedAppointment] = await db
-    .update(appointments)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(appointments.id, id))
-    .returning();
+  // Wrap in transaction: update + procedure replacement must be atomic.
+  await db.transaction(async (tx: any) => {
+    const [updatedAppointment] = await tx
+      .update(appointments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(appointments.id, id))
+      .returning();
 
-  if (!updatedAppointment) {
-    throw new Error("Appointment not found");
-  }
-
-  if (procs) {
-    await db
-      .delete(appointmentProcedures)
-      .where(eq(appointmentProcedures.appointmentId, id));
-
-    for (const proc of procs) {
-      await db.insert(appointmentProcedures).values({
-        appointmentId: id,
-        procedureId: proc.id,
-        quantity: 1,
-        price: proc.price,
-        notes: "",
-      });
+    if (!updatedAppointment) {
+      throw new Error("Appointment not found");
     }
-  }
+
+    if (procs) {
+      await tx
+        .delete(appointmentProcedures)
+        .where(eq(appointmentProcedures.appointmentId, id));
+
+      for (const proc of procs) {
+        await tx.insert(appointmentProcedures).values({
+          appointmentId: id,
+          procedureId: proc.id,
+          quantity: 1,
+          price: proc.price,
+          notes: "",
+        });
+      }
+    }
+  });
 
   return getAppointment(id);
 }

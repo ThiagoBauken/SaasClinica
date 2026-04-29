@@ -1,92 +1,101 @@
-# DentCare - Sistema de Gerenciamento Odontológico
+# DentCare — SaaS de Gestão de Clínicas Odontológicas
 
 ![Licença](https://img.shields.io/badge/license-MIT-blue.svg)
-![Versão](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)
 
-DentCare é uma aplicação web completa para gerenciamento de clínicas odontológicas, desenvolvida para otimizar processos administrativos e melhorar a experiência de atendimento ao paciente.
+SaaS multi-tenant para clínicas odontológicas que combina **gestão completa**
+(agenda, prontuário digital, odontograma, financeiro, próteses, estoque) com uma
+**camada de IA conversacional** que atende pacientes pelo WhatsApp 24/7 — agenda,
+confirma, reagenda, cobra e move oportunidades pelo CRM automaticamente.
 
-## 📋 Características
+## 📚 Documentação
 
-- **Agendamento Avançado**: Visualização diária, semanal e mensal com gerenciamento de conflitos
-- **Prontuário Digital**: Registro completo do histórico do paciente com documentação clínica
-- **Odontograma Interativo**: Visualização e registro visual de procedimentos odontológicos
-- **Gestão Financeira**: Controle de receitas, despesas e faturamento
-- **Automações**: Integração com n8n para automação de lembretes e comunicações
-- **Controle de Estoque**: Gerenciamento de materiais e controle de validade
-- **Laboratorial**: Acompanhamento de próteses e trabalhos laboratoriais
-- **Tema Escuro/Claro**: Interface adaptável para preferência do usuário
-- **Autenticação**: Sistema seguro com login tradicional e Google OAuth
+> 👉 **Comece por [`docs/00-index.md`](docs/00-index.md)** — índice mestre da documentação.
 
-## 🚀 Tecnologias
+Pontos de entrada rápidos:
+- [`docs/STATE.md`](docs/STATE.md) — o que foi feito + o que falta (validado contra o código)
+- [`docs/FEATURES.md`](docs/FEATURES.md) — como o sistema funciona end-to-end
+- [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) — arquitetura de alto nível
+- [`docs/operations/INSTALLATION.md`](docs/operations/INSTALLATION.md) — setup local
+- [`docs/architecture/API.md`](docs/architecture/API.md) — referência REST
 
-- **Frontend**: React, TypeScript, TailwindCSS, ShadcnUI, React Query
-- **Backend**: Node.js, Express.js, PostgreSQL, Drizzle ORM
-- **Autenticação**: Passport.js, Google OAuth
-- **Deploy**: Replit
+## ✨ Principais features
 
-## 📦 Instalação
+- **Agenda** com visualização dia/semana/mês, drag-drop e bloqueios; lista de espera, recall, agendamentos recorrentes.
+- **Prontuário digital** com odontograma, periodontograma, anamnese versionada, planos de tratamento, evolução clínica e assinatura digital.
+- **IA conversacional WhatsApp** (Claude por padrão, com fallback Groq/OpenAI/Ollama-local) com 19 tools — agenda, confirma, cancela, reagenda, cobra e progride o CRM automaticamente.
+- **CRM Kanban** com auto-progression (`first_contact → scheduling → confirmation → consultation_done → payment_done`).
+- **Financeiro** completo: receitas/despesas, contas a pagar/receber, caixa, parcelamentos, comissões, orçamentos com link público.
+- **Billing SaaS** multi-gateway: Stripe + MercadoPago + NOWPayments + PIX, com feature gating por plano e dunning automático.
+- **Multi-tenant** por `companyId` com Row-Level Security no Postgres.
+- **LGPD-first**: 2FA TOTP, auditoria, soft-delete, criptografia de campos sensíveis, anonimização de PII antes de LLMs externas, endpoint de erasure.
+- **Integrações**: Google Calendar (OAuth bidirecional), Google Vision (OCR), SendGrid, 3 providers de WhatsApp (Wuzapi / Evolution API / Meta Cloud API).
 
-Consulte o [INSTALLATION.md](./INSTALLATION.md) para instruções detalhadas sobre como instalar e configurar o projeto.
+## 🚀 Stack
 
-## 🔗 API
+- **Frontend**: React 18 + Vite + TypeScript + TailwindCSS + ShadcnUI + React Query + Wouter
+- **Backend**: Node.js + Express + TypeScript + Passport.js
+- **Banco**: PostgreSQL via Drizzle ORM (94 tabelas em `shared/schema.ts`) + RLS
+- **Cache / Sessão / Pub-Sub**: Redis (express-session, BullMQ, WebSocket adapter)
+- **Filas**: BullMQ (lembretes, dunning, recall, relatórios)
+- **IA**: Anthropic Claude (Haiku padrão, Sonnet para reasoning) + fallback Groq/OpenAI/Ollama
+- **Deploy**: Docker + EasyPanel
 
-Todas as rotas e endpoints da API estão documentadas em [API.md](./API.md).
-
-## 📱 Screenshots
-
-### Dashboard
-![Dashboard](https://via.placeholder.com/800x400.png?text=Dashboard)
-
-### Agenda
-![Agenda](https://via.placeholder.com/800x400.png?text=Agenda)
-
-### Odontograma
-![Odontograma](https://via.placeholder.com/800x400.png?text=Odontograma)
-
-## 🧩 Estrutura do Projeto
+## 🧩 Estrutura
 
 ```
 .
-├── client/                  # Código frontend React
-│   ├── src/
-│   │   ├── components/      # Componentes reutilizáveis
-│   │   ├── hooks/           # React hooks customizados
-│   │   ├── lib/             # Utilidades e helpers
-│   │   ├── pages/           # Páginas da aplicação
-│   │   └── layouts/         # Layouts compartilhados
-│   └── public/              # Assets estáticos
-├── server/                  # Código backend Node.js/Express
-│   ├── auth.ts              # Configuração de autenticação
-│   ├── routes.ts            # Definição de rotas da API
-│   ├── storage.ts           # Interface de armazenamento
-│   └── db.ts                # Configuração do banco de dados
-├── shared/                  # Código compartilhado
-│   └── schema.ts            # Esquema do banco de dados
-├── migrations/              # Migrações do banco de dados
-└── README.md                # Este arquivo
+├── client/                # Frontend React
+├── server/                # Backend Express
+│   ├── routes/            # 80+ arquivos de rotas modulares
+│   ├── services/          # 25+ services (ai-agent, whatsapp, billing, ...)
+│   ├── billing/           # Stripe, MercadoPago, NOWPayments, feature-gate
+│   └── middleware/        # auth, RLS, audit, CSRF, 2FA, rate-limit
+├── shared/
+│   └── schema.ts          # Drizzle schema (94 tabelas)
+├── migrations/            # SQL migrations
+├── tests/                 # Vitest
+├── scripts/               # Utilitários
+└── docs/                  # Documentação (ver docs/00-index.md)
 ```
 
-## 🔐 Variáveis de Ambiente
+## 📦 Setup rápido
 
-As seguintes variáveis de ambiente são necessárias:
-
-```
-DATABASE_URL=           # URL de conexão PostgreSQL
-SESSION_SECRET=         # Segredo para sessões
-GOOGLE_CLIENT_ID=       # ID do cliente OAuth Google
-GOOGLE_CLIENT_SECRET=   # Segredo do cliente OAuth Google
-GOOGLE_CALLBACK_URL=    # URL de callback OAuth
-VITE_APP_NAME=          # Nome da aplicação
+```bash
+npm install --legacy-peer-deps   # ⚠️ flag obrigatória (conflitos de peer deps)
+cp .env.example .env             # configurar variáveis (~80 vars documentadas)
+npm run db:migrate
+npm run dev
 ```
 
-## 📄 Licença
+Setup completo: [`docs/operations/INSTALLATION.md`](docs/operations/INSTALLATION.md).
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo LICENSE para detalhes.
+Setup multi-tenant SaaS: [`docs/operations/SAAS_SETUP.md`](docs/operations/SAAS_SETUP.md).
+
+Deploy em produção: [`docs/operations/EASYPANEL_DEPLOY.md`](docs/operations/EASYPANEL_DEPLOY.md).
+
+## 🔐 Variáveis de ambiente
+
+São ~80 variáveis documentadas em [`.env.example`](.env.example). As essenciais:
+
+```
+DATABASE_URL              # PostgreSQL
+SESSION_SECRET            # Sessão Express
+REDIS_URL                 # Redis
+ENCRYPTION_KEY            # Criptografia de campos sensíveis (LGPD)
+ANTHROPIC_API_KEY         # IA agent (padrão)
+GOOGLE_CLIENT_ID          # OAuth + Calendar
+GOOGLE_CLIENT_SECRET
+STRIPE_SECRET_KEY         # Billing (opcional, conforme gateway escolhido)
+MERCADOPAGO_ACCESS_TOKEN
+WUZAPI_URL / EVOLUTION_URL / META_*  # WhatsApp (escolha 1+)
+```
 
 ## 🤝 Contribuindo
 
-Contribuições são bem-vindas! Por favor, leia as diretrizes de contribuição antes de enviar um pull request.
+- Convenções de código e padrões obrigatórios estão em [`CLAUDE.md`](CLAUDE.md).
+- Antes de abrir PR, rode `npm run check && npm run test`.
+- Docs novas: vão para subpastas em `docs/`, nunca para a raiz.
 
-## 📞 Suporte
+## 📄 Licença
 
-Para suporte, envie um email para [suporte@dentcare.com](mailto:suporte@dentcare.com) ou abra um issue no repositório.
+MIT — veja [LICENSE](LICENSE).
