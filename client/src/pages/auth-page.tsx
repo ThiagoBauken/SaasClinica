@@ -266,7 +266,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-3 sm:p-4 md:p-6 relative overflow-hidden">
       {/* Decorative gradient blobs (theme-aware) */}
       <div className="pointer-events-none absolute -top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15"></div>
       <div className="pointer-events-none absolute -bottom-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-purple-500/10 blur-3xl dark:bg-purple-500/15"></div>
@@ -277,37 +277,37 @@ export default function AuthPage() {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl ring-1 ring-border/60 overflow-hidden relative z-10">
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl ring-1 ring-border/60 overflow-hidden relative z-10">
         {/* Left side - Auth forms */}
-        <div className="w-full lg:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12">
-          <div className="mb-8 md:mb-10">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-300 bg-clip-text text-transparent">
+        <div className="w-full lg:w-1/2 p-5 sm:p-6 md:p-8">
+          <div className="mb-5 md:mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-300 bg-clip-text text-transparent">
               DentCare
             </h1>
-            <p className="text-muted-foreground mt-3 text-base md:text-lg">
+            <p className="text-muted-foreground mt-1.5 text-sm md:text-base">
               Sistema de Gerenciamento Odontológico
             </p>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/60">
+            <TabsList className="grid w-full grid-cols-2 mb-3 bg-muted/60">
               <TabsTrigger value="login">Entrar</TabsTrigger>
               <TabsTrigger value="register">Registrar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
               <Card className="border-0 shadow-none bg-transparent">
-                <CardHeader className="pb-6">
-                  <CardTitle className="text-2xl md:text-3xl">Acesse sua conta</CardTitle>
-                  <CardDescription className="text-base">
+                <CardHeader className="pb-3 px-0">
+                  <CardTitle className="text-xl md:text-2xl">Acesse sua conta</CardTitle>
+                  <CardDescription className="text-sm">
                     Informe suas credenciais para entrar no sistema.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-0">
                   <Form {...loginForm}>
                     <form
                       onSubmit={loginForm.handleSubmit(onLoginSubmit)}
-                      className="space-y-4"
+                      className="space-y-3"
                     >
                       <FormField
                         control={loginForm.control}
@@ -443,11 +443,11 @@ export default function AuthPage() {
                         ) : "Entrar"}
                       </Button>
                       
-                      <div className="relative my-4">
+                      <div className="relative my-3">
                         <div className="absolute inset-0 flex items-center">
                           <span className="w-full border-t border-border"></span>
                         </div>
-                        <div className="relative flex justify-center text-sm">
+                        <div className="relative flex justify-center text-xs">
                           <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
                         </div>
                       </div>
@@ -470,7 +470,7 @@ export default function AuthPage() {
                     </form>
                   </Form>
                 </CardContent>
-                <CardFooter className="flex justify-center">
+                <CardFooter className="flex justify-center px-0 pt-3 pb-0">
                   <p className="text-sm text-muted-foreground">
                     Não tem uma conta?{" "}
                     <button
@@ -486,15 +486,15 @@ export default function AuthPage() {
 
             <TabsContent value="register">
               <Card className="border-0 shadow-none bg-transparent">
-                <CardHeader className="pb-6">
-                  <CardTitle className="text-2xl md:text-3xl">Crie sua conta</CardTitle>
-                  <CardDescription className="text-base">
+                <CardHeader className="pb-3 px-0">
+                  <CardTitle className="text-xl md:text-2xl">Crie sua conta</CardTitle>
+                  <CardDescription className="text-sm">
                     Preencha os dados abaixo para se registrar no sistema.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-0">
                   <Form {...registerForm}>
-                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3">
                       <FormField
                         control={registerForm.control}
                         name="username"
@@ -601,11 +601,11 @@ export default function AuthPage() {
                         ) : "Registrar"}
                       </Button>
                       
-                      <div className="relative my-4">
+                      <div className="relative my-3">
                         <div className="absolute inset-0 flex items-center">
                           <span className="w-full border-t border-border"></span>
                         </div>
-                        <div className="relative flex justify-center text-sm">
+                        <div className="relative flex justify-center text-xs">
                           <span className="px-2 bg-card text-muted-foreground">ou continue com</span>
                         </div>
                       </div>
@@ -628,7 +628,7 @@ export default function AuthPage() {
                     </form>
                   </Form>
                 </CardContent>
-                <CardFooter className="flex justify-center">
+                <CardFooter className="flex justify-center px-0 pt-3 pb-0">
                   <p className="text-sm text-muted-foreground">
                     Já tem uma conta?{" "}
                     <button
@@ -645,66 +645,65 @@ export default function AuthPage() {
         </div>
 
         {/* Right side - Image and info */}
-        <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-800 dark:via-indigo-900 dark:to-purple-900 p-8 md:p-10 lg:p-12 text-white hidden lg:flex flex-col justify-center relative overflow-hidden">
+        <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-800 dark:via-indigo-900 dark:to-purple-900 p-6 md:p-8 text-white hidden lg:flex flex-col justify-center relative overflow-hidden">
           {/* Decorative circles */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
 
           <div className="relative z-10">
-            <div className="mb-8">
-              <h2 className="text-3xl md:text-4xl font-bold mb-6">Gerencie sua clínica odontológica</h2>
-              <p className="mb-4 text-lg opacity-95">
-                Uma solução completa para o gerenciamento eficiente de sua clínica odontológica, com:
+            <div className="mb-5">
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">Gerencie sua clínica odontológica</h2>
+              <p className="mb-3 text-sm md:text-base opacity-95">
+                Uma solução completa para o gerenciamento da sua clínica:
               </p>
-              <ul className="space-y-3 text-base">
+              <ul className="space-y-1.5 text-sm">
                 <li className="flex items-start">
-                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-2 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Agenda completa com visualização diária, semanal e mensal</span>
+                  <span>Agenda completa (diária, semanal, mensal)</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-2 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Prontuário eletrônico e odontograma digital interativo</span>
+                  <span>Prontuário eletrônico e odontograma digital</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-2 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Controle financeiro e gestão de receitas e despesas</span>
+                  <span>Controle financeiro de receitas e despesas</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-2 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Automação via WhatsApp e confirmação de consultas</span>
+                  <span>Automação WhatsApp e confirmação de consultas</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-6 h-6 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-2 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>CRM integrado com pipeline de vendas e atendimento</span>
+                  <span>CRM integrado com pipeline de vendas</span>
                 </li>
               </ul>
             </div>
-            <div className="rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+            <div className="rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                     <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-xl">DentCare SaaS</p>
-                  <p className="text-sm opacity-90">Plataforma em nuvem</p>
+                  <p className="font-semibold text-base">DentCare SaaS</p>
+                  <p className="text-xs opacity-90">Plataforma em nuvem</p>
                 </div>
               </div>
-              <p className="text-sm opacity-90 leading-relaxed">
-                Transformando o gerenciamento odontológico para melhorar a experiência de
-                profissionais e pacientes com tecnologia de ponta.
+              <p className="text-xs opacity-90 leading-relaxed">
+                Tecnologia para profissionais e pacientes — agenda, prontuário e automações em um só lugar.
               </p>
             </div>
           </div>
