@@ -1320,7 +1320,9 @@ export const inventoryItems = pgTable("inventory_items", {
   supplier: text("supplier"),
   minimumStock: integer("minimum_stock").default(0),
   currentStock: integer("current_stock").default(0),
-  price: integer("price"), // em centavos
+  price: integer("price"), // custo de aquisição em centavos
+  salePrice: integer("sale_price"), // preço de venda ao paciente (PDV) em centavos
+  isSellable: boolean("is_sellable").notNull().default(false), // aparece no PDV interno do caixa
   unitOfMeasure: text("unit_of_measure"), // unidade, caixa, pacote, etc
   expirationDate: timestamp("expiration_date", { withTimezone: true }),
   location: text("location"), // local de armazenamento
@@ -1343,6 +1345,8 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick
   minimumStock: true,
   currentStock: true,
   price: true,
+  salePrice: true,
+  isSellable: true,
   unitOfMeasure: true,
   expirationDate: true,
   location: true,

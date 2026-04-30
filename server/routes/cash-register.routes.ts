@@ -8,8 +8,11 @@ import {
   appointments,
   appointmentProcedures,
   users,
+  inventoryItems,
+  inventoryTransactions,
+  patients,
 } from '@shared/schema';
-import { eq, and, gte, lte, sql, desc, isNull } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, desc, isNull, ilike } from 'drizzle-orm';
 import { z } from 'zod';
 
 const router = Router();
@@ -63,6 +66,20 @@ const closeSchema = z.object({
   countedCash: z.number().min(0),
   responsibleName: z.string().min(1),
   notes: z.string().optional(),
+});
+
+// PDV interno — venda de produtos do estoque ao paciente / balcão
+const saleItemSchema = z.object({
+  itemId: z.number().int().positive(),
+  quantity: z.number().int().positive(),
+  unitPriceCents: z.number().int().min(0), // permite override do sale_price (desconto / promoção)
+});
+
+const saleSchema = z.object({
+  patientId: z.number().int().positive().nullable().optional(),
+  items: z.array(saleItemSchema).min(1).max(50),
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  notes: z.string().max(500).optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -765,5 +782,292 @@ router.get(
     });
   })
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/v1/cash-register/sale  — PDV interno (venda de produtos do estoque)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Registra uma venda de produtos do estoque ao balcão.
+ *
+ * Em uma única transação SQL:
+ *   1. Trava cada inventoryItem (FOR UPDATE), verifica is_sellable + active +
+ *      current_stock >= quantity solicitada.
+ *   2. Insere N inventoryTransactions (type='saída') registrando previousStock,
+ *      newStock e patientId (opcional).
+ *   3. Atualiza inventoryItems.currentStock.
+ *   4. Insere 1 boxTransaction (type='deposit', referenceType='product_sale')
+ *      no caixa aberto, somando todos os itens.
+ *   5. Atualiza boxes.currentBalance.
+ *
+ * Retorna { saleId (= boxTransactionId), totalCents, items[] }.
+ * Em caso de qualquer falha (estoque insuficiente, item não vendável, etc) o
+ * BEGIN/ROLLBACK garante que nada é persistido — sem venda parcial.
+ */
+router.post(
+  '/sale',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId: number = user.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'Usuário não vinculado a uma empresa' });
+    }
+
+    const parse = saleSchema.safeParse(req.body);
+    if (!parse.success) {
+      return res.status(400).json({ error: 'Dados inválidos', details: parse.error.flatten() });
+    }
+    const { patientId, items, paymentMethod, notes } = parse.data;
+
+    // Caixa aberto é pré-requisito.
+    const [box] = await db
+      .select()
+      .from(boxes)
+      .where(and(eq(boxes.companyId, companyId), eq(boxes.status, 'open')))
+      .limit(1);
+    if (!box) {
+      return res.status(409).json({ error: 'Nenhum caixa aberto. Abra o caixa primeiro.' });
+    }
+
+    // Se patientId foi enviado, valida que pertence à mesma empresa.
+    if (patientId != null) {
+      const [pt] = await db
+        .select({ id: patients.id })
+        .from(patients)
+        .where(and(eq(patients.id, patientId), eq(patients.companyId, companyId)))
+        .limit(1);
+      if (!pt) {
+        return res.status(404).json({ error: 'Paciente não encontrado' });
+      }
+    }
+
+    try {
+      const result = await db.transaction(async (tx: any) => {
+        const movements: Array<{
+          itemId: number;
+          name: string;
+          quantity: number;
+          unitPriceCents: number;
+          subtotalCents: number;
+          previousStock: number;
+          newStock: number;
+          inventoryTransactionId: number;
+        }> = [];
+        let totalCents = 0;
+
+        for (const line of items) {
+          // SELECT ... FOR UPDATE — evita venda concorrente "comendo" o mesmo estoque.
+          const lockedRows = await tx.execute(sql`
+            SELECT id, name, current_stock, is_sellable, active, deleted_at
+            FROM inventory_items
+            WHERE id = ${line.itemId} AND company_id = ${companyId}
+            FOR UPDATE
+          `);
+          const row = (lockedRows.rows ?? lockedRows)[0] as
+            | { id: number; name: string; current_stock: number; is_sellable: boolean; active: boolean; deleted_at: Date | null }
+            | undefined;
+
+          if (!row) {
+            throw new SaleValidationError(`Item ${line.itemId} não encontrado.`);
+          }
+          if (row.deleted_at != null || row.active === false) {
+            throw new SaleValidationError(`Item "${row.name}" está inativo.`);
+          }
+          if (row.is_sellable !== true) {
+            throw new SaleValidationError(`Item "${row.name}" não está marcado como vendável.`);
+          }
+          const previousStock = Number(row.current_stock ?? 0);
+          if (previousStock < line.quantity) {
+            throw new SaleValidationError(
+              `Estoque insuficiente de "${row.name}": disponível ${previousStock}, solicitado ${line.quantity}.`
+            );
+          }
+          const newStock = previousStock - line.quantity;
+
+          // 1. Registra a movimentação no histórico de estoque.
+          const [mov] = await tx
+            .insert(inventoryTransactions)
+            .values({
+              companyId,
+              itemId: line.itemId,
+              userId: user.id,
+              type: 'saída',
+              quantity: line.quantity,
+              reason: 'Venda PDV',
+              previousStock,
+              newStock,
+              patientId: patientId ?? null,
+            })
+            .returning({ id: inventoryTransactions.id });
+
+          // 2. Decrementa o estoque do item.
+          await tx
+            .update(inventoryItems)
+            .set({ currentStock: newStock, updatedAt: new Date() })
+            .where(eq(inventoryItems.id, line.itemId));
+
+          const subtotalCents = line.unitPriceCents * line.quantity;
+          totalCents += subtotalCents;
+          movements.push({
+            itemId: line.itemId,
+            name: row.name,
+            quantity: line.quantity,
+            unitPriceCents: line.unitPriceCents,
+            subtotalCents,
+            previousStock,
+            newStock,
+            inventoryTransactionId: mov.id,
+          });
+        }
+
+        // 3. Lança a entrada no caixa, em uma única boxTransaction de depósito.
+        const totalBrl = (totalCents / 100).toFixed(2);
+        const description = movements
+          .map((m) => `${m.quantity}× ${m.name}`)
+          .join(', ')
+          .slice(0, 250);
+
+        const [boxTx] = await tx
+          .insert(boxTransactions)
+          .values({
+            companyId,
+            boxId: box.id,
+            type: 'deposit',
+            amount: totalBrl,
+            description: `Venda PDV: ${description}${notes ? ` — ${notes}` : ''}`,
+            paymentMethod,
+            referenceType: 'product_sale',
+            userId: user.id,
+          })
+          .returning({ id: boxTransactions.id });
+
+        // 4. Atualiza saldo corrente do caixa.
+        const currentBalance = parseFloat((box.currentBalance as string) ?? '0');
+        const newBalance = currentBalance + totalCents / 100;
+        await tx
+          .update(boxes)
+          .set({ currentBalance: newBalance.toFixed(2) })
+          .where(eq(boxes.id, box.id));
+
+        return { saleId: boxTx.id, totalCents, items: movements, newBoxBalance: newBalance };
+      });
+
+      return res.status(201).json({
+        message: 'Venda registrada com sucesso',
+        sale: result,
+      });
+    } catch (err) {
+      if (err instanceof SaleValidationError) {
+        return res.status(409).json({ error: err.message });
+      }
+      throw err;
+    }
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/v1/cash-register/sales  — histórico de vendas PDV
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lista as vendas (boxTransactions com referenceType='product_sale') do caixa
+ * aberto da empresa, filtráveis por intervalo de datas. Útil pro relatório
+ * "o que vendi hoje no balcão".
+ */
+router.get(
+  '/sales',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId: number = user.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'Usuário não vinculado a uma empresa' });
+    }
+
+    const fromQ = typeof req.query.from === 'string' ? new Date(req.query.from) : null;
+    const toQ = typeof req.query.to === 'string' ? new Date(req.query.to) : null;
+
+    const conditions = [
+      eq(boxTransactions.companyId, companyId),
+      eq(boxTransactions.referenceType, 'product_sale'),
+    ];
+    if (fromQ && !Number.isNaN(fromQ.getTime())) conditions.push(gte(boxTransactions.createdAt, fromQ));
+    if (toQ && !Number.isNaN(toQ.getTime())) conditions.push(lte(boxTransactions.createdAt, toQ));
+
+    const sales = await db
+      .select({
+        id: boxTransactions.id,
+        amount: boxTransactions.amount,
+        description: boxTransactions.description,
+        paymentMethod: boxTransactions.paymentMethod,
+        userId: boxTransactions.userId,
+        createdAt: boxTransactions.createdAt,
+      })
+      .from(boxTransactions)
+      .where(and(...conditions))
+      .orderBy(desc(boxTransactions.createdAt))
+      .limit(500);
+
+    return res.json({ sales });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/v1/cash-register/sellable-items  — catálogo do PDV
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Retorna apenas os itens do estoque marcados como vendáveis (`is_sellable=true`),
+ * ativos, não soft-deletados e com estoque > 0. Suporta busca por nome via `?q=`.
+ * É a fonte que alimenta o autocomplete do PDV.
+ */
+router.get(
+  '/sellable-items',
+  authCheck,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const companyId: number = user.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'Usuário não vinculado a uma empresa' });
+    }
+
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const conditions = [
+      eq(inventoryItems.companyId, companyId),
+      eq(inventoryItems.isSellable, true),
+      eq(inventoryItems.active, true),
+      isNull(inventoryItems.deletedAt),
+    ];
+    if (q) conditions.push(ilike(inventoryItems.name, `%${q}%`));
+
+    const rows = await db
+      .select({
+        id: inventoryItems.id,
+        name: inventoryItems.name,
+        sku: inventoryItems.sku,
+        barcode: inventoryItems.barcode,
+        salePrice: inventoryItems.salePrice,
+        currentStock: inventoryItems.currentStock,
+        unitOfMeasure: inventoryItems.unitOfMeasure,
+        categoryId: inventoryItems.categoryId,
+      })
+      .from(inventoryItems)
+      .where(and(...conditions))
+      .orderBy(inventoryItems.name)
+      .limit(200);
+
+    return res.json({ items: rows });
+  })
+);
+
+// Erro tipado lançado dentro da transação para permitir distinguir
+// validação de negócio (409) de falha real (500).
+class SaleValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SaleValidationError';
+  }
+}
 
 export default router;
