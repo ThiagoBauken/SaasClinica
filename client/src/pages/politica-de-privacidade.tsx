@@ -47,10 +47,15 @@ export default function PoliticaDePrivacidadePage() {
               Os dados podem ser compartilhados apenas com:
             </p>
             <ul className="list-disc ml-6 mt-2 space-y-1">
-              <li>Processadores de pagamento (Stripe, MercadoPago) para processar transações</li>
-              <li>Serviços de infraestrutura (hospedagem, banco de dados) para operação do sistema</li>
-              <li>Autoridades competentes quando exigido por lei</li>
+              <li>Sub-processadores listados na <a href="#sub-processadores" className="text-blue-600 hover:underline">seção 8</a> abaixo, estritamente para operação do serviço</li>
+              <li>Autoridades competentes quando exigido por lei ou ordem judicial</li>
+              <li>Em caso de fusão, aquisição ou venda da empresa, com notificação prévia aos titulares</li>
             </ul>
+            <p className="mt-3 text-sm text-gray-600">
+              Antes de envio para qualquer LLM externo (Anthropic, Groq, OpenAI), aplicamos
+              <strong> anonimização de PII</strong> (CPF, telefone, e-mail e nomes próprios são
+              substituídos por placeholders) em conformidade com o Art. 12 da LGPD.
+            </p>
           </section>
 
           <section>
@@ -86,13 +91,54 @@ export default function PoliticaDePrivacidadePage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">7. Cookies</h2>
             <p>
-              Utilizamos cookies essenciais para autenticação e funcionamento do sistema.
-              Não utilizamos cookies de rastreamento ou publicidade de terceiros.
+              Utilizamos cookies essenciais para autenticação e funcionamento do sistema
+              (sessão, CSRF token e preferências de UI). Não utilizamos cookies de
+              rastreamento publicitário ou cookies de terceiros para perfilamento.
+            </p>
+          </section>
+
+          <section id="sub-processadores">
+            <h2 className="text-xl font-semibold mb-3 text-gray-900">8. Sub-processadores</h2>
+            <p>
+              Para operar o serviço, utilizamos os seguintes sub-processadores. Mantemos
+              esta lista atualizada — alterações relevantes serão comunicadas aos clientes
+              com antecedência mínima de 30 dias.
+            </p>
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full text-sm border border-gray-200 rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left p-3 font-semibold text-gray-900">Sub-processador</th>
+                    <th className="text-left p-3 font-semibold text-gray-900">Finalidade</th>
+                    <th className="text-left p-3 font-semibold text-gray-900">Localidade</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr><td className="p-3 font-medium">Stripe</td><td className="p-3">Processamento de pagamentos por cartão</td><td className="p-3">EUA / UE</td></tr>
+                  <tr><td className="p-3 font-medium">Mercado Pago</td><td className="p-3">Pagamentos por Pix, boleto e cartão</td><td className="p-3">Brasil</td></tr>
+                  <tr><td className="p-3 font-medium">NOWPayments</td><td className="p-3">Pagamentos em criptomoedas (opcional)</td><td className="p-3">UE</td></tr>
+                  <tr><td className="p-3 font-medium">Anthropic (Claude)</td><td className="p-3">Modelo de IA do agente WhatsApp — recebe apenas dados anonimizados</td><td className="p-3">EUA</td></tr>
+                  <tr><td className="p-3 font-medium">Groq / OpenAI</td><td className="p-3">Modelos LLM de fallback (opcionais) — recebem apenas dados anonimizados</td><td className="p-3">EUA</td></tr>
+                  <tr><td className="p-3 font-medium">Google Cloud Vision</td><td className="p-3">OCR para digitalização de prontuários físicos</td><td className="p-3">EUA</td></tr>
+                  <tr><td className="p-3 font-medium">Google Calendar API</td><td className="p-3">Sincronização bidirecional de agenda (opcional, ativado pelo cliente)</td><td className="p-3">EUA</td></tr>
+                  <tr><td className="p-3 font-medium">SendGrid</td><td className="p-3">Envio de e-mails transacionais (verificação, recuperação de senha, lembretes)</td><td className="p-3">EUA</td></tr>
+                  <tr><td className="p-3 font-medium">Meta Cloud API / Wuzapi / Evolution API</td><td className="p-3">Provedores de WhatsApp (cliente escolhe um)</td><td className="p-3">Variável</td></tr>
+                  <tr><td className="p-3 font-medium">MinIO / S3-compatível</td><td className="p-3">Armazenamento de arquivos (raio-x, fotos, documentos PDF)</td><td className="p-3">Brasil (EasyPanel)</td></tr>
+                  <tr><td className="p-3 font-medium">EasyPanel / VPS</td><td className="p-3">Hospedagem da aplicação e banco de dados PostgreSQL</td><td className="p-3">Brasil</td></tr>
+                  <tr><td className="p-3 font-medium">Sentry</td><td className="p-3">Monitoramento de erros (opcional, anonimizado)</td><td className="p-3">EUA</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-sm text-gray-600">
+              <strong>Transferências internacionais:</strong> alguns sub-processadores estão
+              sediados nos EUA ou na UE. Garantimos a conformidade com o Art. 33 da LGPD por
+              meio de contratos com cláusulas-padrão de proteção de dados (SCCs) e/ou
+              certificações equivalentes (ex.: SOC 2 Type II, ISO 27001).
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3 text-gray-900">8. Contato do Encarregado (DPO)</h2>
+            <h2 className="text-xl font-semibold mb-3 text-gray-900">9. Contato do Encarregado (DPO)</h2>
             <p>
               Para exercer seus direitos ou esclarecer dúvidas sobre privacidade, entre em contato:
               privacidade@dentcare.com.br
