@@ -34,6 +34,7 @@ import ConfiguracoesPage from "@/pages/configuracoes-page";
 import ConfiguracoesIntegracoesPage from "@/pages/configuracoes-integracoes";
 import AuthPage from "@/pages/auth-page";
 import LandingPage from "@/pages/landing-page";
+import PrecosPage from "@/pages/precos-page";
 import SaasAdminPage from "@/pages/SaasAdminPage";
 import CompanyAdminPage from "@/pages/CompanyAdminPage";
 import ClinicModulesPage from "@/pages/ClinicModulesPage";
@@ -120,6 +121,7 @@ export default function App() {
             <Route path="/auth/verify-email" component={VerifyEmailPage} />
             <Route path="/auth" component={AuthPage} />
             <Route path="/landing" component={LandingPage} />
+            <Route path="/precos" component={PrecosPage} />
             <Route path="/checkout-success" component={CheckoutSuccessPage} />
             <Route path="/checkout-canceled" component={CheckoutCanceledPage} />
             <Route path="/termos-de-uso" component={TermosDeUsoPage} />

@@ -1,6 +1,7 @@
 # DentCare — Estado de Implementação (STATE)
 
 > **Última verificação**: 2026-04-29 (validado contra código + git log)
+> **Última atualização**: 2026-04-29 — landing comercial reescrita + página /precos pública criada
 > **Como manter este doc**: ao terminar uma feature, mova de "Em progresso" → "Implementado". Ao descobrir uma pendência real, adicione em "Pendente". Atualize a data acima ao revisar.
 
 ---
@@ -123,6 +124,14 @@
 - [x] Dashboards de KPIs
 - [x] Geração de PDF
 - [x] Risk alerts (churn, inadimplência)
+
+### Marketing / Site público
+- [x] **Landing page comercial** (`/landing`) — premium, com hero animado, mockup de dashboard, mockup WhatsApp+IA, calculadora de ROI, comparativo, depoimentos placeholder e FAQ — usa `framer-motion` ([client/src/pages/landing-page.tsx](../client/src/pages/landing-page.tsx))
+- [x] **Página de preços** (`/precos`) — comparativo completo de features por plano + FAQ específica de cobrança ([client/src/pages/precos-page.tsx](../client/src/pages/precos-page.tsx))
+- [x] Componentes de landing isolados em [client/src/components/landing/](../client/src/components/landing/) (12 sub-componentes reutilizáveis entre `/landing` e `/precos`)
+- [x] Bug corrigido: auto-login hardcoded `admin/admin123` na landing antiga foi removido — visitantes não-logados agora veem a landing sem ser redirecionados
+- [x] Marca corrigida: `DentalSys` → `DentCare` (consistente com `client/index.html`, `manifest.json`)
+- [x] Preços alinhados ao seed de `migrations/004a_billing_system.sql`: Básico R$ 97 / Profissional R$ 197 / Empresarial R$ 497
 
 ### Infraestrutura
 - [x] Logs estruturados com **Pino**
