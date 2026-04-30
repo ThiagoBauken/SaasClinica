@@ -183,16 +183,25 @@ Feature gating em server/billing/feature-gate.ts trava/libera
 
 ### E) Automações & Lembretes
 
+Há **duas camadas** complementares de automação:
+
+**1) BullMQ workers** ([server/queue/workers.ts](../server/queue/workers.ts), 761 linhas) — disparados por eventos (criação de agendamento, pagamento confirmado, etc) e por delays (lembrete 48h/24h/2h/1h antes do agendamento).
+
+**2) Cron jobs por empresa via `node-cron`** ([server/services/automation-engine.ts:1240](../server/services/automation-engine.ts#L1240)) — registrados no boot do servidor por `startAllScheduledJobs()` e wired em [server/index.ts:415-417](../server/index.ts#L415):
+
 ```
-BullMQ Cron Jobs (server/queue/workers/):
-  • Diário 08h: buscar appointments de amanhã não confirmados
-                → enviar lembrete WhatsApp/SMS/email
-  • Hourly: dunning (faturas em atraso)
-  • Hourly: recall (pacientes 6 meses sem voltar)
-  • Aniversário, NPS pós-consulta, reativação
+07:00  Resumo individual diário para cada dentista
+07:30  Resumo administrativo do dia
+09:00  Mensagens de aniversário
+10:00  Reativação de pacientes inativos (3, 6, 9 e 12 meses sem voltar)
+14:00  Pedido de avaliação Google após consultas da manhã
+18:00  Confirmações de agendamentos do dia seguinte
+23:00  Finalização de consultas concluídas
 ```
 
-**Configuração**: tabela `automations` (gatilhos + ações) + interface em `/automation`.
+Cada empresa ativa recebe sua própria instância dos 7 jobs. Em produção (cluster mode), apenas o worker `id===1` registra os crons para evitar duplicatas. Detalhes em [AUTOMATION_ENGINE.md](features/AUTOMATION_ENGINE.md#jobs-agendados-cron).
+
+**Configuração**: tabela `automations` (gatilhos + ações configuráveis) + interface em `/automation`.
 
 ---
 

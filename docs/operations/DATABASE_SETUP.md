@@ -65,6 +65,71 @@ psql "$DATABASE_URL" -f server/migrations/add_google_calendar_tokens.sql
 
 ---
 
+## 🔁 Runner de Migrations e Mapa `RENAMES`
+
+O projeto usa um runner próprio em [server/scripts/run-migrations.ts](../../server/scripts/run-migrations.ts) (e **não** o `drizzle-kit migrate`) para aplicar SQL files sequencialmente. O runner:
+
+1. Cria a tabela `schema_migrations(migration_name UNIQUE)` se não existir.
+2. Lê todos os `.sql` em `migrations/` em **ordem alfabética**.
+3. Para cada arquivo: se já está em `schema_migrations`, pula. Se não, executa em transação (`BEGIN/COMMIT`) e registra.
+
+Comando:
+
+```bash
+npx tsx server/scripts/run-migrations.ts
+```
+
+### Por que existe um mapa `RENAMES`
+
+Migrations já aplicadas em produção foram **renomeadas no repositório** ao longo do tempo (para resolver colisões de prefixo numérico). O runner precisa saber: "se o banco em produção já tem o nome ANTIGO em `schema_migrations`, o nome NOVO **não deve ser re-executado**".
+
+O mapa fica em [server/scripts/run-migrations.ts:64-84](../../server/scripts/run-migrations.ts#L64) como uma lista de pares `[oldName, newName]`. Para cada par, se `oldName` está em `schema_migrations`, o runner insere `newName` também — marcando-o como "já aplicado".
+
+Renames atuais cobertos:
+
+| Original | Novo nome | Razão |
+|----------|-----------|-------|
+| `003_add_integration_fields.sql` | `003a_*` | Dois arquivos com prefixo 003 |
+| `003_fix_multitenant_isolation.sql` | `003b_*` | (idem) |
+| `004_billing_system.sql` | `004a_*` | Dois arquivos com prefixo 004 |
+| `004_clinic_settings_and_automation_logs.sql` | `004b_*` | (idem) |
+| `010_add_missing_columns.sql` | `010a_*` | Dois arquivos com prefixo 010 |
+| `010_add_recurring_appointment_columns.sql` | `010b_*` | (idem) |
+| `014_ai_agent_integration.sql` | `014a_*` | Dois arquivos com prefixo 014 |
+| `014_missing_tables.sql` | `014b_*` | (idem) |
+| `015_add_missing_patient_columns.sql` | `015a_*` | Dois arquivos com prefixo 015 |
+| `015_insurance_management.sql` | `015b_*` | (idem) |
+| `022_phase0_critical_security.sql` | `022a_*` | Dois arquivos com prefixo 022 |
+| `022_waitlist.sql` | `022b_*` | (idem) |
+| `023_executive_reports.sql` | `023a_*` | Três arquivos com prefixo 023 |
+| `023_phase1_complete_rls.sql` | `023b_*` | (idem) |
+| `023_quotes_and_invites.sql` | `023c_*` | (idem) |
+| `014b_recall_waitlist_reviews_contracts_campaigns.sql` | `014c_*` | Colidia com `014b_missing_tables.sql` |
+| `015b_whatsapp_provider_meta_cloud.sql` | `015c_*` | Colidia com `015b_insurance_management.sql` |
+| `021_professional_cro_fields.sql` | `021b_*` | Colidia com `021_database_hardening.sql` |
+
+### Como adicionar uma nova migration
+
+1. Crie o arquivo em `migrations/` com prefixo numérico **único** (próximo livre).
+2. Use **DDL idempotente sempre que possível**: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`.
+3. Envolva em `BEGIN; ... COMMIT;` se houver múltiplos statements relacionados.
+4. **Não renomeie** arquivos já em produção sem adicionar entrada ao mapa `RENAMES` — caso contrário, o runner re-executa em bancos que já tinham aplicado a versão antiga.
+
+### Como resolver uma colisão de prefixo
+
+Se você descobrir dois arquivos com o mesmo prefixo (ex: dois `041_*`):
+
+1. Confira o conteúdo de cada um (`grep CREATE migrations/041_*.sql`) — se DDL é disjoint, basta renomear; se há conflito (ex: ambos criam a mesma tabela), una num único arquivo.
+2. Renomeie o segundo para `041b_*` (ou `041c_*`, etc.) usando `git mv`.
+3. **Adicione ao mapa `RENAMES`** em `run-migrations.ts`: `['041_<old>.sql', '041b_<new>.sql']`.
+4. Verifique localmente: `npx tsx server/scripts/run-migrations.ts` deve pular o arquivo (já aplicado) ou executar em ordem.
+
+### Arquivo `add_google_calendar_tokens.sql` (sem prefixo numérico)
+
+Esse arquivo (legacy) **roda por último** porque na ordem alfabética, `'a'` (97) > `'0'` (48). Como é totalmente idempotente (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`), não causa problema. Não precisa ser renomeado.
+
+---
+
 ## 📁 Arquivos Disponíveis
 
 ### 1. **migrations/0000_dark_jean_grey.sql**

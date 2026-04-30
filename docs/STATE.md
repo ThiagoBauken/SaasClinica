@@ -1,7 +1,7 @@
 # DentCare — Estado de Implementação (STATE)
 
 > **Última verificação**: 2026-04-29 (validado contra código + git log)
-> **Última atualização**: 2026-04-29 — landing comercial reescrita + página /precos pública criada
+> **Última atualização**: 2026-04-29 — scheduler de cron jobs ativado no boot (`ce8da00`); migrações duplicadas resolvidas (`9052e65`); auditoria das tabelas "órfãs"
 > **Como manter este doc**: ao terminar uma feature, mova de "Em progresso" → "Implementado". Ao descobrir uma pendência real, adicione em "Pendente". Atualize a data acima ao revisar.
 
 ---
@@ -115,6 +115,7 @@
 ### Automações
 - [x] Engine de automações ([AUTOMATION_ENGINE.md](features/AUTOMATION_ENGINE.md))
 - [x] BullMQ workers (lembretes, dunning, recall, relatórios)
+- [x] **7 jobs cron por empresa ativados no boot** (commit `ce8da00`) — confirmações 18h, resumo ADM 7:30h, resumo dentista 7h, finalize 23h, aniversários 9h, reativação 10h, pedido de review 14h. Wire-up em [server/index.ts:50,415-417](../server/index.ts#L50) chamando `startAllScheduledJobs()` (gated por `cluster.worker?.id===1` em prod, sempre ativo em dev)
 - [x] Templates de mensagem com variáveis
 - [x] Logs de execução (`automation_logs`)
 
@@ -153,7 +154,6 @@
 
 | Item | Status | Evidência |
 |---|---|---|
-| **Migrations duplicadas** (003a/b, 010a/b, 014a/b/b, 015b/b, etc) | Precisa unificação | git status mostra deletions+new files pendentes |
 | **NF-e (Nota Fiscal Eletrônica)** | Schema pronto (`fiscal_settings`), integração com prefeitura ausente | tabelas existem, faltam services |
 | **Multi-unidade centralizada** | Multi-tenant existe, mas dashboard consolidado entre múltiplas clínicas de um mesmo grupo não está pronto | — |
 | **HTML→PDF avançado** | TODO em [pdf-generator.service.ts:243](../server/services/pdf-generator.service.ts#L243) |
@@ -183,9 +183,10 @@
 - [ ] Compressão automática de imagens no upload (WebP)
 
 ### Limpeza / dívida técnica conhecida
-- [ ] **Unificar migrations duplicadas** (003a/b, 004a/b, 010a/b, 014a/b/b, 015b/b, 017/17b, 018/18b, 022a/b, 023a/b/c)
+- [x] ~~Unificar migrations duplicadas~~ — **resolvido** em `9052e65` (014b→014c, 015b→015c, 021→021b) + entradas no mapa `RENAMES` em [server/scripts/run-migrations.ts:81-83](../server/scripts/run-migrations.ts#L81-L83) (commit `ce8da00`). Os pares a/b restantes (003, 004, 010, 022, 023) são intencionais — cada arquivo é uma migration distinta, já mapeada no `RENAMES`.
 - [ ] **Quebrar `server/routes.ts`** em arquivos menores (já está parcialmente modular)
 - [ ] **Remover campos legacy n8n** de `clinic_settings` (`n8n_api_key`, `n8n_instance_url`) após confirmar que ninguém usa
+- [ ] **Decidir sobre `shopItems`** ([shared/schema.ts:2292](../shared/schema.ts#L2292)) — tabela criada como shell em 2025-05-22 por agente Replit, mantida passivamente em sweeps de RLS/segurança, sem rotas/UI/serviços. Permissão `shop` exposta em [configuracoes-horarios.tsx:474](../client/src/components/professional/configuracoes-horarios.tsx#L474) confunde admin. Ações: (a) drop table + remover schema/permissão se loja online não está no roadmap; (b) construir feature; (c) deixar dormente. **`systemPromptSnapshots` NÃO é órfã** apesar de aparentar — é compliance ativo via SQL cru, ver [server/services/ai-agent/prompt-snapshots.ts](../server/services/ai-agent/prompt-snapshots.ts) e migration `030_humanization_and_cost_controls.sql`.
 - [ ] Auditar últimas ocorrências de `console.log` (substituir por Pino)
 - [ ] Remover OpenAI key legacy de `companies` (migrations 005, 014a) se não mais usado
 

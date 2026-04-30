@@ -171,22 +171,56 @@ Evento (ex: criar agendamento)
 
 ## Jobs Agendados (Cron)
 
-| Job | Horario | Funcao |
-|-----|---------|--------|
-| Confirmacoes | 18:00 | `sendDailyConfirmations()` |
-| Resumo ADM | 07:30 | `sendDailySummary()` |
-| Finalizar | 23:00 | `finalizeCompletedAppointments()` |
-| Aniversarios | 09:00 | `sendBirthdayMessages()` |
+São registrados via `node-cron` em [server/services/automation-engine.ts:1240-1296](../../server/services/automation-engine.ts#L1240). Cada empresa ativa recebe sua própria instância dos 7 jobs abaixo:
 
-### Iniciar Jobs
+| Job | Cron | Horário | Função |
+|-----|------|---------|--------|
+| Resumo individual dentista | `0 7 * * *` | 07:00 | `sendProfessionalDailySummaries()` |
+| Resumo administrativo | `30 7 * * *` | 07:30 | `sendDailySummary()` |
+| Aniversários | `0 9 * * *` | 09:00 | `sendBirthdayMessages()` |
+| **Reativação / Recall** | `0 10 * * *` | 10:00 | `sendReactivationMessages()` — pacientes inativos por 3/6/9/12 meses |
+| **Pedidos de avaliação** | `0 14 * * *` | 14:00 | `sendReviewRequests()` — após consultas da manhã |
+| Confirmações | `0 18 * * *` | 18:00 | `sendDailyConfirmations()` |
+| Finalizar atendimentos | `0 23 * * *` | 23:00 | `finalizeCompletedAppointments()` |
+
+### Wire-up no boot do servidor
+
+A partir do commit `ce8da00`, `startAllScheduledJobs()` é chamada em [server/index.ts:415-417](../../server/index.ts#L415) **junto** com `startBillingCronJobs()` e `startBackupCronJobs()`. Antes desse commit, a função existia mas **não era invocada no boot** — todos os 7 jobs eram código morto em produção a menos que alguém chamasse `POST /api/v1/automation/scheduler/start` manualmente.
+
+Condição de ativação:
+```typescript
+if (cluster.isWorker && cluster.worker?.id === 1 || process.env.NODE_ENV === 'development') {
+  startBillingCronJobs();
+  startBackupCronJobs();
+  startAllScheduledJobs().catch(...)
+}
+```
+- **Em produção (cluster mode):** roda apenas no worker `id===1` para evitar disparos duplicados em multi-worker.
+- **Em desenvolvimento:** sempre roda (NODE_ENV='development'). Se não quiser que dispare WhatsApp/e-mail durante dev, remova credenciais ou comente a chamada localmente.
+
+### Verificar se está rodando
+
+Buscar nos logs do servidor (Pino estruturado):
+```
+"Jobs started for companies"  -- log de sucesso emitido por startAllScheduledJobs
+"[{companyId}] Executando job de reativação..."  -- emitido às 10:00
+"[{companyId}] Executando job de pedidos de avaliação..."  -- emitido às 14:00
+```
+
+### Controle manual (uma empresa)
 
 ```typescript
 // Para uma empresa
 await startScheduledJobs(companyId);
 
-// Para todas as empresas ativas
+// Para todas as empresas ativas (chamado no boot)
 await startAllScheduledJobs();
+
+// Parar
+stopScheduledJobs(companyId);
 ```
+
+Endpoints HTTP equivalentes disponíveis em [server/routes/automation.routes.ts](../../server/routes/automation.routes.ts) — `/api/v1/automation/scheduler/start|stop`.
 
 ---
 
