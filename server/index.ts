@@ -47,6 +47,7 @@ import { createClient } from 'redis';
 import { isRedisAvailable } from './redis';
 import { startBillingCronJobs } from './jobs/billing-cron';
 import { startBackupCronJobs } from './jobs/backup-cron';
+import { startAllScheduledJobs } from './services/automation-engine';
 import { requestTracingMiddleware } from './lib/tracing';
 import { startSlowQueryMonitor } from './lib/slow-query-monitor';
 
@@ -411,6 +412,10 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
       if (cluster.isWorker && cluster.worker?.id === 1 || process.env.NODE_ENV === 'development') {
         startBillingCronJobs();
         startBackupCronJobs();
+
+        startAllScheduledJobs().catch((err) => {
+          logger.error({ err }, 'Failed to start automation scheduled jobs (recall/reviews/confirmations)');
+        });
 
         // Start slow query monitor (only on first worker)
         import('./db').then(({ pool }) => {

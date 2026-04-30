@@ -77,6 +77,10 @@ async function runMigrations() {
       ['023_executive_reports.sql', '023a_executive_reports.sql'],
       ['023_phase1_complete_rls.sql', '023b_phase1_complete_rls.sql'],
       ['023_quotes_and_invites.sql', '023c_quotes_and_invites.sql'],
+      // Same-prefix collisions resolved by suffixing the second file:
+      ['014b_recall_waitlist_reviews_contracts_campaigns.sql', '014c_recall_waitlist_reviews_contracts_campaigns.sql'],
+      ['015b_whatsapp_provider_meta_cloud.sql', '015c_whatsapp_provider_meta_cloud.sql'],
+      ['021_professional_cro_fields.sql', '021b_professional_cro_fields.sql'],
     ];
     for (const [oldName, newName] of RENAMES) {
       await pool.query(
