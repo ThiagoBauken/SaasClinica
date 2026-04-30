@@ -512,6 +512,8 @@ export default function InventoryPage() {
     const formData = new FormData(event.currentTarget);
     
     // Extrair dados do formulário
+    const isSellable = formData.get("isSellable") === "on";
+    const rawSalePrice = formData.get("salePrice") as string | null;
     const itemData: Partial<InventoryItem> = {
       name: formData.get("name") as string,
       description: formData.get("description") as string,
@@ -523,6 +525,10 @@ export default function InventoryPage() {
       minimumStock: parseInt(formData.get("minimumStock") as string),
       currentStock: parseInt(formData.get("currentStock") as string),
       price: Math.round(parseFloat(formData.get("price") as string) * 100),
+      // sale_price só faz sentido quando o item é vendável; envia null caso contrário
+      // pra evitar que um preço esquecido apareça no PDV depois de desmarcar a flag.
+      salePrice: isSellable && rawSalePrice ? Math.round(parseFloat(rawSalePrice) * 100) : null,
+      isSellable,
       unitOfMeasure: formData.get("unitOfMeasure") as string,
       location: formData.get("location") as string,
       active: formData.get("active") === "on"
@@ -1395,17 +1401,18 @@ export default function InventoryPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Preço (R$)*</Label>
-                <Input 
-                  id="price" 
-                  name="price" 
-                  type="number" 
+                <Label htmlFor="price">Custo (R$)*</Label>
+                <Input
+                  id="price"
+                  name="price"
+                  type="number"
                   step="0.01"
                   min="0"
-                  placeholder="0,00" 
+                  placeholder="0,00"
                   required
                   defaultValue={(editingItem?.price || 0) / 100}
                 />
+                <p className="text-xs text-muted-foreground">Custo de aquisição do item</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="currentStock">Estoque Atual*</Label>
@@ -1490,6 +1497,40 @@ export default function InventoryPage() {
               </div>
             </div>
             
+            {/* PDV — vender o item ao paciente no balcão */}
+            <div className="rounded-md border bg-muted/40 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="isSellable"
+                  name="isSellable"
+                  defaultChecked={editingItem?.isSellable ?? false}
+                />
+                <div className="space-y-1">
+                  <label htmlFor="isSellable" className="text-sm font-medium leading-none">
+                    Disponível para venda no PDV
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Quando ativado, o item aparece na busca de produtos do caixa para venda ao paciente.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="salePrice">Preço de venda ao paciente (R$)</Label>
+                <Input
+                  id="salePrice"
+                  name="salePrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  defaultValue={editingItem?.salePrice ? editingItem.salePrice / 100 : ''}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Valor cobrado no balcão. Diferente do custo acima — a margem fica entre os dois.
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="active"

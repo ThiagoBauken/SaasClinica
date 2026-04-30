@@ -52,7 +52,9 @@ import {
   TrendingDown,
   AlertCircle,
   Clock,
+  ShoppingCart,
 } from 'lucide-react';
+import PDVDialog from './PDVDialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -657,6 +659,7 @@ export default function CashRegister() {
   const [openCloseDialog, setOpenCloseDialog] = useState(false);
   const [openTxDialog, setOpenTxDialog] = useState(false);
   const [txDialogType, setTxDialogType] = useState<'deposit' | 'withdrawal' | 'adjustment'>('withdrawal');
+  const [openPDVDialog, setOpenPDVDialog] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/v1/cash-register/current'] });
@@ -947,7 +950,15 @@ export default function CashRegister() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">Movimentações de Hoje</CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setOpenPDVDialog(true)}
+                      >
+                        <ShoppingCart className="h-3.5 w-3.5" />
+                        Vender produto
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -1067,6 +1078,12 @@ export default function CashRegister() {
         open={openTxDialog}
         defaultType={txDialogType}
         onClose={() => setOpenTxDialog(false)}
+        onSuccess={invalidate}
+      />
+
+      <PDVDialog
+        open={openPDVDialog}
+        onClose={() => setOpenPDVDialog(false)}
         onSuccess={invalidate}
       />
 
