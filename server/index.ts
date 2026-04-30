@@ -360,6 +360,10 @@ if (cluster.isPrimary && process.env.NODE_ENV === "production") {
     const { rlsMiddleware } = await import('./middleware/rls');
     app.use('/api', rlsMiddleware);
 
+    // Impersonation context: lê req.session.impersonatedBy e popula req.impersonator
+    const { impersonationContext } = await import('./middleware/impersonation');
+    app.use('/api', impersonationContext);
+
     // Client error reporting endpoint
     app.post('/api/client-errors', express.json(), (req: Request, res: Response) => {
       logger.warn({ clientError: req.body, ip: req.ip }, 'Client-side error reported');

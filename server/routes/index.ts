@@ -74,6 +74,7 @@ import { auditLogMiddleware } from '../middleware/auditLog';
 
 // ── Migrated from monolithic routes.ts ──────────────────────────────────────
 import saasAdminRoutes from './saas-admin.routes';
+import adminUsersRoutes from './admin-users.routes';
 import userModulesRoutes from './user-modules.routes';
 import clinicConfigRoutes from './clinic-config.routes';
 import inventoryRoutes from './inventory.routes';
@@ -170,6 +171,7 @@ export function registerModularRoutes(app: Express) {
   // ── Legacy /api/* routes (migrated from monolithic routes.ts) ────────────
   // These mount at /api/ (not /api/v1/) to preserve existing frontend contracts.
   app.use('/api/saas', saasAdminRoutes);              // SaaS company/user/plan/invoice admin
+  app.use('/api/admin-panel', adminUsersRoutes);       // New admin user-management panel
   app.use('/api', userModulesRoutes);                 // /api/user/modules, /api/user/company, /api/user/me, /api/clinic/modules/*
   app.use('/api', clinicConfigRoutes);                // /api/clinic-settings, /api/fiscal-settings, /api/admin/users, /api/permissions, /api/machine-taxes, /api/commissions/*
   app.use('/api/inventory', inventoryRoutes);         // /api/inventory/* (items, categories, transactions, seed)

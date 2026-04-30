@@ -1079,7 +1079,12 @@ export function setupAuth(app: Express) {
 
     // SEGURANÇA: Não retornar dados sensíveis (incluindo TOTP secrets)
     const { password, googleAccessToken, googleRefreshToken, totpSecret, totpBackupCodes, passwordResetToken, ...safeUser } = req.user as SelectUser;
-    res.json(safeUser);
+    // Adiciona contexto de impersonação para o frontend exibir banner.
+    const payload: any = { ...safeUser };
+    if (req.impersonator) {
+      payload.impersonator = req.impersonator;
+    }
+    res.json(payload);
   });
 
   app.get("/api/user/company", async (req, res) => {
