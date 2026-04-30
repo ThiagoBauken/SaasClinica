@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Check, X } from "lucide-react";
 import { FEATURE_MATRIX, type FeatureRow } from "./plans-data";
 import { cn } from "@/lib/utils";
@@ -29,8 +30,8 @@ export function FeatureComparisonTable() {
         </thead>
         <tbody>
           {groups.map((group) => (
-            <>
-              <tr key={`group-${group}`} className="bg-slate-50/60">
+            <Fragment key={group}>
+              <tr className="bg-slate-50/60">
                 <td colSpan={4} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
                   {group}
                 </td>
@@ -43,7 +44,7 @@ export function FeatureComparisonTable() {
                   <td className="p-4 text-center"><Cell value={row.enterprise} /></td>
                 </tr>
               ))}
-            </>
+            </Fragment>
           ))}
         </tbody>
       </table>

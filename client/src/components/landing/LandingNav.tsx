@@ -31,11 +31,9 @@ export function LandingNav({ showAnchors = true }: LandingNavProps) {
       )}
     >
       <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/landing">
-          <a className="flex items-center gap-2 text-xl font-bold text-slate-900">
-            <span className="text-2xl">🦷</span>
-            <span>DentCare</span>
-          </a>
+        <Link href="/landing" className="flex items-center gap-2 text-xl font-bold text-slate-900">
+          <span className="text-2xl">🦷</span>
+          <span>DentCare</span>
         </Link>
 
         {showAnchors && (
@@ -79,7 +77,7 @@ export function LandingNav({ showAnchors = true }: LandingNavProps) {
             <>
               <a href="#recursos" className="block py-2 text-slate-700" onClick={() => setMobileOpen(false)}>Recursos</a>
               <a href="#ia" className="block py-2 text-slate-700" onClick={() => setMobileOpen(false)}>IA</a>
-              <Link href="/precos"><a className="block py-2 text-slate-700" onClick={() => setMobileOpen(false)}>Planos</a></Link>
+              <Link href="/precos" className="block py-2 text-slate-700" onClick={() => setMobileOpen(false)}>Planos</Link>
               <a href="#faq" className="block py-2 text-slate-700" onClick={() => setMobileOpen(false)}>FAQ</a>
             </>
           )}
