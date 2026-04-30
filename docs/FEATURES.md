@@ -255,7 +255,7 @@ Configurável por clínica em `/configuracoes/ia`. Cada clínica pode trazer sua
 | Camada | Implementação |
 |---|---|
 | **Auth** | Passport (local + Google OAuth) + sessão Redis |
-| **2FA** | TOTP (RFC 6238) em [server/middleware/2fa.ts](../server/middleware/2fa.ts) |
+| **2FA** | TOTP (RFC 6238) em [server/middleware/enforce-2fa.ts](../server/middleware/enforce-2fa.ts) + [server/services/totp-service.ts](../server/services/totp-service.ts) |
 | **Multi-tenant** | Middleware `tenantIsolation` + RLS no Postgres |
 | **CSRF** | Double-submit cookie (`_csrf_token` + `x-csrf-token`) |
 | **Rate-limit** | Por IP e por API key, mais agressivo em rotas públicas e WhatsApp |

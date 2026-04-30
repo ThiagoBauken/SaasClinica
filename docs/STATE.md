@@ -9,7 +9,7 @@
 
 ### Núcleo SaaS multi-tenant
 - [x] Cadastro/login com Passport (local + Google OAuth)
-- [x] **2FA TOTP** ([server/middleware/2fa.ts](../server/middleware/2fa.ts), migration `017b_mfa_totp.sql`)
+- [x] **2FA TOTP** ([server/middleware/enforce-2fa.ts](../server/middleware/enforce-2fa.ts) + [server/services/totp-service.ts](../server/services/totp-service.ts), migration `017b_mfa_totp.sql`)
 - [x] Multi-tenant por `companyId` com middleware `tenantIsolation`
 - [x] **Row-Level Security** no Postgres (migrations `018_row_level_security.sql`, `023b_phase1_complete_rls.sql`)
 - [x] Sessão em Redis com `connect-redis`

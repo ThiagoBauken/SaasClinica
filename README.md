@@ -98,4 +98,4 @@ WUZAPI_URL / EVOLUTION_URL / META_*  # WhatsApp (escolha 1+)
 
 ## 📄 Licença
 
-MIT — veja [LICENSE](LICENSE).
+MIT.
