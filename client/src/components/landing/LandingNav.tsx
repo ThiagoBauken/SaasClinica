@@ -48,15 +48,15 @@ export function LandingNav({ showAnchors = true }: LandingNavProps) {
         <div className="hidden md:flex items-center gap-3">
           {user ? (
             <Link href="/dashboard">
-              <Button variant="default">Acessar Sistema</Button>
+              <Button variant="default" data-cta="nav-dashboard">Acessar Sistema</Button>
             </Link>
           ) : (
             <>
               <Link href="/auth">
-                <Button variant="ghost" className="text-slate-700">Entrar</Button>
+                <Button variant="ghost" data-cta="nav-login" className="text-slate-700">Entrar</Button>
               </Link>
               <Link href="/auth">
-                <Button className="bg-blue-600 hover:bg-blue-700">Testar grátis</Button>
+                <Button data-cta="nav-trial" className="bg-blue-600 hover:bg-blue-700">Testar grátis</Button>
               </Link>
             </>
           )}

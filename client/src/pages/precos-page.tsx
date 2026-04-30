@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
+import { useSEO } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { LandingNav } from "@/components/landing/LandingNav";
@@ -13,6 +14,13 @@ import { PLANS, FAQ_PRICING } from "@/components/landing/plans-data";
 
 export default function PrecosPage() {
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
+
+  useSEO({
+    title: "Planos e preços — DentCare a partir de R$ 97/mês",
+    description:
+      "Planos transparentes para clínicas odontológicas: Básico R$ 97, Profissional R$ 197 e Empresarial R$ 497. Trial de 14 dias sem cartão. Cancele quando quiser.",
+    canonical: "https://app.dentcare.com.br/precos",
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -109,7 +117,7 @@ export default function PrecosPage() {
                 Comece pelo Profissional — é o mais escolhido. Você troca de plano a qualquer momento, sem penalidade.
               </p>
               <Link href="/auth">
-                <Button size="lg" className="bg-white text-blue-700 hover:bg-blue-50">
+                <Button size="lg" data-cta="precos-cta-final" className="bg-white text-blue-700 hover:bg-blue-50">
                   Começar trial de 14 dias
                   <ArrowRight className="h-4 w-4" />
                 </Button>

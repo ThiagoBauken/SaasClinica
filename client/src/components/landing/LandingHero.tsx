@@ -50,6 +50,7 @@ export function LandingHero() {
               <Link href="/auth">
                 <Button
                   size="lg"
+                  data-cta="hero-trial"
                   className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-lg shadow-blue-500/30 w-full sm:w-auto"
                 >
                   Testar 14 dias grátis
@@ -59,6 +60,7 @@ export function LandingHero() {
               <Button
                 size="lg"
                 variant="outline"
+                data-cta="hero-demo"
                 onClick={() => setDemoOpen(true)}
                 className="w-full sm:w-auto"
               >
@@ -99,7 +101,7 @@ export function LandingHero() {
               Enquanto isso, comece o trial gratuito de 14 dias e veja na prática.
             </p>
             <Link href="/auth">
-              <Button className="mt-6 bg-gradient-to-r from-blue-600 to-cyan-500">
+              <Button data-cta="demo-modal-trial" className="mt-6 bg-gradient-to-r from-blue-600 to-cyan-500">
                 Começar agora — 14 dias grátis
               </Button>
             </Link>

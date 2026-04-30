@@ -85,6 +85,7 @@ export function PricingCard({ plan, cycle, index = 0 }: PricingCardProps) {
 
       <Link href={`/auth?plan=${plan.id}`}>
         <Button
+          data-cta={`pricing-${plan.id}-${cycle}`}
           className={cn(
             "w-full",
             plan.popular

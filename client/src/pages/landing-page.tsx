@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
+import { useSEO } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -33,6 +34,13 @@ import { PLANS, FAQ_GENERAL } from "@/components/landing/plans-data";
 
 export default function LandingPage() {
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
+
+  useSEO({
+    title: "DentCare — Sua clínica no piloto automático com IA",
+    description:
+      "Sistema completo para clínicas odontológicas: agenda, prontuário, odontograma, financeiro e WhatsApp com IA Claude 24/7. Trial de 14 dias, sem cartão de crédito.",
+    canonical: "https://app.dentcare.com.br/landing",
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -209,7 +217,7 @@ export default function LandingPage() {
                 </div>
 
                 <Link href="/auth">
-                  <Button size="lg" className="mt-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600">
+                  <Button size="lg" data-cta="ia-section" className="mt-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600">
                     Ver a IA em ação
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -319,6 +327,7 @@ export default function LandingPage() {
               <Link href="/auth">
                 <Button
                   size="lg"
+                  data-cta="cta-final"
                   className="bg-white text-blue-700 hover:bg-blue-50 shadow-xl text-base px-8 h-12"
                 >
                   Começar trial gratuito
