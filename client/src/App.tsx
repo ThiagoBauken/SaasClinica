@@ -81,6 +81,7 @@ import SetupPage from "@/pages/setup-page";
 import PublicAnamnesisPage from "@/pages/public-anamnesis-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import VerifyEmailPage from "@/pages/verify-email-page";
+import AcceptInvitePage from "@/pages/accept-invite-page";
 
 export default function App() {
   // Initialize CSRF token on app startup
@@ -119,6 +120,7 @@ export default function App() {
             {/* Rotas públicas */}
             <Route path="/auth/reset-password" component={ResetPasswordPage} />
             <Route path="/auth/verify-email" component={VerifyEmailPage} />
+            <Route path="/aceitar-convite/:token" component={AcceptInvitePage} />
             <Route path="/auth" component={AuthPage} />
             <Route path="/landing" component={LandingPage} />
             <Route path="/precos" component={PrecosPage} />
