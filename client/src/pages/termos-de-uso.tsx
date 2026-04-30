@@ -19,7 +19,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">1. Aceitação dos Termos</h2>
             <p>
-              Ao acessar e utilizar o sistema DentalSys, você concorda com os presentes Termos de Uso.
+              Ao acessar e utilizar o sistema DentCare, você concorda com os presentes Termos de Uso.
               Caso não concorde com qualquer disposição, recomendamos que não utilize a plataforma.
             </p>
           </section>
@@ -27,7 +27,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">2. Descrição do Serviço</h2>
             <p>
-              O DentalSys é uma plataforma SaaS (Software as a Service) de gestão para clínicas odontológicas,
+              O DentCare é uma plataforma SaaS (Software as a Service) de gestão para clínicas odontológicas,
               oferecendo funcionalidades de agendamento, prontuário eletrônico, odontograma digital,
               controle financeiro, gestão de estoque, automação de comunicação e CRM.
             </p>
@@ -45,7 +45,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">4. Planos e Pagamentos</h2>
             <p>
-              O DentalSys oferece diferentes planos de assinatura. Os valores, funcionalidades e limites de cada
+              O DentCare oferece diferentes planos de assinatura. Os valores, funcionalidades e limites de cada
               plano estão descritos na página de preços. O pagamento é recorrente e pode ser cancelado a qualquer momento.
               Ao cancelar, o acesso permanece ativo até o fim do período já pago.
             </p>
@@ -65,7 +65,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">6. Propriedade Intelectual</h2>
             <p>
-              Todo o conteúdo, design, código e funcionalidades do DentalSys são de propriedade exclusiva da empresa.
+              Todo o conteúdo, design, código e funcionalidades do DentCare são de propriedade exclusiva da empresa.
               Os dados inseridos pelos usuários permanecem de propriedade do usuário.
             </p>
           </section>
@@ -73,7 +73,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">7. Limitação de Responsabilidade</h2>
             <p>
-              O DentalSys não se responsabiliza por decisões clínicas tomadas com base nas informações do sistema.
+              O DentCare não se responsabiliza por decisões clínicas tomadas com base nas informações do sistema.
               O profissional de saúde é o único responsável pelo atendimento ao paciente. Nos esforçamos para manter
               o sistema disponível 24/7, mas não garantimos disponibilidade ininterrupta.
             </p>
@@ -90,7 +90,7 @@ export default function TermosDeUsoPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">9. Contato</h2>
             <p>
-              Em caso de dúvidas sobre estes termos, entre em contato pelo e-mail: contato@dentalsys.com.br
+              Em caso de dúvidas sobre estes termos, entre em contato pelo e-mail: contato@dentcare.com.br
             </p>
           </section>
 

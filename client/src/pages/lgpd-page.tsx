@@ -22,7 +22,7 @@ export default function LGPDPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">Nosso Compromisso com a LGPD</h2>
             <p>
-              O DentalSys está em conformidade com a Lei Geral de Proteção de Dados (Lei n. 13.709/2018).
+              O DentCare está em conformidade com a Lei Geral de Proteção de Dados (Lei n. 13.709/2018).
               Como sistema de gestão de clínicas odontológicas, tratamos dados pessoais e dados sensíveis
               de saúde com o mais alto nível de proteção e transparência.
             </p>
@@ -30,7 +30,7 @@ export default function LGPDPage() {
 
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">Bases Legais para Tratamento</h2>
-            <p>O tratamento de dados no DentalSys se baseia nas seguintes hipóteses legais:</p>
+            <p>O tratamento de dados no DentCare se baseia nas seguintes hipóteses legais:</p>
             <ul className="list-disc ml-6 mt-2 space-y-2">
               <li>
                 <strong>Execução de contrato (Art. 7, V):</strong> dados necessários para prover o serviço
@@ -107,9 +107,9 @@ export default function LGPDPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">Responsabilidade Compartilhada</h2>
             <p>
-              O DentalSys atua como <strong>operador</strong> dos dados dos pacientes, enquanto a clínica
+              O DentCare atua como <strong>operador</strong> dos dados dos pacientes, enquanto a clínica
               odontológica é a <strong>controladora</strong>. A clínica é responsável por obter o consentimento
-              dos pacientes quando necessário e informá-los sobre o tratamento de seus dados. O DentalSys
+              dos pacientes quando necessário e informá-los sobre o tratamento de seus dados. O DentCare
               fornece as ferramentas necessárias para que a clínica cumpra suas obrigações com a LGPD.
             </p>
           </section>
@@ -120,7 +120,7 @@ export default function LGPDPage() {
               Para solicitações relacionadas à LGPD, contate nosso Encarregado de Proteção de Dados:
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mt-3">
-              <p><strong>E-mail:</strong> {import.meta.env.VITE_DPO_EMAIL || "dpo@dentalsys.com.br"}</p>
+              <p><strong>E-mail:</strong> {import.meta.env.VITE_DPO_EMAIL || "dpo@dentcare.com.br"}</p>
               <p><strong>Prazo de resposta:</strong> até 15 dias úteis</p>
             </div>
           </section>

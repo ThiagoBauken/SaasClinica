@@ -95,7 +95,7 @@ export default function PoliticaDePrivacidadePage() {
             <h2 className="text-xl font-semibold mb-3 text-gray-900">8. Contato do Encarregado (DPO)</h2>
             <p>
               Para exercer seus direitos ou esclarecer dúvidas sobre privacidade, entre em contato:
-              privacidade@dentalsys.com.br
+              privacidade@dentcare.com.br
             </p>
           </section>
 
