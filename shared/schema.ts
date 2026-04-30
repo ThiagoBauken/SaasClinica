@@ -2292,36 +2292,6 @@ export const insertTaskSchema = createInsertSchema(tasks).pick({
   createdBy: true,
 });
 
-// Items da Loja Online
-export const shopItems = pgTable("shop_items", {
-  id: serial("id").primaryKey(),
-  companyId: integer("company_id").references(() => companies.id),
-  name: text("name").notNull(),
-  description: text("description"),
-  price: integer("price").notNull(), // in cents
-  salePrice: integer("sale_price"), // in cents
-  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id),
-  categoryId: integer("category_id").references(() => inventoryCategories.id),
-  images: jsonb("images"), // Array de URLs de imagens
-  featured: boolean("featured").default(false),
-  active: boolean("active").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
-
-export const insertShopItemSchema = createInsertSchema(shopItems).pick({
-  companyId: true,
-  name: true,
-  description: true,
-  price: true,
-  salePrice: true,
-  inventoryItemId: true,
-  categoryId: true,
-  images: true,
-  featured: true,
-  active: true,
-});
-
 // Configurações de Link de Agendamento Externo
 export const bookingLinkSettings = pgTable("booking_link_settings", {
   id: serial("id").primaryKey(),
@@ -2501,9 +2471,6 @@ export type InsertSalesGoal = z.infer<typeof insertSalesGoalSchema>;
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
-
-export type ShopItem = typeof shopItems.$inferSelect;
-export type InsertShopItem = z.infer<typeof insertShopItemSchema>;
 
 export type BookingLinkSetting = typeof bookingLinkSettings.$inferSelect;
 export type InsertBookingLinkSetting = z.infer<typeof insertBookingLinkSettingSchema>;

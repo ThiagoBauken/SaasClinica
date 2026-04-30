@@ -471,7 +471,6 @@ export default function HorariosProfissionaisPage() {
                         { id: "patients", label: "Ficha do Paciente" },
                         { id: "financial", label: "Financeiro" },
                         { id: "intelligence", label: "Inteligência" },
-                        { id: "shop", label: "Loja" },
                         { id: "marketing", label: "Marketing" },
                         { id: "sales", label: "Vendas" }
                       ].map(permission => (
