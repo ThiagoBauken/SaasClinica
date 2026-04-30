@@ -537,7 +537,7 @@ export default function PatientsPage() {
     <DashboardLayout title="Pacientes" currentPath="/patients">
       <div className="mb-4 sm:mb-6 flex flex-col gap-4">
         <div className="relative w-full">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-medium" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar paciente por nome, email ou telefone"
             className="pl-9"
@@ -767,15 +767,15 @@ export default function PatientsPage() {
                   <h3 className="text-xl font-semibold mb-4">{selectedPatient.fullName}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center">
-                      <Phone className="h-5 w-5 text-neutral-medium mr-2" />
+                      <Phone className="h-5 w-5 text-muted-foreground mr-2" />
                       <span>{selectedPatient.phone}</span>
                     </div>
                     <div className="flex items-center">
-                      <Mail className="h-5 w-5 text-neutral-medium mr-2" />
+                      <Mail className="h-5 w-5 text-muted-foreground mr-2" />
                       <span>{selectedPatient.email}</span>
                     </div>
                     <div className="flex items-center">
-                      <Calendar className="h-5 w-5 text-neutral-medium mr-2" />
+                      <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
                       <span>
                         {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}
                         {" "}
@@ -786,12 +786,12 @@ export default function PatientsPage() {
                   
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Endereço</h4>
-                    <p className="text-neutral-dark">{selectedPatient.address}</p>
+                    <p className="text-foreground">{selectedPatient.address}</p>
                   </div>
                   
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Convênio</h4>
-                    <p className="text-neutral-dark">{selectedPatient.insuranceInfo || "Não possui"}</p>
+                    <p className="text-foreground">{selectedPatient.insuranceInfo || "Não possui"}</p>
                   </div>
                   
                   <div className="mt-6 flex justify-end">

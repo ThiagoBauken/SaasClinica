@@ -760,7 +760,7 @@ export default function InventoryPage() {
       {/* Controles de filtro e ações */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-medium" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar item por nome, código, marca..."
             className="pl-9"

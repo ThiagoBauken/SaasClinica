@@ -123,7 +123,7 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
           <Button
             variant="ghost"
             size="icon"
-            className="p-1 text-neutral-medium hover:text-primary"
+            className="p-1 text-muted-foreground hover:text-primary"
             onClick={prevMonth}
             aria-label="Mês anterior"
           >
@@ -132,7 +132,7 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
           <Button
             variant="ghost"
             size="icon"
-            className="p-1 text-neutral-medium hover:text-primary"
+            className="p-1 text-muted-foreground hover:text-primary"
             onClick={nextMonth}
             aria-label="Próximo mês"
           >
@@ -142,7 +142,7 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
       </div>
       
       {/* Days of week */}
-      <div className="grid grid-cols-7 text-center text-xs text-neutral-medium mb-1">
+      <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-1">
         <div>D</div>
         <div>S</div>
         <div>T</div>
@@ -159,7 +159,7 @@ export default function MiniCalendar({ onSelectDate, selectedDate: propSelectedD
             key={idx}
             className={cn(
               "mini-calendar-day text-center", 
-              day.isCurrentMonth ? "text-neutral-dark" : "text-neutral-medium",
+              day.isCurrentMonth ? "text-foreground" : "text-muted-foreground",
               day.isToday && "font-bold",
               format(day.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') && "active bg-primary text-white"
             )}

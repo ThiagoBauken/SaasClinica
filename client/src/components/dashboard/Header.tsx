@@ -133,7 +133,7 @@ export default function Header({ user, onMenuToggle }: HeaderProps) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center text-sm font-medium text-neutral-dark hover:text-primary focus:outline-none">
+              <Button variant="ghost" className="flex items-center text-sm font-medium text-foreground hover:text-primary focus:outline-none">
                 <Avatar className="h-8 w-8 mr-2">
                   <AvatarImage src={user?.profileImageUrl || ""} alt={user?.fullName || "User"} />
                   <AvatarFallback>{user?.fullName?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>

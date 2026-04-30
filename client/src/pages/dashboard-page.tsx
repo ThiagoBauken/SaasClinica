@@ -463,8 +463,8 @@ export default function DashboardPage() {
                       <div className={`w-2 h-2 mt-2 mr-3 rounded-full ${getActivityColor(activity.type)}`}></div>
                       <div>
                         <p className="font-medium">{activity.title}</p>
-                        <p className="text-sm text-neutral-medium">{activity.description}</p>
-                        <p className="text-xs text-neutral-medium">
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(activity.created_at), { 
                             addSuffix: true, 
                             locale: ptBR 
