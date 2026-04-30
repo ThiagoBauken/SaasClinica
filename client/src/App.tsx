@@ -104,7 +104,7 @@ export default function App() {
                 const user = authContext?.user;
 
                 if (!user) {
-                  return <Redirect to="/auth" />;
+                  return <Redirect to="/landing" />;
                 }
 
                 // Redirecionar baseado no role do usuário
