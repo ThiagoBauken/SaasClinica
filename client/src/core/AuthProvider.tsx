@@ -22,6 +22,8 @@ interface User {
   trialEndsAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  /** Presente quando há impersonação ativa (admin original). */
+  impersonator?: { id: number; username: string; fullName: string };
 }
 
 interface MfaState {

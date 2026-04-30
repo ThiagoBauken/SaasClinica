@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import { UsersTab } from "@/pages/admin/users/UsersTab";
 
 // =============================================
 // INTERFACES
@@ -736,105 +737,10 @@ export default function SuperAdminPage() {
           </TabsContent>
 
           {/* =============================================
-              TAB: USUÁRIOS
+              TAB: USUÁRIOS — usa o painel completo /api/admin-panel/users
           ============================================= */}
           <TabsContent value="users" className="mt-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Usuários do Sistema</CardTitle>
-                    <CardDescription>Gerencie todos os usuários cadastrados</CardDescription>
-                  </div>
-                  <Button onClick={() => setShowCreateUserModal(true)}>
-                    <UserPlus className="h-4 w-4 mr-2" /> Novo Usuário
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome, email, username ou empresa..."
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="max-w-md"
-                    />
-                  </div>
-
-                  {usersLoading ? (
-                    <div className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-                  ) : (
-                    <div className="border rounded-lg overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted/50">
-                          <tr className="border-b">
-                            <th className="text-left p-3 font-medium">Nome</th>
-                            <th className="text-left p-3 font-medium">Email</th>
-                            <th className="text-left p-3 font-medium">Username</th>
-                            <th className="text-left p-3 font-medium">Empresa</th>
-                            <th className="text-left p-3 font-medium">Função</th>
-                            <th className="text-left p-3 font-medium">Status</th>
-                            <th className="text-left p-3 font-medium">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredUsers.map((user) => (
-                            <tr key={user.id} className="border-b hover:bg-muted/30">
-                              <td className="p-3">{user.full_name}</td>
-                              <td className="p-3 text-sm text-muted-foreground">{user.email}</td>
-                              <td className="p-3 text-sm">{user.username}</td>
-                              <td className="p-3 text-sm">{user.company_name || "-"}</td>
-                              <td className="p-3">
-                                <Badge variant={user.role === "superadmin" ? "destructive" : user.role === "admin" ? "default" : "secondary"}>
-                                  {user.role}
-                                </Badge>
-                              </td>
-                              <td className="p-3">
-                                <Badge variant={user.active ? "default" : "secondary"}>
-                                  {user.active ? "Ativo" : "Inativo"}
-                                </Badge>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex gap-1">
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                    updateUserMutation.mutate({ userId: user.id, data: { active: !user.active } });
-                                  }}>
-                                    {user.active ? "Desativar" : "Ativar"}
-                                  </Button>
-                                  <Button variant="secondary" size="sm" onClick={() => {
-                                    setSelectedUser(user);
-                                    setShowResetPasswordModal(true);
-                                  }}>
-                                    <RotateCcw className="h-3 w-3 mr-1" /> Senha
-                                  </Button>
-                                  {user.role !== "superadmin" && (
-                                    <Button variant="destructive" size="sm" onClick={() => {
-                                      if (confirm(`Deletar permanentemente ${user.full_name}? Não pode ser desfeito!`)) {
-                                        deletePermanentMutation.mutate(user.id);
-                                      }
-                                    }}>
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {filteredUsers.length === 0 && (
-                        <div className="text-center py-8">
-                          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-lg font-medium">Nenhum usuário encontrado</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <UsersTab superadminScope />
           </TabsContent>
 
           {/* =============================================

@@ -8,6 +8,7 @@ import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { TrialGuard } from "@/components/TrialGuard";
 import { TourProvider } from "@/components/onboarding/TourProvider";
 import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 
 // Mapeamento de paths para nomes amigáveis
 const pathLabels: Record<string, string> = {
@@ -78,6 +79,9 @@ export default function DashboardLayout({ children, title = "", currentPath = ""
     <TrialGuard>
       <TourProvider>
       <div className="min-h-screen flex flex-col">
+        {/* Banner persistente quando admin está impersonando */}
+        <ImpersonationBanner />
+
         {/* Onboarding Wizard - Aparece para novos usuarios */}
         <OnboardingWizard />
 
